@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Configuración de Base de Datos</title>
+    <meta name="description" content="Configuración y verificación de conexión a base de datos - YELAVE ERP">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ─── Page-specific styles ─── */
+        .glass-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .config-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            max-width: 1100px;
+        }
+
+        .config-card {
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .config-card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .config-card-header h3 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+        }
+
+        .config-card-header .icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .config-card-header .icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .config-card-header .icon.primary {
+            background: #EFF6FF;
+            color: var(--primary);
+        }
+
+        .config-card-header .icon.success {
+            background: #ECFDF5;
+            color: var(--success);
+        }
+
+        .config-card-body {
+            padding: 1.5rem;
+        }
+
+        .form-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .form-field label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-field input {
+            padding: 0.6rem 0.85rem;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            background: #FFFFFF;
+            font-family: var(--font);
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
+        }
+
+        .form-field input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-field input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-with-toggle {
+            position: relative;
+        }
+
+        .input-with-toggle input {
+            width: 100%;
+            padding-right: 2.5rem;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+            display: flex;
+            align-items: center;
+            border-radius: 4px;
+            transition: color 0.15s;
+        }
+
+        .toggle-password:hover {
+            color: var(--primary);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Status Section */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 1.25rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.checking {
+            background: #F0F9FF;
+            color: var(--info);
+            border: 1px solid #BAE6FD;
+        }
+
+        .status-indicator.connected {
+            background: #ECFDF5;
+            color: var(--success);
+            border: 1px solid #A7F3D0;
+        }
+
+        .status-indicator.disconnected {
+            background: #FEF2F2;
+            color: var(--danger);
+            border: 1px solid #FECACA;
+        }
+
+        .status-indicator.expired {
+            background: #FFFBEB;
+            color: var(--warning);
+            border: 1px solid #FDE68A;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-dot.pulse {
+            animation: pulse 1.5s infinite;
+        }
+
+        .checking .status-dot {
+            background: var(--info);
+        }
+
+        .connected .status-dot {
+            background: var(--success);
+        }
+
+        .disconnected .status-dot {
+            background: var(--danger);
+        }
+
+        .expired .status-dot {
+            background: var(--warning);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 0.6;
+            }
+        }
+
+        /* Test Result */
+        .test-result {
+            margin-top: 1rem;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .test-result.success {
+            border: 1px solid #A7F3D0;
+        }
+
+        .test-result.error {
+            border: 1px solid #FECACA;
+        }
+
+        .test-result-header {
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            font-size: 0.8125rem;
+        }
+
+        .test-result.success .test-result-header {
+            background: #ECFDF5;
+            color: var(--success);
+        }
+
+        .test-result.error .test-result-header {
+            background: #FEF2F2;
+            color: var(--danger);
+        }
+
+        .test-result-body {
+            padding: 0.75rem 1rem;
+            background: #FFFFFF;
+            font-size: 0.8125rem;
+        }
+
+        .test-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .test-detail:last-child {
+            border-bottom: none;
+        }
+
+        .test-detail .label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .test-detail .value {
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            min-width: 300px;
+            max-width: 450px;
+            animation: slideIn 0.3s ease-out;
+            border: 1px solid;
+        }
+
+        .toast.success {
+            background: #ECFDF5;
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .toast.error {
+            background: #FEF2F2;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .toast.info {
+            background: #F0F9FF;
+            color: var(--info);
+            border-color: var(--info);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Nav Group */
+        .nav-group {
+            margin-top: 0.75rem;
+        }
+
+        .nav-group-label {
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-sidebar);
+            padding: 0.5rem 0.75rem 0.25rem;
+            opacity: 0.6;
+        }
+
+        .top-bar-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-top: 0.15rem;
+        }
+
+        @media (max-width: 900px) {
+            .config-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <h1>YELAVE</h1>
+                <span>Skincare</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="/dashboard/" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                        </path>
+                    </svg>
+                    Logística & Compras
+                </a>
+                <a href="/dashboard/" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-3.5-3.5A2 2 0 0 0 17 4h-2V2H9v2H7a2 2 0 0 0-1.5.5L2 8v12z">
+                        </path>
+                    </svg>
+                    Producción (DIGEMID)
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Almacén
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 3v18h18"></path>
+                        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
+                    </svg>
+                    Comercial & Ventas
+                </a>
+                <div class="nav-group">
+                    <div class="nav-group-label">Finanzas</div>
+                    <a href="/dashboard/conciliacion.html" class="nav-item">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l4.58-4.58a1 1 0 0 0 0-1.42L9 5z"></path>
+                            <circle cx="6" cy="9" r="1"></circle>
+                        </svg>
+                        Conciliación Bancaria
+                    </a>
+                </div>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                    Repartos
+                </a>
+
+                <!-- Configuración at bottom -->
+                <div class="nav-group" style="margin-top: auto;">
+                    <div class="nav-group-label">Sistema</div>
+                    <a href="/dashboard/db-config.html" class="nav-item active">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                            </path>
+                        </svg>
+                        Base de Datos
+                    </a>
+                </div>
+            </nav>
+            <div class="user-profile">
+                <div class="avatar"><img src="https://i.pravatar.cc/150?img=47" alt="User Avatar"></div>
+                <div class="user-info">
+                    <span class="user-name">Directorio</span>
+                    <span class="user-role">Administrador</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div>
+                        <h2>Configuración de Base de Datos</h2>
+                        <p class="top-bar-subtitle">Sistema · Administración</p>
+                    </div>
+                </div>
+            </header>
+
+            <section class="content fade-in" style="animation: fadeIn 0.4s ease-out;">
+                <!-- Connection Status -->
+                <div class="status-indicator checking" id="statusIndicator">
+                    <span class="status-dot pulse"></span>
+                    <span id="statusText">Verificando conexión...</span>
+                </div>
+
+                <div class="config-layout">
+                    <!-- Left: Edit Connection -->
+                    <div class="card config-card glass-panel">
+                        <div class="config-card-header">
+                            <div class="icon primary">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                                </svg>
+                            </div>
+                            <h3>Parámetros de Conexión</h3>
+                        </div>
+                        <div class="config-card-body">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label>Servidor</label>
+                                    <input type="text" id="inputServer" placeholder="192.168.1.17\SQL2022">
+                                </div>
+                                <div class="form-field">
+                                    <label>Base de Datos</label>
+                                    <input type="text" id="inputDatabase" placeholder="BK030226">
+                                </div>
+                                <div class="form-field">
+                                    <label>Usuario</label>
+                                    <input type="text" id="inputUser" placeholder="developer1">
+                                </div>
+                                <div class="form-field">
+                                    <label>Contraseña</label>
+                                    <div class="input-with-toggle">
+                                        <input type="password" id="inputPassword" placeholder="••••••••">
+                                        <button class="toggle-password" onclick="togglePasswordVisibility()"
+                                            title="Mostrar/Ocultar">
+                                            <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                <circle cx="12" cy="12" r="3"></circle>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" onclick="testConnection()" id="btnTest">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                        </svg>
+                                        Probar Conexión
+                                    </button>
+                                    <button class="btn btn-outline" onclick="saveConfig()" id="btnSave">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z">
+                                            </path>
+                                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                            <polyline points="7 3 7 8 15 8"></polyline>
+                                        </svg>
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Test Results -->
+                    <div class="card config-card glass-panel">
+                        <div class="config-card-header">
+                            <div class="icon success">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <h3>Resultado de Prueba</h3>
+                        </div>
+                        <div class="config-card-body">
+                            <div id="testResultArea">
+                                <p
+                                    style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 2rem 0;">
+                                    Ingrese los datos de conexión y presione <strong>"Probar Conexión"</strong> para
+                                    verificar.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // ─── Sidebar Toggle ──────────────────────────
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active', sidebar.classList.contains('open'));
+        }
+
+        // ─── Toast ────────────────────────────────────
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.innerHTML = `<span>${msg}</span>`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.animation = 'slideIn 0.3s ease-out reverse forwards'; setTimeout(() => t.remove(), 300); }, 3500);
+        }
+
+        // ─── Init ──────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCurrentConfig();
+            checkStatus();
+        });
+
+        // ─── Load Current Config ────────────────────
+        async function loadCurrentConfig() {
+            try {
+                const res = await fetch('/api/config/db');
+                if (!res.ok) throw new Error('Failed');
+                const data = await res.json();
+                document.getElementById('inputServer').value = data.db_server;
+                document.getElementById('inputDatabase').value = data.db_name;
+                document.getElementById('inputUser').value = data.db_user;
+                document.getElementById('inputPassword').placeholder = data.db_password_masked;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ─── Check Status ──────────────────────────────
+        async function checkStatus() {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            const dot = indicator.querySelector('.status-dot');
+
+            indicator.className = 'status-indicator checking';
+            dot.classList.add('pulse');
+            text.textContent = 'Verificando conexión...';
+
+            try {
+                const res = await fetch('/api/config/db/status');
+                const data = await res.json();
+
+                dot.classList.remove('pulse');
+
+                if (data.connected) {
+                    indicator.className = 'status-indicator connected';
+                    text.textContent = '✓ Conexión activa — Base de datos operativa';
+                } else if (data.error_type === 'password_expired') {
+                    indicator.className = 'status-indicator expired';
+                    text.textContent = '⚠ Contraseña expirada — Ingrese una nueva contraseña y guarde la configuración';
+                } else if (data.error_type === 'auth_failed') {
+                    indicator.className = 'status-indicator disconnected';
+                    text.textContent = '✗ Credenciales inválidas — Verifique usuario y contraseña';
+                } else {
+                    indicator.className = 'status-indicator disconnected';
+                    text.textContent = `✗ Sin conexión — ${data.message}`;
+                }
+            } catch (err) {
+                dot.classList.remove('pulse');
+                indicator.className = 'status-indicator disconnected';
+                text.textContent = '✗ Error al verificar la conexión';
+            }
+        }
+
+        // ─── Toggle Password ─────────────────────────
+        function togglePasswordVisibility() {
+            const input = document.getElementById('inputPassword');
+            const icon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            }
+        }
+
+        // ─── Test Connection ───────────────────────────
+        async function testConnection() {
+            const server = document.getElementById('inputServer').value;
+            const db = document.getElementById('inputDatabase').value;
+            const user = document.getElementById('inputUser').value;
+            const pwd = document.getElementById('inputPassword').value;
+
+            if (!server || !db || !user || !pwd) {
+                showToast('Complete todos los campos, incluyendo la contraseña', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnTest');
+            btn.disabled = true;
+            btn.textContent = 'Probando...';
+
+            try {
+                const res = await fetch('/api/config/db/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ db_server: server, db_name: db, db_user: user, db_password: pwd })
+                });
+                const data = await res.json();
+                renderTestResult(data);
+            } catch (err) {
+                renderTestResult({ status: 'error', message: 'Error de red al probar la conexión', detail: err.message });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> Probar Conexión';
+            }
+        }
+
+        function renderTestResult(data) {
+            const area = document.getElementById('testResultArea');
+            const isOk = data.status === 'success';
+
+            let html = `<div class="test-result ${isOk ? 'success' : 'error'}">`;
+            html += `<div class="test-result-header">`;
+            html += isOk
+                ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+                : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+            html += `<span>${data.message}</span></div>`;
+
+            html += '<div class="test-result-body">';
+            if (isOk && data.details) {
+                html += `<div class="test-detail"><span class="label">Versión SQL</span><span class="value">${data.details.version}</span></div>`;
+                html += `<div class="test-detail"><span class="label">Base de Datos</span><span class="value">${data.details.database}</span></div>`;
+                html += `<div class="test-detail"><span class="label">Usuario</span><span class="value">${data.details.user}</span></div>`;
+                html += `<div class="test-detail"><span class="label">Tablas</span><span class="value">${data.details.tables}</span></div>`;
+            } else if (data.detail) {
+                html += `<p style="font-size:0.75rem;color:var(--text-muted);word-break:break-word;">${data.detail}</p>`;
+            }
+            html += '</div></div>';
+
+            area.innerHTML = html;
+        }
+
+        // ─── Save Config ───────────────────────────────
+        async function saveConfig() {
+            const server = document.getElementById('inputServer').value;
+            const db = document.getElementById('inputDatabase').value;
+            const user = document.getElementById('inputUser').value;
+            const pwd = document.getElementById('inputPassword').value;
+
+            if (!server || !db || !user) {
+                showToast('Complete al menos servidor, base de datos y usuario', 'error');
+                return;
+            }
+
+            const payload = { db_server: server, db_name: db, db_user: user };
+            if (pwd) payload.db_password = pwd;
+
+            const btn = document.getElementById('btnSave');
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/config/db', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    showToast('Configuración guardada exitosamente', 'success');
+                    // Re-check status
+                    setTimeout(() => checkStatus(), 500);
+                    // Reload config
+                    await loadCurrentConfig();
+                    document.getElementById('inputPassword').value = '';
+                } else {
+                    showToast('Error al guardar', 'error');
+                }
+            } catch (err) {
+                showToast('Error de red al guardar', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

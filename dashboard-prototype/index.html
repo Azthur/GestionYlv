@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Plataforma de Gestión Operativa</title>
+    <!-- Corporate SaaS Fonts: Inter for an ultra-clean, professional look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Mobile Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- Sidebar Menu -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <h1>YELAVE</h1>
+                <span>Skincare</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                        </path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    Logística & Compras
+                </a>
+                <a href="#" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-3.5-3.5A2 2 0 0 0 17 4h-2V2H9v2H7a2 2 0 0 0-1.5.5L2 8v12z">
+                        </path>
+                        <path d="M14 4h4v4h-4z"></path>
+                        <path d="M12 2v2"></path>
+                        <path d="M12 16v4"></path>
+                        <path d="M8 16v4"></path>
+                        <path d="M16 16v4"></path>
+                    </svg>
+                    Producción (DIGEMID)
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Almacén
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 3v18h18"></path>
+                        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
+                    </svg>
+                    Comercial & Ventas
+                </a>
+                <!-- FINANZAS GROUP -->
+                <div class="nav-group" style="margin-top: 0.75rem;">
+                    <div class="nav-group-label"
+                        style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">
+                        Finanzas</div>
+                    <a href="/dashboard/conciliacion.html" class="nav-item">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l4.58-4.58a1 1 0 0 0 0-1.42L9 5z"></path>
+                            <path d="M22 5h-7l-5 5"></path>
+                            <circle cx="6" cy="9" r="1"></circle>
+                        </svg>
+                        Conciliación Bancaria
+                    </a>
+                </div>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                    Repartos
+                </a>
+
+                <!-- Sistema -->
+                <div class="nav-group" style="margin-top: auto;">
+                    <div class="nav-group-label"
+                        style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">
+                        Sistema</div>
+                    <a href="/dashboard/db-config.html" class="nav-item">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                            </path>
+                        </svg>
+                        Base de Datos
+                    </a>
+                </div>
+            </nav>
+            <div class="user-profile">
+                <div class="avatar">
+                    <img src="https://i.pravatar.cc/150?img=47" alt="User Avatar">
+                </div>
+                <div class="user-info">
+                    <span class="user-name">Directorio</span>
+                    <span class="user-role">Administrador</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <h2>Órdenes de Producción</h2>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-outline">Filtrar</button>
+                    <button class="btn btn-primary" onclick="openModal()">+ Nueva Orden</button>
+                </div>
+            </header>
+
+            <!-- Dashboard Widgets / Content -->
+            <section class="content fade-in">
+                <div class="cards-grid">
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Lotes Activos</h3>
+                            <div class="stat-value">24</div>
+                            <div class="stat-trend positive">↑ 12% vs mes anterior</div>
+                        </div>
+                    </div>
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Producción en Curso</h3>
+                            <div class="stat-value">5,200 <span class="unit">unidades</span></div>
+                            <div class="stat-trend neutral">Estable</div>
+                        </div>
+                    </div>
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon warning">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path
+                                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                                </path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Material Próximo a Vencer</h3>
+                            <div class="stat-value warning-text">3 <span class="unit">lotes</span></div>
+                            <div class="stat-trend negative">Revisar stock (FEFO)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card table-container glass-panel">
+                    <div class="table-header">
+                        <h3>Registro de Producción / Trazabilidad</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Orden ID</th>
+                                    <th>Producto</th>
+                                    <th>Lote Final</th>
+                                    <th>Reg. Sanitario (DIGEMID)</th>
+                                    <th>Director Técnico</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-tbody">
+                                <!-- Datos insertados dinamicamente desde API -->
+                                <tr>
+                                    <td colspan="7" class="loading-state">Cargando datos de producción...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Form (Nueva Orden de Producción) -->
+    <div class="modal-overlay" id="productionModal">
+        <div class="modal glass-modal">
+            <div class="modal-header">
+                <h3>Crear Orden de Producción</h3>
+                <button class="close-btn" onclick="closeModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form class="elegant-form">
+                    <div class="form-group row">
+                        <div class="col">
+                            <label>Producto a Fabricar</label>
+                            <div class="select-wrapper">
+                                <select>
+                                    <option>Seleccione un producto</option>
+                                    <option>Crema Hidratante Facial 50ml</option>
+                                    <option>Serum Vitamina C 30ml</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <label>Lote Final Esperado</label>
+                            <input type="text" placeholder="Ej: L-HDF2301" />
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col">
+                            <label>Registro Sanitario (DIGEMID)</label>
+                            <input type="text" placeholder="NSOC..." required />
+                        </div>
+                        <div class="col">
+                            <label>Director Técnico Aprobador</label>
+                            <input type="text" placeholder="Nombre completo y CQ" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Lotes de Materia Prima a Utilizar (Tratamiento FEFO)</label>
+                        <div class="multi-select custom-scrollbar">
+                            <label class="checkbox-label">
+                                <input type="checkbox">
+                                <span class="checkmark"></span>
+                                Glicerina USP (Lote: GL001) - Vence: 12/26
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox">
+                                <span class="checkmark"></span>
+                                Ácido Hialurónico (Lote: AH045) - Vence: 05/26
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="closeModal()">Generar Orden</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
