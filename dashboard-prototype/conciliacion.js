@@ -260,7 +260,14 @@ function renderBankTable() {
             <td>${fecha}</td>
             <td title="${mov.Descripcion || ''}">${truncate(mov.Descripcion || '', 30)}</td>
             <td><span class="amount ${monto >= 0 ? 'positive' : 'negative'}">S/ ${Math.abs(monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span></td>
-            <td>${mov.OpCancelacion ? `<span class="nro-dep-match">${mov.OpCancelacion}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td>
+                <input type="text" class="op-manual-input" 
+                       value="${(mov.OpManual || '').replace(/"/g, '&quot;')}" 
+                       onchange="updateOpManualCruce(${mov.Id}, this.value, this)" 
+                       placeholder="—" 
+                       ${isMatched ? 'disabled' : ''}>
+            </td>
+            <td class="op-cancel-cell-cruce">${mov.OpCancelacion ? `<span class="nro-dep-match">${mov.OpCancelacion}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
             <td>
                 <span class="status ${statusClass}">${mov.Estado}</span>
                 ${isMatched ? `<button class="btn-view-match" onclick="showMatchDetails(${mov.Id}, 'bank')" title="Ver detalles del match">
@@ -278,6 +285,33 @@ function renderBankTable() {
 
 function filterBankTable() {
     renderBankTable();
+}
+
+async function updateOpManualCruce(id, newValue, inputEl) {
+    try {
+        const res = await fetch(`/api/conciliacion/movimientos-banco/${id}/op-manual`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op_manual: newValue })
+        });
+        if (!res.ok) throw new Error('Error');
+        
+        const td = inputEl.closest('td');
+        const nextTd = td.nextElementSibling;
+        if(nextTd && nextTd.classList.contains('op-cancel-cell-cruce')) {
+            nextTd.innerHTML = newValue ? `<span class="nro-dep-match">${newValue}</span>` : '<span style="color:var(--text-muted)">—</span>';
+        }
+        
+        // Update local array to keep table in sync
+        const mov = bankMovements.find(m => m.Id === id);
+        if(mov) {
+            mov.OpManual = newValue;
+            mov.OpCancelacion = newValue;
+        }
+        showToast('Guardado correctamtente', 'success');
+    } catch(err) {
+        showToast('Error al modificar', 'error');
+    }
 }
 
 // ─── Render Cobranzas Table ──────────────────────────────────────────
@@ -554,15 +588,20 @@ async function uploadFile(file) {
 
         const data = await res.json();
         progressFill.style.width = '100%';
-        uploadStatus.textContent = `✓ ${data.rows_imported} movimientos importados exitosamente`;
 
-        showToast(`${data.rows_imported} movimientos importados`, 'success');
+        let msg = `${data.rows_imported} importados exitosamente.`;
+        if (data.rows_updated !== undefined) {
+            msg = `Importación completada: ${data.rows_imported} nuevos, ${data.rows_updated} actualizados.`;
+        }
+
+        uploadStatus.textContent = `✓ ${msg}`;
+        showToast(msg, 'success');
 
         setTimeout(() => {
             uploadArea.style.display = 'flex';
             progressDiv.style.display = 'none';
             progressFill.style.width = '0%';
-        }, 2500);
+        }, 3500);
 
         // Refresh data
         await loadData();
@@ -574,6 +613,20 @@ async function uploadFile(file) {
         progressFill.style.width = '0%';
     }
 }
+
+// Filter bank movements
+window.filterMovimientosBanco = function(filter, btn) {
+    document.querySelectorAll('.btn-filter-banco').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    
+    if (!dtMovimientosBanco) return;
+    
+    if (filter === '') {
+        dtMovimientosBanco.search('').draw();
+    } else {
+        dtMovimientosBanco.search(filter).draw();
+    }
+};
 
 // ─── Utilities ───────────────────────────────────────────────────────
 function truncate(str, max) {
@@ -598,6 +651,16 @@ function switchTab(tabId) {
     } else if (tabId === 'tab-reglas') {
         loadRules();
     }
+    
+    // Recalculate datatables sizing
+    setTimeout(() => {
+        if (dtCobranzas && tabId === 'tab-todas') {
+            dtCobranzas.columns.adjust().draw();
+        }
+        if (dtMovimientosBanco && tabId === 'tab-banco') {
+            dtMovimientosBanco.columns.adjust().draw();
+        }
+    }, 200);
 }
 
 // ─── MODALS ──────────────────────────────────────────────────────────
@@ -614,17 +677,19 @@ async function loadAllCobranzas() {
         dtCobranzas.destroy();
     }
     
-    tbody.innerHTML = '<tr><td colspan="21" class="loading-state empty-state">Cargando datos del servidor...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="40" class="loading-state empty-state">Cargando datos del servidor...</td></tr>';
     
     try {
         const year = document.getElementById('selectYear').value;
         const month = document.getElementById('selectMonth').value;
         const codcia = document.getElementById('selectEmpresa').value;
+        const crossCompany = document.getElementById('chkCrossCompanyTodas')?.checked;
+        
         let url = `/api/conciliacion/cobranzas-todas`;
         const params = new URLSearchParams();
         if (year) params.set('year', year);
         if (month) params.set('month', month);
-        if (codcia) params.set('codcia', codcia);
+        if (codcia && !crossCompany) params.set('codcia', codcia);
         
         if (params.toString()) url += '?' + params.toString();
 
@@ -640,15 +705,13 @@ async function loadAllCobranzas() {
         data.forEach(c => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="sticky-col">
-                    <button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(c)})' title="Ver Reporte de Caja">
+                <td class="sticky-col" style="white-space: nowrap; text-align: center;">
+                    <button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(c)})' title="Ver Reporte de Caja" style="margin-right: 4px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                             <polyline points="14 2 14 8 20 8"></polyline>
                         </svg>
                     </button>
-                </td>
-                <td>
                     ${c.Conciliado && c.MatchId ? 
                         `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify({...c, _showMatch: true})})' title="Ver match bancario" style="color: var(--success); border-color: var(--success);">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -656,8 +719,7 @@ async function loadAllCobranzas() {
                                 <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
                                 <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
                             </svg>
-                        </button>` : 
-                        `<span style="color:var(--text-muted); font-size:0.7rem;">—</span>`
+                        </button>` : ''
                     }
                 </td>
                 <td>${c.id || ''}</td>
@@ -801,22 +863,27 @@ async function openReport(cajaId = null) {
             </div>
             
             <table class="report-table" style="width:100%; border-collapse:collapse; font-size:0.75rem; color: black; background: white; font-family: 'Arial', sans-serif;">
-                <thead>
-                    <tr style="border-top: 1px solid #000; border-bottom: 1px solid #000;">
-                        <th style="text-align:left; padding:4px 2px;">T/D</th>
-                        <th style="text-align:left; padding:4px 2px;">N° DOCUM.</th>
-                        <th style="text-align:left; padding:4px 2px;">FCH. DOC.</th>
-                        <th style="text-align:left; padding:4px 2px;">CODIGO</th>
-                        <th style="text-align:left; padding:4px 2px;">RAZON SOCIAL</th>
-                        <th style="text-align:left; padding:4px 2px;">N°OPER.</th>
-                        <th style="text-align:left; padding:4px 2px;">FECHA</th>
-                        <th style="text-align:center; padding:4px 2px;">MON.</th>
-                        <th style="text-align:right; padding:4px 2px;">SOLES</th>
-                        <th style="text-align:right; padding:4px 2px;">DOLARES</th>
-                        <th style="text-align:center; padding:4px 2px;">ESTADO</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <thead>
+                <tr style="border-top: 1px solid #000; border-bottom: 1px solid #000;">
+                    <th style="min-width: 40px; text-align:center; padding:4px 2px; position: sticky; left: 0; background: white; z-index: 2; border-right: 1px solid #ccc;">👁.</th>
+                    <th style="text-align:left; padding:4px 2px;">T/D</th>
+                    <th style="text-align:left; padding:4px 2px;">N° DOCUM.</th>
+                    <th style="text-align:left; padding:4px 2px;">FCH. DOC.</th>
+                    <th style="text-align:left; padding:4px 2px;">CODIGO</th>
+                    <th style="text-align:left; padding:4px 2px;">RAZON SOCIAL</th>
+                    <th style="text-align:left; padding:4px 2px;">CODREF</th>
+                    <th style="text-align:left; padding:4px 2px;">NROREF</th>
+                    <th style="text-align:left; padding:4px 2px;">NOMVEN</th>
+                    <th style="text-align:left; padding:4px 2px;">USUARIO</th>
+                    <th style="text-align:left; padding:4px 2px;">N°OPER.</th>
+                    <th style="text-align:left; padding:4px 2px;">FECHA</th>
+                    <th style="text-align:center; padding:4px 2px;">MON.</th>
+                    <th style="text-align:right; padding:4px 2px;">SOLES</th>
+                    <th style="text-align:right; padding:4px 2px;">DOLARES</th>
+                    <th style="text-align:center; padding:4px 2px;">ESTADO</th>
+                </tr>
+            </thead>
+            <tbody>
         `;
 
         // Group by JT and GroupName with fallbacks
@@ -841,7 +908,7 @@ async function openReport(cajaId = null) {
                 html += `
                     <tr>
                         <td colspan="4" style="padding-top:15px; font-weight:bold; font-size:0.8rem; letter-spacing:0.5px; text-transform:uppercase;">${jt}</td>
-                        <td colspan="7" style="padding-top:15px; font-weight:bold; font-size:0.8rem;">Cuenta: ${groupName}</td>
+                        <td colspan="12" style="padding-top:15px; font-weight:bold; font-size:0.8rem;">Cuenta: ${groupName}</td>
                     </tr>
                 `;
 
@@ -855,11 +922,21 @@ async function openReport(cajaId = null) {
 
                     html += `
                         <tr style="${item.Conciliado ? 'background: #f0fdf4;' : ''}">
+                            <td style="padding:2px; text-align:center; position: sticky; left: 0; background: ${item.Conciliado ? '#f0fdf4' : 'white'}; z-index: 1; border-right: 1px solid #eee;">
+                                ${item.Conciliado ? 
+                                    `<button onclick="showMatchDetails('${item.Suc}|${item.SerieDoc}|${item.NroDoc}|${item.Correlat}', 'cob')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:1rem;" title="Ver Conciliación">👁</button>` : 
+                                    `<span style="color:var(--text-muted); font-size:0.8rem;">—</span>`
+                                }
+                            </td>
                             <td style="padding:2px 2px;">${item.TipoDocCancelado || ''}</td>
                             <td style="padding:2px 2px;">${item.NroDocCancelado || ''}</td>
                             <td style="padding:2px 2px;">${fchDoc}</td>
                             <td style="padding:2px 2px;">${item.Codigo || ''}</td>
-                            <td style="padding:2px 2px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.RazonSocial || ''}</td>
+                            <td style="padding:2px 2px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.RazonSocial || ''}</td>
+                            <td style="padding:2px 2px;">${item.codref || ''}</td>
+                            <td style="padding:2px 2px;">${item.nroref || ''}</td>
+                            <td style="padding:2px 2px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nomven || ''}</td>
+                            <td style="padding:2px 2px;">${item.usuario || ''}</td>
                             <td style="padding:2px 2px;">${item.NroDep || ''}</td>
                             <td style="padding:2px 2px;">${fchEfe}</td>
                             <td style="padding:2px 2px; text-align:center;">${soles > 0 ? 'S/.' : (dolares > 0 ? '$' : 'S/.')}</td>
@@ -867,8 +944,7 @@ async function openReport(cajaId = null) {
                             <td style="text-align:right; padding:2px 2px;">${dolares > 0 ? dolares.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
                             <td style="text-align:center; padding:2px 2px;">
                                 ${item.Conciliado ? 
-                                    `<span style="color:#10b981; font-weight:bold; font-size:0.75rem; vertical-align:middle;">✓</span>
-                                     <button onclick="showMatchDetails('${item.Suc}|${item.SerieDoc}|${item.NroDoc}|${item.Correlat}', 'cob')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.75rem; margin-left:4px; vertical-align:middle;" title="Ver Conciliación">👁</button>` : 
+                                    `<span style="color:#10b981; font-weight:bold; font-size:0.75rem; vertical-align:middle;">✓ CONCILIADO</span>` : 
                                     `<span style="color:#f59e0b; font-size:0.7rem; vertical-align:middle;">⏳ Pend.</span>`
                                 }
                             </td>
@@ -881,7 +957,7 @@ async function openReport(cajaId = null) {
 
                 html += `
                     <tr style="font-weight:bold;">
-                        <td colspan="8" style="text-align:right; padding:4px 8px;">SUB TOTAL:</td>
+                        <td colspan="13" style="text-align:right; padding:4px 8px;">SUB TOTAL:</td>
                         <td style="text-align:right; padding:4px 2px; border-top: 1px solid #000;">${subTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                         <td style="text-align:right; padding:4px 2px; border-top: 1px solid #000;">${subTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                         <td></td>
@@ -892,7 +968,7 @@ async function openReport(cajaId = null) {
 
         html += `
                 <tr style="border-top:2px solid #000; font-weight:bold; font-size:0.85rem;">
-                    <td colspan="8" style="text-align:right; padding:8px;">TOTAL GRAL.:</td>
+                    <td colspan="13" style="text-align:right; padding:8px;">TOTAL GRAL.:</td>
                     <td style="text-align:right; padding:8px;">${boxTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                     <td style="text-align:right; padding:8px;">${boxTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                     <td></td>
@@ -916,62 +992,29 @@ function printReport() {
 }
 
 async function viewItemDetails(c) {
-    if (c.Conciliado && c.MatchId) {
-        // Mostrar detalles de conciliación
-        try {
-            const res = await fetch(`/api/conciliacion/match-details?match_id=${c.MatchId}`);
-            if (!res.ok) throw new Error('Error al obtener detalles de conciliación');
-            const data = await res.json();
-            
-            const tbody = document.getElementById('tbodyMatchDetails');
-            tbody.innerHTML = `
-                <tr>
-                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0;">
-                        <div style="font-weight:600; color:#2563eb;">DOCUMENTO (Sistema)</div>
-                        <div style="font-size:0.8rem; color:#64748b;">${data.cobranza.CodCia} - ${data.cobranza.NroDoc}</div>
-                    </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; color:#334155;">
-                        <div>${data.cobranza.RazonSocial}</div>
-                        <div style="font-size:0.8rem; color:#94a3b8;">${data.cobranza.Cuenta}</div>
-                    </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; color:#334155;">
-                        ${data.cobranza.Fecha ? new Date(data.cobranza.Fecha).toLocaleDateString() : '---'}
-                    </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; text-align:right; font-weight:600; color:#1e293b;">
-                        ${data.cobranza.Importe.toLocaleString('es-PE', {minimumFractionDigits:2})}
-                    </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; text-align:center;">
-                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:#eff6ff; color:#2563eb;">COBRANZA</span>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding:0.75rem;">
-                        <div style="font-weight:600; color:#10b981;">OPERACIÓN (Banco)</div>
-                        <div style="font-size:0.8rem; color:#64748b;">${data.banco.Operacion}</div>
-                    </td>
-                    <td style="padding:0.75rem; color:#334155;">
-                        <div>${data.banco.Descripcion}</div>
-                    </td>
-                    <td style="padding:0.75rem; color:#334155;">
-                        ${data.banco.Fecha ? new Date(data.banco.Fecha).toLocaleDateString() : '---'}
-                    </td>
-                    <td style="padding:0.75rem; text-align:right; font-weight:600; color:#1e293b;">
-                        ${data.banco.Monto.toLocaleString('es-PE', {minimumFractionDigits:2})}
-                    </td>
-                    <td style="padding:0.75rem; text-align:center;">
-                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:#ecfdf5; color:#10b981;">BANCO</span>
-                    </td>
-                </tr>
-            `;
-            
-            document.getElementById('matchDetailsModal').style.display = 'flex';
-        } catch (err) {
-            console.error(err);
-            showToast('No se pudo cargar el detalle de la conciliación', 'error');
-        }
+    if ((c._showMatch || false) && c.Conciliado && c.MatchId) {
+        // Delegate to the centralized showMatchDetails function
+        showMatchDetails(c.MatchId, 'bank');
     } else {
-        // Mostrar el reporte agrupado para la Caja completa del item
+        // Mostrar el reporte agrupado para la Caja completa del item (FoxPro Style)
         openReport(c.NroCaja);
+    }
+}
+
+// Función para filtrar la tabla de cobranzas por estado
+function filterCobranzas(filter, btn) {
+    // Actualizar botones de filtro
+    document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    
+    if (!dtCobranzas) return;
+    
+    if (filter === 'todos') {
+        dtCobranzas.search('').draw();
+    } else if (filter === 'pendiente') {
+        dtCobranzas.search('PENDIENTE').draw();
+    } else if (filter === 'conciliado') {
+        dtCobranzas.search('CONCILIADO').draw();
     }
 }
 
@@ -987,10 +1030,15 @@ async function loadMovimientosBanco() {
         dtMovimientosBanco.destroy();
     }
 
+    const deleteBtn = document.getElementById('btnDeleteAllBank');
+
     if (!codcia || !bankCode) {
         tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Seleccione empresa y banco en los filtros superiores para ver los movimientos</td></tr>';
+        if(deleteBtn) deleteBtn.disabled = true;
         return;
     }
+    
+    if(deleteBtn) deleteBtn.disabled = false;
 
     tbody.innerHTML = '<tr><td colspan="12" class="loading-state empty-state">Cargando datos del servidor...</td></tr>';
     
@@ -1003,12 +1051,23 @@ async function loadMovimientosBanco() {
         if (!res.ok) throw new Error('Error al cargar movimientos de banco');
         const data = await res.json();
         
+        // Cache data globally so showMatchDetails can find the correct ReconciliationDetailId
+        bankMovements = data; 
+        
         tbody.innerHTML = '';
 
         data.forEach(c => {
             const isMatched = c.Estado === 'Conciliado';
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td class="sticky-col-ver">
+                    ${isMatched ? `<button class="btn-icon" onclick="showMatchDetails(${c.Id}, 'bank')" title="Ver Conciliación" style="padding:4px; margin: auto;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>` : ''}
+                </td>
                 <td>${c.Id || ''}</td>
                 <td>${c.Fecha || ''}</td>
                 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Descripcion || ''}">${c.Descripcion || ''}</td>
@@ -1018,12 +1077,17 @@ async function loadMovimientosBanco() {
                 <td>${c.OperacionNumero || ''}</td>
                 <td>${c.OperacionHora || ''}</td>
                 <td>${c.Referencia || ''}</td>
-                <td>${c.OpManual || ''}</td>
-                <td>${c.OpCancelacion || ''}</td>
+                <td>
+                    <input type="text" class="op-manual-input" 
+                           value="${(c.OpManual || '').replace(/"/g, '&quot;')}" 
+                           onchange="updateOpManual(${c.Id}, this.value, this)" 
+                           placeholder="—" 
+                           ${isMatched ? 'disabled' : ''}>
+                </td>
+                <td class="op-cancel-cell">${c.OpCancelacion || ''}</td>
                 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.DescripcionFinal || ''}">${c.DescripcionFinal || ''}</td>
                 <td>
                     <span class="status ${isMatched ? 'conciliado' : 'pendiente'}">${c.Estado || 'Pendiente'}</span>
-                    ${isMatched ? `<button class="btn-view-match" onclick="showMatchDetails(${c.Id}, 'bank')" style="background:none; border:none; color:var(--accent-color); cursor:pointer; padding: 2px;">👁</button>` : ''}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -1052,6 +1116,46 @@ async function loadMovimientosBanco() {
         console.error(err);
         tbody.innerHTML = '<tr><td colspan="12" class="loading-state empty-state" style="color:var(--danger)">Error al cargar datos. Verifique la conexión al servidor.</td></tr>';
     }
+}
+
+// ─── Update Op Manual in DB ──────────────────────────────────────────
+async function updateOpManual(id, newValue, inputEl) {
+    try {
+        const res = await fetch(`/api/conciliacion/movimientos-banco/${id}/op-manual`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op_manual: newValue })
+        });
+        
+        if (!res.ok) throw new Error('Error al actualizar Op Manual');
+        
+        // Find the cell right after the input's TD to update Op Cancelacion visually
+        const td = inputEl.closest('td');
+        const nextTd = td.nextElementSibling;
+        if(nextTd && nextTd.classList.contains('op-cancel-cell')) {
+            nextTd.textContent = newValue;
+        }
+        
+        showToast('Variación registrada correctamente', 'success');
+        
+        // If we want to reload the data quietly to keep states in sync:
+        // loadMovimientosBanco();
+    } catch (err) {
+        console.error(err);
+        showToast('Error al actualizar Op Manual', 'error');
+        // Reset visually if failed
+    }
+}
+
+// ─── Download Excel Template ──────────────────────────────────────────
+function downloadBankTemplate() {
+    // Generate an empty excel file with correct headers
+    const ws = XLSX.utils.aoa_to_sheet([
+        ["ID Banco", "Fecha", "Descripción", "Monto", "Saldo", "Sucursal", "Op. Número", "Op. Hora", "Referencia", "Op Manual", "OP Cancelación", "Descripción Final", "Estado"]
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Movimientos Template");
+    XLSX.writeFile(wb, "Template_Estado_Cuenta.xlsx");
 }
 
 // ─── REGLAS DE LIMPIEZA (TAB 3) ──────────────────────────────────────
@@ -1153,59 +1257,184 @@ async function showMatchDetails(id, type) {
     const tbody = document.getElementById('tbodyMatchDetails');
     if (!modal || !tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-state">Cargando detalles...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="loading-state" style="text-align:center; padding:2rem;">Cargando detalles...</td></tr>';
     modal.style.display = 'flex';
 
     try {
-        let url = '';
+        let matchId = null;
+
         if (type === 'bank') {
-            url = `/api/conciliacion/movimiento-banco/${id}/match-details`;
+            // id is BankMovement Id - find ReconciliationDetailId
+            // Ensure type conversion because API returns Id as string '1300' but param is int 1300
+            const bankMov = bankMovements.find(m => String(m.Id) === String(id));
+            if (bankMov && bankMov.ReconciliationDetailId) {
+                matchId = bankMov.ReconciliationDetailId;
+            } else {
+                // Fallback: Assume the id is the ReconciliationDetailId directly
+                matchId = id;
+            }
         } else {
-            // Unpack the key used in renderCobTable (codcia|coddoc|nrodoc|nroitm)
-            const parts = id.split('|'); 
-            const [codcia, coddoc, nrodoc, nroitm] = parts;
-            url = `/api/conciliacion/cobranza/match-details?codcia=${codcia}&coddoc=${coddoc}&nrodoc=${nrodoc}&nroitm=${nroitm}`;
+            // type === 'cob': id is 'Suc|SerieDoc|NroDoc|Correlat'
+            const parts = id.split('|');
+            if (cobranzasTodas && cobranzasTodas.length > 0) {
+                const match = cobranzasTodas.find(c => 
+                    (c.Suc || '').trim() === parts[0] && 
+                    (c.SerieDoc || '').trim() === parts[1] && 
+                    (c.NroDoc || '').trim() === parts[2] && 
+                    (c.Correlat || '').trim() === parts[3]
+                );
+                if (match && match.MatchId) {
+                    matchId = match.MatchId;
+                }
+            }
+            if (!matchId) {
+                throw new Error('No se encontró la conciliación para esta cobranza');
+            }
         }
 
-        const res = await fetch(url);
+        const res = await fetch(`/api/conciliacion/match-details?match_id=${matchId}`);
         if (!res.ok) throw new Error('Error al obtener detalles');
         const data = await res.json();
+        
+        tbody.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- COBRANZA CARD -->
+                <div style="background: white; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #eff6ff; color: #2563eb; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Documento del Sistema (Cobranza)
+                            </div>
+                            <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${data.cobranza.CodCia} - ${data.cobranza.NroDoc}</h3>
+                            <p style="margin: 0.25rem 0 0; color: #475569; font-size: 0.9rem;">${data.cobranza.RazonSocial}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">S/ ${data.cobranza.Importe.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
+                            <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">${data.cobranza.Fecha ? new Date(data.cobranza.Fecha).toLocaleDateString('es-PE') : 'Sin Fecha'}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
+                        <div>
+                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Cuenta Contable / Destino</div>
+                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500;">${data.cobranza.Cuenta || '—'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Referencia</div>
+                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500;">${data.cobranza.CodRef || '—'} ${data.cobranza.NroRef ? '- ' + data.cobranza.NroRef : ''}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Responsable (NomVen)</div>
+                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${data.cobranza.NomVen || ''}">${data.cobranza.NomVen || '—'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Usuario Sistema</div>
+                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500;">${data.cobranza.Usuario || '—'}</div>
+                        </div>
+                    </div>
+                </div>
 
-        tbody.innerHTML = '';
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No se encontraron detalles de vinculación.</td></tr>';
-            return;
-        }
+                <!-- LINK SVG -->
+                <div style="display: flex; justify-content: center; color: #cbd5e1;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                </div>
 
-        data.forEach(item => {
-            const tr = document.createElement('tr');
-            if (type === 'bank') {
-                tr.innerHTML = `
-                    <td>${item.coddoc} - ${item.nrodoc}</td>
-                    <td>${item.NomAux || ''}</td>
-                    <td>${item.fchdoc ? new Date(item.fchdoc).toLocaleDateString('es-PE') : ''}</td>
-                    <td class="amount positive">S/ ${parseFloat(item.import || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
-                    <td><span class="status-chip match-type" style="background:var(--accent-soft); color:var(--accent-color); padding:2px 8px; border-radius:12px; font-size:10px;">SISTEMA</span></td>
-                `;
-            } else {
-                tr.innerHTML = `
-                    <td>${item.OperacionNumero || 'N/A'}</td>
-                    <td>${item.Descripcion || ''}</td>
-                    <td>${item.Fecha ? new Date(item.Fecha).toLocaleDateString('es-PE') : ''}</td>
-                    <td class="amount positive">S/ ${parseFloat(item.Monto || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
-                    <td><span class="status-chip match-type" style="background:var(--success-soft); color:var(--success-color); padding:2px 8px; border-radius:12px; font-size:10px;">BANCO</span></td>
-                `;
-            }
-            tbody.appendChild(tr);
-        });
+                <!-- BANCO CARD -->
+                <div style="background: white; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #ecfdf5; color: #10b981; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                                Movimiento Bancario
+                            </div>
+                            <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Op. ${data.banco.Operacion || 'Sin número'}</h3>
+                            <p style="margin: 0.25rem 0 0; color: #475569; font-size: 0.9rem; line-height: 1.4;">${data.banco.Descripcion}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">S/ ${data.banco.Monto.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
+                            <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">${data.banco.Fecha ? new Date(data.banco.Fecha).toLocaleDateString('es-PE') : 'Sin Fecha'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER META INFO -->
+                <div style="text-align: center; margin-top: 0.5rem; font-size: 0.75rem; color: #94a3b8;">
+                    <p style="margin: 0;">Conciliación realizada el: ${data.match.MatchedAt ? new Date(data.match.MatchedAt).toLocaleString('es-PE') : '—'} vía <strong>${data.match.MatchType}</strong></p>
+                    <p style="margin: 0.25rem 0 0;">Match ID: #${data.match.Id}</p>
+                </div>
+
+            </div>
+        `;
 
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger); text-align:center; padding:2rem;">Error: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<div style="color:#ef4444; text-align:center; padding:2rem;">Error: ${err.message}</div>`;
     }
 }
 
 function closeMatchDetailsModal() {
     const modal = document.getElementById('matchDetailsModal');
     if (modal) modal.style.display = 'none';
+}
+
+async function deleteAllBankMovements() {
+    const codcia = document.getElementById('selectEmpresa').value;
+    const bankCode = document.getElementById('selectBanco').value;
+    
+    if (!codcia || !bankCode) {
+        showToast('Seleccione una empresa y un banco primero.', 'error');
+        return;
+    }
+
+    // Open custom professional modal
+    const modal = document.getElementById('deleteConfirmModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeDeleteConfirmModal() {
+    const modal = document.getElementById('deleteConfirmModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function executeDeleteAllBankMovements() {
+    const btn = document.getElementById('btnConfirmDeleteAll');
+    if (btn) {
+        btn.innerHTML = 'Eliminando...';
+        btn.disabled = true;
+    }
+    
+    try {
+        const codcia = document.getElementById('selectEmpresa')?.value;
+        const bankCode = document.getElementById('selectBanco')?.value;
+        
+        if (!codcia || !bankCode) {
+            throw new Error('Faltan datos de Empresa o Banco.');
+        }
+
+        const res = await fetch(`/api/conciliacion/movimientos-banco/all?codcia=${codcia}&bank_code=${bankCode}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.detail || 'Error al eliminar');
+        }
+        
+        showToast(`${data.message}`, 'success');
+        loadMovimientosBanco(); // Reloads the table
+        closeDeleteConfirmModal(); // Solamente cerramos si hubo éxito
+        
+    } catch (err) {
+        console.error("Error capturado durante el borrado:", err);
+        showToast(`Fallo: ${err.message}`, 'error');
+        // El modal *NO* se cierra automáticamente si ocurrió un error,
+        // para que el usuario pueda ver qué pasó o intentar de nuevo.
+    } finally {
+        if (btn) {
+            btn.innerHTML = 'Sí, eliminar todo';
+            btn.disabled = false;
+        }
+    }
 }

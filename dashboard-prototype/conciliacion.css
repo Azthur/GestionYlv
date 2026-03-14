@@ -786,15 +786,34 @@
     min-width: 50px;
     text-align: center;
 }
-.data-table thead th:first-child {
+
+.sticky-col-ver {
+    position: sticky !important;
+    left: 0;
+    z-index: 5;
+    background: #ffffff;
+    border-right: 2px solid var(--border-dark) !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    width: 38px !important;
+    text-align: center;
+    padding: 0 !important;
+}
+
+.data-table thead th:first-child, .data-table thead th.sticky-col, .data-table thead th.sticky-col-ver {
     position: sticky !important;
     left: 0;
     z-index: 15;
     background: var(--bg-thead);
     border-right: 2px solid var(--border-dark);
 }
-.data-table tbody tr:nth-child(even) .sticky-col { background: #F8FAFC; }
-.data-table tbody tr:hover .sticky-col { background: #E2E8F0; }
+.data-table tbody tr:nth-child(even) .sticky-col, .data-table tbody tr:nth-child(even) .sticky-col-ver { background: #F8FAFC; }
+.data-table tbody tr:hover .sticky-col, .data-table tbody tr:hover .sticky-col-ver { background: #E2E8F0; }
+
+.upload-area-compact:hover {
+    background: rgba(37, 99, 235, 0.04);
+}
+
 
 /* ─── DataTables Top Bar Layout ─── */
 .dt-top {
@@ -882,4 +901,68 @@
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
+/* ─── Filter Buttons ─── */
+.btn-filter {
+    padding: 0.45rem 1rem;
+    background: #fff;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-right: 1px solid var(--border);
+}
+
+.btn-filter:last-child {
+    border-right: none;
+}
+
+.btn-filter:hover {
+    background: #f8fafc;
+    color: var(--primary);
+}
+
+.btn-filter.active {
+    background: var(--primary) !important;
+    color: #fff !important;
+}
+
+/* ─── Op Manual Inline Editable Input ─── */
+.op-manual-input {
+    width: 110px;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    color: #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.op-manual-input:hover {
+    border-color: #94a3b8;
+    background: #ffffff;
+}
+
+.op-manual-input:focus {
+    border-color: var(--primary, #2563eb);
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.op-manual-input:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.op-manual-input::placeholder {
+    color: #cbd5e1;
+    font-style: italic;
+}
 

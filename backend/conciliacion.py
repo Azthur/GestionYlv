@@ -126,6 +126,7 @@ async def upload_excel(
 
         batch_id = str(uuid.uuid4())
         rows_imported = 0
+        rows_updated = 0
         cursor = conn.cursor()
 
         # Read header row to map columns
@@ -136,6 +137,7 @@ async def upload_excel(
         # Column mapping (flexible matching)
         col_map = {}
         mapping_rules = {
+            'id_banco': ['id banco', 'id', 'id_banco', 'idbanco'],
             'fecha': ['fecha'],
             'descripcion': ['descripcion', 'descripción'],
             'monto': ['monto', 'importe'],
@@ -210,35 +212,63 @@ async def upload_excel(
                 s = str(val).strip()
                 return s[:max_len]
 
-            cursor.execute("""
-                INSERT INTO BankMovements
-                (CodCia, BankCode, Fecha, Descripcion, Monto, Saldo, Sucursal,
-                 OperacionNumero, OperacionHora, Referencia, OpManual, OpCancelacion,
-                 DescripcionFinal, Estado, ImportBatchId)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
-            """, (
-                codcia, bank_code, fecha,
-                safe_str(get_val('descripcion', ''), 200),
-                monto, saldo,
-                safe_str(get_val('sucursal', ''), 50),
-                safe_str(get_val('operacion_numero', ''), 30),
-                safe_str(get_val('operacion_hora', ''), 10),
-                safe_str(get_val('referencia', ''), 50),
-                safe_str(get_val('op_manual', ''), 30),
-                safe_str(get_val('op_cancelacion', ''), 30),
-                safe_str(get_val('descripcion_final', ''), 200),
-                batch_id
-            ))
-            rows_imported += 1
+            # Upsert logic based on id_banco
+            id_banco_val = get_val('id_banco')
+            try:
+                id_banco_val = int(id_banco_val) if id_banco_val else None
+            except:
+                id_banco_val = None
+
+            is_update = False
+            if id_banco_val:
+                cursor.execute("SELECT Id FROM BankMovements WHERE Id = ? AND CodCia = ? AND BankCode = ?", (id_banco_val, codcia, bank_code))
+                if cursor.fetchone():
+                    is_update = True
+            
+            p_desc = safe_str(get_val('descripcion', ''), 200)
+            p_sucursal = safe_str(get_val('sucursal', ''), 50)
+            p_op_num = safe_str(get_val('operacion_numero', ''), 30)
+            p_op_hora = safe_str(get_val('operacion_hora', ''), 10)
+            p_ref = safe_str(get_val('referencia', ''), 50)
+            p_op_man = safe_str(get_val('op_manual', ''), 30)
+            p_op_can = safe_str(get_val('op_cancelacion', ''), 30)
+            p_desc_fin = safe_str(get_val('descripcion_final', ''), 200)
+
+            if is_update:
+                cursor.execute("""
+                    UPDATE BankMovements
+                    SET Fecha = ?, Descripcion = ?, Monto = ?, Saldo = ?, Sucursal = ?,
+                        OperacionNumero = ?, OperacionHora = ?, Referencia = ?, OpManual = ?,
+                        OpCancelacion = ?, DescripcionFinal = ?, ImportBatchId = ?
+                    WHERE Id = ?
+                """, (
+                    fecha, p_desc, monto, saldo, p_sucursal, p_op_num, p_op_hora,
+                    p_ref, p_op_man, p_op_can, p_desc_fin, batch_id, id_banco_val
+                ))
+                rows_updated += 1
+            else:
+                cursor.execute("""
+                    INSERT INTO BankMovements
+                    (CodCia, BankCode, Fecha, Descripcion, Monto, Saldo, Sucursal,
+                     OperacionNumero, OperacionHora, Referencia, OpManual, OpCancelacion,
+                     DescripcionFinal, Estado, ImportBatchId)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
+                """, (
+                    codcia, bank_code, fecha, p_desc, monto, saldo, p_sucursal, 
+                    p_op_num, p_op_hora, p_ref, p_op_man, p_op_can, p_desc_fin, batch_id
+                ))
+                rows_imported += 1
 
         conn.commit()
         wb.close()
 
+        msg = f"Se importaron {rows_imported} nuevos y se actualizaron {rows_updated}." if rows_updated > 0 else f"Se importaron {rows_imported} movimientos bancarios."
         return {
             "status": "success",
-            "message": f"Se importaron {rows_imported} movimientos bancarios.",
+            "message": msg,
             "batch_id": batch_id,
-            "rows_imported": rows_imported
+            "rows_imported": rows_imported,
+            "rows_updated": rows_updated
         }
 
     except Exception as e:
@@ -294,6 +324,55 @@ def get_bank_movements(
         conn.close()
 
 
+@router.delete("/movimientos-banco/all")
+def delete_all_bank_movements(
+    codcia: str = Query(...),
+    bank_code: str = Query(...)
+):
+    """
+    Elimina TODOS los movimientos bancarios para una empresa y banco específicos.
+    También borra en cascada (o manualmente) los ReconciliationDetails asociados.
+    """
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+
+        # Encontrar los movimientos a eliminar
+        cursor.execute("""
+            SELECT Id FROM BankMovements 
+            WHERE CodCia = ? AND BankCode = ?
+        """, (codcia, bank_code))
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return {"status": "success", "message": "No hay movimientos para eliminar.", "deleted": 0}
+
+        movement_ids = [row[0] for row in rows]
+        
+        # SQL IN para evitar hacer 1000 queries
+        placeholders = ','.join('?' for _ in movement_ids)
+        
+        # Eliminar detalles de conciliación asociados
+        cursor.execute(f"DELETE FROM ReconciliationDetail WHERE BankMovementId IN ({placeholders})", movement_ids)
+
+        # Eliminar los movimientos bancarios
+        cursor.execute(f"DELETE FROM BankMovements WHERE Id IN ({placeholders})", movement_ids)
+
+        conn.commit()
+        return {
+            "status": "success", 
+            "message": f"Se eliminaron {len(movement_ids)} movimientos bancarios exitosamente.",
+            "deleted": len(movement_ids)
+        }
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 @router.get("/cobranzas")
 def get_cobranzas(
     codcia: Optional[str] = None,
@@ -320,6 +399,7 @@ def get_cobranzas(
             LEFT JOIN CcbICaja c ON m.CodCia = c.codcia
                 AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
             WHERE m.anos = ? AND m.mes = ?
+              AND (m.FlgEst IS NULL OR m.FlgEst <> 'E')
         """
         params = [year, month.zfill(2)]
 
@@ -394,6 +474,7 @@ def auto_match(request: AutoMatchRequest):
                 FROM CcbMVtos
                 WHERE LTRIM(RTRIM(NroDep)) = ?
                   AND NroDep IS NOT NULL AND LTRIM(RTRIM(NroDep)) <> ''
+                  AND (FlgEst IS NULL OR FlgEst <> 'E')
                   AND NOT EXISTS (
                       SELECT 1 FROM ReconciliationDetail rd
                       WHERE rd.MatchCodCia = CcbMVtos.CodCia
@@ -439,6 +520,39 @@ def auto_match(request: AutoMatchRequest):
     finally:
         conn.close()
 
+
+class OpManualUpdateRequest(BaseModel):
+    op_manual: str
+
+@router.put("/movimientos-banco/{mov_id}/op-manual")
+def update_op_manual(mov_id: int, request: OpManualUpdateRequest):
+    """Actualiza el campo OpManual y OpCancelacion asociado a un movimiento bancario."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        
+        # Check if exists and is not matched
+        cursor.execute("SELECT Estado FROM BankMovements WHERE Id = ?", (mov_id,))
+        mov = cursor.fetchone()
+        if not mov:
+            raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+        
+        # Update both OpManual and OpCancelacion
+        cursor.execute("""
+            UPDATE BankMovements
+            SET OpManual = ?, OpCancelacion = ?
+            WHERE Id = ?
+        """, (request.op_manual, request.op_manual, mov_id))
+        
+        conn.commit()
+        return {"status": "success", "message": "OpManual actualizado correctamente."}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
 
 @router.post("/manual-match")
 def manual_match(request: ManualMatchRequest):
@@ -698,6 +812,8 @@ def get_todas_cobranzas(
             where_clauses.append("m.CodCia = ?")
             params.append(codcia)
             
+        where_clauses.append("(m.FlgEst IS NULL OR m.FlgEst <> 'E')")
+            
         where_str = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
         # Query enriquecida para el reporte (Refinada con Joins a Bancos, POS y Documentos)
@@ -733,7 +849,7 @@ def get_todas_cobranzas(
                 c.nombco as CuentaNombre,
                 rd.Id as MatchId,
                 rd.BankMovementId as BankId,
-                CASE WHEN rd.Id IS NOT NULL THEN 1 ELSE 0 END as Conciliado,
+                CASE WHEN (rd.Id IS NOT NULL OR m.FlgEst = 'C') THEN 1 ELSE 0 END as IsConciliado,
                 -- Buscar el nombre de la cuenta o POS
                 ISNULL(p.DESTARJ, t.Nombre) as GroupName,
                 -- Buscar la fecha original del documento (CcbRGdoc)
@@ -836,7 +952,7 @@ def get_todas_cobranzas(
                 "CodCom": (r.get('CodCom') or '').strip(),
                 "MatchId": r['MatchId'],
                 "BankId": r['BankId'],
-                "Conciliado": bool(r['Conciliado'])
+                "Conciliado": r['IsConciliado'] == 1
             })
             
         return enriched
@@ -889,19 +1005,23 @@ def get_match_details(match_id: int):
                 "MatchType": detail['MatchType']
             },
             "cobranza": {
-                "CodCia": (cobranza['CodCia'] or '').strip() if cobranza else '',
-                "NroDoc": (cobranza['nrodoc'] or '').strip() if cobranza else '',
-                "Fecha": cobranza['fchdoc'] if cobranza else None,
-                "Importe": float(cobranza['import'] or 0) if cobranza else 0,
-                "RazonSocial": (cobranza['NomAux'] or '').strip() if cobranza else '',
-                "Cuenta": (cobranza['CuentaNombre'] or '').strip() if cobranza else ''
+                "CodCia": (cobranza.get('CodCia') or '').strip() if cobranza else '',
+                "NroDoc": (cobranza.get('nrodoc') or '').strip() if cobranza else '',
+                "Fecha": cobranza.get('fchdoc') if cobranza else None,
+                "Importe": float(cobranza.get('import') or 0) if cobranza else 0,
+                "RazonSocial": (cobranza.get('NomAux') or '').strip() if cobranza else '',
+                "Cuenta": (cobranza.get('CuentaNombre') or '').strip() if cobranza else '',
+                "CodRef": (cobranza.get('codref') or '').strip() if cobranza else '',
+                "NroRef": (cobranza.get('nroref') or '').strip() if cobranza else '',
+                "NomVen": (cobranza.get('nomven') or '').strip() if cobranza else '',
+                "Usuario": (cobranza.get('usuario') or '').strip() if cobranza else ''
             },
             "banco": {
-                "Id": banco['Id'] if banco else None,
-                "Fecha": banco['Fecha'] if banco else None,
-                "Descripcion": (banco['DescripcionFinal'] or banco['Descripcion'] or '').strip() if banco else '',
-                "Monto": float(banco['Monto'] or 0) if banco else 0,
-                "Operacion": (banco['OperacionNumero'] or '').strip() if banco else ''
+                "Id": banco.get('Id') if banco else None,
+                "Fecha": banco.get('Fecha') if banco else None,
+                "Descripcion": (banco.get('DescripcionFinal') or banco.get('Descripcion') or '').strip() if banco else '',
+                "Monto": float(banco.get('Monto') or 0) if banco else 0,
+                "Operacion": (banco.get('OperacionNumero') or '').strip() if banco else ''
             }
         }
     except Exception as e:
