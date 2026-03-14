@@ -668,6 +668,18 @@ async function loadAllCobranzas() {
                 <td class="amount">${parseFloat(c.MontoOC || 0).toFixed(2)}</td>
                 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Glosa || ''}">${c.Glosa || ''}</td>
                 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Concepto || ''}">${c.Concepto || ''}</td>
+                <td>${c.codaux || ''}</td>
+                <td>${c.NomAux || ''}</td>
+                <td>${c.codven || ''}</td>
+                <td>${c.nomven || ''}</td>
+                <td>${c.codref || ''}</td>
+                <td>${c.nroref || ''}</td>
+                <td>${c.usuario || ''}</td>
+                <td>${c.FlgEst || ''}</td>
+                <td>${c.CodDep || ''}</td>
+                <td>${c.tpopgo || ''}</td>
+                <td>${c.Dcmpgo || ''}</td>
+                <td>${c.CodCom || ''}</td>
                 <td><span class="status ${c.Conciliado ? 'conciliado' : 'pendiente'}">${c.Conciliado ? 'CONCILIADO' : 'PENDIENTE'}</span></td>
             `;
             tbody.appendChild(tr);
@@ -734,13 +746,21 @@ async function openReport(cajaId = null) {
         const box = boxes[boxKey];
         const fechaCaja = box.fecha ? new Date(box.fecha).toLocaleDateString() : '---';
         
+        const allMatched = box.items.length > 0 && box.items.every(i => i.Conciliado);
+        const matchStatusBadge = allMatched ? 
+            `<span style="background:#10b981; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">✓ CAJA CONCILIADA TOTALMENTE</span>` : 
+            `<span style="background:#f59e0b; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">⏳ CAJA PENDIENTE</span>`;
+
         html += `
             <div class="report-header" style="page-break-before: always; color: black; background: white; padding: 20px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <div style="font-size: 1rem; font-weight: 600;">${empresaNombre}</div>
                     <div style="font-size: 0.85rem;">${now}</div>
                 </div>
-                <div class="title" style="text-align:center; font-size:1.4rem; font-weight:bold; margin-bottom:1.5rem; text-transform: uppercase;">Cancelacion de Documentos</div>
+                <div class="title" style="text-align:center; font-size:1.4rem; font-weight:bold; margin-bottom:1.5rem; text-transform: uppercase;">
+                    Cancelacion de Documentos
+                    <div style="margin-top:10px;">${matchStatusBadge}</div>
+                </div>
                 <div style="display:flex; justify-content:space-between; font-size: 0.9rem; border-bottom:1px solid #000; padding-bottom:10px; margin-bottom:15px;">
                     <div>N° Caja: <b style="margin-left:5px;">${boxKey}</b></div>
                     <div>Fecha de Caja: <b style="margin-left:5px;">${fechaCaja}</b></div>
@@ -762,6 +782,7 @@ async function openReport(cajaId = null) {
                         <th style="text-align:center; padding:4px 2px;">MON.</th>
                         <th style="text-align:right; padding:4px 2px;">SOLES</th>
                         <th style="text-align:right; padding:4px 2px;">DOLARES</th>
+                        <th style="text-align:center; padding:4px 2px;">ESTADO</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -789,7 +810,7 @@ async function openReport(cajaId = null) {
                 html += `
                     <tr>
                         <td colspan="4" style="padding-top:15px; font-weight:bold; font-size:0.8rem; letter-spacing:0.5px; text-transform:uppercase;">${jt}</td>
-                        <td colspan="6" style="padding-top:15px; font-weight:bold; font-size:0.8rem;">Cuenta: ${groupName}</td>
+                        <td colspan="7" style="padding-top:15px; font-weight:bold; font-size:0.8rem;">Cuenta: ${groupName}</td>
                     </tr>
                 `;
 
@@ -813,6 +834,13 @@ async function openReport(cajaId = null) {
                             <td style="padding:2px 2px; text-align:center;">${soles > 0 ? 'S/.' : (dolares > 0 ? '$' : 'S/.')}</td>
                             <td style="text-align:right; padding:2px 2px;">${soles > 0 ? soles.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
                             <td style="text-align:right; padding:2px 2px;">${dolares > 0 ? dolares.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
+                            <td style="text-align:center; padding:2px 2px;">
+                                ${item.Conciliado ? 
+                                    `<span style="color:#10b981; font-weight:bold; font-size:0.75rem; vertical-align:middle;">✓</span>
+                                     <button onclick="showMatchDetails('${item.Suc}|${item.SerieDoc}|${item.NroDoc}|${item.Correlat}', 'cob')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.75rem; margin-left:4px; vertical-align:middle;" title="Ver Conciliación">👁</button>` : 
+                                    `<span style="color:#f59e0b; font-size:0.7rem; vertical-align:middle;">⏳ Pend.</span>`
+                                }
+                            </td>
                         </tr>
                     `;
                 });
@@ -825,6 +853,7 @@ async function openReport(cajaId = null) {
                         <td colspan="8" style="text-align:right; padding:4px 8px;">SUB TOTAL:</td>
                         <td style="text-align:right; padding:4px 2px; border-top: 1px solid #000;">${subTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                         <td style="text-align:right; padding:4px 2px; border-top: 1px solid #000;">${subTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        <td></td>
                     </tr>
                 `;
             });
@@ -835,6 +864,7 @@ async function openReport(cajaId = null) {
                     <td colspan="8" style="text-align:right; padding:8px;">TOTAL GRAL.:</td>
                     <td style="text-align:right; padding:8px;">${boxTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                     <td style="text-align:right; padding:8px;">${boxTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                    <td></td>
                 </tr>
             </tbody>
         </table>
@@ -865,40 +895,40 @@ async function viewItemDetails(c) {
             const tbody = document.getElementById('tbodyMatchDetails');
             tbody.innerHTML = `
                 <tr>
-                    <td style="padding:0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <div style="font-weight:600; color:var(--primary);">DOCUMENTO (Sistema)</div>
-                        <div style="font-size:0.8rem; opacity:0.7;">${data.cobranza.CodCia} - ${data.cobranza.NroDoc}</div>
+                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0;">
+                        <div style="font-weight:600; color:#2563eb;">DOCUMENTO (Sistema)</div>
+                        <div style="font-size:0.8rem; color:#64748b;">${data.cobranza.CodCia} - ${data.cobranza.NroDoc}</div>
                     </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; color:#334155;">
                         <div>${data.cobranza.RazonSocial}</div>
-                        <div style="font-size:0.8rem; opacity:0.6;">${data.cobranza.Cuenta}</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">${data.cobranza.Cuenta}</div>
                     </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; color:#334155;">
                         ${data.cobranza.Fecha ? new Date(data.cobranza.Fecha).toLocaleDateString() : '---'}
                     </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); text-align:right; font-weight:600;">
+                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; text-align:right; font-weight:600; color:#1e293b;">
                         ${data.cobranza.Importe.toLocaleString('es-PE', {minimumFractionDigits:2})}
                     </td>
-                    <td style="padding:0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); text-align:center;">
-                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:rgba(37,99,235,0.2); color:var(--primary);">COBRANZA</span>
+                    <td style="padding:0.75rem; border-bottom: 1px solid #e2e8f0; text-align:center;">
+                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:#eff6ff; color:#2563eb;">COBRANZA</span>
                     </td>
                 </tr>
                 <tr>
                     <td style="padding:0.75rem;">
                         <div style="font-weight:600; color:#10b981;">OPERACIÓN (Banco)</div>
-                        <div style="font-size:0.8rem; opacity:0.7;">${data.banco.Operacion}</div>
+                        <div style="font-size:0.8rem; color:#64748b;">${data.banco.Operacion}</div>
                     </td>
-                    <td style="padding:0.75rem;">
+                    <td style="padding:0.75rem; color:#334155;">
                         <div>${data.banco.Descripcion}</div>
                     </td>
-                    <td style="padding:0.75rem;">
+                    <td style="padding:0.75rem; color:#334155;">
                         ${data.banco.Fecha ? new Date(data.banco.Fecha).toLocaleDateString() : '---'}
                     </td>
-                    <td style="padding:0.75rem; text-align:right; font-weight:600;">
+                    <td style="padding:0.75rem; text-align:right; font-weight:600; color:#1e293b;">
                         ${data.banco.Monto.toLocaleString('es-PE', {minimumFractionDigits:2})}
                     </td>
                     <td style="padding:0.75rem; text-align:center;">
-                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#10b981;">BANCO</span>
+                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:#ecfdf5; color:#10b981;">BANCO</span>
                     </td>
                 </tr>
             `;
@@ -948,6 +978,7 @@ async function loadMovimientosBanco() {
             const isMatched = c.Estado === 'Conciliado';
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td>${c.Id || ''}</td>
                 <td>${c.Fecha || ''}</td>
                 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Descripcion || ''}">${c.Descripcion || ''}</td>
                 <td class="amount ${parseFloat(c.Monto || 0) < 0 ? 'negative' : 'positive'}">${parseFloat(c.Monto || 0).toFixed(2)}</td>

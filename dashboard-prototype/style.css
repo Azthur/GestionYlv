@@ -553,15 +553,18 @@ h6 {
 }
 
 .data-table th,
-.data-table td {
-    padding: 0.75rem 1.25rem;
+.data-table td,
+.report-table th,
+.report-table td {
+    padding: 0.4rem 0.75rem; /* Compact padding for operational density */
     text-align: left;
     border-bottom: 1px solid var(--border);
-    font-size: 0.8125rem;
+    font-size: 0.75rem; /* Slightly smaller for density */
     white-space: nowrap;
 }
 
-.data-table th {
+.data-table th,
+.report-table th {
     font-size: 0.6875rem;
     color: var(--text-muted);
     font-weight: 600;
@@ -570,17 +573,27 @@ h6 {
     background: var(--bg-thead);
     position: sticky;
     top: 0;
+    z-index: 10;
 }
 
-.data-table tbody tr {
+.data-table tbody tr,
+.report-table tbody tr {
     transition: background-color 0.1s;
 }
 
-.data-table tbody tr:hover {
+/* Zebra Striping */
+.data-table tbody tr:nth-child(even),
+.report-table tbody tr:nth-child(even) {
     background-color: #F8FAFC;
 }
 
-.data-table tbody tr:last-child td {
+.data-table tbody tr:hover,
+.report-table tbody tr:hover {
+    background-color: #E2E8F0;
+}
+
+.data-table tbody tr:last-child td,
+.report-table tbody tr:last-child td {
     border-bottom: none;
 }
 

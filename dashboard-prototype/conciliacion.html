@@ -7,8 +7,8 @@
     <title>YELAVE - Conciliación Bancaria</title>
     <meta name="description" content="Módulo de Conciliación Bancaria para Control Interno - YELAVE ERP">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=3.2">
-    <link rel="stylesheet" href="conciliacion.css?v=3.2">
+    <link rel="stylesheet" href="style.css?v=4.1">
+    <link rel="stylesheet" href="conciliacion.css?v=4.1">
     
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
@@ -405,11 +405,23 @@
                                         <th>Monto O.C.</th>
                                         <th>Glosa</th>
                                         <th>Concepto</th>
+                                        <th>CodAux</th>
+                                        <th>NomAux</th>
+                                        <th>CodVen</th>
+                                        <th>NomVen</th>
+                                        <th>CodRef</th>
+                                        <th>NroRef</th>
+                                        <th>Usuario</th>
+                                        <th>FlgEst</th>
+                                        <th>CodDep</th>
+                                        <th>TipoPago</th>
+                                        <th>DcmPago</th>
+                                        <th>CodCom</th>
                                         <th>Status Match</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbodyTodasCobranzas">
-                                    <tr><td colspan="21" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
+                                    <tr><td colspan="34" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -427,6 +439,7 @@
                             <table class="report-table" id="tableMovimientosBanco">
                                 <thead>
                                     <tr>
+                                        <th>ID Banco</th>
                                         <th>Fecha</th>
                                         <th>Descripción Original</th>
                                         <th>Monto</th>
@@ -484,7 +497,7 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <!-- Match Details Modal -->
-    <div class="modal fade-in" id="matchModal">
+    <div class="modal-overlay fade-in" id="matchModal">
         <div class="modal-content" style="max-width: 800px; background: var(--bg-card);">
             <div class="modal-header">
                 <h2>Detalles de la Conciliación (Match)</h2>
@@ -512,7 +525,7 @@
     </div>
 
     <!-- Rule Modal -->
-    <div class="modal fade-in" id="ruleModal">
+    <div class="modal-overlay fade-in" id="ruleModal">
         <div class="modal-content" style="max-width: 500px; background: var(--bg-card);">
             <div class="modal-header">
                 <h2>Nueva Regla de Limpieza</h2>
@@ -535,23 +548,22 @@
         </div>
     </div>
 
-    <!-- Match Details Modal (Ver Conciliados) -->
-    <div class="modal fade-in" id="matchDetailsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center;">
-        <div class="modal-content" style="max-width: 850px; width: 90%; background: var(--bg-card); border-radius:12px; border: 1px solid rgba(255,255,255,0.1); overflow:hidden;">
-            <div class="modal-header" style="padding: 1.25rem 1.5rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="margin:0; font-size:1.25rem; font-weight:600;">Detalles de Conciliación</h2>
-                <button class="btn-close" onclick="closeMatchDetailsModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+    <div id="matchDetailsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10001; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 850px; width: 90%; background: #ffffff; border-radius:12px; border: 1px solid #e2e8f0; overflow:hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); margin: auto;">
+            <div class="modal-header" style="padding: 1.25rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0; font-size:1.25rem; font-weight:600; color:#1e293b;">Detalles de Conciliación</h2>
+                <button class="btn-close" onclick="closeMatchDetailsModal()" style="background:none; border:none; color:#64748b; font-size:1.5rem; cursor:pointer;">&times;</button>
             </div>
             <div class="modal-body" style="padding: 1.5rem;">
                 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table style="width:100%; border-collapse:collapse; font-size: 0.9rem;">
-                        <thead style="position:sticky; top:0; background:var(--bg-card); z-index:10;">
-                            <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
-                                <th style="text-align:left; padding:0.75rem;">Documento / Operación</th>
-                                <th style="text-align:left; padding:0.75rem;">Descripción / Cliente</th>
-                                <th style="text-align:left; padding:0.75rem;">Fecha</th>
-                                <th style="text-align:right; padding:0.75rem;">Monto</th>
-                                <th style="text-align:center; padding:0.75rem;">Origen</th>
+                    <table style="width:100%; border-collapse:collapse; font-size: 0.85rem; color:#334155;">
+                        <thead style="position:sticky; top:0; background:#f8fafc; z-index:10;">
+                            <tr style="border-bottom: 2px solid #e2e8f0;">
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Documento / Operación</th>
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Descripción / Cliente</th>
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Fecha</th>
+                                <th style="text-align:right; padding:0.75rem; color:#64748b;">Monto</th>
+                                <th style="text-align:center; padding:0.75rem; color:#64748b;">Origen</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyMatchDetails">
@@ -560,14 +572,14 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="padding: 1.25rem 1.5rem; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.1); text-align:right;">
-                <button class="btn btn-secondary" onclick="closeMatchDetailsModal()" style="padding:0.6rem 1.2rem; border-radius:8px; background:rgba(255,255,255,0.1); color:white; border:none; cursor:pointer;">Cerrar</button>
+            <div class="modal-footer" style="padding: 1.25rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align:right;">
+                <button class="btn btn-secondary" onclick="closeMatchDetailsModal()" style="padding:0.6rem 1.2rem; border-radius:8px; background:#e2e8f0; color:#334155; border:none; cursor:pointer;">Cerrar</button>
             </div>
         </div>
     </div>
 
     <!-- Report Preview Modal -->
-    <div class="modal fade-in" id="reportModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center; overflow-y: auto;">
+    <div id="reportModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10000; align-items:center; justify-content:center; overflow-y: auto;">
         <div class="modal-content" style="max-width: 1200px; width: 95%; background: white; color: #1e293b; border-radius: 12px; margin: 2rem auto; position: relative;">
             <div class="modal-header" style="padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                 <h2 style="margin:0; font-size:1.25rem; font-weight:600; color: #1e293b;">Vista Previa de Reporte</h2>
@@ -595,7 +607,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 
-    <script src="conciliacion.js?v=3.2"></script>
+    <script src="conciliacion.js?v=4.1"></script>
 </body>
 
 </html>
