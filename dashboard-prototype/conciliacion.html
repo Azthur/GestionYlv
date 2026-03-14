@@ -7,8 +7,8 @@
     <title>YELAVE - Conciliación Bancaria</title>
     <meta name="description" content="Módulo de Conciliación Bancaria para Control Interno - YELAVE ERP">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=4.1">
-    <link rel="stylesheet" href="conciliacion.css?v=4.1">
+    <link rel="stylesheet" href="style.css?v=4.2">
+    <link rel="stylesheet" href="conciliacion.css?v=4.2">
     
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
@@ -363,28 +363,39 @@
                 <!-- TAB 2: Todas las Cobranzas -->
                 <div class="tab-content fade-in" id="tab-todas">
                     <div class="card table-container glass-panel">
-                        <div class="table-header">
+                        <div class="table-header" style="flex-wrap: wrap; gap: 0.5rem;">
                             <h3>Cancelación de Documentos (Cobranzas)</h3>
-                            <div style="display: flex; gap: 0.75rem;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <!-- Filter Buttons -->
+                                <div class="btn-group" style="display:flex; gap:2px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
+                                    <button class="btn-filter active" data-filter="todos" onclick="filterCobranzas('todos', this)">Todos</button>
+                                    <button class="btn-filter" data-filter="pendiente" onclick="filterCobranzas('pendiente', this)">Pendientes</button>
+                                    <button class="btn-filter" data-filter="conciliado" onclick="filterCobranzas('conciliado', this)">Conciliados</button>
+                                </div>
+                                <!-- Cross-Company Toggle -->
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer; padding:0.4rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:#fff;">
+                                    <input type="checkbox" id="chkCrossCompanyTodas" onchange="loadAllCobranzas()" style="accent-color:var(--primary);">
+                                    Cross-Company
+                                </label>
                                 <button class="btn btn-outline" onclick="openReport()">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                        <circle cx="12" cy="12" r="3"></circle>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
                                     </svg>
-                                    Visualizar Reporte
+                                    Ver Reporte
                                 </button>
                                 <button class="btn btn-primary" onclick="exportToExcel('tableTodasCobranzas', 'Reporte_Cobranzas')">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                                    Exportar a Excel
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                    Exportar Excel
                                 </button>
                             </div>
                         </div>
                         <div class="table-responsive custom-scrollbar" style="max-height: 600px; overflow-y: auto;">
-                            <!-- The 21-column table -->
                             <table class="data-table" id="tableTodasCobranzas">
                                 <thead>
                                     <tr>
                                         <th style="width: 40px;">Ver</th>
+                                        <th style="width: 40px;">Match</th>
                                         <th>ID</th>
                                         <th>Num Compte</th>
                                         <th>Fecha Efe.</th>
@@ -607,7 +618,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 
-    <script src="conciliacion.js?v=4.1"></script>
+    <script src="conciliacion.js?v=4.2"></script>
 </body>
 
 </html>

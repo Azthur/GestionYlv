@@ -640,13 +640,25 @@ async function loadAllCobranzas() {
         data.forEach(c => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>
-                    <button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(c)})' title="Ver detalles">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
+                <td class="sticky-col">
+                    <button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(c)})' title="Ver Reporte de Caja">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
                         </svg>
                     </button>
+                </td>
+                <td>
+                    ${c.Conciliado && c.MatchId ? 
+                        `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify({...c, _showMatch: true})})' title="Ver match bancario" style="color: var(--success); border-color: var(--success);">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+                                <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+                                <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
+                            </svg>
+                        </button>` : 
+                        `<span style="color:var(--text-muted); font-size:0.7rem;">—</span>`
+                    }
                 </td>
                 <td>${c.id || ''}</td>
                 <td>${c.NumCompte || ''}</td>
@@ -690,7 +702,8 @@ async function loadAllCobranzas() {
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
                 },
-                dom: 'Bfrtip',
+                dom: '<"dt-top"lfB>rtip',
+                scrollX: true,
                 buttons: [
                     {
                         extend: 'excelHtml5',
@@ -699,12 +712,30 @@ async function loadAllCobranzas() {
                     }
                 ],
                 pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
                 destroy: true
             });
         }
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="21" class="loading-state empty-state" style="color:var(--danger)">Error al cargar datos. Verifique la conexión al servidor.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="35" class="loading-state empty-state" style="color:var(--danger)">Error al cargar datos. Verifique la conexión al servidor.</td></tr>';
+    }
+}
+
+// Filter cobranzas by conciliation status
+function filterCobranzas(filter, btn) {
+    // Toggle active button
+    document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    
+    if (!dtCobranzas) return;
+    
+    if (filter === 'todos') {
+        dtCobranzas.search('').draw();
+    } else if (filter === 'pendiente') {
+        dtCobranzas.search('PENDIENTE').draw();
+    } else if (filter === 'conciliado') {
+        dtCobranzas.search('CONCILIADO').draw();
     }
 }
 
@@ -1003,7 +1034,8 @@ async function loadMovimientosBanco() {
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
                 },
-                dom: 'Bfrtip',
+                dom: '<"dt-top"lfB>rtip',
+                scrollX: true,
                 buttons: [
                     {
                         extend: 'excelHtml5',
@@ -1012,6 +1044,7 @@ async function loadMovimientosBanco() {
                     }
                 ],
                 pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
                 destroy: true
             });
         }

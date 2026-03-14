@@ -745,8 +745,12 @@ def get_todas_cobranzas(
                 AND rd.MatchCoddoc = m.coddoc 
                 AND rd.MatchNrodoc = m.nrodoc 
                 AND rd.MatchNroitm = m.nroitm
-            -- Join con Bancos
-            LEFT JOIN CcbTabla t ON RTRIM(m.CodDep) = RTRIM(t.Codigo) AND t.Tabla = '0001'
+            -- Join con Bancos (OUTER APPLY TOP 1 to prevent row multiplication)
+            OUTER APPLY (
+                SELECT TOP 1 t2.Nombre 
+                FROM CcbTabla t2 
+                WHERE RTRIM(m.CodDep) = RTRIM(t2.Codigo) AND t2.Tabla = '0001'
+            ) t
             -- Join con POS
             LEFT JOIN POSTARJE p ON RTRIM(m.CodDep) = RTRIM(p.codtarj)
             -- Join con Cabecera de Documento usando los campos de referencia
