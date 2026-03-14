@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>YELAVE ERP | Iniciar Sesión</title>
+
+    <!-- Fonts -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="login.css">
+
+</head>
+
+<body>
+
+    <div class="login-container">
+
+        <div class="login-card">
+
+            <div class="login-header">
+
+                <div class="logo">
+
+                    <span class="logo-icon"><i class="ri-drop-fill"></i></span>
+
+                    <span class="logo-text">YELAVE</span>
+
+                </div>
+
+                <h2>Bienvenido</h2>
+
+                <p>Ingresa tus credenciales corporativas para continuar</p>
+
+            </div>
+
+            <form id="loginForm" class="login-form">
+
+                <div id="errorMessage" class="error-message" style="display: none;">
+
+                    <i class="ri-error-warning-line"></i>
+
+                    <span id="errorText">Usuario o contraseña incorrectos.</span>
+
+                </div>
+
+                <div class="form-group">
+
+                    <label for="username">Usuario</label>
+
+                    <div class="input-wrapper">
+
+                        <i class="ri-user-line"></i>
+
+                        <input type="text" id="username" name="username" placeholder="••••••••" required
+
+                            autocomplete="username">
+
+                    </div>
+
+                </div>
+
+                <div class="form-group">
+
+                    <label for="password">Contraseña</label>
+
+                    <div class="input-wrapper">
+
+                        <i class="ri-lock-line"></i>
+
+                        <input type="password" id="password" name="password" placeholder="••••••••" required
+
+                            autocomplete="current-password">
+
+                        <button type="button" id="togglePassword" class="icon-button" aria-label="Mostrar contraseña">
+
+                            <i class="ri-eye-line"></i>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <button type="submit" id="submitBtn" class="submit-btn">
+
+                    <span class="btn-text">Iniciar Sesión</span>
+
+                    <span class="btn-loader" style="display: none;"><i class="ri-loader-4-line ri-spin"></i></span>
+
+                </button>
+
+            </form>
+
+            <div class="login-footer">
+
+                <p>¿Problemas para ingresar? Contacta a <a href="mailto:asistente.gerencia@yelavenature.com">soporte
+
+                        IT</a>.</p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="login.js"></script>
+
+</body>
+
+</html>
+

@@ -1,0 +1,564 @@
+ï»¿<!DOCTYPE html>
+
+<html lang="es">
+
+
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>YELAVE - Gestión de Usuarios</title>
+
+    <!-- Corporate SaaS Fonts -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+
+        .badge {
+
+            padding: 0.25rem 0.6rem;
+
+            border-radius: 9999px;
+
+            font-size: 0.75rem;
+
+            font-weight: 500;
+
+        }
+
+
+
+        .badge.active {
+
+            background-color: #ECFDF5;
+
+            color: var(--success);
+
+        }
+
+
+
+        .badge.inactive {
+
+            background-color: #FEF2F2;
+
+            color: var(--danger);
+
+        }
+
+
+
+        .badge.admin {
+
+            background-color: #EFF6FF;
+
+            color: var(--primary);
+
+        }
+
+
+
+        .badge.user {
+
+            background-color: #F3F4F6;
+
+            color: var(--text-secondary);
+
+        }
+
+
+
+        /* Modal Styles */
+
+        .modal {
+
+            max-width: 500px;
+
+        }
+
+    </style>
+
+</head>
+
+
+
+<body>
+
+    <div class="app-container">
+
+        <!-- Overlay -->
+
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+
+
+        <!-- Sidebar -->
+
+        <aside class="sidebar" id="sidebar">
+
+            <div class="brand">
+
+                <h1>YELAVE</h1>
+
+                <span>Skincare</span>
+
+            </div>
+
+            
+
+            <nav class="nav-menu">
+
+                <a href="/index.html" class="nav-item">
+
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                        <rect x="3" y="3" width="7" height="7"></rect>
+
+                        <rect x="14" y="3" width="7" height="7"></rect>
+
+                        <rect x="14" y="14" width="7" height="7"></rect>
+
+                        <rect x="3" y="14" width="7" height="7"></rect>
+
+                    </svg>
+
+                    Dashboard
+
+                </a>
+
+                <a href="/index.html" class="nav-item">
+
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                        <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-3.5-3.5A2 2 0 0 0 17 4h-2V2H9v2H7a2 2 0 0 0-1.5.5L2 8v12z"></path>
+
+                    </svg>
+
+                    Producción (DIGEMID)
+
+                </a>
+
+                
+
+                <div class="nav-group">
+
+                    <div class="nav-group-label" style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">Finanzas</div>
+
+                    <a href="/conciliacion.html" class="nav-item">
+
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                            <path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l4.58-4.58a1 1 0 0 0 0-1.42L9 5z"></path>
+
+                            <circle cx="6" cy="9" r="1"></circle>
+
+                        </svg>
+
+                        Conciliación Bancaria
+
+                    </a>
+
+                </div>
+
+                
+
+                <div class="nav-group admin-only" style="margin-top: auto; display: none;">
+
+                    <div class="nav-group-label" style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">Sistema</div>
+
+                    <a href="/users.html" class="nav-item active">
+
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+
+                            <circle cx="9" cy="7" r="4"></circle>
+
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+
+                        </svg>
+
+                        Gestión de Usuarios
+
+                    </a>
+
+                    <a href="/db-config.html" class="nav-item">
+
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                            <circle cx="12" cy="12" r="3"></circle>
+
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+
+                        </svg>
+
+                        Base de Datos
+
+                    </a>
+
+                </div>
+
+            </nav>
+
+
+
+            <div class="user-profile">
+
+                <div class="avatar">
+
+                    <img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" alt="User Avatar" id="userAvatar">
+
+                </div>
+
+                <div class="user-info">
+
+                    <span class="user-name" id="userNameDisplay">Usuario</span>
+
+                    <span class="user-role" id="userRoleDisplay">Cargando...</span>
+
+                </div>
+
+                <button onclick="logout()" title="Cerrar sesiÑÂ³n" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;margin-left:auto;">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+
+                        <polyline points="16 17 21 12 16 7"></polyline>
+
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- Main Content -->
+
+        <main class="main-content">
+
+            <header class="top-bar">
+
+                <div class="top-bar-left">
+
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+
+                        </svg>
+
+                    </button>
+
+                    <div>
+
+                        <h2>Gestión de Usuarios</h2>
+
+                        <p style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-top: 0.15rem;">Sistema corporativo</p>
+
+                    </div>
+
+                </div>
+
+                <div class="actions">
+
+                    <button class="btn btn-primary" onclick="loadUsers()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+
+                            <polyline points="23 4 23 10 17 10"></polyline>
+
+                            <polyline points="1 20 1 14 7 14"></polyline>
+
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+
+                        </svg>
+
+                        Refrescar
+
+                    </button>
+
+                </div>
+
+            </header>
+
+
+
+            <section class="content fade-in">
+
+                <div class="card table-container glass-panel">
+
+                    <div class="table-header">
+
+                        <h3>Directorio de Usuarios Web y ERP</h3>
+
+                    </div>
+
+                    <div class="table-responsive">
+
+                        <table class="data-table">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>Usuario ERP</th>
+
+                                    <th>Nombre (Web)</th>
+
+                                    <th>Correo ElectrÑÂ³nico</th>
+
+                                    <th>Celular</th>
+
+                                    <th>Rol (Web)</th>
+
+                                    <th>Acceso Web</th>
+
+                                    <th>Acciones</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="users-tbody">
+
+                                <tr>
+
+                                    <td colspan="7" class="loading-state">Cargando directorio...</td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+
+    <!-- Modals -->
+
+    <!-- Modal: Edit Profile -->
+
+    <div class="modal-overlay" id="editModal">
+
+        <div class="modal glass-modal">
+
+            <div class="modal-header">
+
+                <h3 id="editModalTitle">Editar Usuario</h3>
+
+                <button class="close-btn" onclick="closeEditModal()">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <form id="editUserForm" class="elegant-form">
+
+                    <input type="hidden" id="editLoginId" />
+
+                    
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Nombre Completo</label>
+
+                            <input type="text" id="editNombre" required />
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Correo ElectrÑÂ³nico</label>
+
+                            <input type="email" id="editCorreo" placeholder="usuario@yelave.local" />
+
+                        </div>
+
+                        <div class="col">
+
+                            <label>Celular</label>
+
+                            <input type="text" id="editCelular" placeholder="999..." />
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Rol en el Sistema Web</label>
+
+                            <div class="select-wrapper">
+
+                                <select id="editRol">
+
+                                    <option value="USER">Usuario EstÑ¡ndar (USER)</option>
+
+                                    <option value="ADMIN">Administrador (ADMIN)</option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col" style="display:flex; align-items:center; margin-top:1.5rem;">
+
+                            <label class="checkbox-label" style="margin-bottom:0;">
+
+                                <input type="checkbox" id="editActivo">
+
+                                <span class="checkmark"></span>
+
+                                Cuenta Web Activa
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-outline" onclick="closeEditModal()">Cancelar</button>
+
+                <button class="btn btn-primary" onclick="submitUserEdit()">Guardar Cambios</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Modal: Reset Password -->
+
+    <div class="modal-overlay" id="pwdModal">
+
+        <div class="modal glass-modal">
+
+            <div class="modal-header">
+
+                <h3>Restablecer ContraseÑÂ±a ERP/Web</h3>
+
+                <button class="close-btn" onclick="closePwdModal()">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">
+
+                    Al restablecer esta contraseÑÂ±a se afectarÑ¡ el acceso a esta plataforma web y al ERP legajo de FoxPro simultÑ¡neamente para el usuario <strong id="resetPwdUsername"></strong>.
+
+                </p>
+
+                <form id="pwdForm" class="elegant-form">
+
+                    <input type="hidden" id="pwdLoginId" />
+
+                    
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Nueva ContraseÑÂ±a</label>
+
+                            <input type="text" id="newPwdValue" required autocomplete="off" placeholder="P.ej: ADMIN2024" />
+
+                            <small style="color:var(--text-muted); font-size:0.75rem; display:block; margin-top:4px;">Nota: SerÑ¡ encriptada mediante algoritmo nativo.</small>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-outline" onclick="closePwdModal()">Cancelar</button>
+
+                <button class="btn btn-primary" onclick="submitPasswordReset()" style="background:var(--danger)">Confirmar Restablecimiento</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <script src="users.js"></script>
+
+</body>
+
+</html>
+
+
+
+
+

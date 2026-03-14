@@ -1,3 +1,37 @@
+// Auth Guard y Manejo de Sesión
+function checkAuth() {
+    const token = localStorage.getItem('yelave_token');
+    if (!token) {
+        window.location.href = 'login.html';
+        return null;
+    }
+    
+    try {
+        const user = JSON.parse(localStorage.getItem('yelave_user'));
+        return user;
+    } catch (e) {
+        window.location.href = 'login.html';
+        return null;
+    }
+}
+
+function renderUserInfo(user) {
+    if (!user) return;
+    const nameEl = document.getElementById('userNameDisplay');
+    const roleEl = document.getElementById('userRoleDisplay');
+    const avatarEl = document.getElementById('userAvatar');
+    
+    if (nameEl) nameEl.textContent = user.nombre || user.login;
+    if (roleEl) roleEl.textContent = user.rol === 'ADMIN' ? 'Administrador' : 'Usuario';
+    if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
+}
+
+function logout() {
+    localStorage.removeItem('yelave_token');
+    localStorage.removeItem('yelave_user');
+    window.location.href = 'login.html';
+}
+
 // Interacciones Menu Movil
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -75,5 +109,9 @@ async function loadProductionOrders() {
 
 // Inicializar al cargar la página
 document.addEventListener('DOMContentLoaded', () => {
-    loadProductionOrders();
+    const user = checkAuth();
+    if (user) {
+        renderUserInfo(user);
+        loadProductionOrders(localStorage.getItem('yelave_token'));
+    }
 });

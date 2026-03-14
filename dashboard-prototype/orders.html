@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Órdenes de Compra</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <style>
+        /* ─── Filter Bar ─── */
+        .filter-bar {
+            display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+            background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 0.35rem; min-width: 150px; }
+        .filter-group label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-group select, .filter-group input {
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+            background: #FFFFFF; font-family: var(--font); font-size: 0.8125rem; color: var(--text-secondary);
+        }
+        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+        /* ─── Badges ─── */
+        .badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; display: inline-block; }
+        .badge.approved { background: #dcfce7; color: #166534; }
+        .badge.pending { background: #fef9c3; color: #854d0e; }
+        .badge.canceled { background: #fee2e2; color: #991b1b; }
+
+        /* ─── DataTable customization ─── */
+        .dataTables_wrapper { font-family: 'Inter', sans-serif; }
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+            padding: 0.4rem 0.75rem; font-size: 0.8125rem; font-family: 'Inter', sans-serif;
+        }
+        .dataTables_wrapper .dataTables_length select {
+            border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+            padding: 0.3rem 0.5rem; font-size: 0.8125rem;
+        }
+        .dataTables_wrapper .dataTables_info { font-size: 0.75rem; color: var(--text-muted); }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            border-radius: var(--radius-sm) !important; font-size: 0.8rem; padding: 0.3rem 0.65rem !important;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important;
+        }
+        table.dataTable thead th { background: #f1f5f9; color: #334155; font-size: 0.75rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #cbd5e1 !important; }
+        table.dataTable tbody td { font-size: 0.8125rem; padding: 0.65rem 0.75rem !important; vertical-align: middle; }
+        table.dataTable tbody tr:hover { background: #f0f7ff !important; }
+        table.dataTable { border-bottom: 1px solid #e2e8f0 !important; }
+        /* Export buttons */
+        .dt-buttons { margin-bottom: 0.75rem !important; }
+        .dt-buttons .dt-button {
+            background: #fff !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important;
+            padding: 0.4rem 0.85rem !important; font-size: 0.775rem !important; font-family: 'Inter', sans-serif !important;
+            color: #374151 !important; font-weight: 500 !important; transition: all 0.15s !important;
+        }
+        .dt-buttons .dt-button:hover {
+            background: #f1f5f9 !important; border-color: var(--primary) !important; color: var(--primary) !important;
+        }
+        .btn-ver-oc {
+            display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.7rem;
+            background: var(--primary); color: #fff; border: none; border-radius: 6px;
+            font-size: 0.725rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;
+            transition: background 0.15s;
+        }
+        .btn-ver-oc:hover { background: #1d4ed8; }
+
+        /* ─── Report Modal Styles ─── */
+        .report-header-band {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding-bottom: 1.25rem; margin-bottom: 1.25rem;
+            border-bottom: 3px solid #1e3a5f;
+        }
+        .report-company-info h2 { font-size: 1.15rem; font-weight: 700; color: #1e3a5f; margin: 0 0 0.15rem 0; }
+        .report-company-info p { font-size: 0.75rem; color: #6b7280; margin: 0; line-height: 1.4; }
+        .report-oc-badge {
+            text-align: right; background: #1e3a5f; color: #fff; padding: 0.75rem 1.25rem;
+            border-radius: 8px; min-width: 200px;
+        }
+        .report-oc-badge .oc-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
+        .report-oc-badge .oc-number { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; margin: 0.15rem 0; }
+        .report-oc-badge .oc-date { font-size: 0.85rem; font-weight: 400; opacity: 0.9; }
+        .report-supplier-box {
+            display: grid; grid-template-columns: 110px 1fr 110px 1fr; gap: 0.25rem 0.5rem;
+            font-size: 0.775rem; padding: 0.85rem 1rem; background: #f8fafc;
+            border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1.25rem;
+        }
+        .report-supplier-box .lbl { font-weight: 600; color: #64748b; }
+        .report-supplier-box .val { color: #0f172a; }
+        .report-supplier-box .val-full { color: #0f172a; grid-column: span 3; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 0.25rem; }
+        .report-table th {
+            background: #e2e8f0; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #334155; padding: 0.5rem;
+            border: 1px solid #cbd5e1; text-align: left;
+        }
+        .report-table td { border: 1px solid #e2e8f0; padding: 0.4rem 0.5rem; font-size: 0.775rem; vertical-align: top; }
+        .report-table tbody tr:nth-child(even) { background: #fafbfc; }
+        .report-table .note-row td { border-top: none; padding-top: 0.1rem; padding-bottom: 0.2rem; color: #6b7280; font-size: 0.7rem; }
+        .report-totals-box {
+            display: flex; justify-content: flex-end; margin-top: 0.75rem;
+        }
+        .report-totals-box table { border-collapse: collapse; min-width: 300px; }
+        .report-totals-box td { padding: 0.35rem 0.85rem; font-size: 0.825rem; }
+        .report-totals-box .row-total { font-weight: 700; font-size: 0.95rem; background: #f0f4f8; border-top: 2px solid #1e3a5f; }
+        .report-footer-dl { font-size: 0.775rem; margin-top: 1.25rem; display: grid; grid-template-columns: 140px 1fr; gap: 0.2rem 0.75rem; }
+        .report-footer-dl dt { font-weight: 600; color: #475569; }
+        .report-footer-dl dd { margin: 0; color: #1e293b; }
+        .report-disclaimer {
+            margin-top: 1.25rem; padding: 0.65rem 1rem; border: 1px solid #94a3b8;
+            border-radius: 6px; font-size: 0.7rem; text-align: center; color: #475569;
+            line-height: 1.6; background: #f8fafc;
+        }
+        .report-signatures {
+            display: flex; justify-content: space-between; margin-top: 2.5rem; padding-top: 0.5rem;
+        }
+        .report-signatures .sig-block { text-align: center; width: 28%; }
+        .report-signatures .sig-line {
+            border-top: 1.5px solid #334155; padding-top: 0.4rem;
+            font-size: 0.725rem; font-weight: 600; color: #334155;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #reportContent, #reportContent * { visibility: visible; }
+            #reportContent { position: absolute; left: 0; top: 0; width: 100%; padding: 12mm !important; font-size: 11pt !important; }
+            .report-oc-badge { background: #1e3a5f !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .report-table th { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .modal-overlay, .sidebar, .top-bar, .filter-bar, .modal-header, .close-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
+            <nav class="nav-menu">
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>Dashboard
+                </a>
+                <a href="/orders.html" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>Logística &amp; Compras
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-3.5-3.5A2 2 0 0 0 17 4h-2V2H9v2H7a2 2 0 0 0-1.5.5L2 8v12z"></path>
+                    </svg>Producción (DIGEMID)
+                </a>
+                <div class="nav-group">
+                    <div class="nav-group-label" style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">Finanzas</div>
+                    <a href="/conciliacion.html" class="nav-item">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l4.58-4.58a1 1 0 0 0 0-1.42L9 5z"></path>
+                            <circle cx="6" cy="9" r="1"></circle>
+                        </svg>Conciliación Bancaria
+                    </a>
+                </div>
+                <div class="nav-group admin-only" style="margin-top: auto; display: none;">
+                    <div class="nav-group-label" style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">Sistema</div>
+                    <a href="/users.html" class="nav-item">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>Gestión de Usuarios
+                    </a>
+                    <a href="/db-config.html" class="nav-item">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>Base de Datos
+                    </a>
+                </div>
+            </nav>
+            <div class="user-profile">
+                <a href="/profile.html" style="text-decoration:none; display:flex; align-items:center; gap:0.75rem; flex:1;">
+                    <div class="avatar"><img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" alt="User Avatar" id="userAvatar"></div>
+                    <div class="user-info">
+                        <span class="user-name" id="userNameDisplay">Usuario</span>
+                        <span class="user-role" id="userRoleDisplay">Cargando...</span>
+                    </div>
+                </a>
+                <button onclick="logout()" title="Cerrar sesión" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div>
+                        <h2>Órdenes de Compra</h2>
+                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística &amp; Compras · Control de Requerimientos</p>
+                    </div>
+                </div>
+            </header>
+
+            <section class="content fade-in">
+                <!-- Filter Bar -->
+                <div class="filter-bar">
+                    <div class="filter-group" style="flex: 2;">
+                        <label for="filterCia">Empresa</label>
+                        <select id="filterCia"><option value="">Cargando empresas...</option></select>
+                    </div>
+                    <div class="filter-group" style="flex: 1;">
+                        <label for="filterYear">Año</label>
+                        <select id="filterYear">
+                            <option value="">(Todos)</option>
+                            <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1;">
+                        <label for="filterPeriod">Periodo</label>
+                        <select id="filterPeriod">
+                            <option value="">(Todos)</option>
+                            <option value="1">Enero</option><option value="2">Febrero</option><option value="3" selected>Marzo</option>
+                            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1.5;">
+                        <label for="filterType">Tipo OC</label>
+                        <select id="filterType">
+                            <option value="">(Todos)</option>
+                            <option value="M">Mercadería (M)</option>
+                            <option value="S">Servicios (S)</option>
+                            <option value="T">Contable (T)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 0.5; justify-content: flex-end;">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="loadOrders()" style="height:36px; padding:0 1.25rem; font-size:0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.4rem">
+                                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- DataTable Container -->
+                <div class="card glass-panel" style="padding: 1.25rem;">
+                    <div id="tableWrapper" style="display:none; overflow-x: auto;">
+                        <table id="ordersTable" class="display nowrap" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>N° Orden</th><th>Fecha</th><th>Tipo</th><th>Proveedor</th>
+                                    <th>RUC</th><th>Moneda</th><th>Total</th><th>Lug. Ent.</th>
+                                    <th>Entrega</th><th>Contacto</th><th>Teléfono</th><th>Depto</th>
+                                    <th>Comprador</th><th>Usuario</th><th>Estado</th><th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="initialMessage" style="text-align:center; padding: 3rem; color: var(--text-muted); font-size: 0.875rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="margin-bottom:1rem; opacity:0.4;">
+                            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <br>Seleccione una empresa y haga clic en <strong>Buscar</strong>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Purchase Order Report -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal glass-modal" style="max-width:920px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Orden de Compra <span id="reportOcNro" style="color:var(--primary)"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printReport()" style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeReportModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
+                <div id="reportContent" style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
+                    <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando reporte...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Warehouse Entries -->
+    <div class="modal-overlay" id="warehouseModal">
+        <div class="modal glass-modal" style="max-width:800px; width:95%;">
+            <div class="modal-header">
+                <h3>Ingresos a Almacén - OC <span id="warehouseOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeWarehouseModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size:0.8125rem;">
+                        <thead>
+                            <tr>
+                                <th>N° Ingreso</th>
+                                <th>Fecha</th>
+                                <th>Almacén</th>
+                                <th>Mov.</th>
+                                <th>Código Mat.</th>
+                                <th>Descripción</th>
+                                <th style="text-align:right;">Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody id="warehouse-tbody">
+                            <tr><td colspan="7" class="loading-state">Cargando ingresos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery + DataTables + Export Buttons -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="orders.js"></script>
+</body>
+</html>

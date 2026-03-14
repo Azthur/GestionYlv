@@ -160,6 +160,18 @@ creation_scripts = [
         MatchedAt DATETIME DEFAULT GETDATE(),
         MatchedBy VARCHAR(30)
     );
+    """,
+    """
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ReconciliationRules' and xtype='U')
+    CREATE TABLE ReconciliationRules (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        CodCia CHAR(3) NOT NULL,
+        BankCode CHAR(4) NOT NULL,
+        RuleType VARCHAR(50) NOT NULL,
+        Pattern VARCHAR(100) NULL,
+        Replacement VARCHAR(100) NULL,
+        CreatedAt DATETIME DEFAULT GETDATE()
+    );
     """
 ]
 

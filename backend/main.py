@@ -13,6 +13,15 @@ app.include_router(conciliacion_router)
 from db_config import router as db_config_router
 app.include_router(db_config_router)
 
+from auth import router as auth_router
+app.include_router(auth_router)
+
+from users import router as users_router
+app.include_router(users_router)
+
+from logistics import router as logistics_router
+app.include_router(logistics_router)
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -79,14 +88,6 @@ def create_production_order(order: ProductionOrderCreate):
         conn.close()
         raise HTTPException(status_code=500, detail=str(e))
 
-# Mount static files to serve the frontend prototype
-app.mount("/dashboard", StaticFiles(directory="../dashboard-prototype", html=True), name="dashboard")
-
-@app.get("/")
-def read_root():
-    # Redirigir la raiz al dashboard
-    return RedirectResponse(url="/dashboard")
-
 @app.get("/health/db")
 def health_db():
     conn = get_db_connection()
@@ -102,6 +103,10 @@ def health_db():
             raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
     else:
         raise HTTPException(status_code=500, detail="Database connection failed. Please check credentials or firewall settings.")
+
+# Mount static files to serve the frontend prototype directly at root
+app.mount("/", StaticFiles(directory="../dashboard-prototype", html=True), name="frontend")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

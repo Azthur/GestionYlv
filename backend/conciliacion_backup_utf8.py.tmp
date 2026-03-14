@@ -1,8 +1,8 @@
-"""
-Módulo de Conciliación Bancaria — Control Interno (Finanzas)
-Maneja la importación de movimientos bancarios desde Excel,
-conciliación automática y manual contra cobranzas del sistema (CcbMVtos).
-Soporta conciliación cross-company.
+﻿"""
+M├│dulo de Conciliaci├│n Bancaria ÔÇö Control Interno (Finanzas)
+Maneja la importaci├│n de movimientos bancarios desde Excel,
+conciliaci├│n autom├ítica y manual contra cobranzas del sistema (CcbMVtos).
+Soporta conciliaci├│n cross-company.
 """
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
@@ -12,12 +12,12 @@ from datetime import datetime, date
 import uuid
 import io
 
-router = APIRouter(prefix="/api/conciliacion", tags=["Conciliación Bancaria"])
+router = APIRouter(prefix="/api/conciliacion", tags=["Conciliaci├│n Bancaria"])
 
 from database import get_db_connection
 
 
-# ─── Pydantic Models ─────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇ Pydantic Models ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 class ManualMatchRequest(BaseModel):
     bank_movement_id: int
@@ -34,7 +34,7 @@ class AutoMatchRequest(BaseModel):
     period_month: Optional[str] = None
 
 
-# ─── Helpers ──────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇ Helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 def row_to_dict(cursor, row):
     """Convert a pyodbc row to a dictionary using cursor.description."""
@@ -56,7 +56,7 @@ def rows_to_list(cursor):
     return [row_to_dict(cursor, row) for row in cursor.fetchall()]
 
 
-# ─── Endpoints ────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇ Endpoints ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 @router.get("/empresas")
 def get_empresas():
@@ -137,16 +137,16 @@ async def upload_excel(
         col_map = {}
         mapping_rules = {
             'fecha': ['fecha'],
-            'descripcion': ['descripcion', 'descripción'],
+            'descripcion': ['descripcion', 'descripci├│n'],
             'monto': ['monto', 'importe'],
             'saldo': ['saldo'],
             'sucursal': ['sucursal'],
-            'operacion_numero': ['operacion numero', 'operación numero', 'operacion_numero', 'nro operacion'],
-            'operacion_hora': ['operacion hora', 'operación hora', 'operacion_hora', 'hora'],
+            'operacion_numero': ['operacion numero', 'operaci├│n numero', 'operacion_numero', 'nro operacion'],
+            'operacion_hora': ['operacion hora', 'operaci├│n hora', 'operacion_hora', 'hora'],
             'referencia': ['referencia'],
             'op_manual': ['op manual', 'op_manual'],
-            'op_cancelacion': ['op cancelacion', 'op cancelación', 'op_cancelacion'],
-            'descripcion_final': ['descripcion final', 'descripción final', 'descripcion_final'],
+            'op_cancelacion': ['op cancelacion', 'op cancelaci├│n', 'op_cancelacion'],
+            'descripcion_final': ['descripcion final', 'descripci├│n final', 'descripcion_final'],
             'estado': ['estado']
         }
 
@@ -263,9 +263,8 @@ def get_bank_movements(
     try:
         cursor = conn.cursor()
         query = """
-            SELECT bm.Id, bm.CodCia, bm.BankCode, 
-                   CONVERT(varchar, bm.Fecha, 103) as Fecha,
-                   bm.Descripcion, bm.Monto, bm.Saldo, bm.Sucursal, bm.OperacionNumero,
+            SELECT bm.Id, bm.CodCia, bm.BankCode, bm.Fecha, bm.Descripcion,
+                   bm.Monto, bm.Saldo, bm.Sucursal, bm.OperacionNumero,
                    bm.OperacionHora, bm.Referencia, bm.OpManual, bm.OpCancelacion,
                    bm.DescripcionFinal, bm.Estado, bm.ReconciliationDetailId,
                    bm.ImportBatchId, bm.ImportedAt
@@ -351,7 +350,7 @@ def get_cobranzas(
 @router.post("/auto-match")
 def auto_match(request: AutoMatchRequest):
     """
-    Conciliación automática: busca en CcbMVtos (TODAS las empresas)
+    Conciliaci├│n autom├ítica: busca en CcbMVtos (TODAS las empresas)
     donde NroDep = OpCancelacion del movimiento bancario.
     Esto resuelve el caso cross-company.
     """
@@ -429,7 +428,7 @@ def auto_match(request: AutoMatchRequest):
 
         return {
             "status": "success",
-            "message": f"Conciliación automática completada. {matched_count} movimientos conciliados.",
+            "message": f"Conciliaci├│n autom├ítica completada. {matched_count} movimientos conciliados.",
             "matched_count": matched_count,
             "total_processed": len(pending_movements)
         }
@@ -442,7 +441,7 @@ def auto_match(request: AutoMatchRequest):
 
 @router.post("/manual-match")
 def manual_match(request: ManualMatchRequest):
-    """Conciliación manual: vincula un movimiento bancario con una cobranza específica."""
+    """Conciliaci├│n manual: vincula un movimiento bancario con una cobranza espec├¡fica."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
@@ -457,7 +456,7 @@ def manual_match(request: ManualMatchRequest):
         if not mov:
             raise HTTPException(status_code=404, detail="Movimiento bancario no encontrado")
         if str(mov[1]).strip() == 'Conciliado':
-            raise HTTPException(status_code=400, detail="El movimiento ya está conciliado")
+            raise HTTPException(status_code=400, detail="El movimiento ya est├í conciliado")
 
         # Verify the cobranza exists
         cursor.execute("""
@@ -474,7 +473,7 @@ def manual_match(request: ManualMatchRequest):
             WHERE MatchCodCia = ? AND MatchCoddoc = ? AND MatchNrodoc = ? AND MatchNroitm = ?
         """, (request.match_codcia, request.match_coddoc, request.match_nrodoc, request.match_nroitm))
         if cursor.fetchone():
-            raise HTTPException(status_code=400, detail="Esta cobranza ya está conciliada")
+            raise HTTPException(status_code=400, detail="Esta cobranza ya est├í conciliada")
 
         # Create match
         cursor.execute("""
@@ -497,7 +496,7 @@ def manual_match(request: ManualMatchRequest):
 
         return {
             "status": "success",
-            "message": "Conciliación manual realizada exitosamente.",
+            "message": "Conciliaci├│n manual realizada exitosamente.",
             "detail_id": detail_id
         }
     except HTTPException:
@@ -512,7 +511,7 @@ def manual_match(request: ManualMatchRequest):
 
 @router.delete("/unmatch/{detail_id}")
 def unmatch(detail_id: int):
-    """Deshace un match de conciliación."""
+    """Deshace un match de conciliaci├│n."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
@@ -558,7 +557,7 @@ def get_resumen(
     year: Optional[str] = None,
     month: Optional[str] = None
 ):
-    """Dashboard de conciliación: totales, % conciliado, montos."""
+    """Dashboard de conciliaci├│n: totales, % conciliado, montos."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
@@ -612,359 +611,6 @@ def get_resumen(
             "porcentaje_conciliado": pct
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-# ─── REPORTE DETALLES DE MATCH (MODALS) ─────────────────────────
-
-@router.get("/movimiento-banco/{mov_id}/match-details")
-def get_bank_match_details(mov_id: int):
-    """Dado un movimiento bancario conciliado, devuelve las cobranzas del sistema con las que matcheó."""
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="DB Error")
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT m.CodCia, m.coddoc, m.nrodoc, m.nroitm, m.fchdoc, m.import, m.NroDep, m.fchDep, m.NomAux
-            FROM CcbMVtos m
-            JOIN ReconciliationDetail rd ON m.CodCia = rd.MatchCodCia 
-                AND m.coddoc = rd.MatchCoddoc AND m.nrodoc = rd.MatchNrodoc AND m.nroitm = rd.MatchNroitm
-            WHERE rd.BankMovementId = ?
-        """, (mov_id,))
-        result = rows_to_list(cursor)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-
-@router.get("/cobranza/match-details")
-def get_cobranza_match_details(
-    codcia: str = Query(...),
-    coddoc: str = Query(...),
-    nrodoc: str = Query(...),
-    nroitm: str = Query(...)
-):
-    """Dada una cobranza conciliada, devuelve los movimientos bancarios con los que matcheó."""
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="DB Error")
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT bm.Id, bm.Fecha, bm.Descripcion, bm.Monto, bm.OperacionNumero, bm.Estado
-            FROM BankMovements bm
-            JOIN ReconciliationDetail rd ON bm.Id = rd.BankMovementId
-            WHERE rd.MatchCodCia = ? AND rd.MatchCoddoc = ? AND rd.MatchNrodoc = ? AND rd.MatchNroitm = ?
-        """, (codcia, coddoc, nrodoc, nroitm))
-        result = rows_to_list(cursor)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-# ─── REPORTE TODAS LAS COBRANZAS (TAB 2) ─────────────────────────
-
-@router.get("/cobranzas-todas")
-def get_todas_cobranzas(
-    year: Optional[str] = None,
-    month: Optional[str] = None,
-    codcia: Optional[str] = None
-):
-    """
-    Retorna la tabla completa de cobranzas con datos para reporte y estado de conciliación.
-    """
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="DB Error")
-    
-    try:
-        cursor = conn.cursor()
-        
-        # Filtros opcionales
-        where_clauses = []
-        params = []
-        if year:
-            where_clauses.append("m.anos = ?")
-            params.append(year)
-        if month:
-            where_clauses.append("m.mes = ?")
-            params.append(month.zfill(2))
-        if codcia:
-            where_clauses.append("m.CodCia = ?")
-            params.append(codcia)
-            
-        where_str = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-
-        # Query enriquecida para el reporte (Refinada con Joins a Bancos, POS y Documentos)
-        query = f"""
-            SELECT TOP 3000
-                m.CodCia as Suc,
-                m.coddoc as SerieDoc,
-                m.nrodoc as NroDoc,
-                m.nroitm as Correlat,
-                m.tpodoc as TipoDoc,
-                m.fchdoc as FechaEfe,
-                m.import as Monto,
-                m.NroDep,
-                m.fchDep as F_D,
-                m.glodoc as Glosa,
-                m.Glosa as Concepto,
-                m.codbco as CodBco,
-                m.nro_apl as NumCompte,
-                m.tpopgo,
-                m.NomAux as RazonSocial,
-                m.codaux as Codigo,
-                m.codmon,
-                m.CodDep,
-                m.codref,
-                m.nroref,
-                c.nombco as CuentaNombre,
-                rd.Id as MatchId,
-                rd.BankMovementId as BankId,
-                CASE WHEN rd.Id IS NOT NULL THEN 1 ELSE 0 END as Conciliado,
-                -- Buscar el nombre de la cuenta o POS
-                ISNULL(p.DESTARJ, t.Nombre) as GroupName,
-                -- Buscar la fecha original del documento (CcbRGdoc)
-                rg.fchdoc as FechaOriginalDoc
-            FROM CcbMVtos m
-            LEFT JOIN CcbICaja c ON m.CodCia = c.codcia 
-                AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
-            LEFT JOIN ReconciliationDetail rd ON rd.MatchCodCia = m.CodCia 
-                AND rd.MatchCoddoc = m.coddoc 
-                AND rd.MatchNrodoc = m.nrodoc 
-                AND rd.MatchNroitm = m.nroitm
-            -- Join con Bancos
-            LEFT JOIN CcbTabla t ON RTRIM(m.CodDep) = RTRIM(t.Codigo) AND t.Tabla = '0001'
-            -- Join con POS
-            LEFT JOIN POSTARJE p ON RTRIM(m.CodDep) = RTRIM(p.codtarj)
-            -- Join con Cabecera de Documento usando los campos de referencia
-            LEFT JOIN CcbRGdoc rg ON m.CodCia = rg.codcia AND m.codref = rg.coddoc AND m.nroref = rg.nrodoc
-            {where_str}
-            ORDER BY m.tpopgo, ISNULL(p.DESTARJ, t.Nombre), m.nroitm
-        """
-        
-        cursor.execute(query, params)
-        result = rows_to_list(cursor)
-        
-        # Mapping tpopgo to JT (Payment Type Description) as per FoxPro logic
-        tpopgo_map = {
-            '1': 'FILIAL CANCELA',
-            '2': 'PERSONAL',
-            '3': 'AMERICAN EXPRES',
-            '4': 'EPS',
-            '5': 'DINERS',
-            'C': 'CHEQUE',
-            'D': 'DEPOSITO',
-            'E': 'EFECTIVO',
-            'M': 'MASTERCAR',
-            'R': 'RETENCION',
-            'A': 'ANTICIPO APLICACION',
-            'B': 'ANTICIPO CREACION',
-            'F': 'FILIAL DEPOSITO',
-            'Z': 'IZIPAY'
-        }
-
-        enriched = []
-        for r in result:
-            tp = str(r.get('tpopgo') or '').strip()
-            jt = tpopgo_map.get(tp, 'CANJE')
-            
-            # codmon viene como string del row_to_dict
-            cm = str(r.get('codmon') or '1').strip()
-            soles = float(r.get('Monto') or 0) if cm == '1' else 0
-            dolares = float(r.get('Monto') or 0) if cm == '2' else 0
-            
-            enriched.append({
-                "id": f"{r['Suc']}-{r['SerieDoc']}-{r['NroDoc']}-{r['Correlat']}",
-                "NroCaja": f"{(r['SerieDoc'] or '').strip()}{(r['NroDoc'] or '').strip()}",
-                "NumCompte": r['NumCompte'],
-                "FechaEfe": r['FechaEfe'],
-                "Suc": (r['Suc'] or '').strip(),
-                "Serie": "",
-                "TipoDoc": (r['TipoDoc'] or '').strip(),
-                "SerieDoc": (r['SerieDoc'] or '').strip(),
-                "NroDoc": (r['NroDoc'] or '').strip(),
-                "TipoDocCancelado": (r.get('codref') or '').strip(),
-                "NroDocCancelado": (r.get('nroref') or '').strip(),
-                "CodBco": (r['CodBco'] or '').strip(),
-                "CuentaNombre": (r['CuentaNombre'] or '').strip() or 'BANCO NO ESPECIFICADO',
-                "Correlat": r['Correlat'],
-                "Monto": float(r['Monto'] or 0),
-                "NroDep": (r['NroDep'] or '').strip(),
-                "F_D": r['F_D'],
-                "MntDoc": float(r['Monto'] or 0),
-                "Importe": float(r['Monto'] or 0),
-                "TotalDoc": float(r['Monto'] or 0),
-                "OC": "",
-                "MontoOC": 0.0,
-                "Glosa": (r['Glosa'] or r['Concepto'] or '').strip(),
-                "Concepto": (r['Concepto'] or '').strip(),
-                "RazonSocial": (r['RazonSocial'] or '').strip(),
-                "Codigo": (r['Codigo'] or '').strip(),
-                "JT": jt,
-                "GroupName": (r['GroupName'] or r['CuentaNombre'] or 'VARIOS').strip(),
-                "OriginalFechaDoc": r['FechaOriginalDoc'],
-                "Soles": soles,
-                "Dolares": dolares,
-                "MatchId": r['MatchId'],
-                "BankId": r['BankId'],
-                "Conciliado": bool(r['Conciliado'])
-            })
-            
-        return enriched
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-@router.get("/match-details")
-def get_match_details(match_id: int):
-    """
-    Retorna los detalles de una conciliación: la cobranza y el movimiento bancario.
-    """
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="DB Error")
-    
-    try:
-        cursor = conn.cursor()
-        
-        # 1. Obtener el detalle de la conciliación
-        cursor.execute("SELECT * FROM ReconciliationDetail WHERE Id = ?", (match_id,))
-        columns_rd = [column[0] for column in cursor.description]
-        detail_row = cursor.fetchone()
-        if not detail_row:
-            raise HTTPException(status_code=404, detail="Conciliación no encontrada")
-        detail = dict(zip(columns_rd, detail_row))
-            
-        # 2. Obtener la cobranza
-        cursor.execute("""
-            SELECT m.*, c.nombco as CuentaNombre 
-            FROM CcbMVtos m 
-            LEFT JOIN CcbICaja c ON m.CodCia = c.codcia AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
-            WHERE m.CodCia = ? AND m.coddoc = ? AND m.nrodoc = ? AND m.nroitm = ?
-        """, (detail['MatchCodCia'], detail['MatchCoddoc'], detail['MatchNrodoc'], detail['MatchNroitm']))
-        columns_m = [column[0] for column in cursor.description]
-        cobranza_row = cursor.fetchone()
-        cobranza = dict(zip(columns_m, cobranza_row)) if cobranza_row else None
-        
-        # 3. Obtener el movimiento bancario
-        cursor.execute("SELECT * FROM BankMovements WHERE Id = ?", (detail['BankMovementId'],))
-        columns_b = [column[0] for column in cursor.description]
-        banco_row = cursor.fetchone()
-        banco = dict(zip(columns_b, banco_row)) if banco_row else None
-        
-        return {
-            "match": {
-                "Id": detail['Id'],
-                "MatchedAt": detail['MatchedAt'],
-                "MatchType": detail['MatchType']
-            },
-            "cobranza": {
-                "CodCia": (cobranza['CodCia'] or '').strip() if cobranza else '',
-                "NroDoc": (cobranza['nrodoc'] or '').strip() if cobranza else '',
-                "Fecha": cobranza['fchdoc'] if cobranza else None,
-                "Importe": float(cobranza['import'] or 0) if cobranza else 0,
-                "RazonSocial": (cobranza['NomAux'] or '').strip() if cobranza else '',
-                "Cuenta": (cobranza['CuentaNombre'] or '').strip() if cobranza else ''
-            },
-            "banco": {
-                "Id": banco['Id'] if banco else None,
-                "Fecha": banco['Fecha'] if banco else None,
-                "Descripcion": (banco['DescripcionFinal'] or banco['Descripcion'] or '').strip() if banco else '',
-                "Monto": float(banco['Monto'] or 0) if banco else 0,
-                "Operacion": (banco['OperacionNumero'] or '').strip() if banco else ''
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-# ─── REGLAS DE LIMPIEZA BANCARIA (TAB 3) ─────────────────────────
-import json
-import os
-
-RULES_FILE = os.path.join(os.path.dirname(__file__), "conciliacion_reglas.json")
-
-def load_rules_from_disk():
-    if not os.path.exists(RULES_FILE):
-        return []
-    try:
-        with open(RULES_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_rules_to_disk(rules):
-    with open(RULES_FILE, "w", encoding="utf-8") as f:
-        json.dump(rules, f, indent=4, ensure_ascii=False)
-
-class ReglaIn(BaseModel):
-    condicion: str
-    resultado: str
-
-@router.get("/reglas")
-def get_reglas():
-    return load_rules_from_disk()
-
-@router.post("/reglas")
-def create_regla(regla: ReglaIn):
-    rules = load_rules_from_disk()
-    new_id = 1 if not rules else max(r.get("id", 0) for r in rules) + 1
-    new_rule = {
-        "id": new_id,
-        "condicion": regla.condicion.strip().upper(),
-        "resultado": regla.resultado.strip().upper()
-    }
-    rules.append(new_rule)
-    save_rules_to_disk(rules)
-    return new_rule
-
-@router.delete("/reglas/{rule_id}")
-def delete_regla(rule_id: int):
-    rules = load_rules_from_disk()
-    rules = [r for r in rules if r.get("id") != rule_id]
-    save_rules_to_disk(rules)
-    return {"status": "ok"}
-
-@router.post("/limpiar-banco")
-def execute_cleaning_rules():
-    """
-    Applies the cleaning rules to the Bank Movements in the `ConciliacionBanco` or SQLite
-    table where they are stored temporarily. For now, since we parse Excel into SQLite or memory,
-    we will apply it to the main memory/SQLite store.
-    """
-    rules = load_rules_from_disk()
-    if not rules:
-        return {"registros_actualizados": 0}
-        
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="No DB connection")
-        
-    registros_actualizados = 0
-    try:
-        cursor = conn.cursor()
-        for r in rules:
-            condicion = r['condicion']
-            resultado = r['resultado']
-            # FoxPro update: replace Description with result if Condition matches
-            # Wait, bank movements are locally stored in our 'uploaded' memory list!
-            pass 
-        # Note: Depending on where bank movements are stored (FoxPro, SQLite or Memory array), 
-        # this logic modifies them. Since we only read XML/Excel, we will implement this
-        # logic upon importing the Excel next time, OR update the FoxPro table directly if
-        # it was uploaded to FoxPro.
-        
-        return {"registros_actualizados": registros_actualizados, "status": "Simulated or done locally"}
-    except Exception as e:
-        print(f"Error cleaning bank docs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
