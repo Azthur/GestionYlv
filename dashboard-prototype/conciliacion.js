@@ -41,6 +41,12 @@ let selectedBankIds = new Set();
 let selectedCobKeys = new Set();
 let dtCobranzas = null;
 let dtMovimientosBanco = null;
+let currentCurrencySymbol = 'S/';
+
+function getCurrencySymbol(codMon) {
+    if (String(codMon).trim() === '2') return 'US$';
+    return 'S/';
+}
 
 // ─── Sidebar Toggle (shared) ──────────────────────────────────────────
 function toggleSidebar() {
@@ -132,7 +138,9 @@ async function onEmpresaChange() {
         bancos.forEach(b => {
             const opt = document.createElement('option');
             opt.value = b.Codigo;
-            opt.textContent = `${b.Codigo} - ${b.Nombre}`;
+            opt.dataset.codmon = b.CodMon || '1';
+            const monLabel = String(b.CodMon).trim() === '2' ? 'US$' : 'S/';
+            opt.textContent = `${b.Codigo} - ${b.Nombre} (${monLabel})`;
             selectBanco.appendChild(opt);
         });
         selectBanco.disabled = false;
@@ -144,8 +152,17 @@ async function onEmpresaChange() {
 
 function onBancoChange() {
     const codcia = document.getElementById('selectEmpresa').value;
-    const bankCode = document.getElementById('selectBanco').value;
+    const selectBanco = document.getElementById('selectBanco');
+    const bankCode = selectBanco.value;
     const btnAuto = document.getElementById('btnAutoMatch');
+
+    // Actualizar símbolo de moneda según el banco seleccionado
+    const selectedOption = selectBanco.options[selectBanco.selectedIndex];
+    if (selectedOption && selectedOption.dataset.codmon) {
+        currentCurrencySymbol = getCurrencySymbol(selectedOption.dataset.codmon);
+    } else {
+        currentCurrencySymbol = 'S/';
+    }
 
     if (codcia && bankCode) {
         btnAuto.disabled = false;
@@ -166,11 +183,13 @@ async function loadData() {
         return;
     }
 
-    // Load bank movements, cobranzas, and summary in parallel
+    // Load ALL data sources in parallel (cruce, resumen, movimientos banco tab, cobranzas tab)
     await Promise.all([
         loadBankMovements(codcia, bankCode, year, month),
         loadCobranzas(codcia, year, month),
-        loadResumen(codcia, bankCode, year, month)
+        loadResumen(codcia, bankCode, year, month),
+        loadMovimientosBanco(),
+        loadAllCobranzas()
     ]);
 }
 
@@ -215,11 +234,11 @@ async function loadResumen(codcia, bankCode, year, month) {
         const data = await res.json();
 
         document.getElementById('statTotalMov').textContent = data.total_movimientos.toLocaleString();
-        document.getElementById('statTotalMonto').textContent = `S/ ${data.total_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+        document.getElementById('statTotalMonto').textContent = `${currentCurrencySymbol} ${data.total_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
         document.getElementById('statMatched').textContent = data.conciliados.toLocaleString();
-        document.getElementById('statMatchedMonto').textContent = `S/ ${data.conciliados_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+        document.getElementById('statMatchedMonto').textContent = `${currentCurrencySymbol} ${data.conciliados_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
         document.getElementById('statPending').textContent = data.pendientes.toLocaleString();
-        document.getElementById('statPendingMonto').textContent = `S/ ${data.pendientes_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+        document.getElementById('statPendingMonto').textContent = `${currentCurrencySymbol} ${data.pendientes_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
         document.getElementById('statPercent').textContent = `${data.porcentaje_conciliado}%`;
     } catch (err) {
         console.error(err);
@@ -259,7 +278,7 @@ function renderBankTable() {
                 onchange="toggleBankSelection(${mov.Id}, this.checked)" data-bank-id="${mov.Id}"></td>
             <td>${fecha}</td>
             <td title="${mov.Descripcion || ''}">${truncate(mov.Descripcion || '', 30)}</td>
-            <td><span class="amount ${monto >= 0 ? 'positive' : 'negative'}">S/ ${Math.abs(monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span></td>
+            <td><span class="amount ${monto >= 0 ? 'positive' : 'negative'}">${currentCurrencySymbol} ${Math.abs(monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span></td>
             <td>
                 <input type="text" class="op-manual-input" 
                        value="${(mov.OpManual || '').replace(/"/g, '&quot;')}" 
@@ -343,7 +362,7 @@ function renderCobTable() {
             <td>${(cob.nrodoc || '').trim()}</td>
             <td title="${(cob.NomAux || '').trim()}">${truncate((cob.NomAux || '').trim(), 25)}</td>
             <td style="display: flex; gap: 0.5rem; align-items: center;">
-                <span class="amount positive">S/ ${Math.abs(importe).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+                <span class="amount positive">${currentCurrencySymbol} ${Math.abs(importe).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
                 <button class="btn-view-match" onclick="showMatchDetails('${cobKey}', 'cob')" title="Ver detalles del match">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -533,14 +552,65 @@ function setupDragDrop() {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
         if (e.dataTransfer.files.length > 0) {
-            uploadFile(e.dataTransfer.files[0]);
+            showImportConfirmation(e.dataTransfer.files[0]);
         }
     });
 }
 
 function handleFileSelect(event) {
     if (event.target.files.length > 0) {
-        uploadFile(event.target.files[0]);
+        showImportConfirmation(event.target.files[0]);
+    }
+}
+
+let _pendingImportFile = null;
+
+function showImportConfirmation(file) {
+    const codcia = document.getElementById('selectEmpresa').value;
+    const bankCode = document.getElementById('selectBanco').value;
+
+    if (!codcia || !bankCode) {
+        showToast('Seleccione empresa y banco antes de importar', 'info');
+        return;
+    }
+
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        showToast('Solo se aceptan archivos Excel (.xlsx, .xls)', 'error');
+        return;
+    }
+
+    _pendingImportFile = file;
+
+    // Obtener nombres de empresa y banco para el mensaje
+    const selEmpresa = document.getElementById('selectEmpresa');
+    const selBanco = document.getElementById('selectBanco');
+    const empresaNombre = selEmpresa.options[selEmpresa.selectedIndex].textContent;
+    const bancoNombre = selBanco.options[selBanco.selectedIndex].textContent;
+
+    const modal = document.getElementById('importConfirmModal');
+    const inner = document.getElementById('importModalInner');
+    if (inner && window._importModalOriginalHTML) {
+        inner.innerHTML = window._importModalOriginalHTML;
+    }
+    document.getElementById('importConfirmEmpresa').textContent = empresaNombre;
+    document.getElementById('importConfirmBanco').textContent = bancoNombre;
+    document.getElementById('importConfirmMoneda').textContent = currentCurrencySymbol === 'US$' ? 'Dólares (US$)' : 'Soles (S/)';
+    document.getElementById('importConfirmArchivo').textContent = file.name;
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeImportConfirmModal() {
+    const modal = document.getElementById('importConfirmModal');
+    if (modal) modal.style.display = 'none';
+    _pendingImportFile = null;
+}
+
+function confirmImport() {
+    const modal = document.getElementById('importConfirmModal');
+    if (modal) modal.style.display = 'none';
+    if (_pendingImportFile) {
+        uploadFile(_pendingImportFile);
+        _pendingImportFile = null;
     }
 }
 
@@ -723,38 +793,30 @@ async function loadAllCobranzas() {
                     }
                 </td>
                 <td>${c.id || ''}</td>
-                <td>${c.NumCompte || ''}</td>
-                <td>${c.FechaEfe ? new Date(c.FechaEfe).toLocaleDateString('es-PE') : ''}</td>
-                <td>${c.Suc || ''}</td>
-                <td>${c.Serie || ''}</td>
-                <td>${c.TipoDoc || ''}</td>
-                <td>${c.SerieDoc || ''}</td>
-                <td>${c.NroDoc || ''}</td>
-                <td>${c.CodBco || ''}</td>
-                <td>${c.Correlat || ''}</td>
-                <td class="amount">${parseFloat(c.Monto || 0).toFixed(2)}</td>
-                <td>${c.NroDep || ''}</td>
-                <td>${c.F_D ? new Date(c.F_D).toLocaleDateString('es-PE') : ''}</td>
-                <td class="amount">${parseFloat(c.MntDoc || 0).toFixed(2)}</td>
-                <td class="amount ${parseFloat(c.Importe || 0) < 0 ? 'negative' : 'positive'}">${parseFloat(c.Importe || 0).toFixed(2)}</td>
-                <td class="amount">${parseFloat(c.TotalDoc || 0).toFixed(2)}</td>
-                <td>${c.OC || ''}</td>
-                <td class="amount">${parseFloat(c.MontoOC || 0).toFixed(2)}</td>
-                <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Glosa || ''}">${c.Glosa || ''}</td>
-                <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Concepto || ''}">${c.Concepto || ''}</td>
+                <td>${c.CodCia || ''}</td>
+                <td>${c.anos || ''}</td>
+                <td>${c.mes || ''}</td>
+                <td>${c.coddoc || ''}</td>
+                <td>${c.nrodoc || ''}</td>
+                <td>${c.tpodoc || ''}</td>
+                <td data-sort="${c.fchdoc || ''}">${c.fchdoc ? new Date(c.fchdoc).toLocaleDateString('es-PE', {timeZone: 'UTC'}) : ''}</td>
                 <td>${c.codaux || ''}</td>
-                <td>${c.NomAux || ''}</td>
+                <td style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.NomAux || ''}">${c.NomAux || ''}</td>
                 <td>${c.codven || ''}</td>
-                <td>${c.nomven || ''}</td>
+                <td style="max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.nomven || ''}">${c.nomven || ''}</td>
                 <td>${c.codref || ''}</td>
                 <td>${c.nroref || ''}</td>
-                <td>${c.usuario || ''}</td>
-                <td>${c.FlgEst || ''}</td>
+                <td class="amount">${parseFloat(c.import || 0).toFixed(2)}</td>
+                <td style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.glodoc || ''}">${c.glodoc || ''}</td>
+                <td>${c.fmapgo || ''}</td>
                 <td>${c.CodDep || ''}</td>
+                <td>${c.NroDep || ''}</td>
+                <td data-sort="${c.fchDep || ''}">${c.fchDep ? new Date(c.fchDep).toLocaleDateString('es-PE', {timeZone: 'UTC'}) : ''}</td>
                 <td>${c.tpopgo || ''}</td>
                 <td>${c.Dcmpgo || ''}</td>
                 <td>${c.CodCom || ''}</td>
-                <td><span class="status ${c.Conciliado ? 'conciliado' : 'pendiente'}">${c.Conciliado ? 'CONCILIADO' : 'PENDIENTE'}</span></td>
+                <td>${c.usuario || ''}</td>
+                <td>${c.FlgEst || ''}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -766,6 +828,7 @@ async function loadAllCobranzas() {
                 },
                 dom: '<"dt-top"lfB>rtip',
                 scrollX: true,
+                autoWidth: false,
                 buttons: [
                     {
                         extend: 'excelHtml5',
@@ -845,34 +908,31 @@ async function openReport(cajaId = null) {
             `<span style="background:#f59e0b; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">⏳ CAJA PENDIENTE</span>`;
 
         html += `
-            <div class="report-header" style="page-break-before: always; color: black; background: white; padding: 20px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div class="report-header" style="page-break-before: always; color: black; background: white; padding: 15px 20px 5px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                     <div style="font-size: 1rem; font-weight: 600;">${empresaNombre}</div>
                     <div style="font-size: 0.85rem;">${now}</div>
                 </div>
-                <div class="title" style="text-align:center; font-size:1.4rem; font-weight:bold; margin-bottom:1.5rem; text-transform: uppercase;">
+                <div class="title" style="text-align:center; font-size:1.4rem; font-weight:bold; margin-bottom:0.75rem; text-transform: uppercase;">
                     Cancelacion de Documentos
-                    <div style="margin-top:10px;">${matchStatusBadge}</div>
+                    <div style="margin-top:6px;">${matchStatusBadge}</div>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size: 0.9rem; border-bottom:1px solid #000; padding-bottom:10px; margin-bottom:15px;">
+                <div style="display:flex; justify-content:space-between; font-size: 0.9rem; border-bottom:1px solid #000; padding-bottom:6px; margin-bottom:4px;">
                     <div>N° Caja: <b style="margin-left:5px;">${boxKey}</b></div>
                     <div>Fecha de Caja: <b style="margin-left:5px;">${fechaCaja}</b></div>
                     <div>Page: 1</div>
                 </div>
-                <div style="font-size:0.85rem; margin-bottom:10px;">CANCELACIONES DEL DIA : ${fechaCaja}</div>
+                <div style="font-size:0.85rem; margin-bottom:2px;">CANCELACIONES DEL DIA : ${fechaCaja}</div>
             </div>
             
             <table class="report-table" style="width:100%; border-collapse:collapse; font-size:0.75rem; color: black; background: white; font-family: 'Arial', sans-serif;">
             <thead>
                 <tr style="border-top: 1px solid #000; border-bottom: 1px solid #000;">
-                    <th style="min-width: 40px; text-align:center; padding:4px 2px; position: sticky; left: 0; background: white; z-index: 2; border-right: 1px solid #ccc;">👁.</th>
                     <th style="text-align:left; padding:4px 2px;">T/D</th>
                     <th style="text-align:left; padding:4px 2px;">N° DOCUM.</th>
                     <th style="text-align:left; padding:4px 2px;">FCH. DOC.</th>
                     <th style="text-align:left; padding:4px 2px;">CODIGO</th>
                     <th style="text-align:left; padding:4px 2px;">RAZON SOCIAL</th>
-                    <th style="text-align:left; padding:4px 2px;">CODREF</th>
-                    <th style="text-align:left; padding:4px 2px;">NROREF</th>
                     <th style="text-align:left; padding:4px 2px;">NOMVEN</th>
                     <th style="text-align:left; padding:4px 2px;">USUARIO</th>
                     <th style="text-align:left; padding:4px 2px;">N°OPER.</th>
@@ -907,8 +967,8 @@ async function openReport(cajaId = null) {
 
                 html += `
                     <tr>
-                        <td colspan="4" style="padding-top:15px; font-weight:bold; font-size:0.8rem; letter-spacing:0.5px; text-transform:uppercase;">${jt}</td>
-                        <td colspan="12" style="padding-top:15px; font-weight:bold; font-size:0.8rem;">Cuenta: ${groupName}</td>
+                        <td colspan="3" style="padding-top:12px; font-weight:bold; font-size:0.8rem; letter-spacing:0.5px; text-transform:uppercase;">${jt}</td>
+                        <td colspan="10" style="padding-top:12px; font-weight:bold; font-size:0.8rem;">Cuenta: ${groupName}</td>
                     </tr>
                 `;
 
@@ -922,19 +982,11 @@ async function openReport(cajaId = null) {
 
                     html += `
                         <tr style="${item.Conciliado ? 'background: #f0fdf4;' : ''}">
-                            <td style="padding:2px; text-align:center; position: sticky; left: 0; background: ${item.Conciliado ? '#f0fdf4' : 'white'}; z-index: 1; border-right: 1px solid #eee;">
-                                ${item.Conciliado ? 
-                                    `<button onclick="showMatchDetails('${item.Suc}|${item.SerieDoc}|${item.NroDoc}|${item.Correlat}', 'cob')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:1rem;" title="Ver Conciliación">👁</button>` : 
-                                    `<span style="color:var(--text-muted); font-size:0.8rem;">—</span>`
-                                }
-                            </td>
                             <td style="padding:2px 2px;">${item.TipoDocCancelado || ''}</td>
                             <td style="padding:2px 2px;">${item.NroDocCancelado || ''}</td>
                             <td style="padding:2px 2px;">${fchDoc}</td>
                             <td style="padding:2px 2px;">${item.Codigo || ''}</td>
                             <td style="padding:2px 2px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.RazonSocial || ''}</td>
-                            <td style="padding:2px 2px;">${item.codref || ''}</td>
-                            <td style="padding:2px 2px;">${item.nroref || ''}</td>
                             <td style="padding:2px 2px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nomven || ''}</td>
                             <td style="padding:2px 2px;">${item.usuario || ''}</td>
                             <td style="padding:2px 2px;">${item.NroDep || ''}</td>
@@ -942,10 +994,10 @@ async function openReport(cajaId = null) {
                             <td style="padding:2px 2px; text-align:center;">${soles > 0 ? 'S/.' : (dolares > 0 ? '$' : 'S/.')}</td>
                             <td style="text-align:right; padding:2px 2px;">${soles > 0 ? soles.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
                             <td style="text-align:right; padding:2px 2px;">${dolares > 0 ? dolares.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
-                            <td style="text-align:center; padding:2px 2px;">
+                            <td style="text-align:center; padding:2px 2px; white-space:nowrap;">
                                 ${item.Conciliado ? 
-                                    `<span style="color:#10b981; font-weight:bold; font-size:0.75rem; vertical-align:middle;">✓ CONCILIADO</span>` : 
-                                    `<span style="color:#f59e0b; font-size:0.7rem; vertical-align:middle;">⏳ Pend.</span>`
+                                    `<button onclick="showMatchDetails('${item.Suc}|${item.SerieDoc}|${item.NroDoc}|${item.Correlat}', 'cob')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.85rem; vertical-align:middle; padding:0 2px;" title="Ver Conciliación"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> <span style="color:#10b981; font-weight:bold; font-size:0.75rem;">✓</span>` : 
+                                    `<span style="color:#f59e0b; font-size:0.7rem;">⏳ Pend.</span>`
                                 }
                             </td>
                         </tr>
@@ -957,7 +1009,7 @@ async function openReport(cajaId = null) {
 
                 html += `
                     <tr style="font-weight:bold;">
-                        <td colspan="13" style="text-align:right; padding:4px 8px;">SUB TOTAL:</td>
+                        <td colspan="10" style="text-align:right; padding:4px 8px;">SUB TOTAL:</td>
                         <td style="text-align:right; padding:4px 2px; border-top: 1px solid #000;">${subTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                         <td style="text-align:right; padding:4px 2px; border-top: 1px solid #000;">${subTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                         <td></td>
@@ -968,7 +1020,7 @@ async function openReport(cajaId = null) {
 
         html += `
                 <tr style="border-top:2px solid #000; font-weight:bold; font-size:0.85rem;">
-                    <td colspan="13" style="text-align:right; padding:8px;">TOTAL GRAL.:</td>
+                    <td colspan="10" style="text-align:right; padding:8px;">TOTAL GRAL.:</td>
                     <td style="text-align:right; padding:8px;">${boxTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                     <td style="text-align:right; padding:8px;">${boxTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                     <td></td>
@@ -1071,8 +1123,8 @@ async function loadMovimientosBanco() {
                 <td>${c.Id || ''}</td>
                 <td>${c.Fecha || ''}</td>
                 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Descripcion || ''}">${c.Descripcion || ''}</td>
-                <td class="amount ${parseFloat(c.Monto || 0) < 0 ? 'negative' : 'positive'}">${parseFloat(c.Monto || 0).toFixed(2)}</td>
-                <td class="amount">${parseFloat(c.Saldo || 0).toFixed(2)}</td>
+                <td class="amount ${parseFloat(c.Monto || 0) < 0 ? 'negative' : 'positive'}">${currentCurrencySymbol} ${parseFloat(c.Monto || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</td>
+                <td class="amount">${currentCurrencySymbol} ${parseFloat(c.Saldo || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</td>
                 <td>${c.Sucursal || ''}</td>
                 <td>${c.OperacionNumero || ''}</td>
                 <td>${c.OperacionHora || ''}</td>
@@ -1100,6 +1152,7 @@ async function loadMovimientosBanco() {
                 },
                 dom: '<"dt-top"lfB>rtip',
                 scrollX: true,
+                autoWidth: false,
                 buttons: [
                     {
                         extend: 'excelHtml5',
@@ -1311,7 +1364,7 @@ async function showMatchDetails(id, type) {
                             <p style="margin: 0.25rem 0 0; color: #475569; font-size: 0.9rem;">${data.cobranza.RazonSocial}</p>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">S/ ${data.cobranza.Importe.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">${currentCurrencySymbol} ${data.cobranza.Importe.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
                             <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">${data.cobranza.Fecha ? new Date(data.cobranza.Fecha).toLocaleDateString('es-PE') : 'Sin Fecha'}</div>
                         </div>
                     </div>
@@ -1353,7 +1406,7 @@ async function showMatchDetails(id, type) {
                             <p style="margin: 0.25rem 0 0; color: #475569; font-size: 0.9rem; line-height: 1.4;">${data.banco.Descripcion}</p>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">S/ ${data.banco.Monto.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">${currentCurrencySymbol} ${data.banco.Monto.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
                             <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">${data.banco.Fecha ? new Date(data.banco.Fecha).toLocaleDateString('es-PE') : 'Sin Fecha'}</div>
                         </div>
                     </div>
@@ -1388,7 +1441,15 @@ async function deleteAllBankMovements() {
         return;
     }
 
-    // Open custom professional modal
+    // Restaurar el HTML original del modal antes de mostrarlo
+    const inner = document.getElementById('deleteModalInner');
+    if (inner && window._deleteModalOriginalHTML) {
+        inner.innerHTML = window._deleteModalOriginalHTML;
+        // Re-adjuntar listeners porque el innerHTML fue reemplazado
+        _attachDeleteModalButtonListeners();
+    }
+
+    // Mostrar el modal
     const modal = document.getElementById('deleteConfirmModal');
     if (modal) modal.style.display = 'flex';
 }
@@ -1398,10 +1459,12 @@ function closeDeleteConfirmModal() {
     if (modal) modal.style.display = 'none';
 }
 
-async function executeDeleteAllBankMovements() {
+async function executeDeleteAllBankMovements(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    
     const btn = document.getElementById('btnConfirmDeleteAll');
     if (btn) {
-        btn.innerHTML = 'Eliminando...';
+        btn.textContent = 'Eliminando...';
         btn.disabled = true;
     }
     
@@ -1422,19 +1485,93 @@ async function executeDeleteAllBankMovements() {
             throw new Error(data.detail || 'Error al eliminar');
         }
         
-        showToast(`${data.message}`, 'success');
-        loadMovimientosBanco(); // Reloads the table
-        closeDeleteConfirmModal(); // Solamente cerramos si hubo éxito
+        // Mostrar éxito DENTRO del modal
+        const inner = document.getElementById('deleteModalInner');
+        if(inner) {
+            inner.innerHTML = `
+                <div style="background: #ecfdf5; padding: 3rem 1.5rem; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <div style="background: #d1fae5; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; box-shadow: 0 0 0 10px #ecfdf5;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <h2 style="margin: 0 0 0.5rem; color: #065f46; font-size: 1.5rem; font-weight: 700;">¡Eliminación Exitosa!</h2>
+                    <p style="margin: 0; color: #047857; font-size: 1.1rem;">${data.message}</p>
+                </div>
+                <div style="padding: 1.25rem; background: #ffffff; display: flex; justify-content: center;">
+                    <button type="button" id="btnCloseSuccessModal" style="padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600; background: #10b981; color: white; border: none; cursor: pointer; font-size: 0.95rem; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);">Continuar</button>
+                </div>
+            `;
+            // Attach close listener to the new button
+            const closeBtn = document.getElementById('btnCloseSuccessModal');
+            if (closeBtn) closeBtn.addEventListener('click', function(ev) { ev.stopPropagation(); closeDeleteConfirmModal(); });
+        }
+        
+        loadMovimientosBanco();
         
     } catch (err) {
         console.error("Error capturado durante el borrado:", err);
-        showToast(`Fallo: ${err.message}`, 'error');
-        // El modal *NO* se cierra automáticamente si ocurrió un error,
-        // para que el usuario pueda ver qué pasó o intentar de nuevo.
-    } finally {
-        if (btn) {
-            btn.innerHTML = 'Sí, eliminar todo';
-            btn.disabled = false;
+        const inner = document.getElementById('deleteModalInner');
+        if(inner) {
+            inner.innerHTML = `
+                <div style="background: #fef2f2; padding: 2rem 1.5rem; text-align: center;">
+                    <h2 style="color: #991b1b; margin-bottom: 1rem;">Ocurrió un Error</h2>
+                    <p style="color: #b91c1c; background: #fee2e2; padding: 1rem; border-radius: 8px; border: 1px solid #fca5a5;">${err.message}</p>
+                </div>
+                <div style="padding: 1.25rem; background: #ffffff; display: flex; justify-content: center;">
+                    <button type="button" id="btnCloseErrorModal" style="padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600; background: #ef4444; color: white; border: none; cursor: pointer; font-size: 0.95rem;">Cerrar</button>
+                </div>
+            `;
+            const closeBtn = document.getElementById('btnCloseErrorModal');
+            if (closeBtn) closeBtn.addEventListener('click', function(ev) { ev.stopPropagation(); closeDeleteConfirmModal(); });
         }
     }
 }
+
+function _attachDeleteModalButtonListeners() {
+    const cancelBtn = document.getElementById('btnCancelDeleteAll');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeDeleteConfirmModal();
+        });
+    }
+    const confirmBtn = document.getElementById('btnConfirmDeleteAll');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            executeDeleteAllBankMovements(e);
+        });
+    }
+}
+
+// Inicialización inmediata (el DOM ya está listo porque este script está al final del body)
+(function() {
+    // Delete modal init
+    var inner = document.getElementById('deleteModalInner');
+    if (inner) {
+        window._deleteModalOriginalHTML = inner.innerHTML;
+        inner.addEventListener('click', function(e) { e.stopPropagation(); });
+    }
+    _attachDeleteModalButtonListeners();
+    var overlay = document.getElementById('deleteConfirmModal');
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeDeleteConfirmModal();
+        });
+    }
+
+    // Import modal init
+    var importInner = document.getElementById('importModalInner');
+    if (importInner) {
+        window._importModalOriginalHTML = importInner.innerHTML;
+        importInner.addEventListener('click', function(e) { e.stopPropagation(); });
+    }
+    var importOverlay = document.getElementById('importConfirmModal');
+    if (importOverlay) {
+        importOverlay.addEventListener('click', function(e) {
+            if (e.target === importOverlay) closeImportConfirmModal();
+        });
+    }
+})();
+

@@ -134,15 +134,19 @@
                     </div>
                     <div class="filter-group">
                         <label>Año</label>
-                        <select id="selectYear">
+                        <select id="selectYear" onchange="loadData()">
+                            <option value="">Todos los años</option>
+                            <option value="2027">2027</option>
                             <option value="2026">2026</option>
                             <option value="2025">2025</option>
                             <option value="2024">2024</option>
+                            <option value="2023">2023</option>
                         </select>
                     </div>
                     <div class="filter-group">
                         <label>Mes</label>
-                        <select id="selectMonth">
+                        <select id="selectMonth" onchange="loadData()">
+                            <option value="">Todos los meses</option>
                             <option value="01">Enero</option>
                             <option value="02">Febrero</option>
                             <option value="03">Marzo</option>
@@ -179,7 +183,7 @@
                         <div class="stat-details">
                             <h3>Movimientos Banco</h3>
                             <div class="stat-value" id="statTotalMov">0</div>
-                            <div class="stat-trend neutral" id="statTotalMonto">S/ 0.00</div>
+                            <div class="stat-trend neutral" id="statTotalMonto">0.00</div>
                         </div>
                     </div>
                     <div class="card stat-card glass-panel">
@@ -192,7 +196,7 @@
                         <div class="stat-details">
                             <h3>Conciliados</h3>
                             <div class="stat-value" id="statMatched">0</div>
-                            <div class="stat-trend positive" id="statMatchedMonto">S/ 0.00</div>
+                            <div class="stat-trend positive" id="statMatchedMonto">0.00</div>
                         </div>
                     </div>
                     <div class="card stat-card glass-panel">
@@ -205,7 +209,7 @@
                         <div class="stat-details">
                             <h3>Pendientes</h3>
                             <div class="stat-value" id="statPending">0</div>
-                            <div class="stat-trend negative" id="statPendingMonto">S/ 0.00</div>
+                            <div class="stat-trend negative" id="statPendingMonto">0.00</div>
                         </div>
                     </div>
                     <div class="card stat-card glass-panel">
@@ -369,48 +373,40 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="table-responsive custom-scrollbar" style="max-height: 600px; overflow-y: auto;">
+                        <div class="table-responsive custom-scrollbar">
                             <table class="data-table" id="tableTodasCobranzas">
                                 <thead>
                                     <tr>
-                                        <th style="width: 60px;" class="sticky-col">Acciones</th>
+                                        <th style="width: 50px;" class="sticky-col">Acc.</th>
                                         <th>ID</th>
-                                        <th>Num Compte</th>
-                                        <th>Fecha Efe.</th>
-                                        <th>Suc.</th>
-                                        <th>Serie</th>
-                                        <th>Tipo Doc</th>
-                                        <th>Serie Doc</th>
-                                        <th>Nro Doc</th>
-                                        <th>Cod. Bco</th>
-                                        <th>Correlat</th>
-                                        <th>Monto</th>
-                                        <th>NroDep.</th>
-                                        <th>F.D.</th>
-                                        <th>MntDoc</th>
-                                        <th>Importe</th>
-                                        <th>Total Doc.</th>
-                                        <th>O.C.</th>
-                                        <th>Monto O.C.</th>
-                                        <th>Glosa</th>
-                                        <th>Concepto</th>
-                                        <th>CodAux</th>
+                                        <th>CodCia</th>
+                                        <th>anos</th>
+                                        <th>mes</th>
+                                        <th>coddoc</th>
+                                        <th>nrodoc</th>
+                                        <th>tpodoc</th>
+                                        <th>fchdoc</th>
+                                        <th>codaux</th>
                                         <th>NomAux</th>
-                                        <th>CodVen</th>
-                                        <th>NomVen</th>
-                                        <th>CodRef</th>
-                                        <th>NroRef</th>
-                                        <th>Usuario</th>
-                                        <th>FlgEst</th>
+                                        <th>codven</th>
+                                        <th>nomven</th>
+                                        <th>codref</th>
+                                        <th>nroref</th>
+                                        <th>import</th>
+                                        <th>glodoc</th>
+                                        <th>fmapgo</th>
                                         <th>CodDep</th>
-                                        <th>TipoPago</th>
-                                        <th>DcmPago</th>
+                                        <th>NroDep</th>
+                                        <th>fchDep</th>
+                                        <th>tpopgo</th>
+                                        <th>Dcmpgo</th>
                                         <th>CodCom</th>
-                                        <th>Status Match</th>
+                                        <th>usuario</th>
+                                        <th>FlgEst</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbodyTodasCobranzas">
-                                    <tr><td colspan="34" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
+                                    <tr><td colspan="26" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -600,8 +596,7 @@
                             <tr style="border-bottom: 2px solid #e2e8f0;">
                                 <th style="text-align:left; padding:0.75rem; color:#64748b;">Documento / Operación</th>
                                 <th style="text-align:left; padding:0.75rem; color:#64748b;">Descripción / Cliente</th>
-                                <th style="text-align:left; padding:0.75rem; color:#64748b;">CodRef</th>
-                                <th style="text-align:left; padding:0.75rem; color:#64748b;">NroRef</th>
+
                                 <th style="text-align:left; padding:0.75rem; color:#64748b;">NomVen</th>
                                 <th style="text-align:left; padding:0.75rem; color:#64748b;">Usuario</th>
                                 <th style="text-align:left; padding:0.75rem; color:#64748b;">Fecha</th>
@@ -640,9 +635,43 @@
         </div>
     </div>
 
-    <!-- Custom Professional Delete Confirmation Modal -->
-    <div id="deleteConfirmModal" class="modal-overlay fade-in" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10005; align-items:center; justify-content:center; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
-        <div class="modal-content" style="max-width: 450px; width: 90%; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; padding: 0;">
+    <!-- Import Confirmation Modal -->
+    <div id="importConfirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10005; align-items:center; justify-content:center; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
+        <div id="importModalInner" style="max-width: 480px; width: 92%; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; padding: 0; margin: auto;">
+            <div style="background: #eff6ff; padding: 2rem 1.5rem 1.5rem; display: flex; flex-direction: column; align-items: center;">
+                <div style="background: #dbeafe; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 0 0 8px #eff6ff;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h2 style="margin: 0 0 0.5rem; color: #1e40af; font-size: 1.25rem; font-weight: 700;">Confirmar Importación</h2>
+                <p style="margin: 0; color: #3b82f6; font-size: 0.9rem;">Verifique los datos antes de importar el estado de cuenta.</p>
+            </div>
+            <div style="padding: 1.25rem 1.5rem; text-align: left;">
+                <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.75rem 1rem; font-size: 0.9rem;">
+                    <span style="color: #64748b; font-weight: 600;">Empresa:</span>
+                    <span id="importConfirmEmpresa" style="color: #0f172a; font-weight: 700;">—</span>
+                    <span style="color: #64748b; font-weight: 600;">Banco:</span>
+                    <span id="importConfirmBanco" style="color: #0f172a; font-weight: 700;">—</span>
+                    <span style="color: #64748b; font-weight: 600;">Moneda:</span>
+                    <span id="importConfirmMoneda" style="color: #0f172a; font-weight: 700;">—</span>
+                    <span style="color: #64748b; font-weight: 600;">Archivo:</span>
+                    <span id="importConfirmArchivo" style="color: #0f172a; font-weight: 600; word-break: break-all;">—</span>
+                </div>
+            </div>
+            <div style="padding: 1rem 1.5rem 1.25rem; background: #f8fafc; display: flex; gap: 1rem; justify-content: center; border-top: 1px solid #e2e8f0;">
+                <button type="button" onclick="event.stopPropagation(); closeImportConfirmModal();" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; cursor: pointer; font-size: 0.9rem;">Cancelar</button>
+                <button type="button" onclick="event.stopPropagation(); confirmImport();" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #2563eb; color: white; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3); font-size: 0.9rem;">Sí, Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Professional Delete Confirmation Modal (Self-contained, no CSS class conflicts) -->
+    <div id="deleteConfirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10005; align-items:center; justify-content:center; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
+        <div id="deleteModalInner" style="max-width: 450px; width: 90%; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; padding: 0; margin: auto;">
             <div style="background: #fef2f2; padding: 2rem 1.5rem 1.5rem; display: flex; flex-direction: column; align-items: center;">
                 <div style="background: #fee2e2; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 0 0 8px #fef2f2;">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -655,8 +684,8 @@
                 <p style="margin: 0; color: #b91c1c; font-size: 0.95rem; line-height: 1.5;">Esta acción borrará permanentemente el historial y las conciliaciones de este Banco y Empresa.</p>
             </div>
             <div style="padding: 1.25rem 1.5rem; background: #ffffff; display: flex; gap: 1rem; justify-content: center;">
-                <button type="button" class="btn btn-secondary" onclick="closeDeleteConfirmModal()" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; cursor: pointer;">Cancelar</button>
-                <button type="button" id="btnConfirmDeleteAll" class="btn btn-primary" onclick="executeDeleteAllBankMovements()" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #ef4444; color: white; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);">Sí, eliminar todo</button>
+                <button type="button" id="btnCancelDeleteAll" onclick="event.stopPropagation(); closeDeleteConfirmModal();" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; cursor: pointer; font-size: 0.9rem;">Cancelar</button>
+                <button type="button" id="btnConfirmDeleteAll" onclick="event.stopPropagation(); executeDeleteAllBankMovements(event);" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #ef4444; color: white; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3); font-size: 0.9rem;">Sí, eliminar todo</button>
             </div>
         </div>
     </div>
@@ -671,7 +700,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 
-    <script src="conciliacion.js?v=5.4"></script>
+    <script src="conciliacion.js?v=6.6"></script>
 </body>
 
 </html>

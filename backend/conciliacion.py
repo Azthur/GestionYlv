@@ -376,13 +376,14 @@ def delete_all_bank_movements(
 @router.get("/cobranzas")
 def get_cobranzas(
     codcia: Optional[str] = None,
-    year: str = Query(...),
-    month: str = Query(...),
+    year: Optional[str] = None,
+    month: Optional[str] = None,
     solo_pendientes: bool = True
 ):
     """
     Lista cobranzas de CcbMVtos con datos de CcbICaja.
     Si solo_pendientes=True, excluye las ya conciliadas.
+    year y month son opcionales; si no se proveen, trae todos.
     """
     conn = get_db_connection()
     if not conn:
@@ -398,10 +399,16 @@ def get_cobranzas(
             FROM CcbMVtos m
             LEFT JOIN CcbICaja c ON m.CodCia = c.codcia
                 AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
-            WHERE m.anos = ? AND m.mes = ?
-              AND (m.FlgEst IS NULL OR m.FlgEst <> 'E')
+            WHERE (m.FlgEst IS NULL OR m.FlgEst <> 'E')
         """
-        params = [year, month.zfill(2)]
+        params = []
+
+        if year:
+            query += " AND m.anos = ?"
+            params.append(year)
+        if month:
+            query += " AND m.mes = ?"
+            params.append(month.zfill(2))
 
         if codcia:
             query += " AND m.CodCia = ?"
@@ -816,9 +823,36 @@ def get_todas_cobranzas(
             
         where_str = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
-        # Query enriquecida para el reporte (Refinada con Joins a Bancos, POS y Documentos)
+        # Query enriquecida para el reporte y listado (Refinada con Joins a Bancos, POS y Documentos)
         query = f"""
             SELECT TOP 3000
+                -- Columnas crudas solicitadas para la tabla principal
+                m.CodCia,
+                m.anos,
+                m.mes,
+                m.coddoc,
+                m.nrodoc,
+                m.tpodoc,
+                m.fchdoc,
+                m.codaux,
+                m.NomAux,
+                m.codven,
+                m.nomven,
+                m.codref,
+                m.nroref,
+                m.import,
+                m.glodoc,
+                m.fmapgo,
+                m.CodDep,
+                m.NroDep,
+                m.fchDep,
+                m.tpopgo,
+                m.Dcmpgo,
+                m.CodCom,
+                m.usuario,
+                m.FlgEst,
+                
+                -- Alias y campos adicionales necesarios para la logica del Reporte de Caja y UI
                 m.CodCia as Suc,
                 m.coddoc as SerieDoc,
                 m.nrodoc as NroDoc,
@@ -826,26 +860,13 @@ def get_todas_cobranzas(
                 m.tpodoc as TipoDoc,
                 m.fchdoc as FechaEfe,
                 m.import as Monto,
-                m.NroDep,
                 m.fchDep as F_D,
                 m.glodoc as Glosa,
                 m.Glosa as Concepto,
                 m.codbco as CodBco,
                 m.nro_apl as NumCompte,
-                m.tpopgo,
                 m.NomAux as RazonSocial,
-                m.codaux,
-                m.NomAux,
-                m.codven,
-                m.nomven,
                 m.codmon,
-                m.CodDep,
-                m.codref,
-                m.nroref,
-                m.usuario,
-                m.FlgEst,
-                m.Dcmpgo,
-                m.CodCom,
                 c.nombco as CuentaNombre,
                 rd.Id as MatchId,
                 rd.BankMovementId as BankId,
@@ -907,6 +928,34 @@ def get_todas_cobranzas(
             dolares = float(r.get('Monto') or 0) if cm == '2' else 0
             
             enriched.append({
+                # --- Columnas crudas solicitadas para la tabla principal ---
+                "ID": (r.get('nroitm') or '').strip() if r.get('nroitm') else '',
+                "CodCia": (r.get('CodCia') or '').strip(),
+                "anos": (r.get('anos') or '').strip(),
+                "mes": (r.get('mes') or '').strip(),
+                "coddoc": (r.get('coddoc') or '').strip(),
+                "nrodoc": (r.get('nrodoc') or '').strip(),
+                "tpodoc": (r.get('tpodoc') or '').strip(),
+                "fchdoc": r.get('fchdoc'),
+                "codaux": (r.get('codaux') or '').strip(),
+                "NomAux": (r.get('NomAux') or '').strip(),
+                "codven": (r.get('codven') or '').strip(),
+                "nomven": (r.get('nomven') or '').strip(),
+                "codref": (r.get('codref') or '').strip(),
+                "nroref": (r.get('nroref') or '').strip(),
+                "import": float(r.get('import') or 0),
+                "glodoc": (r.get('glodoc') or '').strip(),
+                "fmapgo": (r.get('fmapgo') or '').strip(),
+                "CodDep": (r.get('CodDep') or '').strip(),
+                "NroDep": (r.get('NroDep') or '').strip(),
+                "fchDep": r.get('fchDep'),
+                "tpopgo": (r.get('tpopgo') or '').strip(),
+                "Dcmpgo": (r.get('Dcmpgo') or '').strip(),
+                "CodCom": (r.get('CodCom') or '').strip(),
+                "usuario": (r.get('usuario') or '').strip(),
+                "FlgEst": (r.get('FlgEst') or '').strip(),
+
+                # --- Alias y campos adicionales necesarios para la logica del Reporte de Caja y UI ---
                 "id": f"{r['Suc']}-{r['SerieDoc']}-{r['NroDoc']}-{r['Correlat']}",
                 "NroCaja": f"{(r['SerieDoc'] or '').strip()}{(r['NroDoc'] or '').strip()}",
                 "NumCompte": r['NumCompte'],
@@ -922,7 +971,6 @@ def get_todas_cobranzas(
                 "CuentaNombre": (r['CuentaNombre'] or '').strip() or 'BANCO NO ESPECIFICADO',
                 "Correlat": r['Correlat'],
                 "Monto": float(r['Monto'] or 0),
-                "NroDep": (r['NroDep'] or '').strip(),
                 "F_D": r['F_D'],
                 "MntDoc": float(r['Monto'] or 0),
                 "Importe": float(r['Monto'] or 0),
@@ -935,21 +983,9 @@ def get_todas_cobranzas(
                 "Codigo": (r['codaux'] or '').strip(),
                 "JT": jt,
                 "GroupName": (r['GroupName'] or r['CuentaNombre'] or 'VARIOS').strip(),
-                "OriginalFechaDoc": r['FechaOriginalDoc'],
+                "OriginalFechaDoc": r.get('FechaOriginalDoc'),
                 "Soles": soles,
                 "Dolares": dolares,
-                "codaux": (r.get('codaux') or '').strip(),
-                "NomAux": (r.get('NomAux') or '').strip(),
-                "codven": (r.get('codven') or '').strip(),
-                "nomven": (r.get('nomven') or '').strip(),
-                "codref": (r.get('codref') or '').strip(),
-                "nroref": (r.get('nroref') or '').strip(),
-                "usuario": (r.get('usuario') or '').strip(),
-                "FlgEst": (r.get('FlgEst') or '').strip(),
-                "CodDep": (r.get('CodDep') or '').strip(),
-                "tpopgo": (r.get('tpopgo') or '').strip(),
-                "Dcmpgo": (r.get('Dcmpgo') or '').strip(),
-                "CodCom": (r.get('CodCom') or '').strip(),
                 "MatchId": r['MatchId'],
                 "BankId": r['BankId'],
                 "Conciliado": r['IsConciliado'] == 1
