@@ -302,7 +302,7 @@
                                 </label>
                             </div>
                         </div>
-                        <div class="table-responsive custom-scrollbar" style="max-height: 500px; overflow-y: auto;">
+                        <div class="table-responsive custom-scrollbar">
                             <table class="data-table" id="tableCobranzas">
                                 <thead>
                                     <tr>
@@ -314,11 +314,16 @@
                                         <th>Importe</th>
                                         <th>NroDep</th>
                                         <th>Fecha Dep</th>
+                                        <th>Codref</th>
+                                        <th>Nroref</th>
+                                        <th>Tpopgo</th>
+                                        <th>CodDep</th>
+                                        <th>CodCom</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbodyCob">
                                     <tr>
-                                        <td colspan="8" class="loading-state empty-state">Las cobranzas se cargarán al
+                                        <td colspan="13" class="loading-state empty-state">Las cobranzas se cargarán al
                                             consultar</td>
                                     </tr>
                                 </tbody>
@@ -520,7 +525,7 @@
                             </table>
                         </div>
                         <div style="margin-top: 15px; text-align: right;">
-                            <button class="btn btn-secondary" onclick="runCleaningRules()">Ejecutar Limpieza en Tabla Banco</button>
+
                         </div>
                     </div>
                 </div>

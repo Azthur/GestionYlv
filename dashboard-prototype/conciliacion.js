@@ -48,6 +48,18 @@ function getCurrencySymbol(codMon) {
     return 'S/';
 }
 
+function formatUTCLocalDate(dateStr) {
+    if (!dateStr) return '';
+    if (typeof dateStr === 'string' && dateStr.includes('/')) {
+        return dateStr.split(' ')[0];
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('es-PE', { timeZone: 'UTC' });
+    }
+    return dateStr;
+}
+
 // ─── Sidebar Toggle (shared) ──────────────────────────────────────────
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -211,9 +223,11 @@ async function loadBankMovements(codcia, bankCode, year, month) {
 async function loadCobranzas(codcia, year, month) {
     try {
         const crossCompany = document.getElementById('checkCrossCompany').checked;
+        const bankCode = document.getElementById('selectBanco').value;
         const params = new URLSearchParams({ year, month, solo_pendientes: 'true' });
         if (!crossCompany) {
             params.set('codcia', codcia);
+            if (bankCode) params.set('bank_code', bankCode);
         }
         const res = await fetch(`/api/conciliacion/cobranzas?${params}`);
         if (!res.ok) throw new Error('Error loading cobranzas');
@@ -269,7 +283,7 @@ function renderBankTable() {
         tr.style.animation = `fadeIn 0.3s ease-out ${idx * 0.02}s forwards`;
         tr.style.opacity = '0';
 
-        const fecha = mov.Fecha ? new Date(mov.Fecha).toLocaleDateString('es-PE') : '';
+        const fecha = formatUTCLocalDate(mov.Fecha);
         const monto = parseFloat(mov.Monto || 0);
         const statusClass = isMatched ? 'conciliado' : 'pendiente';
 
@@ -334,11 +348,17 @@ async function updateOpManualCruce(id, newValue, inputEl) {
 }
 
 // ─── Render Cobranzas Table ──────────────────────────────────────────
+let dtCruceCobranzas = null;
+
 function renderCobTable() {
     const tbody = document.getElementById('tbodyCob');
+    
+    if (dtCruceCobranzas) {
+        dtCruceCobranzas.destroy();
+    }
 
     if (cobranzas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading-state empty-state">No hay cobranzas pendientes</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="loading-state empty-state">No hay cobranzas pendientes</td></tr>';
         return;
     }
 
@@ -352,7 +372,7 @@ function renderCobTable() {
         tr.style.opacity = '0';
 
         const importe = parseFloat(cob.import || 0);
-        const fchDep = cob.fchDep ? new Date(cob.fchDep).toLocaleDateString('es-PE') : '—';
+        const fchDep = formatUTCLocalDate(cob.fchDep || cob.fchdoc);
 
         tr.innerHTML = `
             <td><input type="checkbox" ${isSelected ? 'checked' : ''} 
@@ -372,30 +392,51 @@ function renderCobTable() {
             </td>
             <td>${cob.NroDep ? `<span class="nro-dep-match">${(cob.NroDep || '').trim()}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
             <td>${fchDep}</td>
+            <td>${(cob.codref || '').trim()}</td>
+            <td>${(cob.nroref || '').trim()}</td>
+            <td>${(cob.tpopgo || '').trim()}</td>
+            <td>${(cob.CodDep || '').trim()}</td>
+            <td>${(cob.CodCom || '').trim()}</td>
         `;
         tbody.appendChild(tr);
     });
 }
 
 // ─── Selection Logic ─────────────────────────────────────────────────
-function toggleBankSelection(id, checked) {
+function toggleBankSelection(id, checked, checkboxEl) {
     if (checked) {
         selectedBankIds.add(id);
     } else {
         selectedBankIds.delete(id);
     }
+    
+    // Update UI without full re-render
+    if (checkboxEl) {
+        const tr = checkboxEl.closest('tr');
+        if (tr) {
+            if (checked) tr.classList.add('row-selected');
+            else tr.classList.remove('row-selected');
+        }
+    }
     updateMatchButton();
-    renderBankTable();
 }
 
-function toggleCobSelection(key, checked) {
+function toggleCobSelection(key, checked, checkboxEl) {
     if (checked) {
         selectedCobKeys.add(key);
     } else {
         selectedCobKeys.delete(key);
     }
+    
+    // Update UI without full re-render
+    if (checkboxEl) {
+        const tr = checkboxEl.closest('tr');
+        if (tr) {
+            if (checked) tr.classList.add('row-selected');
+            else tr.classList.remove('row-selected');
+        }
+    }
     updateMatchButton();
-    renderCobTable();
 }
 
 function toggleAllBank() {
@@ -428,7 +469,33 @@ function toggleAllCob() {
 
 function updateMatchButton() {
     const btn = document.getElementById('btnManualMatch');
-    btn.disabled = !(selectedBankIds.size === 1 && selectedCobKeys.size === 1);
+    
+    if (selectedBankIds.size === 0 || selectedCobKeys.size === 0) {
+        btn.disabled = true;
+        btn.title = "Seleccione al menos 1 movimiento bancario y 1 cobranza";
+        return;
+    }
+
+    let sumBancos = 0;
+    selectedBankIds.forEach(id => {
+        const mov = bankMovements.find(m => m.Id === id);
+        if (mov) sumBancos += parseFloat(mov.Monto || 0);
+    });
+
+    let sumCobranzas = 0;
+    selectedCobKeys.forEach(key => {
+        const cob = cobranzas.find(c => `${c.CodCia}|${c.coddoc}|${c.nrodoc}|${c.nroitm}` === key);
+        if (cob) sumCobranzas += parseFloat(cob.import || 0);
+    });
+
+    const diff = Math.abs(Math.abs(sumBancos) - Math.abs(sumCobranzas));
+    if (diff <= 0.05) {
+        btn.disabled = false;
+        btn.title = "Importes cuadran perfectamente. Clic para conciliar.";
+    } else {
+        btn.disabled = true;
+        btn.title = `Diferencia de importes: ${currentCurrencySymbol} ${diff.toFixed(2)}`;
+    }
 }
 
 // ─── Auto Match ──────────────────────────────────────────────────────
@@ -476,31 +543,37 @@ async function runAutoMatch() {
 }
 
 // ─── Manual Match ────────────────────────────────────────────────────
+// ─── Manual Match ────────────────────────────────────────────────────
 async function matchSelected() {
-    if (selectedBankIds.size !== 1 || selectedCobKeys.size !== 1) {
-        showToast('Seleccione exactamente 1 movimiento bancario y 1 cobranza', 'info');
+    if (selectedBankIds.size === 0 || selectedCobKeys.size === 0) {
+        showToast('Seleccione al menos 1 movimiento bancario y 1 cobranza', 'info');
         return;
     }
 
-    const bankId = [...selectedBankIds][0];
-    const cobKey = [...selectedCobKeys][0];
-    const [codcia, coddoc, nrodoc, nroitm] = cobKey.split('|');
-
     try {
+        const requestBody = {
+            bank_movement_ids: Array.from(selectedBankIds),
+            cobranza_keys: Array.from(selectedCobKeys)
+        };
+
         const res = await fetch('/api/conciliacion/manual-match', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                bank_movement_id: bankId,
-                match_codcia: codcia,
-                match_coddoc: coddoc,
-                match_nrodoc: nrodoc,
-                match_nroitm: nroitm
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!res.ok) {
             const err = await res.json();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Conciliación',
+                    text: err.detail || 'No se pudo realizar el cruce.',
+                    confirmButtonColor: '#2b3954'
+                });
+            } else {
+                alert(err.detail || 'Error en match manual');
+            }
             throw new Error(err.detail || 'Error en match manual');
         }
 
@@ -511,7 +584,7 @@ async function matchSelected() {
         await loadData();
     } catch (err) {
         console.error(err);
-        showToast(err.message, 'error');
+        // Error already handled above
     }
 }
 
@@ -753,13 +826,17 @@ async function loadAllCobranzas() {
         const year = document.getElementById('selectYear').value;
         const month = document.getElementById('selectMonth').value;
         const codcia = document.getElementById('selectEmpresa').value;
+        const bankCode = document.getElementById('selectBanco').value;
         const crossCompany = document.getElementById('chkCrossCompanyTodas')?.checked;
         
         let url = `/api/conciliacion/cobranzas-todas`;
         const params = new URLSearchParams();
         if (year) params.set('year', year);
         if (month) params.set('month', month);
-        if (codcia && !crossCompany) params.set('codcia', codcia);
+        if (codcia && !crossCompany) {
+            params.set('codcia', codcia);
+            if (bankCode) params.set('bank_code', bankCode);
+        }
         
         if (params.toString()) url += '?' + params.toString();
 

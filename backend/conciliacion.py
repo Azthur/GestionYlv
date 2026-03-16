@@ -11,6 +11,8 @@ from typing import List, Optional
 from datetime import datetime, date
 import uuid
 import io
+import re
+from collections import defaultdict
 
 router = APIRouter(prefix="/api/conciliacion", tags=["Conciliación Bancaria"])
 
@@ -20,11 +22,8 @@ from database import get_db_connection
 # ─── Pydantic Models ─────────────────────────────────────────────
 
 class ManualMatchRequest(BaseModel):
-    bank_movement_id: int
-    match_codcia: str
-    match_coddoc: str
-    match_nrodoc: str
-    match_nroitm: str
+    bank_movement_ids: List[int]
+    cobranza_keys: List[str]  # Format: "CodCia|coddoc|nrodoc|nroitm"
 
 
 class AutoMatchRequest(BaseModel):
@@ -378,6 +377,7 @@ def get_cobranzas(
     codcia: Optional[str] = None,
     year: Optional[str] = None,
     month: Optional[str] = None,
+    bank_code: Optional[str] = None,
     solo_pendientes: bool = True
 ):
     """
@@ -411,8 +411,12 @@ def get_cobranzas(
             params.append(month.zfill(2))
 
         if codcia:
-            query += " AND m.CodCia = ?"
-            params.append(codcia)
+            if bank_code:
+                query += " AND (m.CodCia = ? OR (m.tpopgo = '1' AND m.CodCom = ? AND m.CodDep = ?))"
+                params.extend([codcia, codcia, bank_code])
+            else:
+                query += " AND m.CodCia = ?"
+                params.append(codcia)
 
         if solo_pendientes:
             query += """
@@ -438,23 +442,39 @@ def get_cobranzas(
 @router.post("/auto-match")
 def auto_match(request: AutoMatchRequest):
     """
-    Conciliación automática: busca en CcbMVtos (TODAS las empresas)
-    donde NroDep = OpCancelacion del movimiento bancario.
-    Esto resuelve el caso cross-company.
+    Conciliación automática inteligente:
+    - Aplica Regex Cleaning Rules (DB)
+    - Soporta Múltiples compañias (Filiales tpopgo=1)
+    - Soporta Agrupación Many-to-Many por Importe Total & Fecha
     """
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
     try:
         cursor = conn.cursor()
-        matched_count = 0
+        
+        # 1. Load cleaning rules
+        try:
+            cursor.execute("SELECT RegexPattern, Replacement FROM CleaningRules WHERE IsActive = 1")
+            rules = cursor.fetchall()
+        except:
+            rules = [] # Fallback if table is missing or errors
+            
+        def clean_op(op):
+            if not op: return ""
+            op_str = str(op).strip()
+            for pattern, repl in rules:
+                try:
+                    op_str = re.sub(pattern, repl, op_str)
+                except Exception:
+                    pass
+            return op_str
 
-        # Get all pending bank movements
+        # 2. Load pending bank movements
         query = """
-            SELECT Id, OpCancelacion, Monto, Fecha
+            SELECT Id, OpCancelacion, OperacionNumero, Monto, Fecha
             FROM BankMovements
             WHERE CodCia = ? AND BankCode = ? AND Estado = 'Pendiente'
-              AND OpCancelacion IS NOT NULL AND LTRIM(RTRIM(OpCancelacion)) <> ''
         """
         params = [request.codcia, request.bank_code]
 
@@ -468,58 +488,100 @@ def auto_match(request: AutoMatchRequest):
         cursor.execute(query, params)
         pending_movements = cursor.fetchall()
 
+        # Group Banks by (CleanedOp, Date)
+        bank_groups = defaultdict(list)
         for mov in pending_movements:
-            mov_id = mov[0]
-            op_cancel = str(mov[1]).strip()
+            b_id = mov[0]
+            raw_op = mov[1] if mov[1] and str(mov[1]).strip() else mov[2]
+            cleaned = clean_op(raw_op)
+            b_date = str(mov[4])[:10] if mov[4] else ""
+            if cleaned and b_date:
+                bank_groups[(cleaned, b_date)].append(mov)
 
-            if not op_cancel:
+        # 3. Load ALL pending CcbMVtos for these dates/companies with Filiales logic
+        c_query = """
+            SELECT CodCia, coddoc, nrodoc, nroitm, NroDep, nroref, import, fchDep, fchdoc, tpopgo, CodDep, CodCom 
+            FROM CcbMVtos
+            WHERE (FlgEst IS NULL OR FlgEst <> 'E')
+              AND (
+                  CodCia = ? 
+                  OR (tpopgo = '1' AND CodCom = ? AND CodDep = ?)
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM ReconciliationDetail rd
+                  WHERE rd.MatchCodCia = CcbMVtos.CodCia
+                    AND rd.MatchCoddoc = CcbMVtos.coddoc
+                    AND rd.MatchNrodoc = CcbMVtos.nrodoc
+                    AND rd.MatchNroitm = CcbMVtos.nroitm
+              )
+        """
+        c_params = [request.codcia, request.codcia, request.bank_code]
+        
+        if request.period_year:
+           c_query += " AND anos = ?"
+           c_params.append(str(request.period_year))
+        if request.period_month:
+           c_query += " AND mes = ?"
+           c_params.append(str(request.period_month).zfill(2))
+           
+        cursor.execute(c_query, c_params)
+        unmatched_cobs = cursor.fetchall()
+        
+        # Group Cobs by (CleanedOp, Date)
+        cob_groups = defaultdict(list)
+        for cob in unmatched_cobs:
+            raw_op = cob[4] if cob[4] and str(cob[4]).strip() else cob[5]
+            cleaned = clean_op(raw_op)
+            c_date = str(cob[7] if cob[7] else cob[8])[:10]
+            if cleaned and c_date:
+                cob_groups[(cleaned, c_date)].append(cob)
+
+        matched_count = 0
+        total_processed = len(pending_movements)
+
+        # 4. Compare Groups and Insert Many-to-Many Maps
+        for key, b_list in bank_groups.items():
+            c_list = cob_groups.get(key)
+            if not c_list:
                 continue
-
-            # Search in CcbMVtos across ALL companies (cross-company)
-            cursor.execute("""
-                SELECT TOP 1 CodCia, coddoc, nrodoc, nroitm
-                FROM CcbMVtos
-                WHERE LTRIM(RTRIM(NroDep)) = ?
-                  AND NroDep IS NOT NULL AND LTRIM(RTRIM(NroDep)) <> ''
-                  AND (FlgEst IS NULL OR FlgEst <> 'E')
-                  AND NOT EXISTS (
-                      SELECT 1 FROM ReconciliationDetail rd
-                      WHERE rd.MatchCodCia = CcbMVtos.CodCia
-                        AND rd.MatchCoddoc = CcbMVtos.coddoc
-                        AND rd.MatchNrodoc = CcbMVtos.nrodoc
-                        AND rd.MatchNroitm = CcbMVtos.nroitm
-                  )
-            """, (op_cancel,))
-
-            match = cursor.fetchone()
-            if match:
-                # Create reconciliation detail
-                cursor.execute("""
-                    INSERT INTO ReconciliationDetail
-                    (BankMovementId, MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm, MatchType)
-                    VALUES (?, ?, ?, ?, ?, 'AUTO_NRODEP')
-                """, (mov_id, match[0], match[1], match[2], match[3]))
-
-                # Get the detail ID
-                cursor.execute("SELECT SCOPE_IDENTITY()")
-                detail_id = int(cursor.fetchone()[0])
-
-                # Update bank movement status
-                cursor.execute("""
-                    UPDATE BankMovements
-                    SET Estado = 'Conciliado', ReconciliationDetailId = ?
-                    WHERE Id = ?
-                """, (detail_id, mov_id))
-
-                matched_count += 1
-
+                
+            sum_b = sum([float(b[3] or 0) for b in b_list])
+            sum_c = sum([float(c[6] or 0) for c in c_list])
+            
+            # Exact Amount Match
+            if abs(abs(sum_b) - abs(sum_c)) <= 0.01:
+                group_uuid = str(uuid.uuid4())
+                
+                for b_idx, b_mov in enumerate(b_list):
+                    b_id = b_mov[0]
+                    first_detail_id = None
+                    
+                    for c_cob in c_list:
+                        cursor.execute("""
+                            INSERT INTO ReconciliationDetail
+                            (BankMovementId, MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm, MatchType, ReconciliationId)
+                            VALUES (?, ?, ?, ?, ?, 'AUTO', ?)
+                        """, (b_id, c_cob[0], c_cob[1], c_cob[2], c_cob[3], group_uuid))
+                        
+                        if not first_detail_id:
+                            cursor.execute("SELECT SCOPE_IDENTITY()")
+                            first_detail_id = int(cursor.fetchone()[0])
+                            
+                    if first_detail_id:
+                        cursor.execute("""
+                            UPDATE BankMovements
+                            SET Estado = 'Conciliado', ReconciliationDetailId = ?
+                            WHERE Id = ?
+                        """, (first_detail_id, b_id))
+                        matched_count += 1
+                        
         conn.commit()
 
         return {
             "status": "success",
-            "message": f"Conciliación automática completada. {matched_count} movimientos conciliados.",
+            "message": f"Conciliación automática completada. {matched_count} movimientos vinculados usando agrupación avanzada.",
             "matched_count": matched_count,
-            "total_processed": len(pending_movements)
+            "total_processed": total_processed
         }
     except Exception as e:
         conn.rollback()
@@ -563,63 +625,117 @@ def update_op_manual(mov_id: int, request: OpManualUpdateRequest):
 
 @router.post("/manual-match")
 def manual_match(request: ManualMatchRequest):
-    """Conciliación manual: vincula un movimiento bancario con una cobranza específica."""
+    """Conciliación manual: vincula N movimientos bancarios con M cobranzas (Many-to-Many)."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
     try:
         cursor = conn.cursor()
 
-        # Verify bank movement exists and is pending
-        cursor.execute("""
-            SELECT Id, Estado FROM BankMovements WHERE Id = ?
-        """, (request.bank_movement_id,))
-        mov = cursor.fetchone()
-        if not mov:
-            raise HTTPException(status_code=404, detail="Movimiento bancario no encontrado")
-        if str(mov[1]).strip() == 'Conciliado':
-            raise HTTPException(status_code=400, detail="El movimiento ya está conciliado")
+        if not request.bank_movement_ids or not request.cobranza_keys:
+            raise HTTPException(status_code=400, detail="Debe seleccionar al menos un banco y una cobranza.")
 
-        # Verify the cobranza exists
-        cursor.execute("""
-            SELECT CodCia FROM CcbMVtos
-            WHERE CodCia = ? AND coddoc = ? AND nrodoc = ? AND nroitm = ?
-        """, (request.match_codcia, request.match_coddoc, request.match_nrodoc, request.match_nroitm))
-        cob = cursor.fetchone()
-        if not cob:
-            raise HTTPException(status_code=404, detail="Cobranza no encontrada")
+        # 1. Fetch and validate Bank Movements
+        bank_placeholders = ','.join(['?'] * len(request.bank_movement_ids))
+        cursor.execute(f"""
+            SELECT Id, Estado, Monto, Fecha FROM BankMovements 
+            WHERE Id IN ({bank_placeholders})
+        """, request.bank_movement_ids)
+        banks = cursor.fetchall()
+        
+        if len(banks) != len(request.bank_movement_ids):
+            raise HTTPException(status_code=404, detail="Uno o más movimientos bancarios no encontrados.")
+        
+        sum_bancos = 0.0
+        bank_date = None
+        for b in banks:
+            if str(b[1]).strip() == 'Conciliado':
+                raise HTTPException(status_code=400, detail="Uno de los movimientos bancarios ya está conciliado.")
+            sum_bancos += float(b[2] or 0)
+            if not bank_date and b[3]:
+                bank_date = b[3]
 
-        # Check if cobranza already matched
-        cursor.execute("""
-            SELECT Id FROM ReconciliationDetail
-            WHERE MatchCodCia = ? AND MatchCoddoc = ? AND MatchNrodoc = ? AND MatchNroitm = ?
-        """, (request.match_codcia, request.match_coddoc, request.match_nrodoc, request.match_nroitm))
-        if cursor.fetchone():
-            raise HTTPException(status_code=400, detail="Esta cobranza ya está conciliada")
+        if not bank_date:
+             raise HTTPException(status_code=400, detail="Los movimientos bancarios no tienen una fecha válida.")
 
-        # Create match
-        cursor.execute("""
-            INSERT INTO ReconciliationDetail
-            (BankMovementId, MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm, MatchType)
-            VALUES (?, ?, ?, ?, ?, 'MANUAL')
-        """, (request.bank_movement_id, request.match_codcia,
-              request.match_coddoc, request.match_nrodoc, request.match_nroitm))
+        # 2. Fetch and validate Cobranzas
+        sum_cobranzas = 0.0
+        parsed_cobs = []
+        for key in request.cobranza_keys:
+            parts = key.split('|')
+            if len(parts) != 4:
+                raise HTTPException(status_code=400, detail=f"Llave de cobranza inválida: {key}")
+            
+            c_cia, c_doc, n_doc, n_itm = parts
+            
+            cursor.execute("""
+                SELECT CodCia, import, fchDep, fchdoc FROM CcbMVtos
+                WHERE CodCia = ? AND coddoc = ? AND nrodoc = ? AND nroitm = ?
+            """, (c_cia, c_doc, n_doc, n_itm))
+            cob = cursor.fetchone()
+            if not cob:
+                raise HTTPException(status_code=404, detail=f"Cobranza no encontrada: {key}")
+            
+            # Check if matched already
+            cursor.execute("""
+                SELECT Id FROM ReconciliationDetail
+                WHERE MatchCodCia = ? AND MatchCoddoc = ? AND MatchNrodoc = ? AND MatchNroitm = ?
+            """, (c_cia, c_doc, n_doc, n_itm))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail=f"La cobranza {key} ya está conciliada.")
+            
+            # Amount and Date validation
+            sum_cobranzas += float(cob[1] or 0)
+            
+            # Use fchDep, fallback to fchdoc
+            c_date = cob[2] if cob[2] else cob[3]
+            if not c_date:
+                raise HTTPException(status_code=400, detail=f"La cobranza {key} no tiene fecha.")
+            
+            # Compare Dates (strict YYYY-MM-DD match)
+            b_date_str = str(bank_date)[:10]
+            c_date_str = str(c_date)[:10]
+            if b_date_str != c_date_str:
+                raise HTTPException(status_code=400, detail=f"La fecha del banco ({b_date_str}) no coincide con la fecha de la cobranza seleccionada ({c_date_str}). Corrige la Fecha de Depósito en el sistema primero.")
+                
+            parsed_cobs.append(parts)
 
-        cursor.execute("SELECT SCOPE_IDENTITY()")
-        detail_id = int(cursor.fetchone()[0])
+        # 3. Validate Amounts
+        # In absolute terms, they must match within a tiny float tolerance
+        if abs(abs(sum_bancos) - abs(sum_cobranzas)) > 0.01:
+            raise HTTPException(status_code=400, detail=f"Los importes no concuerdan. Bancos: {abs(sum_bancos):.2f}, Cobranzas: {abs(sum_cobranzas):.2f}")
 
-        cursor.execute("""
-            UPDATE BankMovements
-            SET Estado = 'Conciliado', ReconciliationDetailId = ?
-            WHERE Id = ?
-        """, (detail_id, request.bank_movement_id))
+        # 4. Do the Many-to-Many Insert
+        match_group_id = str(uuid.uuid4())
+        
+        for idx, b_id in enumerate(request.bank_movement_ids):
+            primary_detail_id = None
+            
+            for c_cia, c_doc, n_doc, n_itm in parsed_cobs:
+                cursor.execute("""
+                    INSERT INTO ReconciliationDetail
+                    (BankMovementId, MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm, MatchType, ReconciliationId)
+                    VALUES (?, ?, ?, ?, ?, 'MANUAL', ?)
+                """, (b_id, c_cia, c_doc, n_doc, n_itm, match_group_id))
+                
+                if not primary_detail_id:
+                    cursor.execute("SELECT SCOPE_IDENTITY()")
+                    primary_detail_id = int(cursor.fetchone()[0])
+
+            # Update BankMovement to point to the first generated detail of this sequence
+            if primary_detail_id:
+                cursor.execute("""
+                    UPDATE BankMovements
+                    SET Estado = 'Conciliado', ReconciliationDetailId = ?
+                    WHERE Id = ?
+                """, (primary_detail_id, b_id))
 
         conn.commit()
 
         return {
             "status": "success",
             "message": "Conciliación manual realizada exitosamente.",
-            "detail_id": detail_id
+            "group_id": match_group_id
         }
     except HTTPException:
         conn.rollback()
@@ -633,32 +749,45 @@ def manual_match(request: ManualMatchRequest):
 
 @router.delete("/unmatch/{detail_id}")
 def unmatch(detail_id: int):
-    """Deshace un match de conciliación."""
+    """Deshace un match de conciliación (soporta grupos Many-to-Many)."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
     try:
         cursor = conn.cursor()
 
-        # Get the bank movement ID before deleting
+        # Get the group ID before deleting
         cursor.execute("""
-            SELECT BankMovementId FROM ReconciliationDetail WHERE Id = ?
+            SELECT ReconciliationId, BankMovementId FROM ReconciliationDetail WHERE Id = ?
         """, (detail_id,))
         detail = cursor.fetchone()
         if not detail:
             raise HTTPException(status_code=404, detail="Match no encontrado")
 
-        bank_mov_id = detail[0]
+        group_id = detail[0]
+        single_bank_id = detail[1]
 
-        # Delete the detail
-        cursor.execute("DELETE FROM ReconciliationDetail WHERE Id = ?", (detail_id,))
+        if group_id:
+            # Delete entire group
+            cursor.execute("SELECT BankMovementId FROM ReconciliationDetail WHERE ReconciliationId = ? GROUP BY BankMovementId", (group_id,))
+            bank_ids = [row[0] for row in cursor.fetchall()]
 
-        # Reset bank movement status
-        cursor.execute("""
-            UPDATE BankMovements
-            SET Estado = 'Pendiente', ReconciliationDetailId = NULL
-            WHERE Id = ?
-        """, (bank_mov_id,))
+            cursor.execute("DELETE FROM ReconciliationDetail WHERE ReconciliationId = ?", (group_id,))
+
+            for b_id in bank_ids:
+                cursor.execute("""
+                    UPDATE BankMovements
+                    SET Estado = 'Pendiente', ReconciliationDetailId = NULL
+                    WHERE Id = ?
+                """, (b_id,))
+        else:
+            # Fallback: legacy single match delete
+            cursor.execute("DELETE FROM ReconciliationDetail WHERE Id = ?", (detail_id,))
+            cursor.execute("""
+                UPDATE BankMovements
+                SET Estado = 'Pendiente', ReconciliationDetailId = NULL
+                WHERE Id = ?
+            """, (single_bank_id,))
 
         conn.commit()
         return {"status": "success", "message": "Match eliminado exitosamente."}
@@ -794,7 +923,8 @@ def get_cobranza_match_details(
 def get_todas_cobranzas(
     year: Optional[str] = None,
     month: Optional[str] = None,
-    codcia: Optional[str] = None
+    codcia: Optional[str] = None,
+    bank_code: Optional[str] = None
 ):
     """
     Retorna la tabla completa de cobranzas con datos para reporte y estado de conciliación.
@@ -816,8 +946,12 @@ def get_todas_cobranzas(
             where_clauses.append("m.mes = ?")
             params.append(month.zfill(2))
         if codcia:
-            where_clauses.append("m.CodCia = ?")
-            params.append(codcia)
+            if bank_code:
+                where_clauses.append("(m.CodCia = ? OR (m.tpopgo = '1' AND m.CodCom = ? AND m.CodDep = ?))")
+                params.extend([codcia, codcia, bank_code])
+            else:
+                where_clauses.append("m.CodCia = ?")
+                params.append(codcia)
             
         where_clauses.append("(m.FlgEst IS NULL OR m.FlgEst <> 'E')")
             
