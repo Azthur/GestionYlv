@@ -15,7 +15,7 @@ services:
       - .env.docker
     environment:
       - PYTHONUNBUFFERED=1
-      - ODBC_DRIVER={ODBC Driver 18 for SQL Server}
+      - "ODBC_DRIVER={ODBC Driver 18 for SQL Server}"
     volumes:
       # Persist cleaning rules JSON
       - conciliacion_data:/app/backend/data

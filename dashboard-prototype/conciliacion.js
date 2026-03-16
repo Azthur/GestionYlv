@@ -65,6 +65,8 @@ function renderUserInfo(user) {
             if (href.includes('orders.html')) isVisible = true;
         } else if (userRol === 'CONTROL_INTERNO') {
             if (href.includes('conciliacion.html')) isVisible = true;
+        } else if (userRol === 'CONTABILIDAD') {
+            if (href.includes('orders.html') || href.includes('conciliacion.html')) isVisible = true;
         }
 
         if (!isVisible) {
@@ -81,6 +83,17 @@ function renderUserInfo(user) {
             group.style.display = 'block';
         }
     });
+
+    // COMERCIAL TAB RESTRICTIONS
+    if (userRol === 'COMERCIAL') {
+        const hideTabs = ['btn-tab-cruce', 'btn-tab-banco', 'btn-tab-reglas', 'btn-tab-ajustes'];
+        hideTabs.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
+        // Set default tab to 'Todas las Cobranzas' for Comercial users
+        setTimeout(() => switchTab('tab-todas'), 100);
+    }
 }
 
 function logout() {
@@ -193,6 +206,10 @@ async function onEmpresaChange() {
     if (!codcia) {
         selectBanco.innerHTML = '<option value="">Seleccione empresa primero</option>';
         selectBanco.disabled = true;
+        
+        const btnDelete = document.getElementById('btnDeleteAllBank');
+        if (btnDelete) btnDelete.disabled = true;
+        
         return;
     }
 
@@ -231,10 +248,14 @@ function onBancoChange() {
         currentCurrencySymbol = 'S/';
     }
 
+    const btnDelete = document.getElementById('btnDeleteAllBank');
+
     if (codcia && bankCode) {
         btnAuto.disabled = false;
+        if (btnDelete) btnDelete.disabled = false;
     } else {
         btnAuto.disabled = true;
+        if (btnDelete) btnDelete.disabled = true;
     }
 }
 

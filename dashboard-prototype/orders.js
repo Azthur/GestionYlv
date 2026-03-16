@@ -55,6 +55,10 @@ function renderUserInfo(user) {
             if (href.includes('orders.html')) isVisible = true;
         } else if (userRol === 'CONTROL_INTERNO') {
             if (href.includes('conciliacion.html')) isVisible = true;
+        } else if (userRol === 'CONTABILIDAD') {
+            if (href.includes('orders.html') || href.includes('conciliacion.html')) isVisible = true;
+        } else if (userRol === 'COMERCIAL') {
+            if (href.includes('conciliacion.html')) isVisible = true;
         }
 
         if (!isVisible) {

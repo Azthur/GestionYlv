@@ -35,6 +35,8 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 .env.docker
+backend/.env
+**/.env
 
 # Docs
 *.md

@@ -72,8 +72,9 @@ def update_db_config(config: DBConfigUpdate):
 def test_db_connection(config: DBTestRequest):
     """Prueba la conexión a la base de datos con las credenciales proporcionadas."""
     try:
+        odbc_driver = os.getenv("ODBC_DRIVER", "{SQL Server}")
         conn_str = (
-            "DRIVER={SQL Server};"
+            f"DRIVER={odbc_driver};"
             f"SERVER={config.db_server};"
             f"DATABASE={config.db_name};"
             f"UID={config.db_user};"
@@ -137,8 +138,9 @@ def db_status():
     """Verifica el estado actual de la conexión con la configuración del .env."""
     load_dotenv(override=True)
     try:
+        odbc_driver = os.getenv("ODBC_DRIVER", "{SQL Server}")
         conn_str = (
-            "DRIVER={SQL Server};"
+            f"DRIVER={odbc_driver};"
             f"SERVER={os.getenv('DB_SERVER')};"
             f"DATABASE={os.getenv('DB_NAME')};"
             f"UID={os.getenv('DB_USER')};"

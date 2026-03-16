@@ -153,6 +153,8 @@ async function loadUsers() {
                             if (data === 'ADMIN') return '<span class="badge admin">ADMIN</span>';
                             if (data === 'LOGISTICA') return '<span class="badge" style="background:#FEF3C7; color:#92400E;">LOGISTICA</span>';
                             if (data === 'CONTROL_INTERNO') return '<span class="badge" style="background:#E0F2FE; color:#0369A1;">CONTROL_INTERNO</span>';
+                            if (data === 'CONTABILIDAD') return '<span class="badge" style="background:#F3E8FF; color:#7E22CE;">CONTABILIDAD</span>';
+                            if (data === 'COMERCIAL') return '<span class="badge" style="background:#D1FAE5; color:#047857;">COMERCIAL</span>';
                             return `<span class="badge user">${data || 'USER'}</span>`;
                         }
                     },

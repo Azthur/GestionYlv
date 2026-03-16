@@ -44,8 +44,8 @@ function renderUserInfo(user) {
 
     // Access Control
     const currentLogin = String(user.login || '').trim().toUpperCase();
-    const isSuperuser = currentLogin === '71941916JL';
-    const isAdmin = user.rol === 'ADMIN';
+    const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
+    const isAdmin = String(user.rol || '').trim().toUpperCase() === 'ADMIN';
     const userRol = String(user.rol || '').trim().toUpperCase();
 
     if (isSuperuser || isAdmin) {
@@ -69,6 +69,10 @@ function renderUserInfo(user) {
         } else if (userRol === 'LOGISTICA') {
             if (href.includes('orders.html')) isVisible = true;
         } else if (userRol === 'CONTROL_INTERNO') {
+            if (href.includes('conciliacion.html')) isVisible = true;
+        } else if (userRol === 'CONTABILIDAD') {
+            if (href.includes('orders.html') || href.includes('conciliacion.html')) isVisible = true;
+        } else if (userRol === 'COMERCIAL') {
             if (href.includes('conciliacion.html')) isVisible = true;
         }
 

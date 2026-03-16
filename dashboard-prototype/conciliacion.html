@@ -239,6 +239,7 @@
                     <button class="tab-btn" id="btn-tab-todas" onclick="switchTab('tab-todas')">Todas las Cobranzas</button>
                     <button class="tab-btn" id="btn-tab-conciliados" onclick="switchTab('tab-conciliados')">Conciliados (Resumen)</button>
                     <button class="tab-btn" id="btn-tab-reglas" onclick="switchTab('tab-reglas')">Reglas de Limpieza</button>
+                    <button class="tab-btn" id="btn-tab-ajustes" onclick="switchTab('tab-ajustes')">Ajustes Avanzados</button>
                 </div>
 
                 <div class="tab-content active fade-in" id="tab-cruce">
@@ -465,17 +466,6 @@
                                     <p id="uploadStatus" style="margin: 0; font-size: 0.8rem; text-align: center;">Importando...</p>
                                 </div>
                             </div>
-                            
-                            <div class="card glass-panel" style="display: flex; flex-direction: column; justify-content: center; padding: 1rem; min-width: 250px;">
-                                <h3 style="font-size: 0.95rem; margin: 0 0 0.5rem 0; color: #1e293b; font-weight: 600;">Acciones de Datos</h3>
-                                <button type="button" class="btn btn-outline" id="btnDeleteAllBank" onclick="deleteAllBankMovements()" style="color: #ef4444; border-color: #fca5a5; width: 100%; justify-content: center;" disabled>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                    </svg>
-                                    Eliminar Todos los Movimientos
-                                </button>
-                                <p style="margin: 0.5rem 0 0; font-size: 0.75rem; color: #64748b; text-align: center;">Requiere seleccionar Empresa y Banco.</p>
-                            </div>
                         </div>
 
                         <div class="table-responsive custom-scrollbar">
@@ -521,12 +511,6 @@
                                 </button>
                             </div>
                         </div>
-                        <div style="display:flex; justify-content:flex-end; margin-bottom:1rem; gap:0.5rem;">
-                                <button class="btn btn-secondary" onclick="clearAllConciliaciones()" style="background-color: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    Limpiar Todas las Conciliaciones
-                                </button>
-                            </div>
                             <div class="table-responsive custom-scrollbar" style="max-height: 600px; overflow-y: auto;">
                             <table class="data-table" id="tableConciliados">
                                 <thead>
@@ -587,6 +571,39 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- TAB 4: Ajustes Avanzados -->
+                <div class="tab-content fade-in" id="tab-ajustes">
+                    <div class="card table-container glass-panel" style="max-width: 800px; margin: 0 auto; text-align: center; padding: 2rem;">
+                        <h3 style="color: var(--danger); margin-bottom: 1rem;">Zona de Peligro</h3>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem;">
+                            Las acciones en esta sección son destructivas y no se pueden deshacer. Úsalas con extrema precaución.
+                        </p>
+                        
+                        <div style="border: 1px solid #fecaca; border-radius: 8px; padding: 1.5rem; background: #fef2f2; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div style="text-align: left;">
+                                <strong style="color: #991b1b; display: block; margin-bottom: 0.25rem;">Eliminar Historial de Conciliaciones</strong>
+                                <span style="color: #b91c1c; font-size: 0.85rem;">Esta acción eliminará de forma permanente todas las conciliaciones registradas, devolviendo los movimientos a su estado 'Pendiente'.</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="clearAllConciliaciones()" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Limpiar y Reiniciar
+                            </button>
+                        </div>
+
+                        <div style="border: 1px solid #fecaca; border-radius: 8px; padding: 1.5rem; background: #fef2f2; display: flex; align-items: center; justify-content: space-between;">
+                            <div style="text-align: left;">
+                                <strong style="color: #991b1b; display: block; margin-bottom: 0.25rem;">Eliminar Todos los Movimientos Bancarios</strong>
+                                <span style="color: #b91c1c; font-size: 0.85rem;">Esta acción vaciará por completo la tabla de movimientos bancarios original subida desde el Excel para esta empresa y banco.</span>
+                            </div>
+                            <button class="btn btn-outline" id="btnDeleteAllBank" onclick="deleteAllBankMovements()" style="color: #ef4444; border-color: #ef4444; background: white; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;" disabled>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Eliminar Movimientos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </section>
         </main>
     </div>
