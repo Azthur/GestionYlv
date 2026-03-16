@@ -195,13 +195,14 @@ async function loadData() {
         return;
     }
 
-    // Load ALL data sources in parallel (cruce, resumen, movimientos banco tab, cobranzas tab)
+    // Load ALL data sources in parallel (cruce, resumen, movimientos banco tab, cobranzas tab, conciliados tab)
     await Promise.all([
         loadBankMovements(codcia, bankCode, year, month),
         loadCobranzas(codcia, year, month),
         loadResumen(codcia, bankCode, year, month),
         loadMovimientosBanco(),
-        loadAllCobranzas()
+        loadAllCobranzas(),
+        loadConciliados()
     ]);
 }
 
@@ -260,9 +261,15 @@ async function loadResumen(codcia, bankCode, year, month) {
 }
 
 // ─── Render Bank Movements Table ─────────────────────────────────────
+let dtCruceBank = null;
+
 function renderBankTable() {
     const tbody = document.getElementById('tbodyBank');
     const filter = document.getElementById('filterEstadoBanco').value;
+    
+    if (dtCruceBank) {
+        dtCruceBank.destroy();
+    }
 
     let filtered = bankMovements;
     if (filter) {
@@ -313,6 +320,26 @@ function renderBankTable() {
             <td>${isMatched ? `<button class="btn-unmatch" onclick="unmatchBank(${mov.ReconciliationDetailId})">Deshacer</button>` : ''}</td>
         `;
         tbody.appendChild(tr);
+    });
+
+    // Initialize DataTable
+    dtCruceBank = $('#tableBankMov').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        pageLength: 50,
+        dom: '<"table-top"fB>rt<"table-bottom"ip>',
+        buttons: [
+            {
+                extend: 'excel',
+                text: 'Exportar Excel',
+                className: 'btn btn-primary btn-sm'
+            }
+        ],
+        order: [[1, 'desc']], // Order by Fecha by default
+        columnDefs: [
+            { orderable: false, targets: 0 }, // Disable ordering on checkbox column
+            { orderable: false, targets: 4 }  // Disable ordering on Op Manual input
+        ],
+        destroy: true
     });
 }
 
@@ -383,12 +410,6 @@ function renderCobTable() {
             <td title="${(cob.NomAux || '').trim()}">${truncate((cob.NomAux || '').trim(), 25)}</td>
             <td style="display: flex; gap: 0.5rem; align-items: center;">
                 <span class="amount positive">${currentCurrencySymbol} ${Math.abs(importe).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
-                <button class="btn-view-match" onclick="showMatchDetails('${cobKey}', 'cob')" title="Ver detalles del match">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                </button>
             </td>
             <td>${cob.NroDep ? `<span class="nro-dep-match">${(cob.NroDep || '').trim()}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
             <td>${fchDep}</td>
@@ -399,6 +420,25 @@ function renderCobTable() {
             <td>${(cob.CodCom || '').trim()}</td>
         `;
         tbody.appendChild(tr);
+    });
+
+    // Initialize DataTable
+    dtCruceCobranzas = $('#tableCobranzas').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        pageLength: 50,
+        dom: '<"table-top"fB>rt<"table-bottom"ip>',
+        buttons: [
+            {
+                extend: 'excel',
+                text: 'Exportar Excel',
+                className: 'btn btn-primary btn-sm'
+            }
+        ],
+        order: [[7, 'desc']], // Order by Fecha Dep by default
+        columnDefs: [
+            { orderable: false, targets: 0 } // Disable ordering on checkbox column
+        ],
+        destroy: true
     });
 }
 
@@ -522,7 +562,8 @@ async function runAutoMatch() {
                 codcia,
                 bank_code: bankCode,
                 period_year: year,
-                period_month: month
+                period_month: month,
+                usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })()
             })
         });
 
@@ -553,7 +594,8 @@ async function matchSelected() {
     try {
         const requestBody = {
             bank_movement_ids: Array.from(selectedBankIds),
-            cobranza_keys: Array.from(selectedCobKeys)
+            cobranza_keys: Array.from(selectedCobKeys),
+            usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })()
         };
 
         const res = await fetch('/api/conciliacion/manual-match', {
@@ -869,6 +911,7 @@ async function loadAllCobranzas() {
                         </button>` : ''
                     }
                 </td>
+                <td class="sticky-col"><span class="status ${c.Conciliado ? 'conciliado' : 'pendiente'}">${c.Conciliado ? 'Conciliado' : 'Pendiente'}</span></td>
                 <td>${c.id || ''}</td>
                 <td>${c.CodCia || ''}</td>
                 <td>${c.anos || ''}</td>
@@ -1307,8 +1350,8 @@ async function loadRules() {
         data.forEach(r => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="font-family: monospace;">LIKE '%${r.condicion}%'</td>
-                <td style="font-family: monospace;">'${r.resultado}'</td>
+                <td style="font-family: monospace;">${r.condicion}</td>
+                <td style="font-family: monospace;">${r.resultado}</td>
                 <td><span class="status conciliado">Activo</span></td>
                 <td>
                     <button class="btn btn-secondary" onclick="deleteRule(${r.id})" style="background-color: var(--danger-color); color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem;">Eliminar</button>
@@ -1326,8 +1369,8 @@ async function saveRule() {
     const condicion = document.getElementById('ruleCondition').value.trim();
     const resultado = document.getElementById('ruleResult').value.trim();
     
-    if (!condicion || !resultado) {
-        showToast('Debe ingresar la condición y el resultado', 'error');
+    if (!condicion) {
+        showToast('Debe ingresar el texto o patrón a buscar', 'error');
         return;
     }
     
@@ -1384,10 +1427,10 @@ async function runCleaningRules() {
 
 async function showMatchDetails(id, type) {
     const modal = document.getElementById('matchDetailsModal');
-    const tbody = document.getElementById('tbodyMatchDetails');
-    if (!modal || !tbody) return;
+    const modalBody = modal ? modal.querySelector('.modal-body') : null;
+    if (!modal || !modalBody) return;
 
-    tbody.innerHTML = '<tr><td colspan="9" class="loading-state" style="text-align:center; padding:2rem;">Cargando detalles...</td></tr>';
+    modalBody.innerHTML = '<div style="text-align:center; padding:2rem; color:#64748b;">Cargando detalles...</div>';
     modal.style.display = 'flex';
 
     try {
@@ -1425,82 +1468,90 @@ async function showMatchDetails(id, type) {
         const res = await fetch(`/api/conciliacion/match-details?match_id=${matchId}`);
         if (!res.ok) throw new Error('Error al obtener detalles');
         const data = await res.json();
-        
-        tbody.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                
-                <!-- COBRANZA CARD -->
-                <div style="background: white; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+
+        // Build cobranzas cards
+        let cobHtml = '';
+        const totalCob = (data.cobranzas || []).reduce((s, c) => s + Math.abs(c.Importe), 0);
+        (data.cobranzas || []).forEach((c, i) => {
+            cobHtml += `
+                <div style="background:#f8fafc; border-radius:10px; padding:1rem 1.25rem; border:1px solid #e2e8f0; margin-bottom:0.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #eff6ff; color: #2563eb; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                Documento del Sistema (Cobranza)
-                            </div>
-                            <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${data.cobranza.CodCia} - ${data.cobranza.NroDoc}</h3>
-                            <p style="margin: 0.25rem 0 0; color: #475569; font-size: 0.9rem;">${data.cobranza.RazonSocial}</p>
+                            <span style="font-weight:600; color:#1e293b; font-size:0.9rem;">${c.CodDoc} - ${c.NroDoc}</span>
+                            <span style="color:#64748b; font-size:0.8rem; margin-left:0.5rem;">${c.CodCia}</span>
                         </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">${currentCurrencySymbol} ${data.cobranza.Importe.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
-                            <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">${data.cobranza.Fecha ? new Date(data.cobranza.Fecha).toLocaleDateString('es-PE') : 'Sin Fecha'}</div>
-                        </div>
+                        <span style="font-weight:700; color:#1e293b; font-size:1rem;">${currentCurrencySymbol} ${Math.abs(c.Importe).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
-                        <div>
-                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Cuenta Contable / Destino</div>
-                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500;">${data.cobranza.Cuenta || '—'}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Referencia</div>
-                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500;">${data.cobranza.CodRef || '—'} ${data.cobranza.NroRef ? '- ' + data.cobranza.NroRef : ''}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Responsable (NomVen)</div>
-                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${data.cobranza.NomVen || ''}">${data.cobranza.NomVen || '—'}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Usuario Sistema</div>
-                            <div style="color: #334155; font-size: 0.85rem; font-weight: 500;">${data.cobranza.Usuario || '—'}</div>
-                        </div>
+                    <div style="color:#475569; font-size:0.8rem; margin-top:0.4rem;">${c.RazonSocial || ''}</div>
+                    <div style="display:flex; gap:1.5rem; margin-top:0.5rem; font-size:0.75rem; color:#94a3b8;">
+                        <span>Ref: ${c.CodRef || ''} ${c.NroRef || ''}</span>
+                        <span>Dep: ${c.NroDep || ''}</span>
+                        <span>Fecha: ${c.Fecha ? new Date(c.Fecha).toLocaleDateString('es-PE') : ''}</span>
+                        <span>Vendedor: ${c.NomVen || ''}</span>
                     </div>
+                </div>`;
+        });
+
+        // Build bank cards
+        let bankHtml = '';
+        const totalBank = (data.bancos || []).reduce((s, b) => s + Math.abs(b.Monto), 0);
+        (data.bancos || []).forEach((b, i) => {
+            bankHtml += `
+                <div style="background:#f0fdf4; border-radius:10px; padding:1rem 1.25rem; border:1px solid #bbf7d0; margin-bottom:0.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-weight:600; color:#166534; font-size:0.9rem;">Op. ${b.Operacion || 'N/A'}</span>
+                            <span style="color:#64748b; font-size:0.8rem; margin-left:0.5rem;">#${b.Id}</span>
+                        </div>
+                        <span style="font-weight:700; color:#166534; font-size:1rem;">${currentCurrencySymbol} ${Math.abs(b.Monto).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+                    </div>
+                    <div style="color:#475569; font-size:0.8rem; margin-top:0.4rem;">${b.Descripcion || ''}</div>
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.3rem;">Fecha: ${b.Fecha ? new Date(b.Fecha).toLocaleDateString('es-PE') : ''}</div>
+                </div>`;
+        });
+
+        modalBody.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:1.25rem;">
+                <!-- COBRANZAS SECTION -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <div style="display:inline-flex; align-items:center; gap:0.5rem; background:#eff6ff; color:#2563eb; padding:0.35rem 0.75rem; border-radius:9999px; font-size:0.75rem; font-weight:600;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            Documentos del Sistema (${data.cobranzas?.length || 0} cobranzas)
+                        </div>
+                        <span style="font-weight:700; color:#1e293b;">Total: ${currentCurrencySymbol} ${totalCob.toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+                    </div>
+                    ${cobHtml}
                 </div>
 
-                <!-- LINK SVG -->
-                <div style="display: flex; justify-content: center; color: #cbd5e1;">
+                <!-- LINK -->
+                <div style="display:flex; justify-content:center; color:#cbd5e1;">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
                 </div>
 
-                <!-- BANCO CARD -->
-                <div style="background: white; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div>
-                            <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #ecfdf5; color: #10b981; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-                                Movimiento Bancario
-                            </div>
-                            <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Op. ${data.banco.Operacion || 'Sin número'}</h3>
-                            <p style="margin: 0.25rem 0 0; color: #475569; font-size: 0.9rem; line-height: 1.4;">${data.banco.Descripcion}</p>
+                <!-- BANCOS SECTION -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <div style="display:inline-flex; align-items:center; gap:0.5rem; background:#ecfdf5; color:#10b981; padding:0.35rem 0.75rem; border-radius:9999px; font-size:0.75rem; font-weight:600;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                            Movimientos Bancarios (${data.bancos?.length || 0})
                         </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b; line-height: 1;">${currentCurrencySymbol} ${data.banco.Monto.toLocaleString('es-PE', {minimumFractionDigits:2})}</div>
-                            <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">${data.banco.Fecha ? new Date(data.banco.Fecha).toLocaleDateString('es-PE') : 'Sin Fecha'}</div>
-                        </div>
+                        <span style="font-weight:700; color:#1e293b;">Total: ${currentCurrencySymbol} ${totalBank.toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
                     </div>
+                    ${bankHtml}
                 </div>
 
-                <!-- FOOTER META INFO -->
-                <div style="text-align: center; margin-top: 0.5rem; font-size: 0.75rem; color: #94a3b8;">
-                    <p style="margin: 0;">Conciliación realizada el: ${data.match.MatchedAt ? new Date(data.match.MatchedAt).toLocaleString('es-PE') : '—'} vía <strong>${data.match.MatchType}</strong></p>
-                    <p style="margin: 0.25rem 0 0;">Match ID: #${data.match.Id}</p>
+                <!-- FOOTER -->
+                <div style="text-align:center; font-size:0.75rem; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:0.75rem;">
+                    <p style="margin:0;">Conciliacion realizada el: ${data.match.MatchedAt ? new Date(data.match.MatchedAt).toLocaleString('es-PE') : 'N/D'} via <strong>${data.match.MatchType}</strong></p>
+                    <p style="margin:0.25rem 0 0;">Grupo #${data.match.ReconciliationId} | Match ID #${data.match.Id}</p>
                 </div>
-
             </div>
         `;
 
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = `<div style="color:#ef4444; text-align:center; padding:2rem;">Error: ${err.message}</div>`;
+        modalBody.innerHTML = `<div style="color:#ef4444; text-align:center; padding:2rem;">Error: ${err.message}</div>`;
     }
 }
 
@@ -1652,3 +1703,150 @@ function _attachDeleteModalButtonListeners() {
     }
 })();
 
+let dtConciliados = null;
+async function loadConciliados() {
+    const codcia = document.getElementById('selectEmpresa').value;
+    const bankCode = document.getElementById('selectBanco').value;
+    const year = document.getElementById('selectYear').value;
+    const month = document.getElementById('selectMonth').value;
+
+    if (!codcia || !bankCode) return;
+
+    try {
+        const params = new URLSearchParams({ codcia, bank_code: bankCode });
+        if (year) params.append('year', year);
+        if (month) params.append('month', month.padStart(2, '0'));
+
+        const res = await fetch(`/api/conciliacion/conciliados?${params}`);
+        if (!res.ok) throw new Error('Error loading conciliados');
+        const data = await res.json();
+        
+        renderConciliadosTable(data);
+    } catch (err) {
+        console.error(err);
+        showToast('Error al cargar la lista de conciliados', 'error');
+    }
+}
+
+function renderConciliadosTable(data) {
+    const tbody = document.getElementById('tbodyConciliados');
+    if (dtConciliados) {
+        dtConciliados.destroy();
+    }
+
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" class="loading-state empty-state">No hay registros conciliados</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    data.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.Id}</td>
+            <td>${row.empresa}</td>
+            <td>${row.codigo_banco}</td>
+            <td>${row.Fecha_banco ? formatUTCLocalDate(row.Fecha_banco) : '—'}</td>
+            <td>${row.IdBanco}</td>
+            <td>${row.IdCobranza_CodCia}</td>
+            <td><span class="badge lot">${row.IdCobranza_coddoc}</span></td>
+            <td>${row.IdCobranza_nrodoc}</td>
+            <td>${row.IdCobranza_nroitm}</td>
+            <td>${row.codref || '—'}</td>
+            <td>${row.nroref || '—'}</td>
+            <td><span class="amount positive">${currentCurrencySymbol} ${Math.abs(row.importe).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span></td>
+            <td>${row.codaux || '—'}</td>
+            <td>${row.nro_operacion || '—'}</td>
+            <td>${row.usuario || '—'}</td>
+            <td>${row.CreatedAt ? new Date(row.CreatedAt).toLocaleString() : '—'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    dtConciliados = $('#tableConciliados').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        pageLength: 50,
+        dom: '<"table-top"fB>rt<"table-bottom"ip>',
+        buttons: [{ extend: 'excel', text: 'Exportar Excel', className: 'btn btn-primary btn-sm' }],
+        order: [[0, 'desc']],
+        destroy: true
+    });
+}
+
+// ─── Clear All Reconciliations ──────────────────────────────────────
+async function clearAllConciliaciones() {
+    const codcia = document.getElementById('selectEmpresa').value;
+    const bankCode = document.getElementById('selectBanco').value;
+    const year = document.getElementById('selectYear').value;
+    const month = document.getElementById('selectMonth').value;
+    const empresaName = document.getElementById('selectEmpresa').options[document.getElementById('selectEmpresa').selectedIndex]?.text || codcia;
+    const bancoName = document.getElementById('selectBanco').options[document.getElementById('selectBanco').selectedIndex]?.text || bankCode;
+    const monthNames = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const periodoText = year ? (month ? monthNames[parseInt(month)] + ' ' + year : year) : 'todos los periodos';
+
+    if (!codcia || !bankCode) {
+        showToast('Seleccione empresa y banco primero', 'error');
+        return;
+    }
+
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Confirmar Limpieza de Conciliaciones',
+            html: `
+                <div style="text-align:left; padding:0.5rem 0;">
+                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:1rem; margin-bottom:1rem;">
+                        <p style="margin:0 0 0.5rem; font-weight:600; color:#991b1b;">Se eliminar\u00e1n todas las conciliaciones de:</p>
+                        <ul style="margin:0; padding-left:1.5rem; color:#7f1d1d; font-size:0.9rem;">
+                            <li><strong>Empresa:</strong> ${empresaName}</li>
+                            <li><strong>Banco:</strong> ${bancoName}</li>
+                            <li><strong>Periodo:</strong> ${periodoText}</li>
+                        </ul>
+                    </div>
+                    <p style="color:#64748b; font-size:0.85rem; margin:0;">Los movimientos bancarios volver\u00e1n al estado <strong>Pendiente</strong> y podr\u00e1 volver a conciliarlos.</p>
+                </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Confirmar limpieza',
+            cancelButtonText: 'Cancelar',
+            focusCancel: true,
+            customClass: { popup: 'swal-wide' }
+        });
+        if (!result.isConfirmed) return;
+    } else {
+        if (!confirm('Esta seguro de limpiar las conciliaciones seleccionadas?')) return;
+    }
+
+    try {
+        const body = { codcia, bank_code: bankCode };
+        if (year) body.year = year;
+        if (month) body.month = month;
+
+        const res = await fetch('/api/conciliacion/clear-all', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('Error al limpiar');
+        const data = await res.json();
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Limpieza completada',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#2b3954'
+            });
+        } else {
+            showToast(data.message || 'Conciliaciones eliminadas', 'success');
+        }
+        await loadData();
+    } catch (err) {
+        console.error(err);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ title: 'Error', text: 'No se pudieron limpiar las conciliaciones', icon: 'error', confirmButtonColor: '#2b3954' });
+        } else {
+            showToast('Error al limpiar las conciliaciones', 'error');
+        }
+    }
+}

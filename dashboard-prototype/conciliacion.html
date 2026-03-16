@@ -13,6 +13,8 @@
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -235,6 +237,7 @@
                     <button class="tab-btn active" id="btn-tab-cruce" onclick="switchTab('tab-cruce')">Cruce y Conciliación</button>
                     <button class="tab-btn" id="btn-tab-banco" onclick="switchTab('tab-banco')">Movimientos de Banco</button>
                     <button class="tab-btn" id="btn-tab-todas" onclick="switchTab('tab-todas')">Todas las Cobranzas</button>
+                    <button class="tab-btn" id="btn-tab-conciliados" onclick="switchTab('tab-conciliados')">Conciliados (Resumen)</button>
                     <button class="tab-btn" id="btn-tab-reglas" onclick="switchTab('tab-reglas')">Reglas de Limpieza</button>
                 </div>
 
@@ -260,7 +263,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="table-responsive custom-scrollbar" style="max-height: 500px; overflow-y: auto;">
+                        <div class="table-responsive custom-scrollbar">
                             <table class="data-table" id="tableBankMov">
                                 <thead>
                                     <tr>
@@ -383,6 +386,7 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 50px;" class="sticky-col">Acc.</th>
+                                        <th class="sticky-col">Estado</th>
                                         <th>ID</th>
                                         <th>CodCia</th>
                                         <th>anos</th>
@@ -411,7 +415,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="tbodyTodasCobranzas">
-                                    <tr><td colspan="26" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
+                                    <tr><td colspan="27" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -501,14 +505,68 @@
                     </div>
                 </div>
 
+                <!-- TAB 5: Conciliados (Resumen) -->
+                <div class="tab-content fade-in" id="tab-conciliados">
+                    <div class="card table-container glass-panel">
+                        <div class="table-header">
+                            <h3>Resumen de Relaciones Conciliadas</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-primary" onclick="exportToExcel('tableConciliados', 'Reporte_Conciliados')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                    Exportar Excel
+                                </button>
+                                <button class="btn btn-outline" onclick="loadConciliados()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="feather"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    Actualizar
+                                </button>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:1rem; gap:0.5rem;">
+                                <button class="btn btn-secondary" onclick="clearAllConciliaciones()" style="background-color: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    Limpiar Todas las Conciliaciones
+                                </button>
+                            </div>
+                            <div class="table-responsive custom-scrollbar" style="max-height: 600px; overflow-y: auto;">
+                            <table class="data-table" id="tableConciliados">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Empresa</th>
+                                        <th>Banco</th>
+                                        <th>Fecha Banco</th>
+                                        <th>ID Banco</th>
+                                        <th>CodCia (Cob)</th>
+                                        <th>coddoc</th>
+                                        <th>nrodoc</th>
+                                        <th>nroitm</th>
+                                        <th>codref</th>
+                                        <th>nroref</th>
+                                        <th>Importe</th>
+                                        <th>CodAux</th>
+                                        <th>N° Op. Final</th>
+
+                                        <th>Usuario</th>
+
+                                        <th>Fecha Registro</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyConciliados">
+                                    <tr><td colspan="14" class="loading-state empty-state">Cargando datos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- TAB 3: Reglas de Limpieza -->
                 <div class="tab-content fade-in" id="tab-reglas">
                     <div class="card table-container glass-panel" style="max-width: 800px; margin: 0 auto;">
                         <div class="table-header">
-                            <h3>Reglas de Reemplazo en Descripciones del Banco</h3>
+                            <h3>Reglas de Limpieza de N° de Operación (Auto-Match)</h3>
                             <button class="btn btn-primary" onclick="openRuleModal()">+ Nueva Regla</button>
                         </div>
-                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">Estas reglas se ejecutan sobre los movimientos de banco importados para normalizar descripciones (ej: INTERB -> INTERBANCARIO).</p>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">Estas reglas se ejecutan durante la <b>conciliación automática</b> para normalizar los números de operación (Ej: quitar OP- o eliminar ceros a la izquierda).</p>
                         <div class="table-responsive custom-scrollbar">
                             <table class="data-table" id="tableReglas">
                                 <thead>
@@ -573,12 +631,12 @@
             </div>
             <div class="modal-body">
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px;">Si la descripción original contiene:</label>
-                    <input type="text" id="ruleCondition" class="form-control" placeholder="Ej: PAGO PROV BCP" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
+                    <label style="display: block; margin-bottom: 5px;">Texto o Patrón a buscar en la Operación (acepta Regex, ej: ^0+ para ceros inicio, o OP-):</label>
+                    <input type="text" id="ruleCondition" class="form-control" placeholder="Ej: ^0+ o OP-" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
                 </div>
                 <div class="form-group">
-                    <label style="display: block; margin-bottom: 5px;">Reemplazar la descripción completa por:</label>
-                    <input type="text" id="ruleResult" class="form-control" placeholder="Ej: PAGO PROVEEDORES" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
+                    <label style="display: block; margin-bottom: 5px;">Reemplazar por (dejar vacío para eliminar el texto encontrado):</label>
+                    <input type="text" id="ruleResult" class="form-control" placeholder="Ej: (vacío)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
                 </div>
             </div>
             <div class="modal-footer" style="padding: 15px; text-align: right; border-top: 1px solid rgba(255,255,255,0.1);">

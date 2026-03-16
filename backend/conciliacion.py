@@ -24,6 +24,7 @@ from database import get_db_connection
 class ManualMatchRequest(BaseModel):
     bank_movement_ids: List[int]
     cobranza_keys: List[str]  # Format: "CodCia|coddoc|nrodoc|nroitm"
+    usuario: Optional[str] = None
 
 
 class AutoMatchRequest(BaseModel):
@@ -31,9 +32,48 @@ class AutoMatchRequest(BaseModel):
     bank_code: str
     period_year: Optional[str] = None
     period_month: Optional[str] = None
+    usuario: Optional[str] = None
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
+# Carga reglas y limpia la operacion
+def get_clean_op(op):
+    if not op: return ""
+    op_str = str(op).strip().upper()
+    try:
+        from conciliacion import load_rules_from_disk
+        rules_disk = load_rules_from_disk()
+    except:
+        rules_disk = []
+    
+    conn = get_db_connection()
+    rules_db = []
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT RegexPattern, Replacement FROM CleaningRules WHERE IsActive = 1")
+            rules_db = cursor.fetchall()
+        except:
+            pass
+        finally:
+            conn.close()
+            
+    for r in rules_disk:
+        cond = r.get("condicion", "")
+        res = r.get("resultado", "")
+        if cond:
+            try:
+                op_str = re.sub(cond, res, op_str, flags=re.IGNORECASE)
+            except Exception:
+                op_str = op_str.replace(cond, res)
+                
+    for pattern, repl in rules_db:
+        try:
+            op_str = re.sub(pattern, repl, op_str, flags=re.IGNORECASE)
+        except Exception:
+            pass
+            
+    return op_str
 
 def row_to_dict(cursor, row):
     """Convert a pyodbc row to a dictionary using cursor.description."""
@@ -394,7 +434,7 @@ def get_cobranzas(
             SELECT m.CodCia, m.anos, m.mes, m.coddoc, m.nrodoc, m.nroitm,
                    m.fchdoc, m.codaux, m.NomAux, m.codven, m.nomven,
                    m.import, m.NroDep, m.fchDep, m.glodoc, m.codbco,
-                   m.tpopgo, m.Glosa, m.CodDep,
+                   m.tpopgo, m.Glosa, m.CodDep, m.codref, m.nroref,
                    c.nombco, c.import as import_caja, c.sdodoc
             FROM CcbMVtos m
             LEFT JOIN CcbICaja c ON m.CodCia = c.codcia
@@ -429,8 +469,14 @@ def get_cobranzas(
                 )
             """
 
-        query += " ORDER BY m.CodCia, m.fchdoc DESC, m.nrodoc"
-        cursor.execute(query, params)
+        # Update the SELECT to include Estado for Todas las Cobranzas
+        new_query = query.replace(
+            "SELECT m.CodCia",
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM ReconciliationDetail rd_e WHERE rd_e.MatchCodCia = m.CodCia AND rd_e.MatchCoddoc = m.coddoc AND rd_e.MatchNrodoc = m.nrodoc AND rd_e.MatchNroitm = m.nroitm) THEN 'Conciliado' ELSE 'Pendiente' END as Estado, m.CodCia"
+        )
+        
+        new_query += " ORDER BY m.CodCia, m.fchdoc DESC, m.nrodoc"
+        cursor.execute(new_query, params)
         result = rows_to_list(cursor)
         return result
     except Exception as e:
@@ -453,22 +499,9 @@ def auto_match(request: AutoMatchRequest):
     try:
         cursor = conn.cursor()
         
-        # 1. Load cleaning rules
-        try:
-            cursor.execute("SELECT RegexPattern, Replacement FROM CleaningRules WHERE IsActive = 1")
-            rules = cursor.fetchall()
-        except:
-            rules = [] # Fallback if table is missing or errors
-            
+        # 1. Load cleaning rules from the UI settings (conciliacion_reglas.json)
         def clean_op(op):
-            if not op: return ""
-            op_str = str(op).strip()
-            for pattern, repl in rules:
-                try:
-                    op_str = re.sub(pattern, repl, op_str)
-                except Exception:
-                    pass
-            return op_str
+            return get_clean_op(op)
 
         # 2. Load pending bank movements
         query = """
@@ -500,7 +533,7 @@ def auto_match(request: AutoMatchRequest):
 
         # 3. Load ALL pending CcbMVtos for these dates/companies with Filiales logic
         c_query = """
-            SELECT CodCia, coddoc, nrodoc, nroitm, NroDep, nroref, import, fchDep, fchdoc, tpopgo, CodDep, CodCom 
+            SELECT CodCia, coddoc, nrodoc, nroitm, NroDep, nroref, import, fchDep, fchdoc, tpopgo, CodDep, CodCom, codref, codaux 
             FROM CcbMVtos
             WHERE (FlgEst IS NULL OR FlgEst <> 'E')
               AND (
@@ -550,7 +583,9 @@ def auto_match(request: AutoMatchRequest):
             
             # Exact Amount Match
             if abs(abs(sum_b) - abs(sum_c)) <= 0.01:
-                group_uuid = str(uuid.uuid4())
+                # Get next group ID (integer)
+                cursor.execute("SELECT ISNULL(MAX(ReconciliationId), 0) + 1 FROM ReconciliationDetail")
+                group_id = cursor.fetchone()[0]
                 
                 for b_idx, b_mov in enumerate(b_list):
                     b_id = b_mov[0]
@@ -560,12 +595,34 @@ def auto_match(request: AutoMatchRequest):
                         cursor.execute("""
                             INSERT INTO ReconciliationDetail
                             (BankMovementId, MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm, MatchType, ReconciliationId)
+                            OUTPUT INSERTED.Id
                             VALUES (?, ?, ?, ?, ?, 'AUTO', ?)
-                        """, (b_id, c_cob[0], c_cob[1], c_cob[2], c_cob[3], group_uuid))
+                        """, (b_id, c_cob[0], c_cob[1], c_cob[2], c_cob[3], group_id))
                         
-                        if not first_detail_id:
-                            cursor.execute("SELECT SCOPE_IDENTITY()")
-                            first_detail_id = int(cursor.fetchone()[0])
+                        inserted_row = cursor.fetchone()
+                        detail_id = inserted_row[0] if inserted_row else None
+                        
+                        if detail_id and not first_detail_id:
+                            first_detail_id = detail_id
+                            
+                        if detail_id:
+                            # Insert into tbl_Conciliados
+                            # c_cob: 0:CodCia, 1:coddoc, 2:nrodoc, 3:nroitm, 4:NroDep, 5:nroref, 6:import, 7:fchDep, 8:fchdoc, 9:tpopgo, 10:CodDep, 11:CodCom, 12:codref, 13:codaux
+                            # b_mov: 0:Id, 1:OpCancelacion, 2:OperacionNumero, 3:Monto, 4:Fecha, 5:CodCia, 6:BankCode (wait, b_mov doesn't have CodCia/BankCode yet, but we have request.codcia and request.bank_code)
+                            try:
+                                cursor.execute("""
+                                    INSERT INTO tbl_Conciliados
+                                    (ReconciliationDetailId, IdCobranza_CodCia, IdCobranza_coddoc, IdCobranza_nrodoc, IdCobranza_nroitm, codref, nroref, importe, codaux, IdBanco, Fecha_banco, empresa, codigo_banco, nro_operacion, usuario)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CONVERT(datetime, ?, 120), ?, ?, ?, ?)
+                                """, (
+                                    detail_id, c_cob[0], c_cob[1], c_cob[2], c_cob[3],
+                                    c_cob[12], c_cob[5], c_cob[6], c_cob[13],
+                                    b_id, str(b_mov[4])[:10], request.codcia, request.bank_code,
+                                    key[0], request.usuario
+                                ))
+                            except Exception as ex:
+                                print(f"Failed inserting tbl_Conciliados obj. Date was: {b_mov[4]}")
+                                raise ex
                             
                     if first_detail_id:
                         cursor.execute("""
@@ -584,6 +641,8 @@ def auto_match(request: AutoMatchRequest):
             "total_processed": total_processed
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -638,7 +697,7 @@ def manual_match(request: ManualMatchRequest):
         # 1. Fetch and validate Bank Movements
         bank_placeholders = ','.join(['?'] * len(request.bank_movement_ids))
         cursor.execute(f"""
-            SELECT Id, Estado, Monto, Fecha FROM BankMovements 
+            SELECT Id, Estado, Monto, Fecha, CodCia, BankCode FROM BankMovements 
             WHERE Id IN ({bank_placeholders})
         """, request.bank_movement_ids)
         banks = cursor.fetchall()
@@ -669,7 +728,7 @@ def manual_match(request: ManualMatchRequest):
             c_cia, c_doc, n_doc, n_itm = parts
             
             cursor.execute("""
-                SELECT CodCia, import, fchDep, fchdoc FROM CcbMVtos
+                SELECT CodCia, import, fchDep, fchdoc, codref, nroref, codaux FROM CcbMVtos
                 WHERE CodCia = ? AND coddoc = ? AND nrodoc = ? AND nroitm = ?
             """, (c_cia, c_doc, n_doc, n_itm))
             cob = cursor.fetchone()
@@ -698,7 +757,7 @@ def manual_match(request: ManualMatchRequest):
             if b_date_str != c_date_str:
                 raise HTTPException(status_code=400, detail=f"La fecha del banco ({b_date_str}) no coincide con la fecha de la cobranza seleccionada ({c_date_str}). Corrige la Fecha de Depósito en el sistema primero.")
                 
-            parsed_cobs.append(parts)
+            parsed_cobs.append((c_cia, c_doc, n_doc, n_itm, cob[4], cob[5], cob[1], cob[6])) # + codref, nroref, importe, codaux
 
         # 3. Validate Amounts
         # In absolute terms, they must match within a tiny float tolerance
@@ -706,23 +765,40 @@ def manual_match(request: ManualMatchRequest):
             raise HTTPException(status_code=400, detail=f"Los importes no concuerdan. Bancos: {abs(sum_bancos):.2f}, Cobranzas: {abs(sum_cobranzas):.2f}")
 
         # 4. Do the Many-to-Many Insert
-        match_group_id = str(uuid.uuid4())
+        # Get next group ID (integer)
+        cursor.execute("SELECT ISNULL(MAX(ReconciliationId), 0) + 1 FROM ReconciliationDetail")
+        match_group_id = cursor.fetchone()[0]
         
         for idx, b_id in enumerate(request.bank_movement_ids):
             primary_detail_id = None
+            bank_info = next((bx for bx in banks if bx[0] == b_id), None)
             
-            for c_cia, c_doc, n_doc, n_itm in parsed_cobs:
+            for c_cia, c_doc, n_doc, n_itm, codref, nroref, importe_c, codaux in parsed_cobs:
                 cursor.execute("""
                     INSERT INTO ReconciliationDetail
                     (BankMovementId, MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm, MatchType, ReconciliationId)
+                    OUTPUT INSERTED.Id
                     VALUES (?, ?, ?, ?, ?, 'MANUAL', ?)
                 """, (b_id, c_cia, c_doc, n_doc, n_itm, match_group_id))
                 
-                if not primary_detail_id:
-                    cursor.execute("SELECT SCOPE_IDENTITY()")
-                    primary_detail_id = int(cursor.fetchone()[0])
-
-            # Update BankMovement to point to the first generated detail of this sequence
+                inserted_row = cursor.fetchone()
+                detail_id = inserted_row[0] if inserted_row else None
+                
+                if detail_id and not primary_detail_id:
+                    primary_detail_id = detail_id
+                
+                if detail_id and bank_info:
+                    raw_op = bank_info[1] if bank_info[1] and str(bank_info[1]).strip() else bank_info[2]
+                    cl_op = get_clean_op(raw_op)
+                    cursor.execute("""
+                        INSERT INTO tbl_Conciliados
+                        (ReconciliationDetailId, IdCobranza_CodCia, IdCobranza_coddoc, IdCobranza_nrodoc, IdCobranza_nroitm, codref, nroref, importe, codaux, IdBanco, Fecha_banco, empresa, codigo_banco, nro_operacion, usuario)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CONVERT(datetime, ?, 120), ?, ?, ?, ?)
+                    """, (
+                        detail_id, c_cia, c_doc, n_doc, n_itm, codref, nroref, importe_c, codaux,
+                        b_id, bank_info[3], bank_info[4], bank_info[5], cl_op, request.usuario
+                    ))
+                    
             if primary_detail_id:
                 cursor.execute("""
                     UPDATE BankMovements
@@ -1122,7 +1198,7 @@ def get_todas_cobranzas(
                 "Dolares": dolares,
                 "MatchId": r['MatchId'],
                 "BankId": r['BankId'],
-                "Conciliado": r['IsConciliado'] == 1
+                "Conciliado": str(r.get('IsConciliado', '0')).strip() == '1'
             })
             
         return enriched
@@ -1134,7 +1210,7 @@ def get_todas_cobranzas(
 @router.get("/match-details")
 def get_match_details(match_id: int):
     """
-    Retorna los detalles de una conciliación: la cobranza y el movimiento bancario.
+    Retorna los detalles de una conciliacion: TODAS las cobranzas y TODOS los bancos vinculados al mismo grupo.
     """
     conn = get_db_connection()
     if not conn:
@@ -1143,58 +1219,180 @@ def get_match_details(match_id: int):
     try:
         cursor = conn.cursor()
         
-        # 1. Obtener el detalle de la conciliación
-        cursor.execute("SELECT * FROM ReconciliationDetail WHERE Id = ?", (match_id,))
-        columns_rd = [column[0] for column in cursor.description]
-        detail_row = cursor.fetchone()
-        if not detail_row:
-            raise HTTPException(status_code=404, detail="Conciliación no encontrada")
-        detail = dict(zip(columns_rd, detail_row))
-            
-        # 2. Obtener la cobranza
-        cursor.execute("""
-            SELECT m.*, c.nombco as CuentaNombre 
-            FROM CcbMVtos m 
-            LEFT JOIN CcbICaja c ON m.CodCia = c.codcia AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
-            WHERE m.CodCia = ? AND m.coddoc = ? AND m.nrodoc = ? AND m.nroitm = ?
-        """, (detail['MatchCodCia'], detail['MatchCoddoc'], detail['MatchNrodoc'], detail['MatchNroitm']))
-        columns_m = [column[0] for column in cursor.description]
-        cobranza_row = cursor.fetchone()
-        cobranza = dict(zip(columns_m, cobranza_row)) if cobranza_row else None
+        # 1. Get the ReconciliationId (group) from this detail
+        cursor.execute("SELECT ReconciliationId, MatchType, MatchedAt FROM ReconciliationDetail WHERE Id = ?", (match_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Conciliacion no encontrada")
+        group_id = row[0]
+        match_type = row[1]
+        matched_at = row[2]
         
-        # 3. Obtener el movimiento bancario
-        cursor.execute("SELECT * FROM BankMovements WHERE Id = ?", (detail['BankMovementId'],))
-        columns_b = [column[0] for column in cursor.description]
-        banco_row = cursor.fetchone()
-        banco = dict(zip(columns_b, banco_row)) if banco_row else None
+        # 2. Get ALL details in this group
+        cursor.execute("""
+            SELECT DISTINCT MatchCodCia, MatchCoddoc, MatchNrodoc, MatchNroitm
+            FROM ReconciliationDetail WHERE ReconciliationId = ?
+        """, (group_id,))
+        cob_keys = cursor.fetchall()
+        
+        cursor.execute("""
+            SELECT DISTINCT BankMovementId
+            FROM ReconciliationDetail WHERE ReconciliationId = ?
+        """, (group_id,))
+        bank_ids = [r[0] for r in cursor.fetchall()]
+        
+        # 3. Fetch ALL cobranzas
+        cobranzas_list = []
+        for ck in cob_keys:
+            cursor.execute("""
+                SELECT m.CodCia, m.coddoc, m.nrodoc, m.nroitm, m.fchdoc, m.import, m.NomAux, 
+                       m.codref, m.nroref, m.nomven, m.usuario, m.NroDep,
+                       c.nombco as CuentaNombre
+                FROM CcbMVtos m
+                LEFT JOIN CcbICaja c ON m.CodCia = c.codcia AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
+                WHERE m.CodCia = ? AND m.coddoc = ? AND m.nrodoc = ? AND m.nroitm = ?
+            """, (ck[0], ck[1], ck[2], ck[3]))
+            cols = [c[0] for c in cursor.description]
+            r = cursor.fetchone()
+            if r:
+                d = dict(zip(cols, r))
+                cobranzas_list.append({
+                    "CodCia": (d.get('CodCia') or '').strip(),
+                    "CodDoc": (d.get('coddoc') or '').strip(),
+                    "NroDoc": (d.get('nrodoc') or '').strip(),
+                    "NroItm": (d.get('nroitm') or '').strip(),
+                    "Fecha": d.get('fchdoc'),
+                    "Importe": float(d.get('import') or 0),
+                    "RazonSocial": (d.get('NomAux') or '').strip(),
+                    "Cuenta": (d.get('CuentaNombre') or '').strip(),
+                    "CodRef": (d.get('codref') or '').strip(),
+                    "NroRef": (d.get('nroref') or '').strip(),
+                    "NomVen": (d.get('nomven') or '').strip(),
+                    "Usuario": (d.get('usuario') or '').strip(),
+                    "NroDep": (d.get('NroDep') or '').strip()
+                })
+        
+        # 4. Fetch ALL bank movements
+        bancos_list = []
+        if bank_ids:
+            ph = ','.join(['?'] * len(bank_ids))
+            cursor.execute(f"SELECT * FROM BankMovements WHERE Id IN ({ph})", bank_ids)
+            cols_b = [c[0] for c in cursor.description]
+            for br in cursor.fetchall():
+                bd = dict(zip(cols_b, br))
+                op_num = (bd.get('OpCancelacion') or bd.get('OperacionNumero') or '').strip()
+                bancos_list.append({
+                    "Id": bd.get('Id'),
+                    "Fecha": bd.get('Fecha'),
+                    "Descripcion": (bd.get('DescripcionFinal') or bd.get('Descripcion') or '').strip(),
+                    "Monto": float(bd.get('Monto') or 0),
+                    "Operacion": op_num
+                })
         
         return {
             "match": {
-                "Id": detail['Id'],
-                "MatchedAt": detail['MatchedAt'],
-                "MatchType": detail['MatchType']
+                "Id": match_id,
+                "ReconciliationId": group_id,
+                "MatchedAt": matched_at,
+                "MatchType": match_type
             },
-            "cobranza": {
-                "CodCia": (cobranza.get('CodCia') or '').strip() if cobranza else '',
-                "NroDoc": (cobranza.get('nrodoc') or '').strip() if cobranza else '',
-                "Fecha": cobranza.get('fchdoc') if cobranza else None,
-                "Importe": float(cobranza.get('import') or 0) if cobranza else 0,
-                "RazonSocial": (cobranza.get('NomAux') or '').strip() if cobranza else '',
-                "Cuenta": (cobranza.get('CuentaNombre') or '').strip() if cobranza else '',
-                "CodRef": (cobranza.get('codref') or '').strip() if cobranza else '',
-                "NroRef": (cobranza.get('nroref') or '').strip() if cobranza else '',
-                "NomVen": (cobranza.get('nomven') or '').strip() if cobranza else '',
-                "Usuario": (cobranza.get('usuario') or '').strip() if cobranza else ''
-            },
-            "banco": {
-                "Id": banco.get('Id') if banco else None,
-                "Fecha": banco.get('Fecha') if banco else None,
-                "Descripcion": (banco.get('DescripcionFinal') or banco.get('Descripcion') or '').strip() if banco else '',
-                "Monto": float(banco.get('Monto') or 0) if banco else 0,
-                "Operacion": (banco.get('OperacionNumero') or '').strip() if banco else ''
-            }
+            "cobranzas": cobranzas_list,
+            "bancos": bancos_list
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+
+class ClearAllRequest(BaseModel):
+    codcia: str
+    bank_code: str
+    year: Optional[str] = None
+    month: Optional[str] = None
+
+@router.delete("/clear-all")
+def clear_all_conciliaciones(request: ClearAllRequest):
+    """Elimina todas las conciliaciones para una empresa y banco."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Get all BankMovement IDs for this company/bank/year/month
+        clear_q = "SELECT Id FROM BankMovements WHERE CodCia = ? AND BankCode = ? AND Estado = 'Conciliado'"
+        clear_params = [request.codcia, request.bank_code]
+        if request.year:
+            clear_q += " AND YEAR(Fecha) = ?"
+            clear_params.append(int(request.year))
+        if request.month:
+            clear_q += " AND MONTH(Fecha) = ?"
+            clear_params.append(int(request.month))
+        cursor.execute(clear_q, clear_params)
+        bank_ids = [row[0] for row in cursor.fetchall()]
+        
+        if not bank_ids:
+            # Even without bank movements, clean orphan tbl_Conciliados records
+            clean_q = "DELETE FROM tbl_Conciliados WHERE empresa = ? AND codigo_banco = ?"
+            clean_p = [request.codcia, request.bank_code]
+            if request.year:
+                clean_q += " AND YEAR(Fecha_banco) = ?"
+                clean_p.append(int(request.year))
+            if request.month:
+                clean_q += " AND MONTH(Fecha_banco) = ?"
+                clean_p.append(int(request.month))
+            cursor.execute(clean_q, clean_p)
+            deleted_orphans = cursor.rowcount
+            conn.commit()
+            if deleted_orphans > 0:
+                return {"status": "success", "message": f"Se limpiaron {deleted_orphans} registros huerfanos de conciliaciones.", "deleted": deleted_orphans}
+            return {"status": "success", "message": "No hay conciliaciones para limpiar.", "deleted": 0}
+        
+        placeholders = ','.join(['?'] * len(bank_ids))
+        
+        # 2. Get ReconciliationDetail IDs linked to these bank movements
+        cursor.execute(f"""
+            SELECT Id, ReconciliationId FROM ReconciliationDetail
+            WHERE BankMovementId IN ({placeholders})
+        """, bank_ids)
+        detail_rows = cursor.fetchall()
+        detail_ids = [r[0] for r in detail_rows]
+        
+        if detail_ids:
+            detail_placeholders = ','.join(['?'] * len(detail_ids))
+            
+            # 3. Delete from tbl_Conciliados
+            cursor.execute(f"DELETE FROM tbl_Conciliados WHERE ReconciliationDetailId IN ({detail_placeholders})", detail_ids)
+            
+            # 4. Delete from ReconciliationDetail
+            cursor.execute(f"DELETE FROM ReconciliationDetail WHERE Id IN ({detail_placeholders})", detail_ids)
+        
+        # 5. Reset BankMovements estado
+        cursor.execute(f"""
+            UPDATE BankMovements 
+            SET Estado = 'Pendiente', ReconciliationDetailId = NULL
+            WHERE Id IN ({placeholders})
+        """, bank_ids)
+        
+        # 6. Also directly clean tbl_Conciliados by empresa/banco/date (catch orphans)
+        clean_conc_q = "DELETE FROM tbl_Conciliados WHERE empresa = ? AND codigo_banco = ?"
+        clean_conc_params = [request.codcia, request.bank_code]
+        if request.year:
+            clean_conc_q += " AND YEAR(Fecha_banco) = ?"
+            clean_conc_params.append(int(request.year))
+        if request.month:
+            clean_conc_q += " AND MONTH(Fecha_banco) = ?"
+            clean_conc_params.append(int(request.month))
+        cursor.execute(clean_conc_q, clean_conc_params)
+        
+        conn.commit()
+        return {"status": "success", "message": f"Se limpiaron {len(bank_ids)} conciliaciones exitosamente.", "deleted": len(bank_ids)}
+    except Exception as e:
+        conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
@@ -1214,6 +1412,72 @@ def load_rules_from_disk():
     except:
         return []
 
+@router.get("/conciliados")
+def get_conciliados(
+    codcia: Optional[str] = None,
+    bank_code: Optional[str] = None,
+    year: Optional[str] = None,
+    month: Optional[str] = None
+):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT Id, ReconciliationDetailId, IdCobranza_CodCia, IdCobranza_coddoc, 
+                   IdCobranza_nrodoc, IdCobranza_nroitm, codref, nroref, importe, 
+                   codaux, IdBanco, Fecha_banco, empresa, codigo_banco, CreatedAt,
+                   nro_operacion, usuario
+            FROM tbl_Conciliados
+            WHERE 1=1
+        """
+        params = []
+        if codcia:
+            query += " AND empresa = ?"
+            params.append(codcia)
+        if bank_code:
+            query += " AND codigo_banco = ?"
+            params.append(bank_code)
+        if year:
+            query += " AND YEAR(Fecha_banco) = ?"
+            params.append(year)
+        if month:
+            query += " AND MONTH(Fecha_banco) = ?"
+            params.append(month)
+
+        query += " ORDER BY CreatedAt DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        result = []
+        for r in rows:
+            result.append({
+                "Id": r[0],
+                "ReconciliationDetailId": r[1],
+                "IdCobranza_CodCia": r[2],
+                "IdCobranza_coddoc": r[3],
+                "IdCobranza_nrodoc": r[4],
+                "IdCobranza_nroitm": r[5],
+                "codref": r[6],
+                "nroref": r[7],
+                "importe": float(r[8] or 0),
+                "codaux": r[9],
+                "IdBanco": r[10],
+                "Fecha_banco": r[11].isoformat() if r[11] else None,
+                "empresa": r[12],
+                "codigo_banco": r[13],
+                "CreatedAt": r[14].isoformat() if r[14] else None,
+                "nro_operacion": r[15],
+                "usuario": r[16]
+            })
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 def save_rules_to_disk(rules):
     with open(RULES_FILE, "w", encoding="utf-8") as f:
         json.dump(rules, f, indent=4, ensure_ascii=False)
@@ -1232,8 +1496,8 @@ def create_regla(regla: ReglaIn):
     new_id = 1 if not rules else max(r.get("id", 0) for r in rules) + 1
     new_rule = {
         "id": new_id,
-        "condicion": regla.condicion.strip().upper(),
-        "resultado": regla.resultado.strip().upper()
+        "condicion": regla.condicion.strip(),
+        "resultado": regla.resultado.strip()
     }
     rules.append(new_rule)
     save_rules_to_disk(rules)
