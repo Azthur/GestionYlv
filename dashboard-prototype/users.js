@@ -1,4 +1,6 @@
 // ─── Auth Guard & Sesión ────────────
+let dtInstance = null;
+
 function checkAuth() {
     const token = localStorage.getItem('yelave_token');
     if (!token) {
@@ -6,14 +8,25 @@ function checkAuth() {
         return null;
     }
     try {
-        const user = JSON.parse(localStorage.getItem('yelave_user'));
-        if (user.rol !== 'ADMIN') {
-            // Protect admin page
+        const userStr = localStorage.getItem('yelave_user');
+        const user = JSON.parse(userStr);
+        if (!user) throw new Error('No user data');
+
+        const currentLogin = String(user.login || '').trim().toUpperCase();
+        const currentRol = String(user.rol || '').trim().toUpperCase();
+        
+        const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
+        const isAdmin = currentRol === 'ADMIN';
+
+        if (isSuperuser || isAdmin) {
+            return user;
+        } else {
+            console.warn("Unauthorized access to users.html, redirecting...");
             window.location.href = 'index.html';
             return null;
         }
-        return user;
     } catch (e) {
+        console.error("Auth error:", e);
         window.location.href = 'login.html';
         return null;
     }
@@ -25,7 +38,16 @@ function renderUserInfo(user) {
     const roleEl = document.getElementById('userRoleDisplay');
     const avatarEl = document.getElementById('userAvatar');
     if (nameEl) nameEl.textContent = user.nombre || user.login;
-    if (roleEl) roleEl.textContent = user.rol === 'ADMIN' ? 'Administrador' : 'Usuario';
+    
+    // Role display
+    let roleLabel = 'Consultor';
+    if (user.login === '71941916JL' || user.rol === 'ADMIN') {
+        roleLabel = 'Administrador';
+    } else if (user.rol) {
+        roleLabel = user.rol;
+    }
+    if (roleEl) roleEl.textContent = roleLabel;
+    
     if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
 
     // Show admin menu
@@ -76,68 +98,101 @@ function closePwdModal() {
 }
 
 // ─── Data Fetching ───────────────────────────
+
 async function loadUsers() {
     const tbody = document.getElementById('users-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-state">Cargando directorio...</td></tr>';
     
     try {
         const token = localStorage.getItem('yelave_token');
         const res = await fetch('/api/users', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!res.ok) {
-            if (res.status === 401 || res.status === 403) {
-                logout();
-                return;
-            }
-            throw new Error('Error de servidor al cargar usuarios');
+            if (res.status === 401) return logout();
+            if (res.status === 403) { window.location.href = 'index.html'; return; }
+            throw new Error('Error de servidor');
         }
         
         const users = await res.json();
         
-        if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="loading-state">No se encontraron usuarios.</td></tr>';
-            return;
+        // 1. CLEAR THE DOM TBODY COMPLETELY before DT initialization to avoid "Incorrect column count"
+        // DataTables hates seeing that "Cargando..." row with colspan=7 when it expects 7 columns.
+        tbody.innerHTML = '';
+
+        // 2. Initialize or Clear DataTable
+        if (!dtInstance) {
+            dtInstance = $('#usersTable').DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json',
+                    search: "Buscar en todo el directorio:",
+                    zeroRecords: "No se encontraron usuarios coincidentes",
+                    info: "Mostrando _START_ a _END_ de _TOTAL_ usuarios",
+                    infoFiltered: "(filtrado de _MAX_ registros totales)"
+                },
+                pageLength: 10,
+                responsive: true,
+                dom: '<"dt-top-actions"Bf>rtip',
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Exportar a Excel',
+                        className: 'btn btn-outline',
+                        title: 'Directorio de Usuarios - YELAVE',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
+                    }
+                ],
+                columns: [
+                    { data: 'login', render: (data) => `<strong>${data}</strong>` },
+                    { data: 'nombre', render: (data) => data || '<span style="color:#9ca3af;font-style:italic">No definido</span>' },
+                    { data: 'correo', render: (data) => data || '-' },
+                    { data: 'celular', render: (data) => data || '-' },
+                    { 
+                        data: 'rol', 
+                        render: (data) => {
+                            if (data === 'ADMIN') return '<span class="badge admin">ADMIN</span>';
+                            if (data === 'LOGISTICA') return '<span class="badge" style="background:#FEF3C7; color:#92400E;">LOGISTICA</span>';
+                            if (data === 'CONTROL_INTERNO') return '<span class="badge" style="background:#E0F2FE; color:#0369A1;">CONTROL_INTERNO</span>';
+                            return `<span class="badge user">${data || 'USER'}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'activo', 
+                        render: (data) => data ? '<span class="badge active">Activo</span>' : '<span class="badge inactive">Inactivo</span>'
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: (data, type, row) => {
+                            const safeLogin = (row.login || '').replace(/'/g, "\'");
+                            const safeNombre = (row.nombre || '').replace(/'/g, "\'");
+                            const safeCorreo = (row.correo || '').replace(/'/g, "\'");
+                            const safeCel = (row.celular || '').replace(/'/g, "\'");
+                            const safeRol = (row.rol || 'USER').replace(/'/g, "\'");
+                            
+                            return `
+                                <button class="btn-text" onclick="openEditModal('${safeLogin}', '${safeNombre}', '${safeCorreo}', '${safeCel}', '${safeRol}', ${row.activo})" style="margin-right:0.5rem">Editar</button>
+                                <button class="btn-text" onclick="openPwdModal('${safeLogin}')" style="color:var(--danger)">Reset</button>
+                            `;
+                        }
+                    }
+                ]
+            });
         }
 
-        tbody.innerHTML = '';
-        users.forEach((u, idx) => {
-            const tr = document.createElement('tr');
-            tr.style.animation = `fadeIn 0.4s ease-out ${idx * 0.03}s forwards`;
-            tr.style.opacity = '0';
+        // 3. Populate Data using DataTables API (Global Search Support)
+        dtInstance.clear();
+        dtInstance.rows.add(users);
+        dtInstance.draw();
 
-            const activeBadge = u.activo ? '<span class="badge active">Activo</span>' : '<span class="badge inactive">Inactivo</span>';
-            const roleBadge = u.rol === 'ADMIN' ? '<span class="badge admin">ADMIN</span>' : '<span class="badge user">USER</span>';
-
-            // Escape strings for onclick
-            const safeLogin = (u.login || '').replace(/'/g, "\\'");
-            const safeNombre = (u.nombre || '').replace(/'/g, "\\'");
-            const safeCorreo = (u.correo || '').replace(/'/g, "\\'");
-            const safeCel = (u.celular || '').replace(/'/g, "\\'");
-            const safeRol = (u.rol || 'USER').replace(/'/g, "\\'");
-
-            tr.innerHTML = `
-                <td><strong>${u.login}</strong></td>
-                <td>${u.nombre || '<span style="color:#9ca3af;font-style:italic">No definido</span>'}</td>
-                <td>${u.correo || '-'}</td>
-                <td>${u.celular || '-'}</td>
-                <td>${roleBadge}</td>
-                <td>${activeBadge}</td>
-                <td>
-                    <button class="btn-text" onclick="openEditModal('${safeLogin}', '${safeNombre}', '${safeCorreo}', '${safeCel}', '${safeRol}', ${u.activo})" style="margin-right:0.5rem">Editar Perfil</button>
-                    <button class="btn-text" onclick="openPwdModal('${safeLogin}')" style="color:var(--danger)">Reset Pwd</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+        console.log("DataTable indexado con", users.length, "usuarios.");
 
     } catch (err) {
+        console.error("Error cargando usuarios:", err);
         tbody.innerHTML = `<tr><td colspan="7" class="loading-state" style="color:var(--danger)">${err.message}</td></tr>`;
     }
 }
+
 
 async function submitUserEdit() {
     const login = document.getElementById('editLoginId').value;

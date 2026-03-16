@@ -22,8 +22,63 @@ function renderUserInfo(user) {
     const avatarEl = document.getElementById('userAvatar');
     
     if (nameEl) nameEl.textContent = user.nombre || user.login;
-    if (roleEl) roleEl.textContent = user.rol === 'ADMIN' ? 'Administrador' : 'Usuario';
+    
+    // Role display
+    let roleLabel = 'Consultor';
+    if (user.login === '71941916JL' || user.rol === 'ADMIN') {
+        roleLabel = 'Administrador';
+    } else if (user.rol) {
+        roleLabel = user.rol;
+    }
+    if (roleEl) roleEl.textContent = roleLabel;
+    
     if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
+
+    // Access Control (Superuser or Admin)
+    const currentLogin = String(user.login || '').trim().toUpperCase();
+    const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
+    const isAdmin = String(user.rol || '').trim().toUpperCase() === 'ADMIN';
+    const userRol = String(user.rol || '').trim().toUpperCase();
+
+    if (isSuperuser || isAdmin) {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+    }
+
+    // Role-based navigation visibility
+    document.querySelectorAll('.nav-item, .nav-group').forEach(el => {
+        const href = (el.getAttribute('href') || '').toLowerCase();
+        
+        // Dashboard and Profile are always visible
+        if (href.includes('index.html') || href.includes('profile.html')) {
+            el.style.display = 'flex';
+            return;
+        }
+
+        let isVisible = false;
+
+        if (isSuperuser || isAdmin) {
+            isVisible = true;
+        } else if (userRol === 'LOGISTICA') {
+            if (href.includes('orders.html')) isVisible = true;
+        } else if (userRol === 'CONTROL_INTERNO') {
+            if (href.includes('conciliacion.html')) isVisible = true;
+        }
+        // Others (USER or empty) only see index/profile (already handled above)
+
+        if (!isVisible) {
+            el.style.display = 'none';
+        }
+    });
+
+    // Handle nav groups (Finanzas, Sistema)
+    document.querySelectorAll('.nav-group').forEach(group => {
+        const visibleItems = Array.from(group.querySelectorAll('.nav-item')).filter(item => item.style.display !== 'none');
+        if (visibleItems.length === 0) {
+            group.style.display = 'none';
+        } else {
+            group.style.display = 'block';
+        }
+    });
 }
 
 function logout() {

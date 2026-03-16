@@ -82,8 +82,78 @@
 
         }
 
+        /* DataTables Custom Styling */
+        .dt-top-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .dataTables_filter {
+            margin-top: 0 !important;
+        }
+
+        .dataTables_filter input {
+            padding: 0.6rem 1rem !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            background: white !important;
+            font-size: 0.9rem !important;
+            margin-left: 0.5rem !important;
+            outline: none !important;
+            transition: all 0.2s;
+            width: 250px !important;
+        }
+
+        .dataTables_filter input:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+        }
+
+        .dt-button.btn-outline {
+            background: white !important;
+            border: 1px solid #e2e8f0 !important;
+            color: var(--text-primary) !important;
+            padding: 0.6rem 1.2rem !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            cursor: pointer !important;
+            transition: all 0.2s !important;
+        }
+
+        .dt-button.btn-outline:hover {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--primary) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            color: var(--text-muted) !important;
+            font-size: 0.85rem !important;
+            margin-top: 1rem !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate {
+            margin-top: 1rem !important;
+        }
     </style>
 
+
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
 </head>
 
 
@@ -314,7 +384,7 @@
 
                     <div class="table-responsive">
 
-                        <table class="data-table">
+                        <table class="data-table" id="usersTable">
 
                             <thead>
 
@@ -437,11 +507,10 @@
                             <div class="select-wrapper">
 
                                 <select id="editRol">
-
-                                    <option value="USER">Usuario EstÑ¡ndar (USER)</option>
-
+                                    <option value="USER">Usuario Estándar (USER)</option>
                                     <option value="ADMIN">Administrador (ADMIN)</option>
-
+                                    <option value="LOGISTICA">Logística (LOGISTICA)</option>
+                                    <option value="CONTROL_INTERNO">Control Interno (CONTROL_INTERNO)</option>
                                 </select>
 
                             </div>
@@ -552,6 +621,13 @@
 
 
 
+    
+    <!-- jQuery & DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
     <script src="users.js"></script>
 
 </body>

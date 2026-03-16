@@ -19,7 +19,15 @@ function renderUserInfo(user) {
     const roleEl = document.getElementById('userRoleDisplay');
     const avatarEl = document.getElementById('userAvatar');
     if (nameEl) nameEl.textContent = user.nombre || user.login;
-    if (roleEl) roleEl.textContent = user.rol === 'ADMIN' ? 'Administrador' : 'Usuario';
+    
+    // Role display
+    let roleLabel = 'Consultor';
+    if (user.login === '71941916JL' || user.rol === 'ADMIN') {
+        roleLabel = 'Administrador';
+    } else if (user.rol) {
+        roleLabel = user.rol;
+    }
+    if (roleEl) roleEl.textContent = roleLabel;
     
     const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
     if (avatarEl) avatarEl.src = avatarUrl;
@@ -34,10 +42,50 @@ function renderUserInfo(user) {
     const mainLogin = document.getElementById('mainProfileLogin');
     if (mainLogin) mainLogin.textContent = `@${user.login.toLowerCase()}`;
 
-    // Admin link visibility
-    if (user.rol === 'ADMIN') {
+    // Access Control
+    const currentLogin = String(user.login || '').trim().toUpperCase();
+    const isSuperuser = currentLogin === '71941916JL';
+    const isAdmin = user.rol === 'ADMIN';
+    const userRol = String(user.rol || '').trim().toUpperCase();
+
+    if (isSuperuser || isAdmin) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
     }
+
+    // Role-based navigation visibility
+    document.querySelectorAll('.nav-item, .nav-group').forEach(el => {
+        const href = (el.getAttribute('href') || '').toLowerCase();
+        
+        // Dashboard and Profile are always visible
+        if (href.includes('index.html') || href.includes('profile.html')) {
+            el.style.display = 'flex';
+            return;
+        }
+
+        let isVisible = false;
+
+        if (isSuperuser || isAdmin) {
+            isVisible = true;
+        } else if (userRol === 'LOGISTICA') {
+            if (href.includes('orders.html')) isVisible = true;
+        } else if (userRol === 'CONTROL_INTERNO') {
+            if (href.includes('conciliacion.html')) isVisible = true;
+        }
+
+        if (!isVisible) {
+            el.style.display = 'none';
+        }
+    });
+
+    // Handle nav groups
+    document.querySelectorAll('.nav-group').forEach(group => {
+        const visibleItems = Array.from(group.querySelectorAll('.nav-item')).filter(item => item.style.display !== 'none');
+        if (visibleItems.length === 0) {
+            group.style.display = 'none';
+        } else {
+            group.style.display = 'block';
+        }
+    });
 }
 
 function logout() {
@@ -67,6 +115,16 @@ async function loadProfile() {
         document.getElementById('profileNombre').value = data.nombre || '';
         document.getElementById('profileCorreo').value = data.correo || '';
         document.getElementById('profileCelular').value = data.celular || '';
+        
+        const rolEl = document.getElementById('profileRol');
+        if (rolEl) rolEl.value = data.rol || 'USER';
+
+        // Check if admin to show extra info
+        const user = JSON.parse(localStorage.getItem('yelave_user'));
+        if (user && user.rol === 'ADMIN') {
+            const adminInfo = document.getElementById('adminRoleInfo');
+            if (adminInfo) adminInfo.style.display = 'block';
+        }
         
     } catch(e) {
         console.error(e);

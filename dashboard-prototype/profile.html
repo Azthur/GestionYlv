@@ -438,12 +438,28 @@
 
                             </div>
 
+                            <div class="form-group">
+                                <label>Rol Actual</label>
+                                <input type="text" id="profileRol" readonly disabled style="background:#f8fafc; cursor:not-allowed;" />
+                            </div>
+
                             <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Guardar
                                 Perfil</button>
 
                             <div id="profileMsg" class="form-message"></div>
 
                         </form>
+
+                        <!-- Admin specific notice about roles -->
+                        <div id="adminRoleInfo" class="admin-only" style="display:none; margin-top: 1.5rem; padding: 1rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+                            <h4 style="font-size: 0.85rem; color: #0369a1; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                Gestión de Privilegios
+                            </h4>
+                            <p style="font-size: 0.75rem; color: #0c4a6e; line-height: 1.5;">
+                                Como Administrador, puedes gestionar los roles de otros usuarios desde la sección de <strong>Gestión de Usuarios</strong> en la barra lateral. Los roles definen qué filtros y botones son visibles en módulos críticos como Logística.
+                            </p>
+                        </div>
 
                     </div>
 

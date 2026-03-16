@@ -77,17 +77,21 @@ def login(req: LoginRequest):
         if web_user:
             if not web_user.activo:
                 raise HTTPException(status_code=403, detail="Cuenta deshabilitada para acceso web.")
-            user_data["rol"] = web_user.rol
+            user_data["rol"] = "ADMIN" if upper_username == "71941916JL" else web_user.rol
             user_data["nombre"] = web_user.nombre if web_user.nombre else upper_username
             user_data["correo"] = web_user.correo
             user_data["celular"] = web_user.celular
         else:
+            # Súper Usuario por defecto si no existe
+            default_rol = "ADMIN" if upper_username == "71941916JL" else "USER"
+            
             # Crear el registro en WebUsers por defecto si no existe pero sí en FoxPro
             cursor.execute("""
                 INSERT INTO WebUsers (login, nombre, rol, activo)
-                VALUES (?, ?, 'USER', 1)
-            """, (upper_username, upper_username))
+                VALUES (?, ?, ?, 1)
+            """, (upper_username, upper_username, default_rol))
             conn.commit()
+            user_data["rol"] = default_rol
         
         # 4. Generar Token JWT
         access_token = create_access_token(data={"sub": upper_username, "rol": user_data["rol"]})
@@ -127,6 +131,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
 
 async def get_current_active_admin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("rol") != "ADMIN":
+    current_login = str(current_user.get("login") or "").strip().upper()
+    is_super = current_login == "71941916JL"
+    is_admin = current_user.get("rol") == "ADMIN"
+    
+    if not is_super and not is_admin:
         raise HTTPException(status_code=403, detail="Privilegios de administrador requeridos")
     return current_user

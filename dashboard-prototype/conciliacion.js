@@ -10,6 +10,7 @@ function checkAuth() {
     
     try {
         const user = JSON.parse(localStorage.getItem('yelave_user'));
+        if (!user) throw new Error('No user data');
         return user;
     } catch (e) {
         window.location.href = 'login.html';
@@ -24,8 +25,62 @@ function renderUserInfo(user) {
     const avatarImg = document.querySelector('.avatar img');
     
     if (nameEl) nameEl.textContent = user.nombre || user.login;
-    if (roleEl) roleEl.textContent = user.rol === 'ADMIN' ? 'Administrador' : 'Usuario';
+    
+    // Role display
+    let roleLabel = 'Consultor';
+    if (user.login === '71941916JL' || user.rol === 'ADMIN') {
+        roleLabel = 'Administrador';
+    } else if (user.rol) {
+        roleLabel = user.rol;
+    }
+    if (roleEl) roleEl.textContent = roleLabel;
+    
     if (avatarImg) avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
+
+    // Access Control
+    const currentLogin = String(user.login || '').trim().toUpperCase();
+    const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
+    const isAdmin = String(user.rol || '').trim().toUpperCase() === 'ADMIN';
+    const userRol = String(user.rol || '').trim().toUpperCase();
+
+    if (isSuperuser || isAdmin) {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+    }
+
+    // Role-based navigation visibility
+    document.querySelectorAll('.nav-item, .nav-group').forEach(el => {
+        const href = (el.getAttribute('href') || '').toLowerCase();
+        
+        // Dashboard and Profile are always visible
+        if (href.includes('index.html') || href.includes('profile.html')) {
+            el.style.display = 'flex';
+            return;
+        }
+
+        let isVisible = false;
+
+        if (isSuperuser || isAdmin) {
+            isVisible = true;
+        } else if (userRol === 'LOGISTICA') {
+            if (href.includes('orders.html')) isVisible = true;
+        } else if (userRol === 'CONTROL_INTERNO') {
+            if (href.includes('conciliacion.html')) isVisible = true;
+        }
+
+        if (!isVisible) {
+            el.style.display = 'none';
+        }
+    });
+
+    // Handle nav groups
+    document.querySelectorAll('.nav-group').forEach(group => {
+        const visibleItems = Array.from(group.querySelectorAll('.nav-item')).filter(item => item.style.display !== 'none');
+        if (visibleItems.length === 0) {
+            group.style.display = 'none';
+        } else {
+            group.style.display = 'block';
+        }
+    });
 }
 
 function logout() {
@@ -195,8 +250,8 @@ async function loadData() {
         return;
     }
 
-    // Load ALL data sources in parallel (cruce, resumen, movimientos banco tab, cobranzas tab, conciliados tab)
-    await Promise.all([
+    // Load ALL data sources in parallel
+    await Promise.allSettled([
         loadBankMovements(codcia, bankCode, year, month),
         loadCobranzas(codcia, year, month),
         loadResumen(codcia, bankCode, year, month),
@@ -204,6 +259,11 @@ async function loadData() {
         loadAllCobranzas(),
         loadConciliados()
     ]);
+    
+    // Check if any failed due to 401
+    const token = localStorage.getItem('yelave_token');
+    const authCheck = await fetch('/api/auth/me/profile', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (authCheck.status === 401) logout();
 }
 
 // ─── Load Bank Movements ─────────────────────────────────────────────

@@ -2,7 +2,11 @@
 function checkAuth() {
     const token = localStorage.getItem('yelave_token');
     if (!token) { window.location.href = 'login.html'; return null; }
-    try { return JSON.parse(localStorage.getItem('yelave_user')); }
+    try { 
+        const user = JSON.parse(localStorage.getItem('yelave_user')); 
+        if (!user) throw new Error('No user data');
+        return user;
+    }
     catch (e) { window.location.href = 'login.html'; return null; }
 }
 function renderUserInfo(user) {
@@ -11,9 +15,62 @@ function renderUserInfo(user) {
     const roleEl = document.getElementById('userRoleDisplay');
     const avatarEl = document.getElementById('userAvatar');
     if (nameEl) nameEl.textContent = user.nombre || user.login;
-    if (roleEl) roleEl.textContent = user.rol === 'ADMIN' ? 'Administrador' : 'Usuario';
+    
+    // Role display
+    let roleLabel = 'Consultor';
+    if (user.login === '71941916JL' || user.rol === 'ADMIN') {
+        roleLabel = 'Administrador';
+    } else if (user.rol) {
+        roleLabel = user.rol;
+    }
+    if (roleEl) roleEl.textContent = roleLabel;
+    
     if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
-    if (user.rol === 'ADMIN') document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+
+    // Access Control
+    const currentLogin = String(user.login || '').trim().toUpperCase();
+    const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
+    const isAdmin = String(user.rol || '').trim().toUpperCase() === 'ADMIN';
+    const userRol = String(user.rol || '').trim().toUpperCase();
+
+    if (isSuperuser || isAdmin) {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+    }
+
+    // Role-based navigation visibility
+    document.querySelectorAll('.nav-item, .nav-group').forEach(el => {
+        const href = (el.getAttribute('href') || '').toLowerCase();
+        
+        // Dashboard and Profile are always visible
+        if (href.includes('index.html') || href.includes('profile.html')) {
+            el.style.display = 'flex';
+            return;
+        }
+
+        let isVisible = false;
+
+        if (isSuperuser || isAdmin) {
+            isVisible = true;
+        } else if (userRol === 'LOGISTICA') {
+            if (href.includes('orders.html')) isVisible = true;
+        } else if (userRol === 'CONTROL_INTERNO') {
+            if (href.includes('conciliacion.html')) isVisible = true;
+        }
+
+        if (!isVisible) {
+            el.style.display = 'none';
+        }
+    });
+
+    // Handle nav groups
+    document.querySelectorAll('.nav-group').forEach(group => {
+        const visibleItems = Array.from(group.querySelectorAll('.nav-item')).filter(item => item.style.display !== 'none');
+        if (visibleItems.length === 0) {
+            group.style.display = 'none';
+        } else {
+            group.style.display = 'block';
+        }
+    });
 }
 function logout() { localStorage.removeItem('yelave_token'); localStorage.removeItem('yelave_user'); window.location.href = 'login.html'; }
 function toggleSidebar() {
@@ -89,7 +146,11 @@ async function loadOrders() {
 
         const token = localStorage.getItem('yelave_token');
         const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!res.ok) throw new Error('Error al obtener datos');
+        if (!res.ok) {
+            if (res.status === 401) { logout(); return; }
+            if (res.status === 403) { window.location.href = 'index.html'; return; }
+            throw new Error('Error al obtener datos');
+        }
         const orders = await res.json();
 
         // Build DataTable data array
@@ -99,6 +160,10 @@ async function loadOrders() {
             const total = parseFloat(o.total) || 0;
             const tipoLabel = formatTipo(o.tipooc);
             const statusHtml = formatStatus(o.estado);
+            
+            // Only show Warehouse button if Type is 'M' (Mercadería)
+            const showWarehouseBtn = String(o.tipooc).trim().toUpperCase() === 'M';
+            
             const btnHtml = `<div style="display:flex; gap:0.25rem;">
                 <button class="btn-ver-oc" onclick="openReportModal('${codcia}','${o.nrodoc}','${o.tipooc || ''}','${o.anos || year || ''}')" title="Ver Orden">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
@@ -106,12 +171,13 @@ async function loadOrders() {
                         <polyline points="14 2 14 8 20 8"></polyline>
                     </svg>
                 </button>
+                ${showWarehouseBtn ? `
                 <button class="btn-ver-oc" style="background:var(--success);" onclick="openWarehouseModal('${codcia}','${o.nrodoc}')" title="Ver Ingresos a Almacén">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
                     </svg>
-                </button>
+                </button>` : ''}
             </div>`;
 
             return [
@@ -366,4 +432,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!user) return;
     renderUserInfo(user);
     loadCompanies();
+
+    // Role-based restrictions for Logística
+    if (user.rol === 'LOGISTICA') {
+        const filterType = document.getElementById('filterType');
+        if (filterType) {
+            // Remove option 7 as requested
+            for (let i = 0; i < filterType.options.length; i++) {
+                if (filterType.options[i].value === '7') {
+                    filterType.options[i].remove();
+                    break;
+                }
+            }
+        }
+    }
 });
