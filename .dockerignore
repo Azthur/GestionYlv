@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+**/__pycache__
+**/*.pyc
+**/*.pyo
+backend/venv/
+backend/**/*.tmp
+
+# Dev/test files
+backend/debug_*.py
+backend/explore_*.py
+backend/inspect_*.py
+backend/query_*.py
+backend/test_*.py
+backend/check_*.py
+backend/setup_*.py
+backend/create_*.py
+
+# Dashboard temp/patch files
+dashboard-prototype/*.py
+dashboard-prototype/*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# Excel test files
+*.xlsx
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+.env.docker
+
+# Docs
+*.md
+openapi_check.json
