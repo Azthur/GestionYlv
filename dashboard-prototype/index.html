@@ -4,10 +4,487 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YELAVE - Plataforma de Gestión Operativa</title>
-    <!-- Corporate SaaS Fonts: Inter for an ultra-clean, professional look -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>YELAVE - Plataforma Corporativa</title>
+    <meta name="description" content="YELAVE Skincare - Plataforma de Gestión Corporativa. Belleza, innovación y excelencia en productos de cuidado de la piel.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ============================================
+           YELAVE 2026 - Premium Corporate Landing
+           Beauty & Skincare Manufacturing
+           ============================================ */
+
+        /* Override main-content for landing page */
+        .main-content {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0d0f1a 30%, #131528 60%, #0f1020 100%);
+            overflow-y: auto;
+        }
+
+        /* ── Animated Background Particles ────────── */
+        .landing-bg {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-width);
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .landing-bg::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: floatOrb 18s ease-in-out infinite;
+        }
+
+        .landing-bg::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: floatOrb 22s ease-in-out infinite reverse;
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(60px, -40px) scale(1.1); }
+            50% { transform: translate(-30px, 60px) scale(0.95); }
+            75% { transform: translate(50px, 20px) scale(1.05); }
+        }
+
+        /* Extra floating orb */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .orb-1 {
+            top: 20%;
+            right: 15%;
+            width: 300px;
+            height: 300px;
+            background: rgba(99, 102, 241, 0.07);
+            animation: floatOrb 15s ease-in-out infinite 2s;
+        }
+        .orb-2 {
+            bottom: 10%;
+            left: 30%;
+            width: 250px;
+            height: 250px;
+            background: rgba(244, 114, 182, 0.05);
+            animation: floatOrb 20s ease-in-out infinite 5s;
+        }
+        .orb-3 {
+            top: 60%;
+            right: 40%;
+            width: 200px;
+            height: 200px;
+            background: rgba(192, 132, 252, 0.04);
+            animation: floatOrb 25s ease-in-out infinite 8s;
+        }
+
+        /* ── Landing Content Wrapper ─────────────── */
+        .landing-wrapper {
+            position: relative;
+            z-index: 1;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        /* ── Top Bar Override ─────────────────────── */
+        .top-bar {
+            background: rgba(15, 17, 30, 0.6) !important;
+            backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+        }
+        .top-bar h2 {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-weight: 600 !important;
+        }
+
+        /* ── Hero Section ────────────────────────── */
+        .hero-section {
+            position: relative;
+            padding: 3rem 2.5rem;
+            margin-bottom: 2rem;
+            border-radius: 24px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.06) 40%, rgba(236, 72, 153, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            animation: heroFadeIn 1s ease-out;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(135deg, transparent 40%, rgba(168, 85, 247, 0.05) 100%);
+            border-radius: inherit;
+        }
+
+        .hero-section::after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.1), transparent, transparent);
+            z-index: -1;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            -webkit-mask-composite: xor;
+            padding: 1px;
+        }
+
+        @keyframes heroFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero-greeting {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: rgba(168, 85, 247, 0.8);
+            margin-bottom: 0.75rem;
+        }
+
+        .hero-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1.2;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, #ffffff 0%, rgba(192, 132, 252, 0.9) 50%, rgba(244, 114, 182, 0.85) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.6;
+            max-width: 550px;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1.75rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .hero-meta-item svg {
+            width: 16px;
+            height: 16px;
+            stroke: rgba(168, 85, 247, 0.6);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 100px;
+            background: rgba(168, 85, 247, 0.12);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgba(192, 132, 252, 0.9);
+            margin-top: 1.5rem;
+        }
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #a855f7;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* ── Quick Access Portal ─────────────────── */
+        .section-label {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            color: rgba(255, 255, 255, 0.25);
+            margin-bottom: 1rem;
+            padding-left: 4px;
+        }
+
+        .portal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .portal-card {
+            position: relative;
+            padding: 1.75rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow: hidden;
+            text-decoration: none;
+            display: block;
+            animation: cardSlideIn 0.6s ease-out both;
+        }
+
+        .portal-card:nth-child(1) { animation-delay: 0.1s; }
+        .portal-card:nth-child(2) { animation-delay: 0.2s; }
+        .portal-card:nth-child(3) { animation-delay: 0.3s; }
+        .portal-card:nth-child(4) { animation-delay: 0.4s; }
+
+        @keyframes cardSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .portal-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--card-accent), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .portal-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.4),
+                        0 0 40px -20px var(--card-accent);
+        }
+
+        .portal-card:hover::before {
+            opacity: 1;
+        }
+
+        .portal-card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+            background: var(--card-icon-bg);
+            transition: transform 0.3s;
+        }
+
+        .portal-card:hover .portal-card-icon {
+            transform: scale(1.08);
+        }
+
+        .portal-card-icon svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--card-accent);
+            stroke-width: 1.8;
+        }
+
+        .portal-card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .portal-card-desc {
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.4);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .portal-card-arrow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--card-accent);
+            opacity: 0;
+            transform: translateX(-8px);
+            transition: all 0.3s;
+        }
+
+        .portal-card:hover .portal-card-arrow {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .portal-card-arrow svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--card-accent);
+            stroke-width: 2;
+        }
+
+        /* Card Color Variants */
+        .portal-card.card-logistics {
+            --card-accent: #6366f1;
+            --card-icon-bg: rgba(99, 102, 241, 0.1);
+        }
+        .portal-card.card-finance {
+            --card-accent: #a855f7;
+            --card-icon-bg: rgba(168, 85, 247, 0.1);
+        }
+        .portal-card.card-users {
+            --card-accent: #ec4899;
+            --card-icon-bg: rgba(236, 72, 153, 0.1);
+        }
+        .portal-card.card-profile {
+            --card-accent: #14b8a6;
+            --card-icon-bg: rgba(20, 184, 166, 0.1);
+        }
+
+        /* ── Corporate Vision Section ────────────── */
+        .vision-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .vision-card {
+            padding: 1.5rem;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+            animation: cardSlideIn 0.6s ease-out both;
+        }
+        .vision-card:nth-child(1) { animation-delay: 0.5s; }
+        .vision-card:nth-child(2) { animation-delay: 0.6s; }
+        .vision-card:nth-child(3) { animation-delay: 0.7s; }
+        .vision-card:nth-child(4) { animation-delay: 0.8s; }
+
+        .vision-number {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #c084fc, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.25rem;
+        }
+
+        .vision-label {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.35);
+            font-weight: 500;
+        }
+
+        /* ── Footer Quote ────────────────────────── */
+        .landing-footer {
+            text-align: center;
+            padding: 2rem 0 1rem;
+            animation: heroFadeIn 1s ease-out 1s both;
+        }
+
+        .footer-quote {
+            font-family: 'Outfit', sans-serif;
+            font-style: italic;
+            font-size: 1rem;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.2);
+            max-width: 500px;
+            margin: 0 auto 0.75rem;
+            line-height: 1.6;
+        }
+
+        .footer-brand {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: rgba(255, 255, 255, 0.12);
+        }
+
+        /* ── Responsive ──────────────────────────── */
+        @media (max-width: 768px) {
+            .landing-bg {
+                left: 0;
+            }
+            .landing-wrapper {
+                padding: 1rem;
+            }
+            .hero-section {
+                padding: 2rem 1.5rem;
+            }
+            .hero-title {
+                font-size: 1.6rem;
+            }
+            .portal-grid {
+                grid-template-columns: 1fr;
+            }
+            .vision-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -22,7 +499,7 @@
                 <span>Skincare</span>
             </div>
             <nav class="nav-menu">
-                <a href="/index.html" class="nav-item">
+                <a href="/index.html" class="nav-item active">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="7" height="7"></rect>
                         <rect x="14" y="3" width="7" height="7"></rect>
@@ -41,32 +518,6 @@
                     </svg>
                     Logística & Compras
                 </a>
-                <a href="/index.html" class="nav-item active">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path
-                            d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-3.5-3.5A2 2 0 0 0 17 4h-2V2H9v2H7a2 2 0 0 0-1.5.5L2 8v12z">
-                        </path>
-                        <path d="M14 4h4v4h-4z"></path>
-                        <path d="M12 2v2"></path>
-                        <path d="M12 16v4"></path>
-                        <path d="M8 16v4"></path>
-                        <path d="M16 16v4"></path>
-                    </svg>
-                    Producción (DIGEMID)
-                </a>
-                <a href="#" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    Almacén
-                </a>
-                <a href="#" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 3v18h18"></path>
-                        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
-                    </svg>
-                    Comercial & Ventas
-                </a>
                 <!-- FINANZAS GROUP -->
                 <div class="nav-group" style="margin-top: 0.75rem;">
                     <div class="nav-group-label"
@@ -81,22 +532,22 @@
                         Conciliación Bancaria
                     </a>
                 </div>
-                <a href="#" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="1" y="3" width="15" height="13"></rect>
-                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                    </svg>
-                    Repartos
-                </a>
 
                 <!-- Sistema -->
                 <div class="nav-group" style="margin-top: auto;">
                     <div class="nav-group-label"
                         style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">
                         Sistema</div>
-                    <a href="/db-config.html" class="nav-item">
+                    <a href="/users.html" class="nav-item admin-only" style="display:none;">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        Usuarios
+                    </a>
+                    <a href="/db-config.html" class="nav-item admin-only" style="display:none;">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="3"></circle>
                             <path
@@ -107,13 +558,13 @@
                     </a>
                 </div>
             </nav>
-            <div class="user-profile">
+            <div class="user-profile" onclick="window.location.href='/profile.html'" style="cursor:pointer;">
                 <div class="avatar">
-                    <img src="https://i.pravatar.cc/150?img=47" alt="User Avatar">
+                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=U&background=2b3954&color=fff" alt="User Avatar">
                 </div>
                 <div class="user-info">
-                    <span class="user-name">Directorio</span>
-                    <span class="user-role">Administrador</span>
+                    <span class="user-name" id="userNameDisplay">Cargando...</span>
+                    <span class="user-role" id="userRoleDisplay">...</span>
                 </div>
             </div>
         </aside>
@@ -129,153 +580,92 @@
                             <line x1="3" y1="18" x2="21" y2="18"></line>
                         </svg>
                     </button>
-                    <h2>Órdenes de Producción</h2>
+                    <h2>Plataforma Corporativa</h2>
                 </div>
-                <div class="actions">
-                    <button class="btn btn-outline">Filtrar</button>
-                    <button class="btn btn-primary" onclick="openModal()">+ Nueva Orden</button>
+                <div class="actions" style="display:flex; gap:0.5rem;">
+                    <a href="/profile.html" style="text-decoration:none; padding:8px 18px; border-radius:8px; font-size:0.8rem; font-weight:500; color:rgba(255,255,255,0.7); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); transition:all 0.3s; cursor:pointer;">Mi Perfil</a>
+                    <button onclick="logout()" style="padding:8px 18px; border-radius:8px; font-size:0.8rem; font-weight:500; color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); transition:all 0.3s; cursor:pointer;">Cerrar Sesión</button>
                 </div>
             </header>
 
-            <!-- Dashboard Widgets / Content -->
-            <section class="content fade-in">
-                <div class="cards-grid">
-                    <div class="card stat-card glass-panel">
-                        <div class="stat-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                        </div>
-                        <div class="stat-details">
-                            <h3>Lotes Activos</h3>
-                            <div class="stat-value">24</div>
-                            <div class="stat-trend positive">↑ 12% vs mes anterior</div>
-                        </div>
-                    </div>
-                    <div class="card stat-card glass-panel">
-                        <div class="stat-icon">
+            <!-- Animated Background -->
+            <div class="landing-bg"></div>
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+
+            <!-- Landing Content -->
+            <div class="landing-wrapper">
+
+                <!-- ── Hero Section ──────────────── -->
+                <section class="hero-section">
+                    <div class="hero-greeting" id="heroGreeting">Bienvenido de nuevo</div>
+                    <h1 class="hero-title" id="heroTitle">Plataforma de Gestión<br>YELAVE Skincare</h1>
+                    <p class="hero-subtitle">Centro de operaciones integral para la gestión corporativa, logística, financiera y productiva de nuestra línea de cuidado de la piel.</p>
+                    <div class="hero-meta">
+                        <div class="hero-meta-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <polyline points="12 6 12 12 16 14"></polyline>
                             </svg>
+                            <span id="heroDate">—</span>
                         </div>
-                        <div class="stat-details">
-                            <h3>Producción en Curso</h3>
-                            <div class="stat-value">5,200 <span class="unit">unidades</span></div>
-                            <div class="stat-trend neutral">Estable</div>
-                        </div>
-                    </div>
-                    <div class="card stat-card glass-panel">
-                        <div class="stat-icon warning">
+                        <div class="hero-meta-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path
-                                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
-                                </path>
-                                <line x1="12" y1="9" x2="12" y2="13"></line>
-                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
                             </svg>
+                            <span>Lima, Perú</span>
                         </div>
-                        <div class="stat-details">
-                            <h3>Material Próximo a Vencer</h3>
-                            <div class="stat-value warning-text">3 <span class="unit">lotes</span></div>
-                            <div class="stat-trend negative">Revisar stock (FEFO)</div>
+                        <div class="hero-meta-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span id="heroRole">Rol del usuario</span>
                         </div>
+                    </div>
+                    <div class="hero-badge">
+                        <span class="dot"></span>
+                        Sistema Activo
+                    </div>
+                </section>
+
+                <!-- ── Quick Access Portal ───────── -->
+                <div class="section-label">Acceso Rápido a Módulos</div>
+                <div class="portal-grid" id="portalGrid">
+                    <!-- Cards are dynamically injected by JS based on role -->
+                </div>
+
+                <!-- ── Corporate Vision / KPIs ───── -->
+                <div class="section-label">Visión Corporativa</div>
+                <div class="vision-grid">
+                    <div class="vision-card">
+                        <div class="vision-number">25+</div>
+                        <div class="vision-label">Años de Experiencia</div>
+                    </div>
+                    <div class="vision-card">
+                        <div class="vision-number">150+</div>
+                        <div class="vision-label">Productos Activos</div>
+                    </div>
+                    <div class="vision-card">
+                        <div class="vision-number">8</div>
+                        <div class="vision-label">Líneas de Producción</div>
+                    </div>
+                    <div class="vision-card">
+                        <div class="vision-number">100%</div>
+                        <div class="vision-label">Compromiso de Calidad</div>
                     </div>
                 </div>
 
-                <div class="card table-container glass-panel">
-                    <div class="table-header">
-                        <h3>Registro de Producción / Trazabilidad</h3>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Orden ID</th>
-                                    <th>Producto</th>
-                                    <th>Lote Final</th>
-                                    <th>Reg. Sanitario (DIGEMID)</th>
-                                    <th>Director Técnico</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="orders-tbody">
-                                <!-- Datos insertados dinamicamente desde API -->
-                                <tr>
-                                    <td colspan="7" class="loading-state">Cargando datos de producción...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <!-- ── Footer Quote ──────────────── -->
+                <div class="landing-footer">
+                    <p class="footer-quote">"La belleza es la promesa de felicidad. Cada producto que creamos es una promesa cumplida."</p>
+                    <div class="footer-brand">YELAVE SKINCARE © 2026</div>
                 </div>
-            </section>
+
+            </div>
         </main>
-    </div>
-
-    <!-- Modal Form (Nueva Orden de Producción) -->
-    <div class="modal-overlay" id="productionModal">
-        <div class="modal glass-modal">
-            <div class="modal-header">
-                <h3>Crear Orden de Producción</h3>
-                <button class="close-btn" onclick="closeModal()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form class="elegant-form">
-                    <div class="form-group row">
-                        <div class="col">
-                            <label>Producto a Fabricar</label>
-                            <div class="select-wrapper">
-                                <select>
-                                    <option>Seleccione un producto</option>
-                                    <option>Crema Hidratante Facial 50ml</option>
-                                    <option>Serum Vitamina C 30ml</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <label>Lote Final Esperado</label>
-                            <input type="text" placeholder="Ej: L-HDF2301" />
-                        </div>
-                    </div>
-                    <div class="form-group row">
-                        <div class="col">
-                            <label>Registro Sanitario (DIGEMID)</label>
-                            <input type="text" placeholder="NSOC..." required />
-                        </div>
-                        <div class="col">
-                            <label>Director Técnico Aprobador</label>
-                            <input type="text" placeholder="Nombre completo y CQ" required />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Lotes de Materia Prima a Utilizar (Tratamiento FEFO)</label>
-                        <div class="multi-select custom-scrollbar">
-                            <label class="checkbox-label">
-                                <input type="checkbox">
-                                <span class="checkmark"></span>
-                                Glicerina USP (Lote: GL001) - Vence: 12/26
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox">
-                                <span class="checkmark"></span>
-                                Ácido Hialurónico (Lote: AH045) - Vence: 05/26
-                            </label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="closeModal()">Generar Orden</button>
-            </div>
-        </div>
     </div>
 
     <script src="app.js"></script>
