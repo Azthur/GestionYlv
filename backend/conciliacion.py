@@ -169,31 +169,45 @@ async def upload_excel(
         cursor = conn.cursor()
 
         # Read header row to map columns
-        headers = []
+        headers_raw = []
         for cell in next(ws.iter_rows(min_row=1, max_row=1)):
-            headers.append(str(cell.value or "").strip().lower())
+            headers_raw.append(str(cell.value or "").strip())
 
-        # Column mapping (flexible matching)
+        import unicodedata
+        import re
+        def clean_h(h):
+            if not h: return ""
+            # Normalizar: quitar acentos y caracteres raros
+            s = str(h).strip().lower()
+            s = "".join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+            s = re.sub(r'[^a-z0-9]', '', s)
+            return s
+
+        headers_clean = [clean_h(h) for h in headers_raw]
+
+        # Column mapping (flexible matching using cleaned versions)
         col_map = {}
         mapping_rules = {
-            'id_banco': ['id banco', 'id', 'id_banco', 'idbanco'],
-            'fecha': ['fecha'],
-            'descripcion': ['descripcion', 'descripción'],
-            'monto': ['monto', 'importe'],
-            'saldo': ['saldo'],
-            'sucursal': ['sucursal'],
-            'operacion_numero': ['operacion numero', 'operación numero', 'operacion_numero', 'nro operacion'],
-            'operacion_hora': ['operacion hora', 'operación hora', 'operacion_hora', 'hora'],
-            'referencia': ['referencia'],
-            'op_manual': ['op manual', 'op_manual'],
-            'op_cancelacion': ['op cancelacion', 'op cancelación', 'op_cancelacion'],
-            'descripcion_final': ['descripcion final', 'descripción final', 'descripcion_final'],
-            'estado': ['estado']
+            'id_banco': ['idbanco', 'id', 'id_banco', 'id_de_banco'],
+            'fecha': ['fecha', 'fch', 'date'],
+            'descripcion': ['descripcion', 'description', 'desc'],
+            'monto': ['monto', 'importe', 'amount', 'total'],
+            'saldo': ['saldo', 'balance'],
+            'sucursal': ['sucursal', 'branch'],
+            'operacion_numero': ['operacionnumero', 'nrooperacion', 'opnumero', 'nroop', 'operacion', 'opnro', 'numerooperacion', 'nro.operacion', 'op.numero'],
+            'operacion_hora': ['operacionhora', 'ophora', 'hora', 'time'],
+            'referencia': ['referencia', 'ref'],
+            'op_manual': ['opmanual', 'op_manual'],
+            'op_cancelacion': ['opcancelacion', 'op_cancelacion'],
+            'descripcion_final': ['descripcionfinal', 'descripcion_final'],
+            'estado': ['estado', 'status']
         }
 
         for key, aliases in mapping_rules.items():
-            for i, h in enumerate(headers):
-                if h in aliases:
+            # Limpiamos los alias también para que coincidan con headers_clean
+            clean_aliases = [clean_h(a) for a in aliases]
+            for i, hc in enumerate(headers_clean):
+                if hc in clean_aliases:
                     col_map[key] = i
                     break
 

@@ -17,7 +17,8 @@ services:
       - PYTHONUNBUFFERED=1
       - "ODBC_DRIVER={ODBC Driver 18 for SQL Server}"
     volumes:
-      # Persist cleaning rules JSON
+      - ./backend:/app/backend
+      - ./dashboard-prototype:/app/dashboard-prototype
       - conciliacion_data:/app/backend/data
     networks:
       - yelave-network
