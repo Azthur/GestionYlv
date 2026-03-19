@@ -271,14 +271,11 @@ async function loadData() {
         return;
     }
 
-    // Load ALL data sources in parallel
+    // Load only the data needed for the active Cruce tab
     await Promise.allSettled([
         loadBankMovements(codcia, bankCode, year, month),
         loadCobranzas(codcia, year, month),
-        loadResumen(codcia, bankCode, year, month),
-        loadMovimientosBanco(),
-        loadAllCobranzas(),
-        loadConciliados()
+        loadResumen(codcia, bankCode, year, month)
     ]);
     
     // Check if any failed due to 401
@@ -599,7 +596,7 @@ function updateMatchButton() {
 
     let sumBancos = 0;
     selectedBankIds.forEach(id => {
-        const mov = bankMovements.find(m => m.Id === id);
+        const mov = bankMovements.find(m => String(m.Id) === String(id));
         if (mov) sumBancos += parseFloat(mov.Monto || 0);
     });
 
@@ -610,7 +607,7 @@ function updateMatchButton() {
     });
 
     const diff = Math.abs(Math.abs(sumBancos) - Math.abs(sumCobranzas));
-    if (diff <= 0.05) {
+    if (diff <= 0.10) {
         btn.disabled = false;
         btn.title = "Importes cuadran perfectamente. Clic para conciliar.";
     } else {

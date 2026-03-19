@@ -535,15 +535,14 @@ def auto_match(request: AutoMatchRequest):
         cursor.execute(query, params)
         pending_movements = cursor.fetchall()
 
-        # Group Banks by (CleanedOp, Date)
+        # Group Banks by CleanedOp (sin fecha estricta)
         bank_groups = defaultdict(list)
         for mov in pending_movements:
             b_id = mov[0]
             raw_op = mov[1] if mov[1] and str(mov[1]).strip() else mov[2]
             cleaned = clean_op(raw_op)
-            b_date = str(mov[4])[:10] if mov[4] else ""
-            if cleaned and b_date:
-                bank_groups[(cleaned, b_date)].append(mov)
+            if cleaned:
+                bank_groups[cleaned].append(mov)
 
         # 3. Load ALL pending CcbMVtos for these dates/companies with Filiales logic
         c_query = """
@@ -574,14 +573,13 @@ def auto_match(request: AutoMatchRequest):
         cursor.execute(c_query, c_params)
         unmatched_cobs = cursor.fetchall()
         
-        # Group Cobs by (CleanedOp, Date)
+        # Group Cobs by CleanedOp (sin fecha estricta)
         cob_groups = defaultdict(list)
         for cob in unmatched_cobs:
             raw_op = cob[4] if cob[4] and str(cob[4]).strip() else cob[5]
             cleaned = clean_op(raw_op)
-            c_date = str(cob[7] if cob[7] else cob[8])[:10]
-            if cleaned and c_date:
-                cob_groups[(cleaned, c_date)].append(cob)
+            if cleaned:
+                cob_groups[cleaned].append(cob)
 
         matched_count = 0
         total_processed = len(pending_movements)
@@ -596,7 +594,7 @@ def auto_match(request: AutoMatchRequest):
             sum_c = sum([float(c[6] or 0) for c in c_list])
             
             # Exact Amount Match
-            if abs(abs(sum_b) - abs(sum_c)) <= 0.01:
+            if abs(abs(sum_b) - abs(sum_c)) <= 0.05:
                 # Get next group ID (integer)
                 cursor.execute("SELECT ISNULL(MAX(ReconciliationId), 0) + 1 FROM ReconciliationDetail")
                 group_id = cursor.fetchone()[0]
@@ -632,7 +630,7 @@ def auto_match(request: AutoMatchRequest):
                                     detail_id, c_cob[0], c_cob[1], c_cob[2], c_cob[3],
                                     c_cob[12], c_cob[5], c_cob[6], c_cob[13],
                                     b_id, str(b_mov[4])[:10], request.codcia, request.bank_code,
-                                    key[0], request.usuario
+                                    key, request.usuario
                                 ))
                             except Exception as ex:
                                 print(f"Failed inserting tbl_Conciliados obj. Date was: {b_mov[4]}")
@@ -711,7 +709,7 @@ def manual_match(request: ManualMatchRequest):
         # 1. Fetch and validate Bank Movements
         bank_placeholders = ','.join(['?'] * len(request.bank_movement_ids))
         cursor.execute(f"""
-            SELECT Id, Estado, Monto, Fecha, CodCia, BankCode FROM BankMovements 
+            SELECT Id, Estado, Monto, Fecha, CodCia, BankCode, OpCancelacion, OperacionNumero FROM BankMovements 
             WHERE Id IN ({bank_placeholders})
         """, request.bank_movement_ids)
         banks = cursor.fetchall()
@@ -757,25 +755,14 @@ def manual_match(request: ManualMatchRequest):
             if cursor.fetchone():
                 raise HTTPException(status_code=400, detail=f"La cobranza {key} ya está conciliada.")
             
-            # Amount and Date validation
+            # Amount validation
             sum_cobranzas += float(cob[1] or 0)
-            
-            # Use fchDep, fallback to fchdoc
-            c_date = cob[2] if cob[2] else cob[3]
-            if not c_date:
-                raise HTTPException(status_code=400, detail=f"La cobranza {key} no tiene fecha.")
-            
-            # Compare Dates (strict YYYY-MM-DD match)
-            b_date_str = str(bank_date)[:10]
-            c_date_str = str(c_date)[:10]
-            if b_date_str != c_date_str:
-                raise HTTPException(status_code=400, detail=f"La fecha del banco ({b_date_str}) no coincide con la fecha de la cobranza seleccionada ({c_date_str}). Corrige la Fecha de Depósito en el sistema primero.")
                 
             parsed_cobs.append((c_cia, c_doc, n_doc, n_itm, cob[4], cob[5], cob[1], cob[6])) # + codref, nroref, importe, codaux
 
         # 3. Validate Amounts
         # In absolute terms, they must match within a tiny float tolerance
-        if abs(abs(sum_bancos) - abs(sum_cobranzas)) > 0.01:
+        if abs(abs(sum_bancos) - abs(sum_cobranzas)) > 0.10:
             raise HTTPException(status_code=400, detail=f"Los importes no concuerdan. Bancos: {abs(sum_bancos):.2f}, Cobranzas: {abs(sum_cobranzas):.2f}")
 
         # 4. Do the Many-to-Many Insert
@@ -802,7 +789,8 @@ def manual_match(request: ManualMatchRequest):
                     primary_detail_id = detail_id
                 
                 if detail_id and bank_info:
-                    raw_op = bank_info[1] if bank_info[1] and str(bank_info[1]).strip() else bank_info[2]
+                    # bank_info indices: 0:Id, 1:Estado, 2:Monto, 3:Fecha, 4:CodCia, 5:BankCode, 6:OpCancelacion, 7:OperacionNumero
+                    raw_op = bank_info[6] if bank_info[6] and str(bank_info[6]).strip() else bank_info[7]
                     cl_op = get_clean_op(raw_op)
                     cursor.execute("""
                         INSERT INTO tbl_Conciliados
