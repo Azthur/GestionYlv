@@ -20,6 +20,11 @@ services:
       - ./backend:/app/backend
       - ./dashboard-prototype:/app/dashboard-prototype
       - conciliacion_data:/app/backend/data
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
     networks:
       - yelave-network
     healthcheck:

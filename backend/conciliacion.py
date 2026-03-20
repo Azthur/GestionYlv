@@ -432,7 +432,8 @@ def get_cobranzas(
     year: Optional[str] = None,
     month: Optional[str] = None,
     bank_code: Optional[str] = None,
-    solo_pendientes: bool = True
+    solo_pendientes: bool = True,
+    cross_company: bool = False
 ):
     """
     Lista cobranzas de CcbMVtos con datos de CcbICaja.
@@ -445,7 +446,8 @@ def get_cobranzas(
     try:
         cursor = conn.cursor()
         query = """
-            SELECT m.CodCia, m.anos, m.mes, m.coddoc, m.nrodoc, m.nroitm,
+            SELECT CASE WHEN matched.IsMatched = 1 THEN 'Conciliado' ELSE 'Pendiente' END as Estado,
+                   m.CodCia, m.anos, m.mes, m.coddoc, m.nrodoc, m.nroitm,
                    m.fchdoc, m.codaux, m.NomAux, m.codven, m.nomven,
                    m.import, m.NroDep, m.fchDep, m.glodoc, m.codbco,
                    m.tpopgo, m.Glosa, m.CodDep, m.codref, m.nroref,
@@ -453,6 +455,14 @@ def get_cobranzas(
             FROM CcbMVtos m
             LEFT JOIN CcbICaja c ON m.CodCia = c.codcia
                 AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
+            OUTER APPLY (
+                SELECT TOP 1 1 as IsMatched
+                FROM ReconciliationDetail rd
+                WHERE rd.MatchCodCia = m.CodCia
+                  AND rd.MatchCoddoc = m.coddoc
+                  AND rd.MatchNrodoc = m.nrodoc
+                  AND rd.MatchNroitm = m.nroitm
+            ) matched
             WHERE (m.FlgEst IS NULL OR m.FlgEst <> 'E')
         """
         params = []
@@ -465,7 +475,7 @@ def get_cobranzas(
             params.append(month.zfill(2))
 
         if codcia:
-            if bank_code:
+            if cross_company and bank_code:
                 query += " AND (m.CodCia = ? OR (m.tpopgo = '1' AND m.CodCom = ? AND m.CodDep = ?))"
                 params.extend([codcia, codcia, bank_code])
             else:
@@ -473,24 +483,10 @@ def get_cobranzas(
                 params.append(codcia)
 
         if solo_pendientes:
-            query += """
-                AND NOT EXISTS (
-                    SELECT 1 FROM ReconciliationDetail rd
-                    WHERE rd.MatchCodCia = m.CodCia
-                      AND rd.MatchCoddoc = m.coddoc
-                      AND rd.MatchNrodoc = m.nrodoc
-                      AND rd.MatchNroitm = m.nroitm
-                )
-            """
-
-        # Update the SELECT to include Estado for Todas las Cobranzas
-        new_query = query.replace(
-            "SELECT m.CodCia",
-            "SELECT CASE WHEN EXISTS (SELECT 1 FROM ReconciliationDetail rd_e WHERE rd_e.MatchCodCia = m.CodCia AND rd_e.MatchCoddoc = m.coddoc AND rd_e.MatchNrodoc = m.nrodoc AND rd_e.MatchNroitm = m.nroitm) THEN 'Conciliado' ELSE 'Pendiente' END as Estado, m.CodCia"
-        )
-        
-        new_query += " ORDER BY m.CodCia, m.fchdoc DESC, m.nrodoc"
-        cursor.execute(new_query, params)
+            query += " AND matched.IsMatched IS NULL"
+            
+        query += " ORDER BY m.CodCia, m.fchdoc DESC, m.nrodoc"
+        cursor.execute(query, params)
         result = rows_to_list(cursor)
         return result
     except Exception as e:

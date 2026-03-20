@@ -271,17 +271,14 @@ async function loadData() {
         return;
     }
 
-    // Load only the data needed for the active Cruce tab
+    // Load data for Cruce and Report tabs
     await Promise.allSettled([
         loadBankMovements(codcia, bankCode, year, month),
         loadCobranzas(codcia, year, month),
-        loadResumen(codcia, bankCode, year, month)
+        loadResumen(codcia, bankCode, year, month),
+        loadConciliados(),
+        loadAllCobranzas()
     ]);
-    
-    // Check if any failed due to 401
-    const token = localStorage.getItem('yelave_token');
-    const authCheck = await fetch('/api/auth/me/profile', { headers: { 'Authorization': `Bearer ${token}` } });
-    if (authCheck.status === 401) logout();
 }
 
 // ─── Load Bank Movements ─────────────────────────────────────────────
@@ -304,10 +301,10 @@ async function loadCobranzas(codcia, year, month) {
         const crossCompany = document.getElementById('checkCrossCompany').checked;
         const bankCode = document.getElementById('selectBanco').value;
         const params = new URLSearchParams({ year, month, solo_pendientes: 'true' });
-        if (!crossCompany) {
-            params.set('codcia', codcia);
-            if (bankCode) params.set('bank_code', bankCode);
-        }
+        params.set('codcia', codcia);
+        if (bankCode) params.set('bank_code', bankCode);
+        if (crossCompany) params.set('cross_company', 'true');
+        
         const res = await fetch(`/api/conciliacion/cobranzas?${params}`);
         if (!res.ok) throw new Error('Error loading cobranzas');
         cobranzas = await res.json();
@@ -342,82 +339,83 @@ async function loadResumen(codcia, bankCode, year, month) {
 let dtCruceBank = null;
 
 function renderBankTable() {
-    const tbody = document.getElementById('tbodyBank');
     const filter = document.getElementById('filterEstadoBanco').value;
     
-    if (dtCruceBank) {
-        dtCruceBank.destroy();
-    }
-
     let filtered = bankMovements;
     if (filter) {
         filtered = bankMovements.filter(m => m.Estado === filter);
     }
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="loading-state empty-state">No hay movimientos bancarios</td></tr>';
+    
+    if (dtCruceBank) {
+        dtCruceBank.clear().rows.add(filtered).draw();
         return;
     }
 
-    tbody.innerHTML = '';
-    filtered.forEach((mov, idx) => {
-        const isMatched = mov.Estado === 'Conciliado';
-        const isSelected = selectedBankIds.has(mov.Id);
-        const tr = document.createElement('tr');
-        tr.className = isMatched ? 'row-matched' : (isSelected ? 'row-selected' : '');
-        tr.style.animation = `fadeIn 0.3s ease-out ${idx * 0.02}s forwards`;
-        tr.style.opacity = '0';
-
-        const fecha = formatUTCLocalDate(mov.Fecha);
-        const monto = parseFloat(mov.Monto || 0);
-        const statusClass = isMatched ? 'conciliado' : 'pendiente';
-
-        tr.innerHTML = `
-            <td><input type="checkbox" ${isMatched ? 'disabled' : ''} ${isSelected ? 'checked' : ''} 
-                onchange="toggleBankSelection(${mov.Id}, this.checked)" data-bank-id="${mov.Id}"></td>
-            <td>${fecha}</td>
-            <td title="${mov.Descripcion || ''}">${truncate(mov.Descripcion || '', 30)}</td>
-            <td><span class="amount ${monto >= 0 ? 'positive' : 'negative'}">${currentCurrencySymbol} ${Math.abs(monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span></td>
-            <td>
-                <input type="text" class="op-manual-input" 
-                       value="${(mov.OpManual || '').replace(/"/g, '&quot;')}" 
-                       onchange="updateOpManualCruce(${mov.Id}, this.value, this)" 
-                       placeholder="—" 
-                       ${isMatched ? 'disabled' : ''}>
-            </td>
-            <td class="op-cancel-cell-cruce">${mov.OpCancelacion ? `<span class="nro-dep-match">${mov.OpCancelacion}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-            <td>
-                <span class="status ${statusClass}">${mov.Estado}</span>
-                ${isMatched ? `<button class="btn-view-match" onclick="showMatchDetails(${mov.Id}, 'bank')" title="Ver detalles del match">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                </button>` : ''}
-            </td>
-            <td>${isMatched ? `<button class="btn-unmatch" onclick="unmatchBank(${mov.ReconciliationDetailId})">Deshacer</button>` : ''}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    // Initialize DataTable
+    // Initialize DataTable using Javascript array to prevent DOM freezing
     dtCruceBank = $('#tableBankMov').DataTable({
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
         pageLength: 50,
+        deferRender: true,
+        data: filtered,
         dom: '<"table-top"fB>rt<"table-bottom"ip>',
         buttons: [
+            { extend: 'excel', text: 'Exportar Excel', className: 'btn btn-primary btn-sm' }
+        ],
+        order: [[1, 'desc']],
+        columns: [
             {
-                extend: 'excel',
-                text: 'Exportar Excel',
-                className: 'btn btn-primary btn-sm'
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    const isMatched = row.Estado === 'Conciliado';
+                    const isSelected = selectedBankIds.has(row.Id) ? 'checked' : '';
+                    const dis = isMatched ? 'disabled' : '';
+                    return `<input type="checkbox" ${dis} ${isSelected} onchange="toggleBankSelection(${row.Id}, this.checked, this)" data-bank-id="${row.Id}">`;
+                }
+            },
+            { data: 'Fecha', render: data => formatUTCLocalDate(data) },
+            { data: 'Descripcion', render: data => {
+                    let d = data || '';
+                    return `<span title="${d}">${truncate(d, 30)}</span>`;
+                }
+            },
+            { data: 'Monto', render: data => {
+                    const monto = parseFloat(data || 0);
+                    return `<span class="amount ${monto >= 0 ? 'positive' : 'negative'}">${currentCurrencySymbol} ${Math.abs(monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>`;
+                }
+            },
+            { data: null, orderable: false, render: function(data, type, row) {
+                    const dis = row.Estado === 'Conciliado' ? 'disabled' : '';
+                    const val = (row.OpManual || '').replace(/"/g, '&quot;');
+                    return `<input type="text" class="op-manual-input" value="${val}" onchange="updateOpManualCruce(${row.Id}, this.value, this)" placeholder="—" ${dis}>`;
+                }
+            },
+            { data: 'OpCancelacion', className: 'op-cancel-cell-cruce', render: data => data ? `<span class="nro-dep-match">${data}</span>` : '<span style="color:var(--text-muted)">—</span>' },
+            { data: null, render: function(data, type, row) {
+                    const isMatched = row.Estado === 'Conciliado';
+                    const statusClass = isMatched ? 'conciliado' : 'pendiente';
+                    let html = `<span class="status ${statusClass}">${row.Estado}</span>`;
+                    if (isMatched) {
+                        html += ` <button class="btn-view-match" onclick="showMatchDetails(${row.Id}, 'bank')" title="Ver detalles del match"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>`;
+                    }
+                    return html;
+                }
+            },
+            { data: null, render: function(data, type, row) {
+                    if (row.Estado === 'Conciliado') {
+                        return `<button class="btn-unmatch" onclick="unmatchBank(${row.ReconciliationDetailId})">Deshacer</button>`;
+                    }
+                    return '';
+                }
             }
         ],
-        order: [[1, 'desc']], // Order by Fecha by default
-        columnDefs: [
-            { orderable: false, targets: 0 }, // Disable ordering on checkbox column
-            { orderable: false, targets: 4 }  // Disable ordering on Op Manual input
-        ],
-        destroy: true
+        createdRow: function(row, data, dataIndex) {
+            if (data.Estado === 'Conciliado') {
+                $(row).addClass('row-matched');
+            } else if (selectedBankIds.has(data.Id)) {
+                $(row).addClass('row-selected');
+            }
+        }
     });
 }
 
@@ -456,67 +454,58 @@ async function updateOpManualCruce(id, newValue, inputEl) {
 let dtCruceCobranzas = null;
 
 function renderCobTable() {
-    const tbody = document.getElementById('tbodyCob');
-    
     if (dtCruceCobranzas) {
-        dtCruceCobranzas.destroy();
-    }
-
-    if (cobranzas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="13" class="loading-state empty-state">No hay cobranzas pendientes</td></tr>';
+        dtCruceCobranzas.clear().rows.add(cobranzas).draw();
         return;
     }
 
-    tbody.innerHTML = '';
-    cobranzas.forEach((cob, idx) => {
-        const cobKey = `${cob.CodCia}|${cob.coddoc}|${cob.nrodoc}|${cob.nroitm}`;
-        const isSelected = selectedCobKeys.has(cobKey);
-        const tr = document.createElement('tr');
-        tr.className = isSelected ? 'row-selected' : '';
-        tr.style.animation = `fadeIn 0.3s ease-out ${idx * 0.02}s forwards`;
-        tr.style.opacity = '0';
-
-        const importe = parseFloat(cob.import || 0);
-        const fchDep = formatUTCLocalDate(cob.fchDep || cob.fchdoc);
-
-        tr.innerHTML = `
-            <td><input type="checkbox" ${isSelected ? 'checked' : ''} 
-                onchange="toggleCobSelection('${cobKey}', this.checked)" data-cob-key="${cobKey}"></td>
-            <td>${(cob.CodCia || '').trim()}</td>
-            <td><span class="badge lot">${(cob.coddoc || '').trim()}</span></td>
-            <td>${(cob.nrodoc || '').trim()}</td>
-            <td title="${(cob.NomAux || '').trim()}">${truncate((cob.NomAux || '').trim(), 25)}</td>
-            <td style="display: flex; gap: 0.5rem; align-items: center;">
-                <span class="amount positive">${currentCurrencySymbol} ${Math.abs(importe).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
-            </td>
-            <td>${cob.NroDep ? `<span class="nro-dep-match">${(cob.NroDep || '').trim()}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-            <td>${fchDep}</td>
-            <td>${(cob.codref || '').trim()}</td>
-            <td>${(cob.nroref || '').trim()}</td>
-            <td>${(cob.tpopgo || '').trim()}</td>
-            <td>${(cob.CodDep || '').trim()}</td>
-            <td>${(cob.CodCom || '').trim()}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    // Initialize DataTable
     dtCruceCobranzas = $('#tableCobranzas').DataTable({
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
         pageLength: 50,
+        deferRender: true,
+        data: cobranzas,
         dom: '<"table-top"fB>rt<"table-bottom"ip>',
         buttons: [
-            {
-                extend: 'excel',
-                text: 'Exportar Excel',
-                className: 'btn btn-primary btn-sm'
+            { extend: 'excel', text: 'Exportar Excel', className: 'btn btn-primary btn-sm' }
+        ],
+        order: [[7, 'desc']],
+        columns: [
+            { 
+              data: null, 
+              orderable: false,
+              render: function(data, type, row) {
+                 const key = `${row.CodCia}|${row.coddoc}|${row.nrodoc}|${row.nroitm}`;
+                 const isChecked = selectedCobKeys.has(key) ? 'checked' : '';
+                 return `<input type="checkbox" ${isChecked} onchange="toggleCobSelection('${key}', this.checked, this)" data-cob-key="${key}">`;
+              }
+            },
+            { data: 'CodCia', render: data => (data || '').trim() },
+            { data: 'coddoc', render: data => `<span class="badge lot">${(data || '').trim()}</span>` },
+            { data: 'nrodoc', render: data => (data || '').trim() },
+            { data: 'NomAux', render: data => {
+                 let t = (data || '').trim();
+                 return `<span title="${t}">${truncate(t, 25)}</span>`;
+              }
+            },
+            { data: 'import', render: data => {
+                 let val = Math.abs(parseFloat(data || 0));
+                 return `<span class="amount positive">${currentCurrencySymbol} ${val.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>`;
+              }
+            },
+            { data: 'NroDep', render: data => data ? `<span class="nro-dep-match">${(data || '').trim()}</span>` : '<span style="color:var(--text-muted)">—</span>' },
+            { data: null, render: function(data, type, row) { return formatUTCLocalDate(row.fchDep || row.fchdoc); } },
+            { data: 'codref', render: data => (data || '').trim() },
+            { data: 'nroref', render: data => (data || '').trim() },
+            { data: 'tpopgo', render: data => (data || '').trim() },
+            { data: 'CodDep', render: data => (data || '').trim() },
+            { data: 'CodCom', render: data => (data || '').trim() }
+        ],
+        createdRow: function(row, data, dataIndex) {
+            const key = `${data.CodCia}|${data.coddoc}|${data.nrodoc}|${data.nroitm}`;
+            if (selectedCobKeys.has(key)) {
+                $(row).addClass('row-selected');
             }
-        ],
-        order: [[7, 'desc']], // Order by Fecha Dep by default
-        columnDefs: [
-            { orderable: false, targets: 0 } // Disable ordering on checkbox column
-        ],
-        destroy: true
+        }
     });
 }
 
@@ -934,14 +923,6 @@ function closeRuleModal() { document.getElementById('ruleModal').classList.remov
 
 // ─── REPORTE COBRANZAS (TAB 2) ───────────────────────────────────────
 async function loadAllCobranzas() {
-    const tbody = document.getElementById('tbodyTodasCobranzas');
-    
-    if (dtCobranzas) {
-        dtCobranzas.destroy();
-    }
-    
-    tbody.innerHTML = '<tr><td colspan="40" class="loading-state empty-state">Cargando datos del servidor...</td></tr>';
-    
     try {
         const year = document.getElementById('selectYear').value;
         const month = document.getElementById('selectMonth').value;
@@ -967,81 +948,101 @@ async function loadAllCobranzas() {
         // Almacenar globalmente para el reporte
         cobranzasTodas = data;
         
-        tbody.innerHTML = '';
+        if (dtCobranzas) {
+            dtCobranzas.clear().rows.add(data).draw();
+            return;
+        }
 
-        data.forEach(c => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="sticky-col" style="white-space: nowrap; text-align: center;">
-                    <button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(c)})' title="Ver Reporte de Caja" style="margin-right: 4px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                        </svg>
-                    </button>
-                    ${c.Conciliado && c.MatchId ? 
-                        `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify({...c, _showMatch: true})})' title="Ver match bancario" style="color: var(--success); border-color: var(--success);">
+        dtCobranzas = $('#tableTodasCobranzas').DataTable({
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
+            deferRender: true,
+            data: data,
+            dom: '<"dt-top"lfB>rtip',
+            scrollX: true,
+            autoWidth: false,
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Exportar a Excel',
+                    className: 'dt-button'
+                }
+            ],
+            columns: [
+                {
+                    data: null,
+                    orderable: false,
+                    className: 'sticky-col',
+                    render: function(data, type, row) {
+                        let html = `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(row)})' title="Ver Reporte de Caja" style="margin-right: 4px;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
-                                <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
-                                <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
                             </svg>
-                        </button>` : ''
+                        </button>`;
+                        if (row.Conciliado && row.MatchId) {
+                            const matchObj = Object.assign({}, row, { _showMatch: true });
+                            html += `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(matchObj)})' title="Ver match bancario" style="color: var(--success); border-color: var(--success);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+                                    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+                                    <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
+                                </svg>
+                            </button>`;
+                        }
+                        return `<div style="white-space:nowrap;text-align:center;">${html}</div>`;
                     }
-                </td>
-                <td class="sticky-col"><span class="status ${c.Conciliado ? 'conciliado' : 'pendiente'}">${c.Conciliado ? 'Conciliado' : 'Pendiente'}</span></td>
-                <td>${c.id || ''}</td>
-                <td>${c.CodCia || ''}</td>
-                <td>${c.anos || ''}</td>
-                <td>${c.mes || ''}</td>
-                <td>${c.coddoc || ''}</td>
-                <td>${c.nrodoc || ''}</td>
-                <td>${c.tpodoc || ''}</td>
-                <td data-sort="${c.fchdoc || ''}">${c.fchdoc ? new Date(c.fchdoc).toLocaleDateString('es-PE', {timeZone: 'UTC'}) : ''}</td>
-                <td>${c.codaux || ''}</td>
-                <td style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.NomAux || ''}">${c.NomAux || ''}</td>
-                <td>${c.codven || ''}</td>
-                <td style="max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.nomven || ''}">${c.nomven || ''}</td>
-                <td>${c.codref || ''}</td>
-                <td>${c.nroref || ''}</td>
-                <td class="amount">${parseFloat(c.import || 0).toFixed(2)}</td>
-                <td style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.glodoc || ''}">${c.glodoc || ''}</td>
-                <td>${c.fmapgo || ''}</td>
-                <td>${c.CodDep || ''}</td>
-                <td>${c.NroDep || ''}</td>
-                <td data-sort="${c.fchDep || ''}">${c.fchDep ? new Date(c.fchDep).toLocaleDateString('es-PE', {timeZone: 'UTC'}) : ''}</td>
-                <td>${c.tpopgo || ''}</td>
-                <td>${c.Dcmpgo || ''}</td>
-                <td>${c.CodCom || ''}</td>
-                <td>${c.usuario || ''}</td>
-                <td>${c.FlgEst || ''}</td>
-            `;
-            tbody.appendChild(tr);
+                },
+                { data: 'Conciliado', className: 'sticky-col', render: data => `<span class="status ${data ? 'conciliado' : 'pendiente'}">${data ? 'Conciliado' : 'Pendiente'}</span>` },
+                { data: 'id', render: data => data || '' },
+                { data: 'CodCia', render: data => data || '' },
+                { data: 'anos', render: data => data || '' },
+                { data: 'mes', render: data => data || '' },
+                { data: 'coddoc', render: data => data || '' },
+                { data: 'nrodoc', render: data => data || '' },
+                { data: 'tpodoc', render: data => data || '' },
+                { data: 'fchdoc', render: (data, type) => {
+                    if (!data) return '';
+                    if (type === 'sort') return data;
+                    return new Date(data).toLocaleDateString('es-PE', {timeZone: 'UTC'});
+                }},
+                { data: 'codaux', render: data => data || '' },
+                { data: 'NomAux', render: data => {
+                    let text = data || '';
+                    return `<span style="max-width:150px; display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${text}">${text}</span>`;
+                }},
+                { data: 'codven', render: data => data || '' },
+                { data: 'nomven', render: data => {
+                    let text = data || '';
+                    return `<span style="max-width:100px; display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${text}">${text}</span>`;
+                }},
+                { data: 'codref', render: data => data || '' },
+                { data: 'nroref', render: data => data || '' },
+                { data: 'import', render: data => `<span class="amount">${parseFloat(data || 0).toFixed(2)}</span>` },
+                { data: 'glodoc', render: data => {
+                    let text = data || '';
+                    return `<span style="max-width:150px; display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${text}">${text}</span>`;
+                }},
+                { data: 'fmapgo', render: data => data || '' },
+                { data: 'CodDep', render: data => data || '' },
+                { data: 'NroDep', render: data => data || '' },
+                { data: 'fchDep', render: (data, type) => {
+                    if (!data) return '';
+                    if (type === 'sort') return data;
+                    return new Date(data).toLocaleDateString('es-PE', {timeZone: 'UTC'});
+                }},
+                { data: 'tpopgo', render: data => data || '' },
+                { data: 'Dcmpgo', render: data => data || '' },
+                { data: 'CodCom', render: data => data || '' },
+                { data: 'usuario', render: data => data || '' },
+                { data: 'FlgEst', render: data => data || '' }
+            ]
         });
 
-        if(data.length > 0) {
-            dtCobranzas = $('#tableTodasCobranzas').DataTable({
-                language: {
-                    url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
-                },
-                dom: '<"dt-top"lfB>rtip',
-                scrollX: true,
-                autoWidth: false,
-                buttons: [
-                    {
-                        extend: 'excelHtml5',
-                        text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Exportar a Excel',
-                        className: 'dt-button'
-                    }
-                ],
-                pageLength: 25,
-                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
-                destroy: true
-            });
-        }
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="35" class="loading-state empty-state" style="color:var(--danger)">Error al cargar datos. Verifique la conexión al servidor.</td></tr>';
+        showToast('Error al cargar datos. Verifique la conexión al servidor.', 'error');
     }
 }
 
@@ -1807,47 +1808,37 @@ async function loadConciliados() {
 }
 
 function renderConciliadosTable(data) {
-    const tbody = document.getElementById('tbodyConciliados');
     if (dtConciliados) {
-        dtConciliados.destroy();
-    }
-
-    if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="14" class="loading-state empty-state">No hay registros conciliados</td></tr>';
+        dtConciliados.clear().rows.add(data).draw();
         return;
     }
 
-    tbody.innerHTML = '';
-    data.forEach((row) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${row.Id}</td>
-            <td>${row.empresa}</td>
-            <td>${row.codigo_banco}</td>
-            <td>${row.Fecha_banco ? formatUTCLocalDate(row.Fecha_banco) : '—'}</td>
-            <td>${row.IdBanco}</td>
-            <td>${row.IdCobranza_CodCia}</td>
-            <td><span class="badge lot">${row.IdCobranza_coddoc}</span></td>
-            <td>${row.IdCobranza_nrodoc}</td>
-            <td>${row.IdCobranza_nroitm}</td>
-            <td>${row.codref || '—'}</td>
-            <td>${row.nroref || '—'}</td>
-            <td><span class="amount positive">${currentCurrencySymbol} ${Math.abs(row.importe).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span></td>
-            <td>${row.codaux || '—'}</td>
-            <td>${row.nro_operacion || '—'}</td>
-            <td>${row.usuario || '—'}</td>
-            <td>${row.CreatedAt ? new Date(row.CreatedAt).toLocaleString() : '—'}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-
     dtConciliados = $('#tableConciliados').DataTable({
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
         pageLength: 50,
+        deferRender: true,
+        data: data,
         dom: '<"table-top"fB>rt<"table-bottom"ip>',
         buttons: [{ extend: 'excel', text: 'Exportar Excel', className: 'btn btn-primary btn-sm' }],
         order: [[0, 'desc']],
-        destroy: true
+        columns: [
+            { data: 'Id' },
+            { data: 'empresa' },
+            { data: 'codigo_banco' },
+            { data: 'Fecha_banco', render: data => data ? formatUTCLocalDate(data) : '—' },
+            { data: 'IdBanco' },
+            { data: 'IdCobranza_CodCia' },
+            { data: 'IdCobranza_coddoc', render: data => `<span class="badge lot">${data}</span>` },
+            { data: 'IdCobranza_nrodoc' },
+            { data: 'IdCobranza_nroitm' },
+            { data: 'codref', render: data => data || '—' },
+            { data: 'nroref', render: data => data || '—' },
+            { data: 'importe', render: data => `<span class="amount positive">${currentCurrencySymbol} ${Math.abs(parseFloat(data)).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>` },
+            { data: 'codaux', render: data => data || '—' },
+            { data: 'nro_operacion', render: data => data || '—' },
+            { data: 'usuario', render: data => data || '—' },
+            { data: 'CreatedAt', render: data => data ? new Date(data).toLocaleString() : '—' }
+        ]
     });
 }
 
