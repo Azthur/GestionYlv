@@ -16,10 +16,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - "ODBC_DRIVER={ODBC Driver 18 for SQL Server}"
+      - ATTACHMENTS_ROOT=/app/gestion-ylv
     volumes:
       - ./backend:/app/backend
       - ./dashboard-prototype:/app/dashboard-prototype
       - conciliacion_data:/app/backend/data
+      - "//192.168.1.200/gestion-ylv:/app/gestion-ylv"
     deploy:
       resources:
         limits:

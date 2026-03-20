@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile, Form
+from fastapi.responses import FileResponse
+import os
+import shutil
 from typing import List, Optional
 from database import get_db_connection
 from auth import get_current_user
@@ -391,3 +394,86 @@ def get_warehouse_entry(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+# ─── Attachments System ─────────────────────────
+ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
+
+@router.post("/attachments/upload")
+async def upload_order_attachment(
+    codcia: str = Form(...),
+    tipooc: str = Form(...),
+    nrodoc: str = Form(...),
+    doc_type: str = Form(...), # 'signed_order' or 'voucher'
+    file: UploadFile = File(...)
+):
+    """Subir archivo adjunto (PDF/Imagen) para una OC"""
+    try:
+        c = str(codcia).strip()
+        t = str(tipooc).strip()
+        n = str(nrodoc).strip()
+        dt = str(doc_type).strip()
+        
+        target_dir = os.path.join(ATTACHMENTS_ROOT, c, t, n, dt)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        file_path = os.path.join(target_dir, file.filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        return {"message": "Archivo subido exitosamente", "filename": file.filename}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al subir archivo: {str(e)}")
+
+@router.get("/attachments/list")
+def list_order_attachments(
+    codcia: str = Query(...),
+    tipooc: str = Query(...),
+    nrodoc: str = Query(...),
+    doc_type: str = Query(...)
+):
+    """Listar archivos adjuntos para una OC"""
+    try:
+        c = str(codcia).strip()
+        t = str(tipooc).strip()
+        n = str(nrodoc).strip()
+        dt = str(doc_type).strip()
+        
+        target_dir = os.path.join(ATTACHMENTS_ROOT, c, t, n, dt)
+        if not os.path.exists(target_dir):
+            return []
+        
+        files = []
+        for filename in os.listdir(target_dir):
+            files.append({
+                "filename": filename,
+                "url": f"/api/logistics/attachments/download?codcia={c}&tipooc={t}&nrodoc={n}&doc_type={dt}&filename={filename}"
+            })
+        return files
+    except Exception as e:
+        return []
+
+@router.get("/attachments/download")
+def download_attachment(
+    codcia: str = Query(...),
+    tipooc: str = Query(...),
+    nrodoc: str = Query(...),
+    doc_type: str = Query(...),
+    filename: str = Query(...)
+):
+    """Descargar/Visualizar un archivo adjunto"""
+    try:
+        c = str(codcia).strip()
+        t = str(tipooc).strip()
+        n = str(nrodoc).strip()
+        dt = str(doc_type).strip()
+        fn = str(filename).strip()
+        
+        file_path = os.path.join(ATTACHMENTS_ROOT, c, t, n, dt, fn)
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+        
+        return FileResponse(path=file_path, filename=fn)
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))

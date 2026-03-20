@@ -28,10 +28,11 @@ function renderUserInfo(user) {
     if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
 
     // Access Control
-    const currentLogin = String(user.login || '').trim().toUpperCase();
+    currentLogin = String(user.login || '').trim().toUpperCase();
     const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
     const isAdmin = String(user.rol || '').trim().toUpperCase() === 'ADMIN';
-    const userRol = String(user.rol || '').trim().toUpperCase();
+    currentRole = String(user.rol || '').trim().toUpperCase();
+    if (isSuperuser) currentRole = 'ADMIN';
 
     if (isSuperuser || isAdmin) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
@@ -104,8 +105,11 @@ const formatStatus = (status) => {
     return `<span class="badge pending">${s}</span>`;
 };
 
-// ─── DataTable Instance ──────
+// ─── Global State ────────────
 let dtInstance = null;
+let currentRole = '';
+let currentLogin = '';
+let currentAttachmentContext = null; // { codcia, tipooc, nrodoc, docType }
 
 // ─── Load Companies ──────────
 async function loadCompanies() {
@@ -168,6 +172,10 @@ async function loadOrders() {
             // Only show Warehouse button if Type is 'M' (Mercadería)
             const showWarehouseBtn = String(o.tipooc).trim().toUpperCase() === 'M';
             
+            // Role-based attachment buttons
+            const isLogistics = currentRole === 'LOGISTICA' || currentRole === 'ADMIN';
+            const isTreasury = currentRole === 'TESORERIA' || currentRole === 'ADMIN';
+            
             const btnHtml = `<div style="display:flex; gap:0.25rem;">
                 <button class="btn-ver-oc" onclick="openReportModal('${codcia}','${o.nrodoc}','${o.tipooc || ''}','${o.anos || year || ''}')" title="Ver Orden">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
@@ -180,6 +188,20 @@ async function loadOrders() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                </button>` : ''}
+                ${isLogistics ? `
+                <button class="btn-ver-oc" style="background:#6366f1;" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','signed_order')" title="Orden Firmada">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                        <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+                        <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+                    </svg>
+                </button>` : ''}
+                ${isTreasury ? `
+                <button class="btn-ver-oc" style="background:#f59e0b;" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','voucher')" title="Voucher de Pago">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                        <line x1="2" y1="10" x2="22" y2="10"></line>
                     </svg>
                 </button>` : ''}
             </div>`;
@@ -451,3 +473,108 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+// ─── Attachments Logic ─────────────────────────
+async function openAttachmentModal(codcia, tipooc, nrodoc, docType) {
+    currentAttachmentContext = { codcia, tipooc, nrodoc, docType };
+    
+    const title = (docType === 'signed_order') ? 'Orden Firmada' : 'Vouchers de Pago';
+    document.getElementById('attachmentModalTitle').textContent = title;
+    document.getElementById('attachmentOcNro').textContent = nrodoc;
+    document.getElementById('attachmentModal').classList.add('active');
+    
+    loadAttachmentList();
+}
+
+function closeAttachmentModal() {
+    document.getElementById('attachmentModal').classList.remove('active');
+    currentAttachmentContext = null;
+    document.getElementById('attachmentFileInput').value = '';
+}
+
+async function loadAttachmentList() {
+    const listEl = document.getElementById('attachmentList');
+    listEl.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando archivos...</div>';
+    
+    if (!currentAttachmentContext) return;
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    
+    try {
+        const url = `/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=${docType}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Error al listar adjuntos');
+        const files = await res.json();
+        
+        if (files.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">No hay archivos adjuntos para este tipo.</div>';
+            return;
+        }
+        
+        let html = '';
+        files.forEach(f => {
+            const isImg = f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+            const icon = isImg ? `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:#10b981;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>` : `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:#ef4444;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>`;
+
+            html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:white; border:1px solid var(--border); border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:0.75rem; overflow:hidden;">
+                    ${icon}
+                    <span style="font-size:0.8125rem; font-weight:500; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.filename}">${f.filename}</span>
+                </div>
+                <a href="${f.url}" target="_blank" class="btn btn-outline" style="padding:0.35rem 0.6rem; font-size:0.75rem; display:flex; align-items:center; gap:0.3rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+                    </svg>Ver
+                </a>
+            </div>`;
+        });
+        listEl.innerHTML = html;
+        
+    } catch (err) {
+        listEl.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--danger); font-size:0.875rem;">${err.message}</div>`;
+    }
+}
+
+async function handleAttachmentUpload() {
+    const fileInput = document.getElementById('attachmentFileInput');
+    if (!fileInput.files.length || !currentAttachmentContext) return;
+    
+    const file = fileInput.files[0];
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    
+    const formData = new FormData();
+    formData.append('codcia', codcia);
+    formData.append('tipooc', tipooc);
+    formData.append('nrodoc', nrodoc);
+    formData.append('doc_type', docType);
+    formData.append('file', file);
+    
+    try {
+        Swal.fire({ title: 'Subiendo archivo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
+        const res = await fetch('/api/logistics/attachments/upload', { 
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Error al subir');
+        }
+        
+        Swal.fire({ icon: 'success', title: '¡Subido!', text: 'El archivo se guardó correctamente.', timer: 1500, showConfirmButton: false });
+        fileInput.value = '';
+        loadAttachmentList();
+        
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    }
+}

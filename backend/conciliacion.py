@@ -475,9 +475,9 @@ def get_cobranzas(
             params.append(month.zfill(2))
 
         if codcia:
-            if cross_company and bank_code:
-                query += " AND (m.CodCia = ? OR (m.tpopgo = '1' AND m.CodCom = ? AND m.CodDep = ?))"
-                params.extend([codcia, codcia, bank_code])
+            if cross_company:
+                # Cross-company: no company filter, show ALL companies
+                pass
             else:
                 query += " AND m.CodCia = ?"
                 params.append(codcia)
@@ -836,6 +836,12 @@ def unmatch(detail_id: int):
         """, (detail_id,))
         detail = cursor.fetchone()
         if not detail:
+            # Fallback: The ReconciliationDetail may have been already deleted (orphan in tbl_Conciliados)
+            # Try to clean the orphan tbl_Conciliados record directly
+            cursor.execute("DELETE FROM tbl_Conciliados WHERE ReconciliationDetailId = ?", (detail_id,))
+            if cursor.rowcount > 0:
+                conn.commit()
+                return {"status": "success", "message": "Registro huérfano de conciliación eliminado exitosamente."}
             raise HTTPException(status_code=404, detail="Match no encontrado")
 
         group_id = detail[0]
@@ -845,6 +851,15 @@ def unmatch(detail_id: int):
             # Delete entire group
             cursor.execute("SELECT BankMovementId FROM ReconciliationDetail WHERE ReconciliationId = ? GROUP BY BankMovementId", (group_id,))
             bank_ids = [row[0] for row in cursor.fetchall()]
+
+            # Get all detail IDs in this group to clean tbl_Conciliados
+            cursor.execute("SELECT Id FROM ReconciliationDetail WHERE ReconciliationId = ?", (group_id,))
+            all_detail_ids = [row[0] for row in cursor.fetchall()]
+
+            # Delete from tbl_Conciliados first (FK reference)
+            if all_detail_ids:
+                ph = ','.join(['?'] * len(all_detail_ids))
+                cursor.execute(f"DELETE FROM tbl_Conciliados WHERE ReconciliationDetailId IN ({ph})", all_detail_ids)
 
             cursor.execute("DELETE FROM ReconciliationDetail WHERE ReconciliationId = ?", (group_id,))
 
@@ -856,6 +871,9 @@ def unmatch(detail_id: int):
                 """, (b_id,))
         else:
             # Fallback: legacy single match delete
+            # Delete from tbl_Conciliados first
+            cursor.execute("DELETE FROM tbl_Conciliados WHERE ReconciliationDetailId = ?", (detail_id,))
+
             cursor.execute("DELETE FROM ReconciliationDetail WHERE Id = ?", (detail_id,))
             cursor.execute("""
                 UPDATE BankMovements
