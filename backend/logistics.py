@@ -6,7 +6,7 @@ from auth import get_current_user
 router = APIRouter(prefix="/api/logistics", tags=["Logística y Compras"])
 
 @router.get("/companies")
-def get_companies(current_user: dict = Depends(get_current_user)):
+def get_companies():
     """Obtener lista de empresas para filtrar"""
     conn = get_db_connection()
     if not conn:
@@ -31,8 +31,7 @@ def get_purchase_orders(
     codcia: str = Query(..., description="Código de la empresa (Ej. 01)"),
     year: Optional[str] = Query(None, description="Año (Anos)"),
     period: Optional[int] = Query(None, description="Mes / Periodo (1-12)"),
-    tipo_oc: Optional[str] = Query(None, description="Tipo de OC (TipoOc)"),
-    current_user: dict = Depends(get_current_user)
+    tipo_oc: Optional[str] = Query(None, description="Tipo de OC (TipoOc)")
 ):
     """Obtener cabeceras de Órdenes de Compra (CmpVOcom)"""
     conn = get_db_connection()
@@ -102,8 +101,7 @@ def get_purchase_order_details(
     nrodoc: str,
     codcia: str = Query(..., description="Código de la empresa"),
     tipo_oc: str = Query(..., description="Tipo de OC"),
-    year: str = Query(..., description="Año de la orden"),
-    current_user: dict = Depends(get_current_user)
+    year: str = Query(..., description="Año de la orden")
 ):
     """Obtener detalles de una Orden de Compra (CmpROcom)"""
     conn = get_db_connection()
@@ -147,8 +145,7 @@ def get_purchase_order_report(
     nrodoc: str,
     codcia: str = Query(..., description="Código de la empresa"),
     tipo_oc: str = Query(..., description="Tipo de OC"),
-    year: str = Query(None, description="Año de la orden"),
-    current_user: dict = Depends(get_current_user)
+    year: str = Query(None, description="Año de la orden")
 ):
     """Obtener reporte completo de una Orden de Compra estilo Crystal Report.
     Incluye datos de empresa, proveedor, ítems con notas, y totales."""
@@ -352,8 +349,7 @@ def get_purchase_order_report(
 @router.get("/orders/{nrodoc}/warehouse-entry")
 def get_warehouse_entry(
     nrodoc: str,
-    codcia: str = Query(..., description="Código de la empresa"),
-    current_user: dict = Depends(get_current_user)
+    codcia: str = Query(..., description="Código de la empresa")
 ):
     """Obtener ingresos a almacén (AlmRMovm) asociados a una Orden de Compra"""
     conn = get_db_connection()
