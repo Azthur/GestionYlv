@@ -2,9 +2,12 @@ from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile, 
 from fastapi.responses import FileResponse
 import os
 import shutil
+import mimetypes
 from typing import List, Optional
 from database import get_db_connection
 from auth import get_current_user
+
+ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
 
 router = APIRouter(prefix="/api/logistics", tags=["Logística y Compras"])
 
@@ -91,6 +94,18 @@ def get_purchase_orders(
             # Format date strings for JSON
             if order_dict['fchdoc']:
                 order_dict['fchdoc'] = order_dict['fchdoc'].strftime("%Y-%m-%d")
+                
+            # Check attachments presence
+            c = str(order_dict['codcia']).strip()
+            t = str(order_dict['tipooc']).strip() if order_dict['tipooc'] else ''
+            n = str(order_dict['nrodoc']).strip()
+            
+            sig_dir = os.path.join(ATTACHMENTS_ROOT, c, t, n, 'signed_order')
+            vou_dir = os.path.join(ATTACHMENTS_ROOT, c, t, n, 'voucher')
+            
+            order_dict['has_signed_order'] = os.path.exists(sig_dir) and len(os.listdir(sig_dir)) > 0
+            order_dict['has_voucher'] = os.path.exists(vou_dir) and len(os.listdir(vou_dir)) > 0
+            
             orders.append(order_dict)
             
         return orders
@@ -396,7 +411,6 @@ def get_warehouse_entry(
         conn.close()
 
 # ─── Attachments System ─────────────────────────
-ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
 
 @router.post("/attachments/upload")
 async def upload_order_attachment(
@@ -473,7 +487,13 @@ def download_attachment(
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="Archivo no encontrado")
         
-        return FileResponse(path=file_path, filename=fn)
+        mt, _ = mimetypes.guess_type(fn)
+        if not mt:
+            mt = "application/octet-stream"
+            
+        # Use inline content disposition so the browser previews the file (PDF/Image) instead of forcing a download
+        headers = {"Content-Disposition": f'inline; filename="{fn}"'}
+        return FileResponse(path=file_path, headers=headers, media_type=mt)
     except Exception as e:
         if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=str(e))

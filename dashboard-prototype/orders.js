@@ -191,14 +191,14 @@ async function loadOrders() {
                     </svg>
                 </button>` : ''}
                 ${isLogistics ? `
-                <button class="btn-ver-oc" style="background:#6366f1;" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','signed_order')" title="Orden Firmada">
+                <button class="btn-ver-oc" style="${o.has_signed_order ? 'background:#6366f1;' : 'background:#94a3b8; opacity:0.7;'}" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','signed_order')" title="Orden Firmada${o.has_signed_order ? '' : ' (Vacío)'}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
                         <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
                         <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
                     </svg>
                 </button>` : ''}
                 ${isTreasury ? `
-                <button class="btn-ver-oc" style="background:#f59e0b;" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','voucher')" title="Voucher de Pago">
+                <button class="btn-ver-oc" style="${o.has_voucher ? 'background:#f59e0b;' : 'background:#94a3b8; opacity:0.7;'}" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','voucher')" title="Voucher de Pago${o.has_voucher ? '' : ' (Vacío)'}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
                         <rect x="2" y="5" width="20" height="14" rx="2"></rect>
                         <line x1="2" y1="10" x2="22" y2="10"></line>
@@ -207,6 +207,7 @@ async function loadOrders() {
             </div>`;
 
             return [
+                btnHtml,
                 o.nrodoc || '',
                 o.fchdoc || '',
                 tipoLabel,
@@ -221,8 +222,7 @@ async function loadOrders() {
                 (o.nomdep || '').substring(0, 20),
                 (o.nomcom || '').substring(0, 20),
                 o.usuario || '',
-                statusHtml,
-                btnHtml
+                statusHtml
             ];
         });
 
@@ -245,16 +245,16 @@ async function loadOrders() {
             },
             dom: '<"dt-top"Bfl>rt<"dt-bottom"ip>',
             buttons: [
-                { extend: 'copy', text: '📋 Copiar', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] } },
-                { extend: 'excel', text: '📊 Excel', title: 'Ordenes_de_Compra', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] } },
-                { extend: 'pdf', text: '📄 PDF', title: 'Órdenes de Compra', orientation: 'landscape', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] } },
+                { extend: 'copy', text: '📋 Copiar', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] } },
+                { extend: 'excel', text: '📊 Excel', title: 'Ordenes_de_Compra', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] } },
+                { extend: 'pdf', text: '📄 PDF', title: 'Órdenes de Compra', orientation: 'landscape', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] } },
             ],
             columnDefs: [
-                { targets: 0, className: 'dt-body-left', render: (d) => `<strong>${d}</strong>` },
-                { targets: 5, className: 'dt-body-center' },
-                { targets: 6, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
-                { targets: 14, className: 'dt-body-center', orderable: false },
-                { targets: 15, className: 'dt-body-center', orderable: false, searchable: false },
+                { targets: 0, className: 'dt-body-center sticky-col-left', orderable: false, searchable: false },
+                { targets: 1, className: 'dt-body-left', render: (d) => `<strong>${d}</strong>` },
+                { targets: 6, className: 'dt-body-center' },
+                { targets: 7, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
+                { targets: 15, className: 'dt-body-center', orderable: false }
             ]
         });
 
@@ -529,11 +529,11 @@ async function loadAttachmentList() {
                     ${icon}
                     <span style="font-size:0.8125rem; font-weight:500; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.filename}">${f.filename}</span>
                 </div>
-                <a href="${f.url}" target="_blank" class="btn btn-outline" style="padding:0.35rem 0.6rem; font-size:0.75rem; display:flex; align-items:center; gap:0.3rem;">
+                <button onclick="openPreviewModal('${f.url}', '${f.filename}')" class="btn btn-outline" style="padding:0.35rem 0.6rem; font-size:0.75rem; display:flex; align-items:center; gap:0.3rem;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
                     </svg>Ver
-                </a>
+                </button>
             </div>`;
         });
         listEl.innerHTML = html;
@@ -577,4 +577,30 @@ async function handleAttachmentUpload() {
     } catch (err) {
         Swal.fire({ icon: 'error', title: 'Error', text: err.message });
     }
+}
+
+// ─── Document Preview Modal ──────────────────────
+function openPreviewModal(url, filename) {
+    document.getElementById('previewModal').classList.add('active');
+    document.getElementById('previewModalTitle').textContent = filename || 'Visualización de Archivo';
+    
+    const downloadBtn = document.getElementById('previewModalDownloadBtn');
+    downloadBtn.href = url;
+    downloadBtn.setAttribute('download', filename || 'documento');
+    
+    const body = document.getElementById('previewModalBody');
+    const isImage = url.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) != null;
+    const cacheUrl = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+    
+    if (isImage) {
+        body.innerHTML = `<img src="${cacheUrl}" alt="${filename}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:8px;">`;
+    } else {
+        // Assume PDF or other browser-supported document
+        body.innerHTML = `<iframe src="${cacheUrl}#toolbar=0&navpanes=0&view=FitH" frameborder="0" style="width:100%; height:100%; border:none;"></iframe>`;
+    }
+}
+
+function closePreviewModal() {
+    document.getElementById('previewModal').classList.remove('active');
+    document.getElementById('previewModalBody').innerHTML = '<div style="color:var(--text-muted);">Cargando previsualización...</div>';
 }

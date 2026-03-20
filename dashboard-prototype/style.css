@@ -123,8 +123,168 @@ h6 {
     flex-shrink: 0;
     padding: 1.5rem 0;
     z-index: 100;
-    transition: transform 0.25s ease;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    position: relative;
 }
+
+/* ─── Sidebar Collapse Toggle ─── */
+.sidebar-toggle {
+    position: absolute;
+    top: 1.5rem;
+    right: 0.75rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-sidebar);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 101;
+    transition: all 0.2s ease;
+    padding: 0;
+    backdrop-filter: blur(8px);
+}
+.sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+.sidebar-toggle svg {
+    width: 15px;
+    height: 15px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar.collapsed .sidebar-toggle {
+    right: 50%;
+    transform: translateX(50%);
+}
+.sidebar.collapsed .sidebar-toggle:hover {
+    transform: translateX(50%) scale(1.05);
+}
+.sidebar.collapsed .sidebar-toggle svg {
+    transform: rotate(180deg);
+}
+
+/* ─── Collapsed Sidebar State ─── */
+.sidebar.collapsed {
+    width: 68px;
+}
+
+/* Brand: show only Y icon */
+.sidebar.collapsed .brand {
+    padding: 0;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+.sidebar.collapsed .brand h1 {
+    font-size: 1rem;
+    letter-spacing: 1px;
+}
+.sidebar.collapsed .brand span {
+    display: none;
+}
+
+/* Nav menu: compact spacing */
+.sidebar.collapsed .nav-menu {
+    padding: 0 0.5rem;
+    gap: 4px;
+}
+
+/* Nav items: hide text, show only icons */
+.sidebar.collapsed .nav-item {
+    font-size: 0;        /* Hides text nodes that CSS selectors can't target */
+    justify-content: center;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+    border-radius: 10px;
+    position: relative;
+    overflow: visible;
+}
+.sidebar.collapsed .nav-icon {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+}
+
+/* Group labels: hide */
+.sidebar.collapsed .nav-group-label {
+    display: none !important;
+}
+
+/* Separator line instead of group label */
+.sidebar.collapsed .nav-group {
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ─── Tooltip on hover (collapsed) ─── */
+.sidebar.collapsed .nav-item::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%) scale(0.95);
+    background: #1E293B;
+    color: #F1F5F9;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255,255,255,0.05);
+    z-index: 9999;
+    letter-spacing: 0.01em;
+}
+/* Tooltip arrow */
+.sidebar.collapsed .nav-item::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: #1E293B;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 9999;
+}
+.sidebar.collapsed .nav-item:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+}
+.sidebar.collapsed .nav-item:hover::before {
+    opacity: 1;
+}
+
+/* User profile: show only avatar */
+.sidebar.collapsed .user-profile {
+    padding: 0.5rem;
+    justify-content: center;
+    margin: 0.5rem;
+}
+.sidebar.collapsed .user-profile .user-info {
+    display: none;
+}
+.sidebar.collapsed .user-profile button[onclick="logout()"] {
+    display: none;
+}
+.sidebar.collapsed .user-profile a {
+    justify-content: center;
+    flex: unset;
+}
+
 
 .brand {
     padding: 0 1.5rem;

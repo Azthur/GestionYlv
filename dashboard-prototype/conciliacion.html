@@ -7,7 +7,7 @@
     <title>YELAVE - Conciliación Bancaria</title>
     <meta name="description" content="Módulo de Conciliación Bancaria para Control Interno - YELAVE ERP">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=4.3">
+    <link rel="stylesheet" href="style.css?v=4.5">
     <link rel="stylesheet" href="conciliacion.css?v=4.5">
     
     <!-- DataTables CSS -->
@@ -24,27 +24,32 @@
 
         <!-- Sidebar Menu -->
         <aside class="sidebar" id="sidebar">
+            <button class="sidebar-toggle" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Colapsar menú">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
             <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
             <nav class="nav-menu">
-                <a href="/index.html" class="nav-item">
+                <a href="/index.html" class="nav-item" data-tooltip="Dashboard">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
                         <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
                     </svg>Dashboard
                 </a>
-                <a href="/orders.html" class="nav-item">
+                <a href="/orders.html" class="nav-item" data-tooltip="Logística & Compras">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                     </svg>Logística &amp; Compras
                 </a>
-                <a href="/index.html" class="nav-item">
+                <a href="/index.html" class="nav-item" data-tooltip="Producción (DIGEMID)">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-3.5-3.5A2 2 0 0 0 17 4h-2V2H9v2H7a2 2 0 0 0-1.5.5L2 8v12z"></path>
                     </svg>Producción (DIGEMID)
                 </a>
                 <div class="nav-group">
                     <div class="nav-group-label" style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">Finanzas</div>
-                    <a href="/conciliacion.html" class="nav-item active">
+                    <a href="/conciliacion.html" class="nav-item active" data-tooltip="Conciliación Bancaria">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l4.58-4.58a1 1 0 0 0 0-1.42L9 5z"></path>
                             <circle cx="6" cy="9" r="1"></circle>
@@ -53,13 +58,13 @@
                 </div>
                 <div class="nav-group admin-only" style="margin-top: auto; display: none;">
                     <div class="nav-group-label" style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-sidebar);padding:0.5rem 0.75rem 0.25rem;opacity:0.6;">Sistema</div>
-                    <a href="/users.html" class="nav-item">
+                    <a href="/users.html" class="nav-item" data-tooltip="Gestión de Usuarios">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle>
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                         </svg>Gestión de Usuarios
                     </a>
-                    <a href="/db-config.html" class="nav-item">
+                    <a href="/db-config.html" class="nav-item" data-tooltip="Base de Datos">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="3"></circle>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -782,6 +787,20 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 
     <script src="conciliacion.js?v=6.7"></script>
+    <script>
+    // ─── Sidebar Collapse Logic ───
+    (function() {
+        var sidebar = document.getElementById('sidebar');
+        if (localStorage.getItem('yelave_sidebar_collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+    })();
+    function toggleSidebarCollapse() {
+        var sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem('yelave_sidebar_collapsed', sidebar.classList.contains('collapsed'));
+    }
+    </script>
 </body>
 
 </html>

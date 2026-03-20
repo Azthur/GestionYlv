@@ -52,6 +52,11 @@
         table.dataTable tbody td { font-size: 0.8125rem; padding: 0.65rem 0.75rem !important; vertical-align: middle; }
         table.dataTable tbody tr:hover { background: #f0f7ff !important; }
         table.dataTable { border-bottom: 1px solid #e2e8f0 !important; }
+        /* Sticky Column */
+        table.dataTable thead th.sticky-col-left { position: sticky; left: 0; z-index: 11 !important; }
+        table.dataTable tbody td.sticky-col-left { position: sticky; left: 0; z-index: 9 !important; background-color: #fff; border-right: 1px solid #e2e8f0; }
+        table.dataTable tbody tr:nth-child(even) td.sticky-col-left { background-color: #f8fafc; }
+        table.dataTable tbody tr:hover td.sticky-col-left { background-color: #f0f7ff !important; }
         /* Export buttons */
         .dt-buttons { margin-bottom: 0.75rem !important; }
         .dt-buttons .dt-button {
@@ -271,10 +276,11 @@
                         <table id="ordersTable" class="display nowrap" style="width:100%">
                             <thead>
                                 <tr>
+                                    <th class="sticky-col-left">Acciones</th>
                                     <th>N° Orden</th><th>Fecha</th><th>Tipo</th><th>Proveedor</th>
                                     <th>RUC</th><th>Moneda</th><th>Total</th><th>Lug. Ent.</th>
                                     <th>Entrega</th><th>Contacto</th><th>Teléfono</th><th>Depto</th>
-                                    <th>Comprador</th><th>Usuario</th><th>Estado</th><th>Acciones</th>
+                                    <th>Comprador</th><th>Usuario</th><th>Estado</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -378,6 +384,31 @@
                 <div id="attachmentList" class="custom-scrollbar" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
                     <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando archivos...</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: File Preview window -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal glass-modal" style="max-width:900px; width:95%; height:85vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <h3 id="previewModalTitle">Visualización de Archivo</h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="#" id="previewModalDownloadBtn" class="btn btn-outline" download style="padding:0.35rem 0.75rem; font-size:0.775rem; text-decoration:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.3rem">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>Descargar
+                    </a>
+                    <button class="close-btn" onclick="closePreviewModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex:1; padding:0; background:#f1f5f9; display:flex; justify-content:center; align-items:center; overflow:hidden;" id="previewModalBody">
+                <div style="color:var(--text-muted);">Cargando previsualización...</div>
             </div>
         </div>
     </div>
