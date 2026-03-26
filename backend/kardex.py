@@ -1,0 +1,292 @@
+from fastapi import APIRouter, HTTPException, Query
+from typing import List, Optional, Dict, Any
+from database import get_db_connection
+from datetime import datetime
+
+router = APIRouter(prefix="/api/kardex", tags=["Kardex y Reportes"])
+
+def get_base_kardex_data(
+    codcia: str,
+    start_date: str,
+    end_date: str,
+    codmat_from: Optional[str] = None,
+    codmat_to: Optional[str] = None,
+    codfam: Optional[str] = None
+):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+        
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Fetch Company Info
+        cursor.execute("SELECT TOP 1 RTRIM(nomcia), RTRIM(ruccia), RTRIM(dircia) FROM AdmMcias WHERE codcia=?", [codcia.strip()])
+        emp_row = cursor.fetchone()
+        empresa_data = {
+            "nomcia": emp_row[0] if emp_row and emp_row[0] else "",
+            "ruccia": emp_row[1] if emp_row and emp_row[1] else "",
+            "dircia": emp_row[2] if emp_row and emp_row[2] else "",
+            "codcia": codcia
+        }
+        
+        # 2. Extract Movements
+        query_movs = """
+            SELECT 
+                RTRIM(r.codmat) as codmat,
+                RTRIM(m.desmat) as desmat,
+                RTRIM(m.undstk) as undstk,
+                RTRIM(m.codfam) as codfam,
+                r.fchdoc,
+                RTRIM(r.tipmov) as tipmov,
+                RTRIM(r.codmov) as codmov,
+                RTRIM(r.nrodoc) as nrodoc,
+                r.candes,
+                r.preuni,
+                r.impcto,
+                RTRIM(t.desmov) as desmov
+            FROM AlmRMovm r
+            LEFT JOIN almmmatg m ON r.codcia = m.codcia AND r.codmat = m.codmat
+            LEFT JOIN almTmovm t ON r.codcia = t.codcia AND r.tipmov = t.tipmov AND r.codmov = t.codmov
+            WHERE RTRIM(r.codcia) = ? 
+        """
+        params_movs = [codcia.strip()]
+        
+        query_movs += " AND r.fchdoc <= ?"
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+        params_movs.append(end_date_obj)
+        
+        if codmat_from and codmat_to:
+            query_movs += " AND RTRIM(r.codmat) BETWEEN ? AND ?"
+            params_movs.extend([codmat_from.strip(), codmat_to.strip()])
+            
+        if codfam:
+            query_movs += " AND RTRIM(m.codfam) = ?"
+            params_movs.append(codfam.strip())
+            
+        query_movs += " ORDER BY r.codmat ASC, r.fchdoc ASC, r.tipmov ASC, r.nrodoc ASC"
+        
+        cursor.execute(query_movs, params_movs)
+        
+        materials = {}
+        for row in cursor.fetchall():
+            mat_cod = row.codmat
+            if mat_cod not in materials:
+                materials[mat_cod] = {
+                    "codmat": mat_cod,
+                    "desmat": row.desmat,
+                    "undstk": row.undstk,
+                    "saldo_inicial_fisico": 0.0,
+                    "saldo_inicial_valorizado": 0.0,
+                    "movimientos": []
+                }
+            
+            candes = float(row.candes) if row.candes is not None else 0.0
+            impcto = float(row.impcto) if row.impcto is not None else 0.0
+            preuni = float(row.preuni) if row.preuni is not None else 0.0
+            
+            is_ingreso = str(row.tipmov).strip().upper() == 'I'
+            is_salida = str(row.tipmov).strip().upper() == 'S'
+            
+            fchdoc_str = row.fchdoc.strftime("%Y-%m-%d") if row.fchdoc else ""
+            
+            if fchdoc_str < start_date:
+                if is_ingreso:
+                    materials[mat_cod]["saldo_inicial_fisico"] += candes
+                    materials[mat_cod]["saldo_inicial_valorizado"] += impcto
+                elif is_salida:
+                    materials[mat_cod]["saldo_inicial_fisico"] -= candes
+                    materials[mat_cod]["saldo_inicial_valorizado"] -= impcto
+            else:
+                mov_dict = {
+                    "fecha": fchdoc_str,
+                    "tipo_doc": "Almacén",
+                    "serie_doc": row.codmov,
+                    "numero_doc": row.nrodoc,
+                    "tipo_operacion": row.tipmov,
+                    "desc_operacion": row.desmov,
+                    "entradas_cant": candes if is_ingreso else 0.0,
+                    "salidas_cant": candes if is_salida else 0.0,
+                    "entradas_costo_uni": preuni if is_ingreso else 0.0,
+                    "entradas_costo_total": impcto if is_ingreso else 0.0,
+                    "salidas_costo_uni": preuni if is_salida else 0.0,
+                    "salidas_costo_total": impcto if is_salida else 0.0,
+                }
+                materials[mat_cod]["movimientos"].append(mov_dict)
+                
+        resultados = []
+        for mat_cod, mat_data in materials.items():
+            saldo_f = mat_data["saldo_inicial_fisico"]
+            saldo_v = mat_data["saldo_inicial_valorizado"]
+            
+            for mov in mat_data["movimientos"]:
+                avg_cost = saldo_v / saldo_f if saldo_f > 0 else 0.0
+                if mov["tipo_operacion"] == 'S' and mov["salidas_costo_total"] == 0.0:
+                    mov["salidas_costo_uni"] = avg_cost
+                    mov["salidas_costo_total"] = mov["salidas_cant"] * avg_cost
+
+                saldo_f += mov["entradas_cant"] - mov["salidas_cant"]
+                saldo_v += mov["entradas_costo_total"] - mov["salidas_costo_total"]
+                
+                mov["saldo_cant"] = saldo_f
+                mov["saldo_costo_uni"] = saldo_v / saldo_f if saldo_f > 0 else 0.0
+                mov["saldo_costo_total"] = saldo_v
+                
+            resultados.append(mat_data)
+            
+        return empresa_data, resultados
+    finally:
+        conn.close()
+
+
+@router.get("/report")
+def get_kardex_report(
+    codcia: str = Query(..., description="Código de la empresa"),
+    start_date: str = Query(..., description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="Fecha fin (YYYY-MM-DD)"),
+    codmat_from: Optional[str] = Query(None, description="Código de material inicial"),
+    codmat_to: Optional[str] = Query(None, description="Código de material final"),
+    codfam: Optional[str] = Query(None, description="Familia de material"),
+    formato: str = Query("12.1", description="Formato (12.1 o 13.1)"),
+    moneda: str = Query("S", description="S=Soles, D=Dólares")
+):
+    """Obtener reporte de Kardex físico o valorizado (Formatos SUNAT 12.1 y 13.1)"""
+    try:
+        empresa, resultados = get_base_kardex_data(codcia, start_date, end_date, codmat_from, codmat_to, codfam)
+        return {
+            "empresa": empresa,
+            "periodo": f"{start_date} AL {end_date}",
+            "resultados": resultados
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/stock")
+def get_kardex_stock(
+    codcia: str = Query(..., description="Código de la empresa"),
+    fecha_corte: str = Query(..., description="Fecha de corte (YYYY-MM-DD)"),
+    almacen: Optional[str] = Query(None, description="Almacén")
+):
+    """Reporte de Stock a una fecha de corte determinada"""
+    try:
+        # We use a very old start_date so everything falls in the report period to calculate final balances easily
+        # Wait, if we use a very old start_date, the 'saldo_inicial' will be 0, and all will be processed in 'movimientos'.
+        # Easier: use start_date = fecha_corte, so that ALL history becomes `saldo_inicial`!
+        # Then the final stock is exactly `saldo_inicial_fisico` and `saldo_inicial_valorizado`!
+        
+        # We add 1 day to fecha_corte as start_date so everything before or equal to fecha_corte is initial balance
+        # Wait, start_date calculation:
+        # If we pass start_date = 2099-01-01 and end_date = fecha_corte, everything up to fecha_corte
+        # will be accumulated in saldo_inicial!
+        empresa, resultados = get_base_kardex_data(codcia, "2099-01-01", fecha_corte)
+        
+        stock_list = []
+        for mat in resultados:
+            cant = mat["saldo_inicial_fisico"]
+            cost_tot = mat["saldo_inicial_valorizado"]
+            unit_cost = cost_tot / cant if cant > 0 else 0.0
+            
+            # To avoid clutter, optionally filter out 0 stock
+            if cant != 0 or cost_tot != 0:
+                stock_list.append({
+                    "codmat": mat["codmat"],
+                    "desmat": mat["desmat"],
+                    "undstk": mat["undstk"],
+                    "cantidad": cant,
+                    "costo_unitario": unit_cost,
+                    "costo_total": cost_tot
+                })
+                
+        return {
+            "empresa": empresa,
+            "fecha_corte": fecha_corte,
+            "resultados": stock_list
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/costo-ventas")
+def get_costo_ventas(
+    codcia: str = Query(..., description="Código de la empresa"),
+    start_date: str = Query(..., description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="Fecha fin (YYYY-MM-DD)")
+):
+    """Reporte de Costo de Ventas (Consolidado de Movimientos por Periodo)"""
+    try:
+        empresa, resultados = get_base_kardex_data(codcia, start_date, end_date)
+        
+        cv_list = []
+        for mat in resultados:
+            # Aggregate entries and exits
+            inv_ini_cant = mat["saldo_inicial_fisico"]
+            inv_ini_tot = mat["saldo_inicial_valorizado"]
+            
+            ent_cant = sum(m["entradas_cant"] for m in mat["movimientos"])
+            ent_tot = sum(m["entradas_costo_total"] for m in mat["movimientos"])
+            
+            sal_cant = sum(m["salidas_cant"] for m in mat["movimientos"])
+            sal_tot = sum(m["salidas_costo_total"] for m in mat["movimientos"])
+            
+            sal_final_cant = inv_ini_cant + ent_cant - sal_cant
+            sal_final_tot = inv_ini_tot + ent_tot - sal_tot
+            
+            if inv_ini_cant != 0 or ent_cant != 0 or sal_cant != 0:
+                cv_list.append({
+                    "codmat": mat["codmat"],
+                    "desmat": mat["desmat"],
+                    "inventario_inicial_cant": inv_ini_cant,
+                    "inventario_inicial_total": inv_ini_tot,
+                    "entradas_cant": ent_cant,
+                    "entradas_total": ent_tot,
+                    "salidas_cant": sal_cant,
+                    "salidas_total": sal_tot,
+                    "saldo_final_cant": sal_final_cant,
+                    "saldo_final_total": sal_final_tot,
+                    "costo_venta_unitario": sal_tot / sal_cant if sal_cant > 0 else 0.0,
+                    "costo_venta_total": sal_tot
+                })
+                
+        return {
+            "empresa": empresa,
+            "periodo": f"{start_date} AL {end_date}",
+            "resultados": cv_list
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/traceability")
+def get_traceability(
+    codcia: str = Query(..., description="Código de empresa"),
+    nrodoc: str = Query(..., description="Número de Documento"),
+    tipmov: str = Query(..., description="Tipo de Movimiento"),
+    codmov: str = Query(..., description="Código de Movimiento (Serie)")
+):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT fchdoc, nroref1, nroref2, Glodoc, usuario, fchemi, ordcmp 
+            FROM AlmVMovm 
+            WHERE RTRIM(codcia)=? AND RTRIM(nrodoc)=? AND RTRIM(tipmov)=? AND RTRIM(codmov)=?
+        """, [codcia.strip(), nrodoc.strip(), tipmov.strip(), codmov.strip()])
+        
+        row = cursor.fetchone()
+        if not row:
+            return {"status": "error", "message": "No se encontró el sustento de la operación en las cabeceras de almacén."}
+            
+        return {
+            "status": "success",
+            "data": {
+                "fchdoc": row.fchdoc.strftime("%Y-%m-%d") if row.fchdoc else "",
+                "nroref1": row.nroref1.strip() if row.nroref1 else "",
+                "nroref2": row.nroref2.strip() if row.nroref2 else "",
+                "glosa": row.Glodoc.strip() if row.Glodoc else "",
+                "usuario": row.usuario.strip() if row.usuario else "",
+                "fchemi": row.fchemi.strftime("%Y-%m-%d %H:%M:%S") if row.fchemi else "",
+                "ordcmp": row.ordcmp.strip() if row.ordcmp else ""
+            }
+        }
+    finally:
+        conn.close()

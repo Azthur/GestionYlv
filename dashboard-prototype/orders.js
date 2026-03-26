@@ -176,6 +176,8 @@ async function loadOrders() {
             const isLogistics = currentRole === 'LOGISTICA' || currentRole === 'ADMIN';
             const isTreasury = currentRole === 'TESORERIA' || currentRole === 'ADMIN';
             
+            const showRecojoBtn = (String(o.tipooc).trim().toUpperCase() === 'M' || String(o.tipooc).trim().toUpperCase() === 'O');
+            
             const btnHtml = `<div style="display:flex; gap:0.25rem;">
                 <button class="btn-ver-oc" onclick="openReportModal('${codcia}','${o.nrodoc}','${o.tipooc || ''}','${o.anos || year || ''}')" title="Ver Orden">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
@@ -183,6 +185,19 @@ async function loadOrders() {
                         <polyline points="14 2 14 8 20 8"></polyline>
                     </svg>
                 </button>
+                ${showRecojoBtn ? 
+                    (o.has_recojo ? `
+                    <button class="btn-ver-oc" style="background:var(--success); opacity:0.8; cursor:not-allowed;" title="Solicitud Enviada a Recojo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>` : `
+                    <button class="btn-ver-oc" style="background:#0ea5e9;" onclick="openRecojoModal('${codcia}','${o.tipooc}','${o.nrodoc}','${o.anos || year || ''}')" title="Generar Solicitud de Recojo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                            <path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>
+                        </svg>
+                    </button>`)
+                : ''}
                 ${showWarehouseBtn ? `
                 <button class="btn-ver-oc" style="background:var(--success);" onclick="openWarehouseModal('${codcia}','${o.nrodoc}')" title="Ver Ingresos a Almacén">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
@@ -603,4 +618,134 @@ function openPreviewModal(url, filename) {
 function closePreviewModal() {
     document.getElementById('previewModal').classList.remove('active');
     document.getElementById('previewModalBody').innerHTML = '<div style="color:var(--text-muted);">Cargando previsualización...</div>';
+}
+
+// ─── Generar Recojo Logic ─────────────────────────
+async function openRecojoModal(codcia, tipooc, nrodoc, year) {
+    document.getElementById('recojoModal').classList.add('active');
+    document.getElementById('recojoOcNro').textContent = nrodoc;
+    
+    // Clean form
+    document.getElementById('formRecojo').reset();
+    document.getElementById('recCodCia').value = codcia;
+    document.getElementById('recTipoOc').value = tipooc;
+    document.getElementById('recYear').value = year;
+    document.getElementById('recojoItemsTbody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando detalles...</td></tr>';
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        let url = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/report?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}&year=${encodeURIComponent(year)}`;
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error('Error al cargar reporte OC');
+        const data = await res.json();
+        
+        // Init flatpickr for Time Picker (12H)
+        flatpickr("#recHora", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: false, // false enables AM/PM
+            allowInput: true
+        });
+
+        // Populate fields
+        document.getElementById('recProveedor').value = data.header.nomaux || '';
+        document.getElementById('recOrigen').value = data.header.diraux || '';
+        document.getElementById('recDestino').value = data.header.lugent || '';
+        document.getElementById('recContacto').value = data.header.contacto || data.header.nomaux || '';
+        document.getElementById('recCelular').value = data.header.tlfaux || '';
+        document.getElementById('recObservaciones').value = '';
+        document.getElementById('recUrlMaps').value = '';
+        
+        // Populate items
+        let html = '';
+        data.items.forEach((it, idx) => {
+            const pendiente = it.candes - it.cant_ingresada;
+            if (pendiente > 0 || (it.candes === 0)) {
+                html += `<tr>
+                    <td style="text-align:center;"><input type="checkbox" class="chk-recojo-item" data-codmat="${it.codmat || ''}" data-desc="${it.desmat || ''}" data-unidad="${it.undstk || ''}"></td>
+                    <td style="font-size:0.75rem; font-family:monospace;">${it.codmat || '-'}</td>
+                    <td style="font-size:0.75rem;">${it.desmat || ''}</td>
+                    <td style="text-align:center; font-size:0.75rem;">${it.undstk || ''}</td>
+                    <td style="text-align:right;">${fmtNum(pendiente, 2)}</td>
+                    <td style="text-align:right;"><input type="number" step="0.01" class="recojo-qty" value="${pendiente}" max="${pendiente}" min="0.01" style="width:70px; padding:0.15rem 0.35rem; font-size:0.75rem;"></td>
+                </tr>`;
+            }
+        });
+        if (html === '') html = '<tr><td colspan="6" style="text-align:center; color:#94a3b8;">No hay ítems pendientes de recoger.</td></tr>';
+        document.getElementById('recojoItemsTbody').innerHTML = html;
+        
+    } catch (err) {
+        document.getElementById('recojoItemsTbody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:red;">${err.message}</td></tr>`;
+    }
+}
+
+function closeRecojoModal() {
+    document.getElementById('recojoModal').classList.remove('active');
+}
+
+function toggleAllRecojo() {
+    const isChecked = document.getElementById('chkAllRecojo').checked;
+    document.querySelectorAll('.chk-recojo-item').forEach(chk => chk.checked = isChecked);
+}
+
+async function submitSolicitudRecojo() {
+    const form = document.getElementById('formRecojo');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const itemsSelected = [];
+    document.querySelectorAll('.chk-recojo-item').forEach(chk => {
+        if (chk.checked) {
+            const tr = chk.closest('tr');
+            const qtyInput = tr.querySelector('.recojo-qty');
+            itemsSelected.push({
+                codmat: chk.dataset.codmat,
+                descripcion: chk.dataset.desc,
+                cantidad: parseFloat(qtyInput.value),
+                unidad: chk.dataset.unidad
+            });
+        }
+    });
+    
+    if (itemsSelected.length === 0) {
+        Swal.fire({icon: 'warning', title: 'Atención', text: 'Seleccione al menos un ítem para recoger'});
+        return;
+    }
+    
+    const payload = {
+        tipo: 'OC',
+        codcia: document.getElementById('recCodCia').value,
+        nro_oc: document.getElementById('recojoOcNro').textContent,
+        fecha_recojo: document.getElementById('recFecha').value,
+        hora_recojo: document.getElementById('recHora').value,
+        origen: document.getElementById('recOrigen').value,
+        destino: document.getElementById('recDestino').value,
+        contacto: document.getElementById('recContacto').value,
+        responsable: document.getElementById('userNameDisplay').textContent,
+        proveedor_nombre: document.getElementById('recProveedor').value,
+        celular_contacto: document.getElementById('recCelular').value,
+        observaciones: document.getElementById('recObservaciones').value,
+        url_maps: document.getElementById('recUrlMaps').value,
+        items: itemsSelected
+    };
+    
+    try {
+        Swal.fire({ title: 'Generando Solicitud...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const res = await fetch('/api/reparto/solicitudes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error al generar solicitud');
+        
+        Swal.fire({ icon: 'success', title: '¡Solicitud Creada!', html: `La solicitud de recojo se ha registrado exitosamente.<br><br><span style="font-size:1.1rem; color:var(--primary);"><b>N° de Solicitud: SR-${data.solicitud_id}</b></span>` });
+        closeRecojoModal();
+        loadOrders(); // Reload orders to update the button status
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    }
 }

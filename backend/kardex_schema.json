@@ -1,0 +1,1063 @@
+{
+  "AlmVMovm": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "almcen",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "tipmov",
+      "type": "char",
+      "length": 1
+    },
+    {
+      "column": "codmov",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "nrodoc",
+      "type": "char",
+      "length": 8
+    },
+    {
+      "column": "ordcmp",
+      "type": "char",
+      "length": 8
+    },
+    {
+      "column": "fchdoc",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "nroref1",
+      "type": "char",
+      "length": 20
+    },
+    {
+      "column": "codref1",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "nroref2",
+      "type": "char",
+      "length": 20
+    },
+    {
+      "column": "codref2",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "nroref3",
+      "type": "char",
+      "length": 20
+    },
+    {
+      "column": "codref3",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "codcli",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codpro",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codcos",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codper",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codven",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "ordtra",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "Glodoc",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "codmon",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "tpocmb",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "tpocmbe",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "fchemi",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "flgest",
+      "type": "char",
+      "length": 1
+    },
+    {
+      "column": "usuario",
+      "type": "char",
+      "length": 10
+    },
+    {
+      "column": "almdes",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "coddes",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "nrodes",
+      "type": "char",
+      "length": 8
+    }
+  ],
+  "AlmVMovd": "No columns found",
+  "AlmRMovm": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "almcen",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "tipmov",
+      "type": "char",
+      "length": 1
+    },
+    {
+      "column": "codmov",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "nrodoc",
+      "type": "char",
+      "length": 8
+    },
+    {
+      "column": "codmat",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "desmat",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "ordcmp",
+      "type": "char",
+      "length": 8
+    },
+    {
+      "column": "nroped",
+      "type": "char",
+      "length": 9
+    },
+    {
+      "column": "nroitm",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "fchdoc",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "codcli",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codpro",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codcos",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codper",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codven",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "ordtra",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "codmon",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "tpocmb",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "tpocmbe",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "candes",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "facequ",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "d1",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "d2",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "d3",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "preuni",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "undvta",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "undstk",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "StkSub",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "StkAct",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctomn",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctous",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctoeu",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "codajt",
+      "type": "char",
+      "length": 1
+    },
+    {
+      "column": "impcto",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "impval",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "impval1",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "impval2",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "impnac",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "impusa",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "impeur",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "ctomn",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "ctous",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "ctoeu",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "flgest",
+      "type": "char",
+      "length": 1
+    },
+    {
+      "column": "Nrolote",
+      "type": "char",
+      "length": 20
+    },
+    {
+      "column": "fchlote",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "PreUni2",
+      "type": "decimal",
+      "length": null
+    },
+    {
+      "column": "ImpCto2",
+      "type": "decimal",
+      "length": null
+    }
+  ],
+  "AlmRMovd": "No columns found",
+  "almTmovm": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "tipmov",
+      "type": "char",
+      "length": 1
+    },
+    {
+      "column": "codmov",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "desmov",
+      "type": "char",
+      "length": 150
+    },
+    {
+      "column": "pidref1",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "codre1",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "pidref2",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "codre2",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "pidref3",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "codre3",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "gloref1",
+      "type": "char",
+      "length": 40
+    },
+    {
+      "column": "gloref2",
+      "type": "char",
+      "length": 40
+    },
+    {
+      "column": "gloref3",
+      "type": "char",
+      "length": 40
+    },
+    {
+      "column": "siempre1",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "siempre2",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "siempre3",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "pidpro",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "pidcli",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "pidven",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "pidord",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "pidtra",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "pidcos",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "undstk",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "undcmp",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "undvta",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "modpre",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "modnac",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "modusa",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "modeur",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "modelg",
+      "type": "int",
+      "length": null
+    }
+  ],
+  "CbdMauxi": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "clfaux",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codaux",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "nomaux",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "diraux",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "rucaux",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "tlfaux",
+      "type": "char",
+      "length": 30
+    },
+    {
+      "column": "email",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "contacto",
+      "type": "char",
+      "length": 150
+    },
+    {
+      "column": "email2",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "contacto2",
+      "type": "char",
+      "length": 150
+    },
+    {
+      "column": "tpodoc",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "ApePat",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "ApeMat",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "NomBres",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "fax",
+      "type": "char",
+      "length": 20
+    },
+    {
+      "column": "due\u00f1o",
+      "type": "varchar",
+      "length": 150
+    },
+    {
+      "column": "codnac",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codzon",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "coddep",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codpro",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "coddis",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codven",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codest",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "codret",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "ptopar",
+      "type": "varchar",
+      "length": 200
+    },
+    {
+      "column": "ptolle",
+      "type": "varchar",
+      "length": 200
+    },
+    {
+      "column": "crenac",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "creusa",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "creeur",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "fchalt",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "email0",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "tpovta",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "pais",
+      "type": "nchar",
+      "length": 4
+    }
+  ],
+  "AlmTabla": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "tabla",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codigo",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "nombre",
+      "type": "char",
+      "length": 150
+    },
+    {
+      "column": "digitos",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "codigo2",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "nombre2",
+      "type": "char",
+      "length": 100
+    },
+    {
+      "column": "codcta",
+      "type": "char",
+      "length": 8
+    },
+    {
+      "column": "codcta2",
+      "type": "char",
+      "length": 8
+    }
+  ],
+  "AlmmMatg": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "codmat",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "desmat",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "glomat",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "codfam",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "codlin",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "codmar",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "undcmp",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "undstk",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "facequ",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stkcto",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stkmin",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stkrep",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stkmax",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stksub",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stkact",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctomn",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctous",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctoeu",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "aftvta",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "aftcmp",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "ultsal",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "ultcmp",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "candes",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "candiv",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "ubica01",
+      "type": "char",
+      "length": 12
+    },
+    {
+      "column": "ubica02",
+      "type": "char",
+      "length": 12
+    },
+    {
+      "column": "prevt1",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "prevt2",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "prevt3",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "prevt4",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "prevt5",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "prevt6",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "pidltr",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "aftigv",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "foto",
+      "type": "char",
+      "length": 150
+    },
+    {
+      "column": "diame1",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "diame2",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "aftlote",
+      "type": "int",
+      "length": null
+    },
+    {
+      "column": "CodPro",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "NomPro",
+      "type": "varchar",
+      "length": 150
+    },
+    {
+      "column": "imagen",
+      "type": "image",
+      "length": 2147483647
+    }
+  ],
+  "AlmmMate": [
+    {
+      "column": "codcia",
+      "type": "char",
+      "length": 3
+    },
+    {
+      "column": "almcen",
+      "type": "char",
+      "length": 4
+    },
+    {
+      "column": "codmat",
+      "type": "char",
+      "length": 18
+    },
+    {
+      "column": "desmat",
+      "type": "char",
+      "length": 200
+    },
+    {
+      "column": "undstk",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "undvta",
+      "type": "char",
+      "length": 5
+    },
+    {
+      "column": "facequ",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stkini",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "stksub",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vinimn",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vinius",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctomn",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctous",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "vctoeu",
+      "type": "numeric",
+      "length": null
+    },
+    {
+      "column": "fching",
+      "type": "datetime",
+      "length": null
+    },
+    {
+      "column": "fchsal",
+      "type": "datetime",
+      "length": null
+    }
+  ]
+}

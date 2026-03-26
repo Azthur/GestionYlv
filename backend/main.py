@@ -22,6 +22,21 @@ app.include_router(users_router)
 from logistics import router as logistics_router
 app.include_router(logistics_router)
 
+from logistics_modules import router as logistics_modules_router
+app.include_router(logistics_modules_router)
+
+from reparto import router as reparto_router
+app.include_router(reparto_router)
+
+from production_modules import router as production_modules_router
+app.include_router(production_modules_router)
+
+from kardex import router as kardex_router
+app.include_router(kardex_router)
+
+from cuentas_cobrar import router as cuentas_cobrar_router
+app.include_router(cuentas_cobrar_router)
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,

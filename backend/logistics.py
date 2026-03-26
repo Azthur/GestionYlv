@@ -65,8 +65,9 @@ def get_purchase_orders(
                 RTRIM(TlfAux) as tlfaux,
                 RTRIM(NomDep) as nomdep,
                 RTRIM(NomCom) as nomcom,
-                RTRIM(Usuario) as usuario
-            FROM CmpVOcom 
+                RTRIM(Usuario) as usuario,
+                CASE WHEN EXISTS (SELECT 1 FROM LogSolicitudesRecojo sr WHERE sr.nro_oc = o.NroDoc AND sr.codcia = o.codcia AND sr.estado != 'Completada' AND sr.estado != 'Cancelada') THEN 1 ELSE 0 END as has_recojo
+            FROM CmpVOcom o 
             WHERE RTRIM(CodCia) = ?
         """
         params = [codcia]
@@ -105,6 +106,9 @@ def get_purchase_orders(
             
             order_dict['has_signed_order'] = os.path.exists(sig_dir) and len(os.listdir(sig_dir)) > 0
             order_dict['has_voucher'] = os.path.exists(vou_dir) and len(os.listdir(vou_dir)) > 0
+            
+            # Recojo Check
+            order_dict['has_recojo'] = bool(order_dict.get('has_recojo', 0))
             
             orders.append(order_dict)
             
