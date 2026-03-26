@@ -52,32 +52,38 @@ def get_empresas():
 
 @router.get("/report")
 def get_report(
-    codcia: str = Query(..., description="Código de empresa"),
+    codcia: str = Query(..., description="Códigos de empresa (separados por coma, ej: 001,002)"),
     fecha_inicio: str = Query(..., description="Fecha inicio YYYY-MM-DD"),
     fecha_fin: str = Query(..., description="Fecha fin YYYY-MM-DD"),
 ):
     """
     Reporte principal de Saldos por Cobrar.
-    Traduce la consulta FoxPro original con 3 UNIONs sobre CcbRGdoc,
-    VtaVPedi y VtaVGuia. Enriquece con VND_GRUPO para tienda/grupo.
+    Soporta multiempresa mediante un string separado por comas.
+    Enriquece con VND_GRUPO para tienda/grupo.
     """
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="DB Error")
     try:
         cursor = conn.cursor()
-        codcia_clean = codcia.strip()
+        
+        # Procesar lista de empresas
+        codcias = [c.strip() for c in codcia.split(",") if c.strip()]
+        if not codcias:
+            raise HTTPException(status_code=400, detail="Debe especificar al menos una empresa.")
+            
+        placeholders = ",".join("?" for _ in codcias)
 
         # ── Main UNION query (replica FoxPro logic) ──
-        query = """
-        SELECT c.fchdoc, c.coddoc, c.serie, c.nrodoc, c.codaux, c.nomaux,
+        query = f"""
+        SELECT c.codcia, c.fchdoc, c.coddoc, c.serie, c.nrodoc, c.codaux, c.nomaux,
                CASE WHEN c.CODMON = 1 THEN c.imptot ELSE c.imptot * c.TPOCMB END AS imptot,
                CASE WHEN c.CODMON = 1 THEN c.acta  ELSE (c.imptot * c.TPOCMB) - (c.saldo * c.TPOCMB) END AS acta,
                CASE WHEN c.CODMON = 1 THEN c.saldo ELSE c.saldo * c.TPOCMB END AS saldo,
                c.nomven, c.nompgo, c.nomsol, c.CODMON, c.TPOCMB
         FROM (
             -- UNION 1: Documents with matching VtaVPedi (NomSol not null)
-            SELECT A.coddoc,
+            SELECT A.codcia, A.coddoc,
                    LEFT(A.nrodoc, 3) AS serie,
                    A.nrodoc,
                    A.fchdoc,
@@ -97,7 +103,7 @@ def get_report(
                AND A.codcia = B.codcia
                AND LEFT(A.nrodoc, 3) = B.ptovta
                AND A.codaux = B.codaux
-            WHERE A.codcia = ?
+            WHERE A.codcia IN ({placeholders})
               AND NOT (B.NomSol IS NULL)
               AND A.coddoc IN ('BOLE', 'FACT')
               AND A.fchdoc >= CONVERT(datetime, ?, 120)
@@ -108,7 +114,7 @@ def get_report(
             UNION ALL
 
             -- UNION 2: Documents without VtaVPedi match and no NROREF
-            SELECT A.coddoc,
+            SELECT A.codcia, A.coddoc,
                    LEFT(A.nrodoc, 3) AS serie,
                    A.nrodoc,
                    A.fchdoc,
@@ -128,7 +134,7 @@ def get_report(
                AND A.codcia = B.codcia
                AND LEFT(A.nrodoc, 3) = B.ptovta
                AND A.codaux = B.codaux
-            WHERE A.codcia = ?
+            WHERE A.codcia IN ({placeholders})
               AND (B.NomSol IS NULL)
               AND A.coddoc IN ('BOLE', 'FACT')
               AND (A.nroref = '' OR A.nroref IS NULL)
@@ -140,7 +146,7 @@ def get_report(
             UNION ALL
 
             -- UNION 3: Documents with NROREF via VtaVGuia -> VtaVPedi
-            SELECT A.coddoc,
+            SELECT A.codcia, A.coddoc,
                    LEFT(A.nrodoc, 3) AS serie,
                    A.nrodoc,
                    A.fchdoc,
@@ -164,7 +170,7 @@ def get_report(
                AND B.codcia = C.codcia
                AND B.ptovta = C.ptovta
                AND B.codaux = C.codaux
-            WHERE A.codcia = ?
+            WHERE A.codcia IN ({placeholders})
               AND A.nroref <> ''
               AND A.coddoc IN ('BOLE', 'FACT')
               AND A.fchdoc >= CONVERT(datetime, ?, 120)
@@ -173,14 +179,14 @@ def get_report(
               AND A.sdodoc > 0
         ) c
         WHERE c.saldo > 0
-        ORDER BY c.coddoc, c.serie, c.nrodoc, c.fchdoc
+        ORDER BY c.codcia, c.coddoc, c.serie, c.nrodoc, c.fchdoc
         """
 
-        params = [
-            codcia_clean, fecha_inicio, fecha_fin,
-            codcia_clean, fecha_inicio, fecha_fin,
-            codcia_clean, fecha_inicio, fecha_fin,
-        ]
+        # Parametros de fecha intercalados con los placeholders
+        params = []
+        for _ in range(3):
+            params.extend(codcias)
+            params.extend([fecha_inicio, fecha_fin])
 
         cursor.execute(query, params)
         rows = [_row_to_dict(cursor, r) for r in cursor.fetchall()]
@@ -195,16 +201,23 @@ def get_report(
                 "tienda": (r[2] or "").strip(),
             }
 
-        # ── Get empresa name ──
+        # ── Get empresa names for all requested codcias ──
         cursor.execute(
-            "SELECT nomcia, ruccia FROM AdmMcias WHERE codcia = ?",
-            (codcia_clean,),
+            f"SELECT codcia, nomcia, ruccia FROM AdmMcias WHERE codcia IN ({placeholders})",
+            codcias,
         )
-        emp = cursor.fetchone()
+        emp_rows = cursor.fetchall()
+        
+        empresa_text = "Varias Empresas"
+        if len(emp_rows) == 1:
+            empresa_text = (emp_rows[0][1] or "").strip()
+        elif len(emp_rows) > 1:
+            empresa_text = f"Múltiples Empresas ({len(emp_rows)})"
+
         empresa_info = {
-            "codcia": codcia_clean,
-            "nomcia": (emp[0] or "").strip() if emp else "",
-            "ruccia": (emp[1] or "").strip() if emp else "",
+            "codcia": codcia, # String con las solicitadas originarias
+            "nomcia": empresa_text,
+            "empresas": [{"codcia": (e[0] or "").strip(), "nomcia": (e[1] or "").strip(), "ruccia": (e[2] or "").strip()} for e in emp_rows]
         }
 
         for row in rows:

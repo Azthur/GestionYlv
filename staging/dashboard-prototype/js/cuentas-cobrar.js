@@ -13,6 +13,7 @@ let pageSize = 100;
 let sortCol = -1;
 let sortAsc = true;
 let chartInstances = {};   // Canvas chart instances
+let homologacionMap = {};  // Vendedor alias mapping
 
 const API_BASE = '/api/cuentas-cobrar';
 const fmt = (n) => new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -21,6 +22,13 @@ const fmt = (n) => new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, ma
 document.addEventListener('DOMContentLoaded', () => {
     loadEmpresas();
     setDefaultDates();
+    loadHomologacion();
+
+    $('#filterCia').select2({
+        placeholder: "Seleccione empresa(s)",
+        allowClear: true,
+        width: '100%'
+    });
 
     document.getElementById('reportForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -28,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('searchInput').addEventListener('input', debounce(applySearch, 300));
-    document.getElementById('selGroupBy').addEventListener('change', renderTable);
+    document.getElementById('selAgrupacion').addEventListener('change', renderTable);
     document.getElementById('selPageSize').addEventListener('change', (e) => {
         pageSize = parseInt(e.target.value) || 0;
         currentPage = 1;
@@ -46,14 +54,15 @@ async function loadEmpresas() {
     try {
         const res = await fetch(`${API_BASE}/empresas`);
         const empresas = await res.json();
-        const sel = document.getElementById('selEmpresa');
-        sel.innerHTML = '<option value="">— Seleccionar —</option>';
+        const sel = document.getElementById('filterCia');
+        sel.innerHTML = ''; // Start clean without default option for Select2 multi
         empresas.forEach(e => {
             const opt = document.createElement('option');
             opt.value = e.codcia;
             opt.textContent = `${e.codcia} - ${e.nomcia}`;
             sel.appendChild(opt);
         });
+        $('#filterCia').trigger('change');
     } catch (err) {
         console.error('Error cargando empresas:', err);
     }
@@ -68,11 +77,12 @@ function setDefaultDates() {
 
 // ─── Generate Report ─────────────────────────────────────────────
 async function generateReport() {
-    const codcia = document.getElementById('selEmpresa').value;
+    const codciaArr = $('#filterCia').val();
+    const codcia = codciaArr ? codciaArr.join(',') : '';
     const fechaInicio = document.getElementById('fechaInicio').value;
     const fechaFin = document.getElementById('fechaFin').value;
 
-    if (!codcia) { alert('Seleccione una empresa.'); return; }
+    if (!codcia) { alert('Seleccione al menos una empresa.'); return; }
 
     showLoader(true);
 
@@ -83,8 +93,8 @@ async function generateReport() {
         const result = await res.json();
 
         reportData = result.data || [];
-        filteredData = [...reportData];
-
+        applyHomologacionToData(); // Applies aliases and updates filteredData
+        
         // Store empresa info for print/export
         window._empresa = result.empresa;
         window._fechas = { inicio: fechaInicio, fin: fechaFin };
@@ -96,6 +106,9 @@ async function generateReport() {
         const sumUrl = `${API_BASE}/summary?codcia=${codcia}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
         const sumRes = await fetch(sumUrl);
         summaryData = await sumRes.json();
+        
+        // Re-calculate vendors summary locally using aliases
+        recalcSummaryVendedor();
 
         // Show results
         document.getElementById('resultsContainer').style.display = 'block';
@@ -156,7 +169,7 @@ function applySearch() {
 function renderTable() {
     const tbody = document.getElementById('tableBody');
     const tfoot = document.getElementById('tableFoot');
-    const groupBy = document.getElementById('selGroupBy').value;
+    const groupBy = document.getElementById('selAgrupacion').value;
 
     let data = [...filteredData];
 
@@ -196,7 +209,7 @@ function renderTable() {
     const totalSaldo = filteredData.reduce((s, r) => s + (r.saldo || 0), 0);
     tfoot.innerHTML = `
         <tr class="total-row">
-            <td colspan="6" style="text-align:right; font-weight:700;">TOTALES (${filteredData.length} docs)</td>
+            <td colspan="7" style="text-align:right; font-weight:700;">TOTALES (${filteredData.length} docs)</td>
             <td class="text-right">${fmt(totalImporte)}</td>
             <td class="text-right">${fmt(totalActa)}</td>
             <td class="text-right" style="color:#ef4444;">${fmt(totalSaldo)}</td>
@@ -213,6 +226,7 @@ function renderRow(r) {
         ? '<span class="badge-doc badge-fact">FACT</span>'
         : '<span class="badge-doc badge-bole">BOLE</span>';
     return `<tr>
+        <td class="text-center" style="font-weight:600; color:var(--text-light);">${r.codcia || ''}</td>
         <td>${r.fchdoc || ''}</td>
         <td class="text-center">${docBadge}</td>
         <td>${r.serie || ''}</td>
@@ -222,7 +236,7 @@ function renderRow(r) {
         <td class="text-right">${fmt(r.imptot)}</td>
         <td class="text-right">${fmt(r.acta)}</td>
         <td class="text-right" style="color:#f87171; font-weight:600;">${fmt(r.saldo)}</td>
-        <td>${r.nomven || ''}</td>
+        <td>${r.vendedor_homologado || r.nomven || ''}</td>
         <td>${r.nompgo || ''}</td>
         <td>${r.nomsol || ''}</td>
     </tr>`;
@@ -252,7 +266,7 @@ function renderGroupedRows(allData, pageData, groupBy) {
         const gSaldo = items.reduce((s, r) => s + (r.saldo || 0), 0);
 
         html += `<tr style="background:rgba(99,102,241,0.08);">
-            <td colspan="6" style="font-weight:700; color:#818cf8; padding:0.6rem 0.75rem;">
+            <td colspan="7" style="font-weight:700; color:#818cf8; padding:0.6rem 0.75rem;">
                 <i class="fas fa-layer-group me-1" style="opacity:0.5;"></i> ${key}
                 <span style="font-weight:400; color:rgba(255,255,255,0.35); margin-left:8px;">(${items.length} docs)</span>
             </td>
@@ -277,7 +291,8 @@ function sortTable(col) {
     const th = document.querySelector(`#mainTable th[data-col="${col}"]`);
     if (th) {
         th.classList.add('sorted');
-        th.querySelector('.sort-icon i').className = sortAsc ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        const icon = th.querySelector('.sort-icon i');
+        if (icon) icon.className = sortAsc ? 'fas fa-sort-up' : 'fas fa-sort-down';
     }
 
     renderTable();
@@ -504,6 +519,60 @@ function showSummary(type, btn) {
     }
 }
 
+// ─── Export Helpers ─────────────────────────────────────────────
+function buildExportRows(format) {
+    const groupBy = document.getElementById('selAgrupacion').value;
+    const bodyRows = [];
+    
+    // Helper to format currency
+    const fVal = (val) => format === 'pdf' ? fmt(val) : val;
+    // Helper to format string length
+    const fStr = (str, len) => format === 'pdf' && str ? str.substring(0, len) : (str || '');
+
+    if (!groupBy) {
+        filteredData.forEach(r => {
+            bodyRows.push([
+                r.codcia, r.fchdoc, r.coddoc, r.serie, r.nrodoc, r.codaux,
+                fStr(r.nomaux, 30), fVal(r.imptot), fVal(r.acta), fVal(r.saldo),
+                fStr(r.vendedor_homologado || r.nomven, 18), fStr(r.nompgo, 15), fStr(r.nomsol, 15)
+            ]);
+        });
+    } else {
+        const groups = {};
+        filteredData.forEach(r => {
+            const key = r[groupBy] || '(Sin dato)';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(r);
+        });
+
+        const labelMap = {
+            'nomven': 'Vendedor', 'vendedor_homologado': 'Vendedor',
+            'nomaux': 'Cliente', 'nompgo': 'Forma Pago', 'tienda': 'Tienda',
+            'nomgru': 'Grupo', 'coddoc': 'Tipo Doc', 'nomsol': 'Tienda Rendición'
+        };
+        const labelName = labelMap[groupBy] || 'Grupo';
+
+        Object.keys(groups).sort().forEach(key => {
+            const items = groups[key];
+            const gImporte = items.reduce((s, r) => s + (r.imptot || 0), 0);
+            const gActa = items.reduce((s, r) => s + (r.acta || 0), 0);
+            const gSaldo = items.reduce((s, r) => s + (r.saldo || 0), 0);
+            
+            bodyRows.push([`── [ ${labelName}: ${key} ] ──`, '', '', '', '', `(${items.length} docs)`, '', fVal(gImporte), fVal(gActa), fVal(gSaldo), '', '', '']);
+            
+            items.forEach(r => {
+                bodyRows.push([
+                    r.codcia, r.fchdoc, r.coddoc, r.serie, r.nrodoc, r.codaux,
+                    fStr(r.nomaux, 30), fVal(r.imptot), fVal(r.acta), fVal(r.saldo),
+                    fStr(r.vendedor_homologado || r.nomven, 18), fStr(r.nompgo, 15), fStr(r.nomsol, 15)
+                ]);
+            });
+            bodyRows.push([]); // spacer row for separation
+        });
+    }
+    return bodyRows;
+}
+
 // ─── Export to Excel ─────────────────────────────────────────────
 function exportToExcel() {
     if (!filteredData.length) return alert('No hay datos para exportar.');
@@ -517,32 +586,28 @@ function exportToExcel() {
         ['SALDOS POR COBRAR'],
         [`Desde: ${fechas.inicio || ''}   Hasta: ${fechas.fin || ''}`],
         [],
-        ['FECHA', 'T.D.', 'SERIE', 'N° DOCUM.', 'CÓDIGO', 'NOMBRE DEL CLIENTE', 'IMPORTE', 'A CTA', 'SALDO', 'VENDEDOR', 'FORMA PAGO', 'TIENDA RENDICIÓN'],
+        ['EMPRESA', 'FECHA', 'T.D.', 'SERIE', 'N° DOCUM.', 'CÓDIGO', 'NOMBRE DEL CLIENTE', 'IMPORTE', 'A CTA', 'SALDO', 'VENDEDOR', 'FORMA PAGO', 'TIENDA RENDICIÓN'],
     ];
 
-    const dataRows = filteredData.map(r => [
-        r.fchdoc, r.coddoc, r.serie, r.nrodoc, r.codaux, r.nomaux,
-        r.imptot, r.acta, r.saldo, r.nomven, r.nompgo, r.nomsol,
-    ]);
+    const dataRows = buildExportRows('excel');
 
     // Totals
     const totalImporte = filteredData.reduce((s, r) => s + (r.imptot || 0), 0);
     const totalActa = filteredData.reduce((s, r) => s + (r.acta || 0), 0);
     const totalSaldo = filteredData.reduce((s, r) => s + (r.saldo || 0), 0);
-    dataRows.push([]);
-    dataRows.push(['', '', '', '', '', 'TOTALES', totalImporte, totalActa, totalSaldo, '', '', '']);
+    dataRows.push(['', '', '', '', '', 'TOTAL GENERAL', '', totalImporte, totalActa, totalSaldo, '', '', '']);
 
     const allRows = [...headerRows, ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(allRows);
 
     // Column widths
     ws['!cols'] = [
-        { wch: 12 }, { wch: 6 }, { wch: 6 }, { wch: 14 }, { wch: 14 }, { wch: 35 },
+        { wch: 8 }, { wch: 12 }, { wch: 6 }, { wch: 6 }, { wch: 14 }, { wch: 14 }, { wch: 35 },
         { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 22 }, { wch: 25 },
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Saldos por Cobrar');
+    XLSX.utils.book_append_sheet(wb, ws, 'Saldos_por_Cobrar');
     XLSX.writeFile(wb, `Saldos_Cobrar_${(empresa.codcia || 'ALL')}_${fechas.fin || 'report'}.xlsx`);
 }
 
@@ -559,7 +624,7 @@ function exportToPDF() {
     // Header
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(empresa.nomcia || 'YELAVE', 14, 15);
+    doc.text(empresa.nomcia || 'YELAVE (MULTI-EMPRESA)', 14, 15);
     doc.setFontSize(14);
     doc.text('SALDOS POR COBRAR', 148, 15, { align: 'center' });
     doc.setFontSize(8);
@@ -568,23 +633,43 @@ function exportToPDF() {
     doc.text(new Date().toLocaleDateString('es-PE'), 270, 15, { align: 'right' });
 
     // Table
-    const head = [['Fecha', 'T.D.', 'Serie', 'N° Doc.', 'Código', 'Nombre Cliente', 'Importe', 'A Cta', 'Saldo', 'Vendedor', 'F. Pago', 'Tienda']];
-    const body = filteredData.map(r => [
-        r.fchdoc, r.coddoc, r.serie, r.nrodoc, r.codaux,
-        (r.nomaux || '').substring(0, 30), fmt(r.imptot), fmt(r.acta), fmt(r.saldo),
-        r.nomven, (r.nompgo || '').substring(0, 18), (r.nomsol || '').substring(0, 18),
-    ]);
+    const head = [['Empresa', 'Fecha', 'T.D.', 'Serie', 'N° Doc.', 'Código', 'Nombre Cliente', 'Importe', 'A Cta', 'Saldo', 'Vendedor', 'F. Pago', 'Tienda']];
+    const body = buildExportRows('pdf');
 
     // Totals
     const totalImporte = filteredData.reduce((s, r) => s + (r.imptot || 0), 0);
     const totalActa = filteredData.reduce((s, r) => s + (r.acta || 0), 0);
     const totalSaldo = filteredData.reduce((s, r) => s + (r.saldo || 0), 0);
-    body.push(['', '', '', '', '', 'TOTALES', fmt(totalImporte), fmt(totalActa), fmt(totalSaldo), '', '', '']);
+    body.push(['', '', '', '', '', '', 'TOTAL GENERAL', fmt(totalImporte), fmt(totalActa), fmt(totalSaldo), '', '', '']);
 
     doc.autoTable({
         head,
         body,
         startY: 25,
+        theme: 'striped',
+        styles: { fontSize: 6, cellPadding: 1 },
+        columnStyles: {
+            7: { halign: 'right' },
+            8: { halign: 'right' },
+            9: { halign: 'right', textColor: [220, 38, 38], fontStyle: 'bold' } // bold red for Saldo
+        },
+        willDrawCell: function(data) {
+            if (data.row.section === 'body') {
+                const firstCell = String(data.row.raw[0] || '');
+                if (firstCell.startsWith('── [')) {
+                    doc.setFillColor(230, 230, 245);
+                    doc.setTextColor(50, 50, 150);
+                    doc.setFont('', 'bold');
+                } else if (firstCell === '') {
+                    // Check if it's the TOTAL GENERAL cell
+                    if (String(data.row.raw[6] || '') === 'TOTAL GENERAL') {
+                        doc.setFillColor(200, 200, 220);
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFont('', 'bold');
+                    }
+                }
+            }
+        },
         styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'ellipsize' },
         headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255], fontSize: 6, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [245, 245, 255] },
@@ -612,4 +697,128 @@ function exportToPDF() {
     }
 
     doc.save(`Saldos_Cobrar_${(empresa.codcia || 'ALL')}_${fechas.fin || 'report'}.pdf`);
+}
+
+// ─── Homologacion Vendedores (Persistencia Local) ─────────────────
+
+function loadHomologacion() {
+    try {
+        homologacionMap = JSON.parse(localStorage.getItem('ccb_homologacion_ven') || '{}');
+    } catch(e) {
+        homologacionMap = {};
+    }
+}
+
+function applyHomologacionToData() {
+    reportData.forEach(r => {
+        const orig = (r.nomven || '').trim();
+        r.vendedor_homologado = homologacionMap[orig] || orig || '(Sin Vendedor)';
+    });
+    filteredData = [...reportData];
+}
+
+function recalcSummaryVendedor() {
+    if (!summaryData) return;
+    
+    // Almacena origin_by_vendedor si aun no lo tenemos
+    if (!summaryData.raw_by_vendedor) {
+        summaryData.raw_by_vendedor = [...(summaryData.by_vendedor || [])];
+    }
+    
+    const grouped = {};
+    summaryData.raw_by_vendedor.forEach(item => {
+        const orig = (item.label || '').trim();
+        const alias = homologacionMap[orig] || orig || '(Sin Vendedor)';
+        
+        if (!grouped[alias]) {
+            grouped[alias] = { label: alias, saldo: 0, importe: 0, count: 0 };
+        }
+        grouped[alias].saldo += item.saldo || 0;
+        grouped[alias].importe += item.importe || 0;
+        grouped[alias].count += item.count || 0;
+    });
+    
+    // Sort combined alias descending
+    summaryData.by_vendedor = Object.values(grouped).sort((a,b) => b.saldo - a.saldo);
+}
+
+function openHomologacionModal() {
+    // Unicos desde TODOS los registros crudos cargados, no solo summary, para asegurar 100% de cruce
+    const unicos = [...new Set(reportData.map(r => (r.nomven || '').trim()))].filter(v => v);
+    unicos.sort();
+    
+    const tbody = document.getElementById('homologacionTbody');
+    if (unicos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No hay vendedores en los registros actuales. Debes generar un reporte primero.</td></tr>';
+    } else {
+        tbody.innerHTML = unicos.map(v => `
+            <tr>
+                <td style="font-size:0.85rem; color: #cbd5e1; font-weight:500;">
+                    ${v}
+                </td>
+                <td style="padding: 0.5rem;">
+                    <input type="text" class="form-control form-control-sm inp-homologacion" style="background: rgba(15,23,42,0.4); border-color:var(--border-dark); color:white;"
+                           data-orig="${v}" value="${homologacionMap[v] || ''}" 
+                           placeholder="Alias Unificado (Para unir)">
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    document.getElementById('homologacionModal').classList.add('active');
+}
+
+function closeHomologacionModal() {
+    document.getElementById('homologacionModal').classList.remove('active');
+}
+
+function saveHomologacion() {
+    const inputs = document.querySelectorAll('.inp-homologacion');
+    if(inputs.length === 0) {
+        closeHomologacionModal();
+        return;
+    }
+
+    // Preserve old mappings
+    let newMap = { ...homologacionMap };
+    
+    inputs.forEach(inp => {
+        const orig = inp.dataset.orig;
+        const alias = inp.value.trim();
+        if (alias) {
+            newMap[orig] = alias;
+        } else {
+            delete newMap[orig];
+        }
+    });
+    
+    homologacionMap = newMap;
+    localStorage.setItem('ccb_homologacion_ven', JSON.stringify(homologacionMap));
+    
+    Swal.fire({
+        background: '#1e293b',
+        color: '#fff',
+        icon: 'success',
+        title: '¡Guardado!',
+        text: 'La homologación se ha aplicado.',
+        timer: 1500,
+        showConfirmButton: false
+    });
+    
+    closeHomologacionModal();
+    
+    // Re-render
+    if (reportData.length > 0) {
+        applyHomologacionToData();
+        applySearch(); // triggers renderTable()
+        
+        recalcSummaryVendedor();
+        renderCharts();
+        
+        // Refresh summary pane if active
+        const btnActivo = document.querySelector('#pane-resumen .btn-glass.active');
+        if (btnActivo && btnActivo.textContent.includes('Vendedor')) {
+            showSummary('vendedor', btnActivo);
+        }
+    }
 }
