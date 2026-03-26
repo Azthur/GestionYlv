@@ -1,0 +1,2481 @@
+{
+    "AlmmMatg": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "desmat",
+            "type": "char",
+            "length": 200
+        },
+        {
+            "column": "glomat",
+            "type": "char",
+            "length": 200
+        },
+        {
+            "column": "codfam",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "codlin",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "codmar",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "undcmp",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "undstk",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "facequ",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stkcto",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stkmin",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stkrep",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stkmax",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stksub",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stkact",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vctomn",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vctous",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vctoeu",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "aftvta",
+            "type": "int",
+            "length": null
+        },
+        {
+            "column": "aftcmp",
+            "type": "int",
+            "length": null
+        },
+        {
+            "column": "ultsal",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "ultcmp",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "candes",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "candiv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ubica01",
+            "type": "char",
+            "length": 12
+        },
+        {
+            "column": "ubica02",
+            "type": "char",
+            "length": 12
+        },
+        {
+            "column": "prevt1",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "prevt2",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "prevt3",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "prevt4",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "prevt5",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "prevt6",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "pidltr",
+            "type": "int",
+            "length": null
+        },
+        {
+            "column": "aftigv",
+            "type": "int",
+            "length": null
+        },
+        {
+            "column": "foto",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "diame1",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "diame2",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "aftlote",
+            "type": "int",
+            "length": null
+        },
+        {
+            "column": "CodPro",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "NomPro",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "imagen",
+            "type": "image",
+            "length": 2147483647
+        }
+    ],
+    "AlmmMate": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "almcen",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "desmat",
+            "type": "char",
+            "length": 200
+        },
+        {
+            "column": "undstk",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "undvta",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "facequ",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stkini",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "stksub",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vinimn",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vinius",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vctomn",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vctous",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "vctoeu",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "fching",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "fchsal",
+            "type": "datetime",
+            "length": null
+        }
+    ],
+    "AlmAcmLt": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "almcen",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nrolote",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "desmat",
+            "type": "char",
+            "length": 200
+        },
+        {
+            "column": "undstk",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "candes",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "fchlote",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "AftVta",
+            "type": "int",
+            "length": null
+        }
+    ],
+    "ped_receta": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "ptovta",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "nrodoc",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "obs_rece",
+            "type": "char",
+            "length": 254
+        },
+        {
+            "column": "img_orig",
+            "type": "char",
+            "length": 254
+        },
+        {
+            "column": "img_dest",
+            "type": "char",
+            "length": 254
+        },
+        {
+            "column": "nom_arch",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "fecha_adj",
+            "type": "smalldatetime",
+            "length": null
+        },
+        {
+            "column": "medico",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "glosa",
+            "type": "char",
+            "length": 254
+        },
+        {
+            "column": "nro_rp",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "FECHA_rp",
+            "type": "smalldatetime",
+            "length": null
+        }
+    ],
+    "ped_docum": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "ptovta",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "nrodoc",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "aprobado",
+            "type": "bit",
+            "length": null
+        },
+        {
+            "column": "tipo_doc",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "obsv_doc",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "fecha_APR",
+            "type": "smalldatetime",
+            "length": null
+        }
+    ],
+    "almacen_dir": [
+        {
+            "column": "codalm",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "direc",
+            "type": "char",
+            "length": 200
+        }
+    ],
+    "usu_almacen": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "usu_pc",
+            "type": "char",
+            "length": 30
+        },
+        {
+            "column": "almcen",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "desalm",
+            "type": "char",
+            "length": 30
+        }
+    ],
+    "CcbNrDoc": [
+        {
+            "column": "CodCia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "CodDoc",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "Nombre",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "NroDoc",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "TpoMov",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "CtaNac",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "CtaUsa",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "CtaEur",
+            "type": "char",
+            "length": 8
+        }
+    ],
+    "CcbRGdoc": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "coddoc",
+            "type": "nchar",
+            "length": 4
+        },
+        {
+            "column": "nrodoc",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "tpodoc",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "fchdoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "diavto",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "fchvto",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "fchgui",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "fchped",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "mes",
+            "type": "char",
+            "length": 2
+        },
+        {
+            "column": "codaux",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nomaux",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "diraux",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "rucaux",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "NotAst",
+            "type": "char",
+            "length": 250
+        },
+        {
+            "column": "codmon",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "tpocmb",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "tpocmbe",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impbto",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impnet",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impseg",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impfte",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impotr",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "porigv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impigv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "imptot",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "sdodoc",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "tporef",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "codref",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nroref",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "nroped",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "nro_oc",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "fch_oc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "glodoc0",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "glodoc1",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "glodoc2",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "glodoc3",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "glodoc4",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "glodoc5",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "codnac",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codzon",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codpgo",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nompgo",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "codven",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nomven",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "porcom",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "coddep",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codpro",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "coddis",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "ptopar",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "ptolle",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "tramo01",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "tramo02",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "tramo03",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "codtra",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nomtra",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "dirtra",
+            "type": "char",
+            "length": 180
+        },
+        {
+            "column": "ructra",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nomcho",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "nrovehi",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nrobre",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "cerins",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "marca",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "peraut",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "dni",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nromes",
+            "type": "char",
+            "length": 2
+        },
+        {
+            "column": "codope",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nroast",
+            "type": "char",
+            "length": 9
+        },
+        {
+            "column": "tpofac",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "tpocta",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "hraimp",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "usuario",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "flgest",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "flgubc",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "flgsit",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "nropla",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "CodCta",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "NroUni",
+            "type": "char",
+            "length": 30
+        },
+        {
+            "column": "fchubc",
+            "type": "datetime",
+            "length": null
+        }
+    ],
+    "VtaTdocm": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "coddoc",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nombre",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "ptovta",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "almacen",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nrodoc",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ctasol",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "ctadol",
+            "type": "char",
+            "length": 8
+        }
+    ],
+    "LOCDESTINO": [
+        {
+            "column": "CODCIA",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "CODloca",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "DESloca",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "CTA_DES",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "COD_ENCAR",
+            "type": "char",
+            "length": 11
+        },
+        {
+            "column": "ENCAR_LIQ",
+            "type": "char",
+            "length": 70
+        },
+        {
+            "column": "fecha_CREA",
+            "type": "smalldatetime",
+            "length": null
+        },
+        {
+            "column": "fecha_MODI",
+            "type": "smalldatetime",
+            "length": null
+        },
+        {
+            "column": "USU_CREA",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "USU_MODI",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "CTA10",
+            "type": "char",
+            "length": 10
+        }
+    ],
+    "CmpLogin": [
+        {
+            "column": "login",
+            "type": "nchar",
+            "length": 15
+        },
+        {
+            "column": "password",
+            "type": "nchar",
+            "length": 15
+        },
+        {
+            "column": "monto01",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "monto02",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "fleEst",
+            "type": "char",
+            "length": 1
+        }
+    ],
+    "Adm_Lock": [
+        {
+            "column": "Login",
+            "type": "nchar",
+            "length": 15
+        },
+        {
+            "column": "Modulo",
+            "type": "nchar",
+            "length": 3
+        },
+        {
+            "column": "Tipo",
+            "type": "nchar",
+            "length": 2
+        },
+        {
+            "column": "Accesos",
+            "type": "nchar",
+            "length": 4
+        }
+    ],
+    "CmpROcom": [
+        {
+            "column": "CodCia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "Anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "NroDoc",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "TipoOc",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "NroItm",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "FchDoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "NroReq",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "CodAux",
+            "type": "varchar",
+            "length": 18
+        },
+        {
+            "column": "CodMat",
+            "type": "varchar",
+            "length": 18
+        },
+        {
+            "column": "DesMat",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "UndStk",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "Nota01",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota02",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota03",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota04",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota05",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota06",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota07",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota08",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota09",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota10",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota11",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota12",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota13",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota14",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota15",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Nota16",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "CanDes",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "PreUni",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "D1",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "D2",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "D3",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "PorIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpTot",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "FlgEst",
+            "type": "varchar",
+            "length": 1
+        }
+    ],
+    "localgas": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "codcgas",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "codloca",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "item",
+            "type": "smallint",
+            "length": null
+        },
+        {
+            "column": "codusu",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "fec_reg",
+            "type": "datetime",
+            "length": null
+        }
+    ],
+    "ORDEN_LOTES": [
+        {
+            "column": "NROGUIA",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "NROFACT",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "codusu",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "fec_reg",
+            "type": "datetime",
+            "length": null
+        }
+    ],
+    "CmpDRequ": [
+        {
+            "column": "Codcia",
+            "type": "varchar",
+            "length": 3
+        },
+        {
+            "column": "Anos",
+            "type": "varchar",
+            "length": 4
+        },
+        {
+            "column": "nrodoc",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "nroitm",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "fchdoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "Codmat",
+            "type": "varchar",
+            "length": 18
+        },
+        {
+            "column": "DesMat",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "UndStk",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "Stock",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "Glodoc",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "glodoc1",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "glodoc2",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Sema01",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "Sema02",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "Sema03",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "Sema04",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "MesTot",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpTot",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "PreUni",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "D1",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "D2",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "D3",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "PorIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpNet",
+            "type": "numeric",
+            "length": null
+        }
+    ],
+    "formula": [
+        {
+            "column": "codlin",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "deslin",
+            "type": "char",
+            "length": 80
+        },
+        {
+            "column": "canprod",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "obsprod",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "NOMPROD",
+            "type": "char",
+            "length": 80
+        }
+    ],
+    "CmpVOcom": [
+        {
+            "column": "CodCia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "Anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "NroDoc",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "TipoOc",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "Fchdoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "tpooc",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "NroReq",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "CodAux",
+            "type": "varchar",
+            "length": 18
+        },
+        {
+            "column": "NomAux",
+            "type": "varchar",
+            "length": 200
+        },
+        {
+            "column": "DirAux",
+            "type": "varchar",
+            "length": 200
+        },
+        {
+            "column": "TlfAux",
+            "type": "varchar",
+            "length": 20
+        },
+        {
+            "column": "GloDoc",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "LugEnt",
+            "type": "varchar",
+            "length": 200
+        },
+        {
+            "column": "TmpEnt",
+            "type": "varchar",
+            "length": 200
+        },
+        {
+            "column": "Entrega",
+            "type": "varchar",
+            "length": 200
+        },
+        {
+            "column": "RucAux",
+            "type": "varchar",
+            "length": 20
+        },
+        {
+            "column": "Contacto",
+            "type": "varchar",
+            "length": 100
+        },
+        {
+            "column": "Fax",
+            "type": "varchar",
+            "length": 20
+        },
+        {
+            "column": "CodDep",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "NomDep",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "CodCom",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "NomCom",
+            "type": "varchar",
+            "length": 100
+        },
+        {
+            "column": "fmaPag",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "DesPag",
+            "type": "varchar",
+            "length": 100
+        },
+        {
+            "column": "candia",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "CodMon",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "TpoCmb",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "porIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpNet",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpTot",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpPer",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "usuario",
+            "type": "varchar",
+            "length": 15
+        },
+        {
+            "column": "digita",
+            "type": "varchar",
+            "length": 15
+        },
+        {
+            "column": "FlgEst",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "FlgApr",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "jmodi",
+            "type": "decimal",
+            "length": null
+        }
+    ],
+    "CmpVRequ": [
+        {
+            "column": "codcia",
+            "type": "varchar",
+            "length": 3
+        },
+        {
+            "column": "Anos",
+            "type": "varchar",
+            "length": 4
+        },
+        {
+            "column": "nrodoc",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "fchdoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "Glodoc0",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Glodoc",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "CodUbi",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "DesUbi",
+            "type": "varchar",
+            "length": 100
+        },
+        {
+            "column": "TpoPed",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "NomPed",
+            "type": "varchar",
+            "length": 100
+        },
+        {
+            "column": "TpoArt",
+            "type": "varchar",
+            "length": 5
+        },
+        {
+            "column": "NomArt",
+            "type": "varchar",
+            "length": 100
+        },
+        {
+            "column": "NroSol",
+            "type": "varchar",
+            "length": 20
+        },
+        {
+            "column": "CodDep",
+            "type": "varchar",
+            "length": 8
+        },
+        {
+            "column": "NomDep",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Usuario",
+            "type": "varchar",
+            "length": 15
+        },
+        {
+            "column": "Digita",
+            "type": "varchar",
+            "length": 15
+        },
+        {
+            "column": "CodMon",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "PorIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpBto",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpIgv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "ImpNet",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "flgest",
+            "type": "char",
+            "length": 1
+        }
+    ],
+    "dformula": [
+        {
+            "column": "codlin",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "desmat",
+            "type": "char",
+            "length": 80
+        },
+        {
+            "column": "undstk",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "porpar",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "canpar",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "ITM",
+            "type": "smallint",
+            "length": null
+        }
+    ],
+    "PROCESOS": [
+        {
+            "column": "CODPROC",
+            "type": "char",
+            "length": 2
+        },
+        {
+            "column": "DESPROC",
+            "type": "char",
+            "length": 40
+        }
+    ],
+    "DFORMULAP": [
+        {
+            "column": "CODLIN",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "CODPROC",
+            "type": "char",
+            "length": 2
+        },
+        {
+            "column": "DESPROC",
+            "type": "char",
+            "length": 40
+        },
+        {
+            "column": "PORPAR",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "ITM",
+            "type": "smallint",
+            "length": null
+        }
+    ],
+    "CcbRRdoc": [
+        {
+            "column": "CodCia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "Anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "TpoDoc",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "CodDoc",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "NroDoc",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "Codigo",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "Nombre",
+            "type": "char",
+            "length": 100
+        },
+        {
+            "column": "GloDoc0",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "GloDoc1",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "GloDoc2",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "GloDoc3",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "GloDoc4",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "Import",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "AftMov",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "FlgEst",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "CodCta",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "NomCta",
+            "type": "char",
+            "length": 100
+        }
+    ],
+    "AlmNdocm": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "almcen",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "tipmov",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "codmov",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "desmov",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "nrodoc",
+            "type": "numeric",
+            "length": null
+        }
+    ],
+    "CmpMenus": [
+        {
+            "column": "orden",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "nombre",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "comando",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "shortcut",
+            "type": "nchar",
+            "length": 10
+        },
+        {
+            "column": "nivel",
+            "type": "numeric",
+            "length": null
+        }
+    ],
+    "formula_corp": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "KGPROD",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "obsprod",
+            "type": "char",
+            "length": 100
+        }
+    ],
+    "dformula_corp": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "codmat_mp",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "desmat_mp",
+            "type": "char",
+            "length": 80
+        },
+        {
+            "column": "undstk",
+            "type": "char",
+            "length": 15
+        },
+        {
+            "column": "porpar",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "canpar",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "ITM",
+            "type": "smallint",
+            "length": null
+        }
+    ],
+    "CmpMArti": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "codpro",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "despro",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "rucpro",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "desmat",
+            "type": "char",
+            "length": 150
+        },
+        {
+            "column": "undstk",
+            "type": "char",
+            "length": 4
+        }
+    ],
+    "VtaVPedi": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "ptovta",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "nrodoc",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "nro_ori",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "fchdoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "codaux",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nomaux",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "diraux",
+            "type": "varchar",
+            "length": 180
+        },
+        {
+            "column": "ruccli",
+            "type": "char",
+            "length": 18
+        },
+        {
+            "column": "nro_oc",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "fch_oc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "Codsol",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "NomSol",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "codpgo",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "cndpgo",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "diavto",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "codmon",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "tpocmb",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "tpocmbe",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "gloref",
+            "type": "char",
+            "length": 250
+        },
+        {
+            "column": "codnac",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codzon",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codven",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "coddep",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "codpro",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "coddis",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "almcen",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "fchrec",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "horrec",
+            "type": "varchar",
+            "length": 10
+        },
+        {
+            "column": "porigv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impbto",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impigv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impnet",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impfob",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impfte",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impotr",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "tpoped",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "usuario",
+            "type": "varchar",
+            "length": 15
+        },
+        {
+            "column": "flgest",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "nrocot",
+            "type": "char",
+            "length": 10
+        },
+        {
+            "column": "fchapro",
+            "type": "datetime",
+            "length": null
+        }
+    ],
+    "VtaRPedi": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "anos",
+            "type": "char",
+            "length": 4
+        },
+        {
+            "column": "ptovta",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "nrodoc",
+            "type": "char",
+            "length": 8
+        },
+        {
+            "column": "nroitm",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "fchdoc",
+            "type": "datetime",
+            "length": null
+        },
+        {
+            "column": "codmat",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "desmat",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "nota01",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "nota02",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "nota03",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "nota04",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "nota05",
+            "type": "varchar",
+            "length": 150
+        },
+        {
+            "column": "undvta",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "facequ",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "dato01",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "dato11",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "dato02",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "dato22",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "dato03",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "dato33",
+            "type": "char",
+            "length": 50
+        },
+        {
+            "column": "preuni",
+            "type": "decimal",
+            "length": null
+        },
+        {
+            "column": "candes",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "d1",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "d2",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "d3",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "impigv",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "implin",
+            "type": "numeric",
+            "length": null
+        },
+        {
+            "column": "flgest",
+            "type": "char",
+            "length": 1
+        },
+        {
+            "column": "nrolote",
+            "type": "char",
+            "length": 20
+        },
+        {
+            "column": "fchlote",
+            "type": "datetime",
+            "length": null
+        }
+    ],
+    "local_series": [
+        {
+            "column": "codcia",
+            "type": "char",
+            "length": 3
+        },
+        {
+            "column": "CODloca",
+            "type": "char",
+            "length": 5
+        },
+        {
+            "column": "serie",
+            "type": "char",
+            "length": 3
+        }
+    ]
+}

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Centro Logístico</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    
+    <style>
+        .filter-bar {
+            display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+            background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        
+        .tabs-header {
+            display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem; overflow-x: auto;
+        }
+        .tab-btn {
+            background: none; border: none; padding: 0.75rem 1.5rem; font-family: 'Outfit', sans-serif;
+            font-weight: 600; font-size: 0.9rem; color: var(--text-muted); cursor: pointer;
+            border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(37, 99, 235, 0.05); }
+        
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .dashboard-kpi-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
+        }
+        .kpi-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid var(--border); padding: 1.5rem; border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); backdrop-filter: blur(10px);
+        }
+        .kpi-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; }
+        .kpi-value { font-size: 2rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--primary); margin-top: 0.5rem; }
+
+        .btn-action {
+            display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem;
+            background: var(--primary); color: #fff; border: none; border-radius: 6px;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
+        }
+        .btn-action:hover { background: #1d4ed8; }
+        .btn-action.secondary { background: #64748b; }
+        .btn-action.secondary:hover { background: #475569; }
+        .btn-action.success { background: #10b981; }
+        .btn-action.success:hover { background: #059669; }
+        .btn-action.danger { background: #ef4444; }
+        .btn-action.danger:hover { background: #dc2626; }
+
+        /* form groups */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-secondary); }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 0.6rem; border: 1px solid var(--border-dark); border-radius: 6px; font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <aside class="sidebar" id="sidebar">
+            <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
+            <nav class="nav-menu">
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>Dashboard
+                </a>
+                <a href="/logistics.html" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>Centro Logístico
+                </a>
+                <a href="/orders.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>Compras (Legacy)
+                </a>
+                <a href="/production.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>Producción y Costos
+                </a>
+                <a href="/reparto.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>Reparto y Rutas
+                </a>
+                <a href="/kardex.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>Reportes Kardex
+                </a>
+                <a href="/conciliacion.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>Finanzas (Conciliación)
+                </a>
+                <a href="/db-config.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>Mantenimiento BD
+                </a>
+            </nav>
+            <div class="user-profile">
+                <a href="/profile.html" style="text-decoration:none; display:flex; align-items:center; gap:0.75rem; flex:1;">
+                    <div class="avatar"><img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" alt="User Avatar" id="userAvatar"></div>
+                    <div class="user-info">
+                        <span class="user-name" id="userNameDisplay">Usuario</span>
+                        <span class="user-role" id="userRoleDisplay">Cargando...</span>
+                    </div>
+                </a>
+                <button onclick="logout()" title="Cerrar sesión" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div>
+                        <h2>Centro Logístico</h2>
+                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Gestión Integral de Módulos Operativos</p>
+                    </div>
+                </div>
+            </header>
+
+            <section class="content fade-in" style="max-width: 100%;">
+                
+                <div class="dashboard-kpi-grid" id="kpiContainer">
+                    <div class="kpi-card"><div class="kpi-title">Req. Pendientes</div><div class="kpi-value" id="kpiReq">...</div></div>
+                    <div class="kpi-card"><div class="kpi-title">Órdenes Pendientes</div><div class="kpi-value" id="kpiOc">...</div></div>
+                    <div class="kpi-card"><div class="kpi-title">Items Stock Crítico</div><div class="kpi-value" id="kpiCrit" style="color: #ef4444;">...</div></div>
+                    <div class="kpi-card"><div class="kpi-title">Fórmulas Activas</div><div class="kpi-value" id="kpiForm">...</div></div>
+                </div>
+
+                <div class="card glass-panel" style="padding: 0;">
+                    <div class="tabs-header" id="logisticsTabs" style="padding: 1rem 1rem 0 1rem; margin-bottom: 0;">
+                        <button class="tab-btn active" data-target="tab-requerimientos">Requerimientos</button>
+                        <button class="tab-btn" data-target="tab-calculo">Motor de Cálculo</button>
+                        <button class="tab-btn" data-target="tab-cotizaciones">Cotizaciones</button>
+                        <button class="tab-btn" data-target="tab-aprobaciones">Aprobaciones</button>
+                        <button class="tab-btn" data-target="tab-kardex">Kardex</button>
+                        <button class="tab-btn" data-target="tab-calidad">Calidad (QC)</button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-requerimientos" style="padding: 1.5rem;">
+                        <table id="tableRequerimientos" class="display nowrap" style="width:100%">
+                            <thead><tr><th>Nro Doc</th><th>Fecha</th><th>Glosa</th><th>Pedido</th><th>Usuario</th><th>Estado</th><th>Acción</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="tab-content" id="tab-calculo" style="padding: 1.5rem;">
+                        <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem;">
+                            <div class="form-group" style="margin:0; flex:1;">
+                                <label>Seleccionar Fórmula Base *</label>
+                                <select id="calcFormulaSelect">
+                                    <option value="">Cargando fórmulas...</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex:1;">
+                                <label>Cantidad a Producir (Lts/Kg) *</label>
+                                <input type="number" id="calcQty" min="1" value="100">
+                            </div>
+                            <button class="btn-action" onclick="runCalculationEngine()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                Ejecutar Motor
+                            </button>
+                        </div>
+                        
+                        <div id="calcResults" style="display:none;">
+                            <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Análisis de Necesidades</h4>
+                            <table class="display nowrap" style="width:100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background:#f1f5f9; text-align:left;">
+                                        <th style="padding: 0.75rem;">Código</th>
+                                        <th style="padding: 0.75rem;">Material</th>
+                                        <th style="padding: 0.75rem;">Stock Actual</th>
+                                        <th style="padding: 0.75rem;">Req. Producción</th>
+                                        <th style="padding: 0.75rem; color:#ef4444;">Faltante a Comprar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="calcResultsBody"></tbody>
+                            </table>
+                            <div style="margin-top: 1.5rem; text-align: right;">
+                                <button class="btn-action success" onclick="openCreateQuoteFromCalc()">Generar Cotización por Faltantes</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-cotizaciones" style="padding: 1.5rem;">
+                        <div style="margin-bottom: 1rem; text-align: right;">
+                            <button class="btn-action success" onclick="openNewQuoteModal()">+ Nueva Cotización</button>
+                        </div>
+                        <table id="tableCotizaciones" class="display nowrap" style="width:100%">
+                            <thead><tr><th>ID</th><th>Nro Doc</th><th>Fecha</th><th>RUC Proveedor</th><th>Proveedor</th><th>Total</th><th>Estado</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="tab-content" id="tab-aprobaciones" style="padding: 1.5rem;">
+                        <table id="tableAprobaciones" class="display nowrap" style="width:100%">
+                            <thead><tr><th>Fecha</th><th>Tipo Doc</th><th>ID Doc</th><th>Nivel</th><th>Estado</th><th>Usuario</th><th>Comentario</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="tab-content" id="tab-kardex" style="padding: 1.5rem;">
+                        <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem;">
+                            <div class="form-group" style="margin:0; flex:1;">
+                                <label>Código de Material *</label>
+                                <input type="text" id="kardexCodMat" placeholder="Ej. MP000000001">
+                            </div>
+                            <button class="btn-action" onclick="loadKardex()">Generar Kardex</button>
+                        </div>
+                        
+                        <div id="kardexResults" style="display:none;">
+                            <div class="kpi-card" style="display:inline-block; margin-bottom: 1.5rem; padding: 1rem 2rem;">
+                                <div class="kpi-title">Stock Físico Actual Limitado</div>
+                                <div class="kpi-value" id="kardexStockVal" style="font-size: 1.5rem;">0.00</div>
+                            </div>
+                            <table id="tableKardex" class="display nowrap" style="width:100%">
+                                <thead><tr><th>Fecha</th><th>Movimiento</th><th>Nro Doc</th><th>Cantidad</th><th>Precio Unit</th><th>Total</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-calidad" style="padding: 1.5rem;">
+                        <div style="margin-bottom: 1rem; text-align: right;">
+                            <button class="btn-action" onclick="openNewQcModal()">+ Registrar Control Calidad</button>
+                        </div>
+                        <table id="tableQC" class="display nowrap" style="width:100%">
+                            <thead><tr><th>ID</th><th>Nro Lote</th><th>Cod. Material</th><th>Fecha Eval</th><th>Estado</th><th>Usuario</th><th>Comentario</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals for Logistics -->
+
+    <!-- Modal: Requerimiento Detalles -->
+    <div class="modal-overlay" id="reqModal">
+        <div class="modal glass-modal" style="max-width:800px; width:95%;">
+            <div class="modal-header">
+                <h3 id="reqModalTitle">Detalle de Requerimiento</h3>
+                <button class="close-btn" onclick="closeReqModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <div class="modal-body table-responsive">
+                <table class="display nowrap" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead><tr style="background:#f1f5f9; text-align:left;"><th>Item</th><th>Cod Mat</th><th>Descripción</th><th>Unid</th><th>Stock</th><th>Cantidad Req</th></tr></thead>
+                    <tbody id="reqModalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- jQuery + DataTables -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="app.js"></script>
+    <script src="logistics.js"></script>
+</body>
+</html>

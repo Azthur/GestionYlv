@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Conciliación Bancaria</title>
+    <meta name="description" content="Módulo de Conciliación Bancaria para Control Interno - YELAVE ERP">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=4.5">
+    <link rel="stylesheet" href="conciliacion.css?v=4.5">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Mobile Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- Sidebar Menu -->
+        <aside class="sidebar" id="sidebar">
+            <button class="sidebar-toggle" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Colapsar menú">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+            <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
+            <nav class="nav-menu">
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>Dashboard
+                </a>
+                <a href="/logistics.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>Centro Logístico
+                </a>
+                <a href="/orders.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>Compras (Legacy)
+                </a>
+                <a href="/production.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>Producción y Costos
+                </a>
+                <a href="/reparto.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>Reparto y Rutas
+                </a>
+                <a href="/kardex.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>Reportes Kardex
+                </a>
+                <a href="/conciliacion.html" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>Finanzas (Conciliación)
+                </a>
+                <a href="/db-config.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>Mantenimiento BD
+                </a>
+            </nav>
+            <div class="user-profile">
+                <a href="/profile.html" style="text-decoration:none; display:flex; align-items:center; gap:0.75rem; flex:1;">
+                    <div class="avatar"><img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" alt="User Avatar" id="userAvatar"></div>
+                    <div class="user-info">
+                        <span class="user-name" id="userNameDisplay">Usuario</span>
+                        <span class="user-role" id="userRoleDisplay">Cargando...</span>
+                    </div>
+                </a>
+                <button onclick="logout()" title="Cerrar sesión" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div>
+                        <h2>Conciliación Bancaria</h2>
+                        <p class="top-bar-subtitle">Control Interno · Finanzas</p>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-outline" id="btnAutoMatch" onclick="runAutoMatch()" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        Conciliación Automática
+                    </button>
+                    <button class="btn btn-primary" id="btnManualMatch" onclick="matchSelected()" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                        Conciliar Seleccionados
+                    </button>
+                </div>
+            </header>
+
+            <section class="content fade-in">
+                <!-- Filters Bar -->
+                <div class="filters-bar glass-panel">
+                    <div class="filter-group">
+                        <label>Empresa</label>
+                        <select id="selectEmpresa" onchange="onEmpresaChange()">
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Banco</label>
+                        <select id="selectBanco" onchange="onBancoChange()" disabled>
+                            <option value="">Seleccione empresa primero</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Año</label>
+                        <select id="selectYear" onchange="loadData()">
+                            <option value="">Todos los años</option>
+                            <option value="2027">2027</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Mes</label>
+                        <select id="selectMonth" onchange="loadData()">
+                            <option value="">Todos los meses</option>
+                            <option value="01">Enero</option>
+                            <option value="02">Febrero</option>
+                            <option value="03">Marzo</option>
+                            <option value="04">Abril</option>
+                            <option value="05">Mayo</option>
+                            <option value="06">Junio</option>
+                            <option value="07">Julio</option>
+                            <option value="08">Agosto</option>
+                            <option value="09">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadData()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        Consultar
+                    </button>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="cards-grid summary-cards" id="summaryCards">
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon primary">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                                <line x1="2" y1="10" x2="22" y2="10"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Movimientos Banco</h3>
+                            <div class="stat-value" id="statTotalMov">0</div>
+                            <div class="stat-trend neutral" id="statTotalMonto">0.00</div>
+                        </div>
+                    </div>
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon success">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Conciliados</h3>
+                            <div class="stat-value" id="statMatched">0</div>
+                            <div class="stat-trend positive" id="statMatchedMonto">0.00</div>
+                        </div>
+                    </div>
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon warning">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Pendientes</h3>
+                            <div class="stat-value" id="statPending">0</div>
+                            <div class="stat-trend negative" id="statPendingMonto">0.00</div>
+                        </div>
+                    </div>
+                    <div class="card stat-card glass-panel">
+                        <div class="stat-icon info">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3>% Conciliado</h3>
+                            <div class="stat-value" id="statPercent">0%</div>
+                            <div class="stat-trend neutral">Avance</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Area moved to Movimientos de Banco tab -->
+
+                <!-- Tabs Header -->
+                <div class="tabs-header fade-in">
+                    <button class="tab-btn active" id="btn-tab-cruce" onclick="switchTab('tab-cruce')">Cruce y Conciliación</button>
+                    <button class="tab-btn" id="btn-tab-banco" onclick="switchTab('tab-banco')">Movimientos de Banco</button>
+                    <button class="tab-btn" id="btn-tab-todas" onclick="switchTab('tab-todas')">Todas las Cobranzas</button>
+                    <button class="tab-btn" id="btn-tab-conciliados" onclick="switchTab('tab-conciliados')">Conciliados (Resumen)</button>
+                    <button class="tab-btn" id="btn-tab-reglas" onclick="switchTab('tab-reglas')">Reglas de Limpieza</button>
+                    <button class="tab-btn" id="btn-tab-ajustes" onclick="switchTab('tab-ajustes')">Ajustes Avanzados</button>
+                </div>
+
+                <div class="tab-content active fade-in" id="tab-cruce">
+                <!-- Split Panel: Bank Movements vs Cobranzas -->
+                <div class="split-panel">
+                    <!-- Left: Bank Movements -->
+                    <div class="card table-container glass-panel split-left">
+                        <div class="table-header">
+                            <h3>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                                    <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                                    <line x1="2" y1="10" x2="22" y2="10"></line>
+                                </svg>
+                                Movimientos Bancarios
+                            </h3>
+                            <div class="table-actions">
+                                <select id="filterEstadoBanco" onchange="filterBankTable()" class="filter-select">
+                                    <option value="">Todos</option>
+                                    <option value="Pendiente">Pendientes</option>
+                                    <option value="Conciliado">Conciliados</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-responsive custom-scrollbar">
+                            <table class="data-table" id="tableBankMov">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" id="checkAllBank" onchange="toggleAllBank()"></th>
+                                        <th>Fecha</th>
+                                        <th>Descripción</th>
+                                        <th>Monto</th>
+                                        <th>Op. Manual</th>
+                                        <th>OP Cancel.</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyBank">
+                                    <tr>
+                                        <td colspan="7" class="loading-state empty-state">Seleccione empresa y banco,
+                                            luego importe movimientos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Cobranzas -->
+                    <div class="card table-container glass-panel split-right">
+                        <div class="table-header">
+                            <h3>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                </svg>
+                                Cobranzas del Sistema
+                            </h3>
+                            <div class="table-actions">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="checkCrossCompany" onchange="loadData()">
+                                    Cross-Company
+                                </label>
+                            </div>
+                        </div>
+                        <div class="table-responsive custom-scrollbar">
+                            <table class="data-table" id="tableCobranzas">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" id="checkAllCob" onchange="toggleAllCob()"></th>
+                                        <th>Empresa</th>
+                                        <th>Doc</th>
+                                        <th>Nro Doc</th>
+                                        <th>Cliente</th>
+                                        <th>Importe</th>
+                                        <th>NroDep</th>
+                                        <th>Fecha Dep</th>
+                                        <th>Codref</th>
+                                        <th>Nroref</th>
+                                        <th>Tpopgo</th>
+                                        <th>CodDep</th>
+                                        <th>CodCom</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyCob">
+                                    <tr>
+                                        <td colspan="13" class="loading-state empty-state">Las cobranzas se cargarán al
+                                            consultar</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-bar fade-in" style="display: flex; gap: 1rem; margin-top: 1rem; align-items: center; flex-wrap: wrap;">
+                    <button class="btn btn-primary" id="btnAutoMatch" onclick="runAutoMatch()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Conciliación Automática
+                    </button>
+                    <button class="btn btn-primary" id="btnManualMatch" onclick="runManualMatch()" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
+                        Conciliar Seleccionados
+                    </button>
+                    <button class="btn btn-secondary" onclick="unmatchSelected()" style="background-color: var(--danger-color); color: white; border: none;">
+                        Deshacer Match
+                    </button>
+                </div>
+                </div> <!-- End tab-cruce -->
+
+                <!-- TAB 2: Todas las Cobranzas -->
+                <div class="tab-content fade-in" id="tab-todas">
+                    <div class="card table-container glass-panel">
+                        <div class="table-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                            <h3>Cancelación de Documentos (Cobranzas)</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <!-- Filter Buttons -->
+                                <div class="btn-group" style="display:flex; gap:2px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
+                                    <button class="btn-filter active" data-filter="todos" onclick="filterCobranzas('todos', this)">Todos</button>
+                                    <button class="btn-filter" data-filter="pendiente" onclick="filterCobranzas('pendiente', this)">Pendientes</button>
+                                    <button class="btn-filter" data-filter="conciliado" onclick="filterCobranzas('conciliado', this)">Conciliados</button>
+                                </div>
+                                <!-- Cross-Company Toggle -->
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer; padding:0.4rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:#fff;">
+                                    <input type="checkbox" id="chkCrossCompanyTodas" onchange="loadAllCobranzas()" style="accent-color:var(--primary);">
+                                    Cross-Company
+                                </label>
+                                <button class="btn btn-outline" onclick="openReport()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    Ver Reporte
+                                </button>
+                                <button class="btn btn-primary" onclick="exportToExcel('tableTodasCobranzas', 'Reporte_Cobranzas')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                    Exportar Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive custom-scrollbar">
+                            <table class="data-table" id="tableTodasCobranzas">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;" class="sticky-col">Acc.</th>
+                                        <th class="sticky-col">Estado</th>
+                                        <th>ID</th>
+                                        <th>CodCia</th>
+                                        <th>anos</th>
+                                        <th>mes</th>
+                                        <th>coddoc</th>
+                                        <th>nrodoc</th>
+                                        <th>tpodoc</th>
+                                        <th>fchdoc</th>
+                                        <th>codaux</th>
+                                        <th>NomAux</th>
+                                        <th>codven</th>
+                                        <th>nomven</th>
+                                        <th>codref</th>
+                                        <th>nroref</th>
+                                        <th>import</th>
+                                        <th>glodoc</th>
+                                        <th>fmapgo</th>
+                                        <th>CodDep</th>
+                                        <th>NroDep</th>
+                                        <th>fchDep</th>
+                                        <th>tpopgo</th>
+                                        <th>Dcmpgo</th>
+                                        <th>CodCom</th>
+                                        <th>usuario</th>
+                                        <th>FlgEst</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyTodasCobranzas">
+                                    <tr><td colspan="27" class="loading-state empty-state">Cargando reporte de cobranzas...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: Movimientos de Banco -->
+                <div class="tab-content fade-in" id="tab-banco">
+                    <div class="glass-panel" style="padding: 1.5rem; border-radius: 12px; background: white; margin-top: 1rem;">
+                        <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <h3 style="font-size: 1.1rem; color: #1e293b; margin-bottom: 0.25rem;">Movimientos de Banco</h3>
+                                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">Listado histórico de todos los abonos en cuenta registrados desde Excel.</p>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <div class="btn-group" style="display:flex; gap:2px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
+                                    <button class="btn-filter btn-filter-banco active" data-filter="" onclick="filterMovimientosBanco('', this)">Todos</button>
+                                    <button class="btn-filter btn-filter-banco" data-filter="Pendiente" onclick="filterMovimientosBanco('Pendiente', this)">Pendientes</button>
+                                    <button class="btn-filter btn-filter-banco" data-filter="Conciliado" onclick="filterMovimientosBanco('Conciliado', this)">Conciliados</button>
+                                </div>
+                                <button class="btn btn-outline" onclick="downloadBankTemplate()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    Formato Excel
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload & Actions Area Inside Tab Banco (Compact) -->
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: stretch; flex-wrap: wrap;">
+                            <div class="card glass-panel upload-section" id="uploadSection" style="flex: 1; min-width: 300px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 1rem;">
+                                <div class="upload-area-compact" id="dropZone" style="display: flex; align-items: center; justify-content: center; gap: 1rem; cursor: pointer; border-radius: 8px; transition: background 0.2s; padding: 0.5rem;">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--primary);">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                    <div style="text-align: left;">
+                                        <h3 style="font-size: 0.95rem; margin: 0 0 0.2rem 0; color: #1e293b; font-weight: 600;">Importar Estado de Cuenta</h3>
+                                        <p style="margin: 0; font-size: 0.75rem; color: #64748b;">Arrastra tu Excel aquí o haz clic. Si el ID del Banco coincide, se actualizarán los datos (Upsert).</p>
+                                    </div>
+                                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
+                                </div>
+                                <div class="upload-progress" id="uploadProgress" style="display:none; padding: 0.5rem 1rem 0;">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="progressFill"></div>
+                                    </div>
+                                    <p id="uploadStatus" style="margin: 0; font-size: 0.8rem; text-align: center;">Importando...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive custom-scrollbar">
+                            <table class="report-table data-table" id="tableMovimientosBanco">
+                                <thead>
+                                    <tr>
+                                        <th class="sticky-col-ver">Ver</th>
+                                        <th>ID Banco</th>
+                                        <th>Fecha</th>
+                                        <th>Descripción Original</th>
+                                        <th>Monto</th>
+                                        <th>Saldo</th>
+                                        <th>Sucursal</th>
+                                        <th>N° Operación</th>
+                                        <th>Hora</th>
+                                        <th>Referencia</th>
+                                        <th>Op. Manual</th>
+                                        <th>Op. Cancelación</th>
+                                        <th>Descripción Final</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyMovimientosBanco">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: Conciliados (Resumen) -->
+                <div class="tab-content fade-in" id="tab-conciliados">
+                    <div class="card table-container glass-panel">
+                        <div class="table-header">
+                            <h3>Resumen de Relaciones Conciliadas</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-primary" onclick="exportToExcel('tableConciliados', 'Reporte_Conciliados')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                    Exportar Excel
+                                </button>
+                                <button class="btn btn-outline" onclick="loadConciliados()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="feather"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    Actualizar
+                                </button>
+                            </div>
+                        </div>
+                            <div class="table-responsive custom-scrollbar" style="max-height: 600px; overflow-y: auto;">
+                            <table class="data-table" id="tableConciliados">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Empresa</th>
+                                        <th>Banco</th>
+                                        <th>Fecha Banco</th>
+                                        <th>ID Banco</th>
+                                        <th>CodCia (Cob)</th>
+                                        <th>coddoc</th>
+                                        <th>nrodoc</th>
+                                        <th>nroitm</th>
+                                        <th>codref</th>
+                                        <th>nroref</th>
+                                        <th>Importe</th>
+                                        <th>CodAux</th>
+                                        <th>N° Op. Final</th>
+
+                                        <th>Usuario</th>
+
+                                        <th>Fecha Registro</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyConciliados">
+                                    <tr><td colspan="17" class="loading-state empty-state">Cargando datos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Reglas de Limpieza -->
+                <div class="tab-content fade-in" id="tab-reglas">
+                    <div class="card table-container glass-panel" style="max-width: 800px; margin: 0 auto;">
+                        <div class="table-header">
+                            <h3>Reglas de Limpieza de N° de Operación (Auto-Match)</h3>
+                            <button class="btn btn-primary" onclick="openRuleModal()">+ Nueva Regla</button>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">Estas reglas se ejecutan durante la <b>conciliación automática</b> para normalizar los números de operación (Ej: quitar OP- o eliminar ceros a la izquierda).</p>
+                        <div class="table-responsive custom-scrollbar">
+                            <table class="data-table" id="tableReglas">
+                                <thead>
+                                    <tr>
+                                        <th>Condición (IF)</th>
+                                        <th>Resultado (THEN)</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyReglas">
+                                    <tr><td colspan="4" class="empty-state" style="text-align: center;">No hay reglas configuradas</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="margin-top: 15px; text-align: right;">
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: Ajustes Avanzados -->
+                <div class="tab-content fade-in" id="tab-ajustes">
+                    <div class="card table-container glass-panel" style="max-width: 800px; margin: 0 auto; text-align: center; padding: 2rem;">
+                        <h3 style="color: var(--danger); margin-bottom: 1rem;">Zona de Peligro</h3>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem;">
+                            Las acciones en esta sección son destructivas y no se pueden deshacer. Úsalas con extrema precaución.
+                        </p>
+                        
+                        <div style="border: 1px solid #fecaca; border-radius: 8px; padding: 1.5rem; background: #fef2f2; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div style="text-align: left;">
+                                <strong style="color: #991b1b; display: block; margin-bottom: 0.25rem;">Eliminar Historial de Conciliaciones</strong>
+                                <span style="color: #b91c1c; font-size: 0.85rem;">Esta acción eliminará de forma permanente todas las conciliaciones registradas, devolviendo los movimientos a su estado 'Pendiente'.</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="clearAllConciliaciones()" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Limpiar y Reiniciar
+                            </button>
+                        </div>
+
+                        <div style="border: 1px solid #fecaca; border-radius: 8px; padding: 1.5rem; background: #fef2f2; display: flex; align-items: center; justify-content: space-between;">
+                            <div style="text-align: left;">
+                                <strong style="color: #991b1b; display: block; margin-bottom: 0.25rem;">Eliminar Todos los Movimientos Bancarios</strong>
+                                <span style="color: #b91c1c; font-size: 0.85rem;">Esta acción vaciará por completo la tabla de movimientos bancarios original subida desde el Excel para esta empresa y banco.</span>
+                            </div>
+                            <button class="btn btn-outline" id="btnDeleteAllBank" onclick="deleteAllBankMovements()" style="color: #ef4444; border-color: #ef4444; background: white; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;" disabled>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Eliminar Movimientos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Match Details Modal -->
+    <div class="modal-overlay fade-in" id="matchModal">
+        <div class="modal-content" style="max-width: 800px; background: var(--bg-card);">
+            <div class="modal-header">
+                <h2>Detalles de la Conciliación (Match)</h2>
+                <button class="btn-close" onclick="closeMatchModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="match-summary" id="matchSummary" style="margin-bottom: 20px;"></div>
+                <div class="split-panel" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <h4 style="margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1);">Movimientos de Banco (Total: <span id="matchBcoTotal" style="color:var(--accent-color);">0.00</span>)</h4>
+                        <ul id="matchBcoList" style="list-style: none; padding: 0; max-height: 250px; overflow-y: auto;"></ul>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1);">Cobranzas (Total: <span id="matchCobTotal" style="color:var(--accent-color);">0.00</span>)</h4>
+                        <ul id="matchCobList" style="list-style: none; padding: 0; max-height: 250px; overflow-y: auto;"></ul>
+                    </div>
+                </div>
+                <div id="matchDiffAlert" style="margin-top: 15px; font-weight: bold; text-align: center; border-radius: 8px; padding: 10px;"></div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; text-align: right; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button class="btn btn-secondary" onclick="closeMatchModal()">Cancelar</button>
+                <button class="btn btn-primary" id="btnConfirmMatch" onclick="confirmManualMatch()">Confirmar Match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rule Modal -->
+    <div class="modal-overlay fade-in" id="ruleModal">
+        <div class="modal-content" style="max-width: 500px; background: var(--bg-card);">
+            <div class="modal-header">
+                <h2>Nueva Regla de Limpieza</h2>
+                <button class="btn-close" onclick="closeRuleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Texto o Patrón a buscar en la Operación (acepta Regex, ej: ^0+ para ceros inicio, o OP-):</label>
+                    <input type="text" id="ruleCondition" class="form-control" placeholder="Ej: ^0+ o OP-" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
+                </div>
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 5px;">Reemplazar por (dejar vacío para eliminar el texto encontrado):</label>
+                    <input type="text" id="ruleResult" class="form-control" placeholder="Ej: (vacío)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; text-align: right; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button class="btn btn-secondary" onclick="closeRuleModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveRule()">Guardar Regla</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="matchDetailsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10001; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 1100px; width: 95%; background: #ffffff; border-radius:12px; border: 1px solid #e2e8f0; overflow:hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); margin: auto;">
+            <div class="modal-header" style="padding: 1.25rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0; font-size:1.25rem; font-weight:600; color:#1e293b;">Detalles de Conciliación</h2>
+                <button class="btn-close" onclick="closeMatchDetailsModal()" style="background:none; border:none; color:#64748b; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size: 0.85rem; color:#334155;">
+                        <thead style="position:sticky; top:0; background:#f8fafc; z-index:10;">
+                            <tr style="border-bottom: 2px solid #e2e8f0;">
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Documento / Operación</th>
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Descripción / Cliente</th>
+
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">NomVen</th>
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Usuario</th>
+                                <th style="text-align:left; padding:0.75rem; color:#64748b;">Fecha</th>
+                                <th style="text-align:right; padding:0.75rem; color:#64748b;">Monto</th>
+                                <th style="text-align:center; padding:0.75rem; color:#64748b;">Origen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyMatchDetails">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 1.25rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align:right;">
+                <button class="btn btn-secondary" onclick="closeMatchDetailsModal()" style="padding:0.6rem 1.2rem; border-radius:8px; background:#e2e8f0; color:#334155; border:none; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Preview Modal -->
+    <div id="reportModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10000; align-items:center; justify-content:center; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%; background: white; color: #1e293b; border-radius: 12px; margin: 2rem auto; position: relative;">
+            <div class="modal-header" style="padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0; font-size:1.25rem; font-weight:600; color: #1e293b;">Vista Previa de Reporte</h2>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="printReport()" style="padding: 0.5rem 1rem;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0.25rem;"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Imprimir
+                    </button>
+                    <button class="btn-close" onclick="closeReport()" style="background:none; border:none; color:#64748b; font-size:1.5rem; cursor:pointer; font-weight: bold; line-height: 1;">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem 2rem; max-height: 75vh; overflow-y: auto;" id="reportContent">
+                <!-- Report content injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Confirmation Modal -->
+    <div id="importConfirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10005; align-items:center; justify-content:center; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
+        <div id="importModalInner" style="max-width: 480px; width: 92%; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; padding: 0; margin: auto;">
+            <div style="background: #eff6ff; padding: 2rem 1.5rem 1.5rem; display: flex; flex-direction: column; align-items: center;">
+                <div style="background: #dbeafe; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 0 0 8px #eff6ff;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h2 style="margin: 0 0 0.5rem; color: #1e40af; font-size: 1.25rem; font-weight: 700;">Confirmar Importación</h2>
+                <p style="margin: 0; color: #3b82f6; font-size: 0.9rem;">Verifique los datos antes de importar el estado de cuenta.</p>
+            </div>
+            <div style="padding: 1.25rem 1.5rem; text-align: left;">
+                <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.75rem 1rem; font-size: 0.9rem;">
+                    <span style="color: #64748b; font-weight: 600;">Empresa:</span>
+                    <span id="importConfirmEmpresa" style="color: #0f172a; font-weight: 700;">—</span>
+                    <span style="color: #64748b; font-weight: 600;">Banco:</span>
+                    <span id="importConfirmBanco" style="color: #0f172a; font-weight: 700;">—</span>
+                    <span style="color: #64748b; font-weight: 600;">Moneda:</span>
+                    <span id="importConfirmMoneda" style="color: #0f172a; font-weight: 700;">—</span>
+                    <span style="color: #64748b; font-weight: 600;">Archivo:</span>
+                    <span id="importConfirmArchivo" style="color: #0f172a; font-weight: 600; word-break: break-all;">—</span>
+                </div>
+            </div>
+            <div style="padding: 1rem 1.5rem 1.25rem; background: #f8fafc; display: flex; gap: 1rem; justify-content: center; border-top: 1px solid #e2e8f0;">
+                <button type="button" onclick="event.stopPropagation(); closeImportConfirmModal();" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; cursor: pointer; font-size: 0.9rem;">Cancelar</button>
+                <button type="button" onclick="event.stopPropagation(); confirmImport();" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #2563eb; color: white; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3); font-size: 0.9rem;">Sí, Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Professional Delete Confirmation Modal (Self-contained, no CSS class conflicts) -->
+    <div id="deleteConfirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:10005; align-items:center; justify-content:center; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
+        <div id="deleteModalInner" style="max-width: 450px; width: 90%; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; padding: 0; margin: auto;">
+            <div style="background: #fef2f2; padding: 2rem 1.5rem 1.5rem; display: flex; flex-direction: column; align-items: center;">
+                <div style="background: #fee2e2; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 0 0 8px #fef2f2;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h2 style="margin: 0 0 0.5rem; color: #991b1b; font-size: 1.25rem; font-weight: 700;">Eliminar Todos los Movimientos</h2>
+                <p style="margin: 0; color: #b91c1c; font-size: 0.95rem; line-height: 1.5;">Esta acción borrará permanentemente el historial y las conciliaciones de este Banco y Empresa.</p>
+            </div>
+            <div style="padding: 1.25rem 1.5rem; background: #ffffff; display: flex; gap: 1rem; justify-content: center;">
+                <button type="button" id="btnCancelDeleteAll" onclick="event.stopPropagation(); closeDeleteConfirmModal();" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; cursor: pointer; font-size: 0.9rem;">Cancelar</button>
+                <button type="button" id="btnConfirmDeleteAll" onclick="event.stopPropagation(); executeDeleteAllBankMovements(event);" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #ef4444; color: white; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3); font-size: 0.9rem;">Sí, eliminar todo</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- jQuery & DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+
+    <script src="conciliacion.js?v=6.7"></script>
+    <script>
+    // ─── Sidebar Collapse Logic ───
+    (function() {
+        var sidebar = document.getElementById('sidebar');
+        if (localStorage.getItem('yelave_sidebar_collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+    })();
+    function toggleSidebarCollapse() {
+        var sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem('yelave_sidebar_collapsed', sidebar.classList.contains('collapsed'));
+    }
+    </script>
+</body>
+
+</html>

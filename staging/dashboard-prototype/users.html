@@ -1,0 +1,594 @@
+ï»¿<!DOCTYPE html>
+
+<html lang="es">
+
+
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>YELAVE - Gestión de Usuarios</title>
+
+    <!-- Corporate SaaS Fonts -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+
+        .badge {
+
+            padding: 0.25rem 0.6rem;
+
+            border-radius: 9999px;
+
+            font-size: 0.75rem;
+
+            font-weight: 500;
+
+        }
+
+
+
+        .badge.active {
+
+            background-color: #ECFDF5;
+
+            color: var(--success);
+
+        }
+
+
+
+        .badge.inactive {
+
+            background-color: #FEF2F2;
+
+            color: var(--danger);
+
+        }
+
+
+
+        .badge.admin {
+
+            background-color: #EFF6FF;
+
+            color: var(--primary);
+
+        }
+
+
+
+        .badge.user {
+
+            background-color: #F3F4F6;
+
+            color: var(--text-secondary);
+
+        }
+
+
+
+        /* Modal Styles */
+
+        .modal {
+
+            max-width: 500px;
+
+        }
+
+        /* DataTables Custom Styling */
+        .dt-top-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .dataTables_filter {
+            margin-top: 0 !important;
+        }
+
+        .dataTables_filter input {
+            padding: 0.6rem 1rem !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            background: white !important;
+            font-size: 0.9rem !important;
+            margin-left: 0.5rem !important;
+            outline: none !important;
+            transition: all 0.2s;
+            width: 250px !important;
+        }
+
+        .dataTables_filter input:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+        }
+
+        .dt-button.btn-outline {
+            background: white !important;
+            border: 1px solid #e2e8f0 !important;
+            color: var(--text-primary) !important;
+            padding: 0.6rem 1.2rem !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            cursor: pointer !important;
+            transition: all 0.2s !important;
+        }
+
+        .dt-button.btn-outline:hover {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--primary) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            color: var(--text-muted) !important;
+            font-size: 0.85rem !important;
+            margin-top: 1rem !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate {
+            margin-top: 1rem !important;
+        }
+    </style>
+
+
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+</head>
+
+
+
+<body>
+
+    <div class="app-container">
+
+        <!-- Overlay -->
+
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+
+
+        <!-- Sidebar -->
+
+        <aside class="sidebar" id="sidebar">
+
+            <div class="brand">
+
+                <h1>YELAVE</h1>
+
+                <span>Skincare</span>
+
+            </div>
+
+            
+
+            <nav class="nav-menu">
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>Dashboard
+                </a>
+                <a href="/logistics.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>Centro Logístico
+                </a>
+                <a href="/orders.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>Compras (Legacy)
+                </a>
+                <a href="/production.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>Producción y Costos
+                </a>
+                <a href="/reparto.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>Reparto y Rutas
+                </a>
+                <a href="/kardex.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>Reportes Kardex
+                </a>
+                <a href="/conciliacion.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>Finanzas (Conciliación)
+                </a>
+                <a href="/db-config.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>Mantenimiento BD
+                </a>
+            </nav>
+
+
+
+            <div class="user-profile">
+
+                <div class="avatar">
+
+                    <img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" alt="User Avatar" id="userAvatar">
+
+                </div>
+
+                <div class="user-info">
+
+                    <span class="user-name" id="userNameDisplay">Usuario</span>
+
+                    <span class="user-role" id="userRoleDisplay">Cargando...</span>
+
+                </div>
+
+                <button onclick="logout()" title="Cerrar sesiÑÂ³n" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;margin-left:auto;">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+
+                        <polyline points="16 17 21 12 16 7"></polyline>
+
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- Main Content -->
+
+        <main class="main-content">
+
+            <header class="top-bar">
+
+                <div class="top-bar-left">
+
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+
+                        </svg>
+
+                    </button>
+
+                    <div>
+
+                        <h2>Gestión de Usuarios</h2>
+
+                        <p style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-top: 0.15rem;">Sistema corporativo</p>
+
+                    </div>
+
+                </div>
+
+                <div class="actions">
+
+                    <button class="btn btn-primary" onclick="loadUsers()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+
+                            <polyline points="23 4 23 10 17 10"></polyline>
+
+                            <polyline points="1 20 1 14 7 14"></polyline>
+
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+
+                        </svg>
+
+                        Refrescar
+
+                    </button>
+
+                </div>
+
+            </header>
+
+
+
+            <section class="content fade-in">
+
+                <div class="card table-container glass-panel">
+
+                    <div class="table-header">
+
+                        <h3>Directorio de Usuarios Web y ERP</h3>
+
+                    </div>
+
+                    <div class="table-responsive">
+
+                        <table class="data-table" id="usersTable">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>Usuario ERP</th>
+
+                                    <th>Nombre (Web)</th>
+
+                                    <th>Correo ElectrÑÂ³nico</th>
+
+                                    <th>Celular</th>
+
+                                    <th>Rol (Web)</th>
+
+                                    <th>Acceso Web</th>
+
+                                    <th>Acciones</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="users-tbody">
+
+                                <tr>
+
+                                    <td colspan="7" class="loading-state">Cargando directorio...</td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+
+    <!-- Modals -->
+
+    <!-- Modal: Edit Profile -->
+
+    <div class="modal-overlay" id="editModal">
+
+        <div class="modal glass-modal">
+
+            <div class="modal-header">
+
+                <h3 id="editModalTitle">Editar Usuario</h3>
+
+                <button class="close-btn" onclick="closeEditModal()">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <form id="editUserForm" class="elegant-form">
+
+                    <input type="hidden" id="editLoginId" />
+
+                    
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Nombre Completo</label>
+
+                            <input type="text" id="editNombre" required />
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Correo ElectrÑÂ³nico</label>
+
+                            <input type="email" id="editCorreo" placeholder="usuario@yelave.local" />
+
+                        </div>
+
+                        <div class="col">
+
+                            <label>Celular</label>
+
+                            <input type="text" id="editCelular" placeholder="999..." />
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Rol en el Sistema Web</label>
+
+                            <div class="select-wrapper">
+
+                                <select id="editRol">
+                                    <option value="USER">Usuario Estándar (USER)</option>
+                                    <option value="ADMIN">Administrador (ADMIN)</option>
+                                    <option value="LOGISTICA">Logística (LOGISTICA)</option>
+                                    <option value="CONTROL_INTERNO">Control Interno (CONTROL_INTERNO)</option>
+                                    <option value="CONTABILIDAD">Contabilidad (CONTABILIDAD)</option>
+                                    <option value="COMERCIAL">Comercial (COMERCIAL)</option>
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col" style="display:flex; align-items:center; margin-top:1.5rem;">
+
+                            <label class="checkbox-label" style="margin-bottom:0;">
+
+                                <input type="checkbox" id="editActivo">
+
+                                <span class="checkmark"></span>
+
+                                Cuenta Web Activa
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-outline" onclick="closeEditModal()">Cancelar</button>
+
+                <button class="btn btn-primary" onclick="submitUserEdit()">Guardar Cambios</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Modal: Reset Password -->
+
+    <div class="modal-overlay" id="pwdModal">
+
+        <div class="modal glass-modal">
+
+            <div class="modal-header">
+
+                <h3>Restablecer ContraseÑÂ±a ERP/Web</h3>
+
+                <button class="close-btn" onclick="closePwdModal()">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">
+
+                    Al restablecer esta contraseÑÂ±a se afectarÑ¡ el acceso a esta plataforma web y al ERP legajo de FoxPro simultÑ¡neamente para el usuario <strong id="resetPwdUsername"></strong>.
+
+                </p>
+
+                <form id="pwdForm" class="elegant-form">
+
+                    <input type="hidden" id="pwdLoginId" />
+
+                    
+
+                    <div class="form-group row">
+
+                        <div class="col">
+
+                            <label>Nueva ContraseÑÂ±a</label>
+
+                            <input type="text" id="newPwdValue" required autocomplete="off" placeholder="P.ej: ADMIN2024" />
+
+                            <small style="color:var(--text-muted); font-size:0.75rem; display:block; margin-top:4px;">Nota: SerÑ¡ encriptada mediante algoritmo nativo.</small>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-outline" onclick="closePwdModal()">Cancelar</button>
+
+                <button class="btn btn-primary" onclick="submitPasswordReset()" style="background:var(--danger)">Confirmar Restablecimiento</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    
+    <!-- jQuery & DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="users.js"></script>
+
+</body>
+
+</html>
+
+
+
+
+

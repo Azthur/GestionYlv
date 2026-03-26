@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Gestión de Producción y Costos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <style>
+        .filter-bar {
+            display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+            background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        
+        .tabs-header {
+            display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem; overflow-x: auto;
+        }
+        .tab-btn {
+            background: none; border: none; padding: 0.75rem 1.5rem; font-family: 'Outfit', sans-serif;
+            font-weight: 600; font-size: 0.9rem; color: var(--text-muted); cursor: pointer;
+            border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(37, 99, 235, 0.05); }
+        
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .btn-action {
+            display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem;
+            background: var(--primary); color: #fff; border: none; border-radius: 6px;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
+        }
+        .btn-action.success { background: #10b981; }
+        .btn-action.secondary { background: #64748b; }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-secondary); }
+        .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid var(--border-dark); border-radius: 6px; font-family: 'Inter', sans-serif; }
+
+        /* Report Structure */
+        .report-section { background: #fff; padding: 2rem; border-radius: 8px; border: 1px solid #e2e8f0; font-family: Arial, sans-serif; color: #000; }
+        .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem;}
+        .report-title-box { border-bottom: 2px solid #000; padding-bottom: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-end;}
+        .report-title-box h1 { font-family: 'Arial Black', sans-serif; font-size: 1.2rem; margin:0;}
+        .tbl-report { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 1.5rem; }
+        .tbl-report th, .tbl-report td { border: 1px solid #000; padding: 0.3rem 0.4rem; text-align: left; }
+        .tbl-report th { background: #f4f4f4; text-align: center; font-weight: bold;}
+        .tbl-report .section-header { text-transform: uppercase; font-weight: bold; background: #eef; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <aside class="sidebar" id="sidebar">
+            <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
+            <nav class="nav-menu">
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>Dashboard
+                </a>
+                <a href="/logistics.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>Centro Logístico
+                </a>
+                <a href="/orders.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>Compras (Legacy)
+                </a>
+                <a href="/production.html" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>Producción y Costos
+                </a>
+                <a href="/reparto.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>Reparto y Rutas
+                </a>
+                <a href="/kardex.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>Reportes Kardex
+                </a>
+                <a href="/conciliacion.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>Finanzas (Conciliación)
+                </a>
+                <a href="/db-config.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>Mantenimiento BD
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
+                    <div>
+                        <h2>Órdenes de Producción y Costos</h2>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.15rem;">Formatos SUNAT 10.1, 10.2, 10.3</p>
+                    </div>
+                </div>
+            </header>
+
+            <section class="content fade-in" style="max-width: 100%;">
+                <div class="card glass-panel" style="padding: 0;">
+                    <div class="tabs-header" id="prodTabs" style="padding: 1rem 1rem 0 1rem; margin-bottom: 0;">
+                        <button class="tab-btn active" data-target="tab-lista">Listado de Órdenes</button>
+                        <button class="tab-btn" data-target="tab-costos">Imputación de Costos</button>
+                        <button class="tab-btn" data-target="tab-sunat">Reportes SUNAT</button>
+                    </div>
+
+                    <!-- TAB: LISTADO -->
+                    <div class="tab-content active" id="tab-lista" style="padding: 1.5rem;">
+                        <div style="text-align: right; margin-bottom: 1rem;">
+                            <button class="btn-action success" onclick="openCreateOrderModal()">+ Crear OP</button>
+                        </div>
+                        <table id="tableOrders" class="display nowrap" style="width:100%">
+                            <thead><tr><th>ID</th><th>Nro Orden</th><th>Fecha Registro</th><th>Cliente</th><th>Producto</th><th>Lote</th><th>Total Prod.</th><th>Acciones</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <!-- TAB: IMPUTACIÓN DE COSTOS -->
+                    <div class="tab-content" id="tab-costos" style="padding: 1.5rem;">
+                        <div class="form-grid" style="margin-bottom: 1.5rem; align-items:end;">
+                            <div class="form-group">
+                                <label>Seleccionar Orden de Producción</label>
+                                <select id="selOrderForCosts" onchange="loadStagesForCost()">
+                                    <option value="">Seleccione OP...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Etapa de Proceso</label>
+                                <select id="selStageForCosts">
+                                    <option value="">(Cabecera OP / Ninguna específica)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <button class="btn-action" onclick="openAddCostModal()">Añadir Gasto/Costo</button>
+                            </div>
+                        </div>
+
+                        <div id="costsDashboard" style="display:none;">
+                            <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Flujo de Costos Asignados a la Orden</h4>
+                            <table id="tableCostsOP" class="display nowrap" style="width:100%">
+                                <thead><tr><th>Fecha</th><th>Tipo Costo</th><th>Etapa</th><th>Detalle</th><th>Und</th><th>Cantidad</th><th>Costo Uni</th><th>Total</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                            <div style="text-align: right; margin-top: 1.5rem;">
+                                <button class="btn-action secondary" onclick="printOrderReport()">Generar Formato de Orden (Impresión)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB: SUNAT -->
+                    <div class="tab-content" id="tab-sunat" style="padding: 1.5rem;">
+                        <div class="form-grid" style="margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Formato SUNAT</label>
+                                <select id="sunatFormat">
+                                    <option value="10.1">10.1: Estado de Costo de Ventas Anual</option>
+                                    <option value="10.2">10.2: Elementos del Costo Mensual</option>
+                                    <option value="10.3">10.3: Estado de Costo de Producción Valorizado Anual</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Año Fiscal</label>
+                                <select id="sunatYear"><option value="2026">2026</option><option value="2025">2025</option></select>
+                            </div>
+                            <div class="form-group" id="sunatMonthGroup">
+                                <label>Mes (Formato 10.2)</label>
+                                <select id="sunatMonth"><option value="01">Enero</option><option value="02">Febrero</option><option value="03" selected>Marzo</option></select>
+                            </div>
+                            <div class="form-group" style="display:flex; align-items:end;">
+                                <button class="btn-action success" onclick="generateSunatReport()">Ejecutar Reporte</button>
+                            </div>
+                        </div>
+                        
+                        <div id="sunatResults" style="display:none; padding:1.5rem; background:#fff; border-radius:8px;">
+                            <h3 style="color:#000; margin-bottom:1rem;" id="sunatTitleResult">RESULTADOS</h3>
+                            <table id="tableSunat" class="display nowrap" style="width:100%; border: 1px solid #ddd;">
+                                <thead><tr id="sunatThead"></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL ADD COST -->
+    <div class="modal-overlay" id="addCostModal">
+        <div class="modal glass-modal" style="max-width:600px; width:95%;">
+            <div class="modal-header">
+                <h3>Insertar Elemento de Costo</h3>
+                <button class="close-btn" onclick="$('#addCostModal').hide()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <div class="modal-body">
+                <form id="frmCost">
+                    <div class="form-grid">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Tipo de Costo (Elemento)</label>
+                            <select id="ciTipo" required>
+                                <option value="MP">MP - Materia Prima y Envases Básicos</option>
+                                <option value="MOD">MOD - Mano de Obra Directa</option>
+                                <option value="CIF">CIF - Costos Indirectos de Fabricación</option>
+                                <option value="MEP">MEP - Materiales Auxiliares, Embalajes</option>
+                                <option value="MAQ">MAQ - Gastos de Maquinaria</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Fecha</label><input type="date" id="ciFecha" required></div>
+                        <div class="form-group"><label>Doc. Ref / Factura</label><input type="text" id="ciComp"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Detalle / Glosa</label><input type="text" id="ciDetalle" required></div>
+                        <div class="form-group"><label>UND Medida</label><input type="text" id="ciUnd"></div>
+                        <div class="form-group"><label>Cantidad Agregada</label><input type="number" id="ciCant" step="0.01" value="1" required onchange="calcTotal()"></div>
+                        <div class="form-group"><label>Costo Unitario (S/)</label><input type="number" id="ciCostoU" step="0.01" value="0.00" required onchange="calcTotal()"></div>
+                        <div class="form-group"><label>Costo Total (S/)</label><input type="number" id="ciCostoT" step="0.01" value="0.00" required readonly style="background:#f1f5f9; font-weight:bold;"></div>
+                    </div>
+                    <div style="text-align: right; margin-top:1rem;">
+                        <button type="button" class="btn-action success" onclick="saveCost()">Registrar Costo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REPORT PRINT -->
+    <div class="modal-overlay" id="printModal">
+        <div class="modal glass-modal" style="max-width:1000px; width:95%; height:90vh; overflow-y:auto; background:#f4f4f4;">
+            <div class="modal-header" style="background:#fff;">
+                <h3>Vista Previa - Orden de Producción</h3>
+                <div>
+                    <button class="btn-action" onclick="window.print()">Imprimir FORMATO</button>
+                    <button class="close-btn" onclick="$('#printModal').hide()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+            </div>
+            <div class="modal-body report-section" id="printArea">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="app.js"></script>
+    <script src="production.js"></script>
+</body>
+</html>

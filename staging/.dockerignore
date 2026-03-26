@@ -2,9 +2,6 @@
 .git
 .gitignore
 
-# Staging
-staging/
-
 # Python cache
 **/__pycache__
 **/*.pyc

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Módulo de Reparto</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <style>
+        .filter-bar {
+            display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+            background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 0.35rem; min-width: 150px; }
+        .filter-group label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-group select, .filter-group input {
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+            background: #FFFFFF; font-family: var(--font); font-size: 0.8125rem; color: var(--text-secondary);
+        }
+        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; display: inline-block; }
+        .badge.approved { background: #dcfce7; color: #166534; }
+        .badge.pending { background: #fef9c3; color: #854d0e; }
+        .badge.canceled { background: #fee2e2; color: #991b1b; }
+        .tabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+        .tab { padding: 0.75rem 1.5rem; font-weight: 600; font-size: 0.875rem; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .tab:hover { color: var(--text-primary); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        table.dataTable tbody td { font-size: 0.8125rem; padding: 0.65rem 0.75rem !important; vertical-align: middle; }
+        table.dataTable thead th { background: #f1f5f9; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #334155; }
+        .card-panel { background: #fff; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-dark); box-shadow: var(--shadow-sm); }
+        
+        .asignacion-box {
+            background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid #cbd5e1;
+            margin-bottom: 1.5rem; display: flex; gap: 1.5rem; align-items: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
+            <nav class="nav-menu">
+                <a href="/index.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>Dashboard
+                </a>
+                <a href="/logistics.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>Centro Logístico
+                </a>
+                <a href="/orders.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>Compras (Legacy)
+                </a>
+                <a href="/production.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>Producción y Costos
+                </a>
+                <a href="/reparto.html" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>Reparto y Rutas
+                </a>
+                <a href="/kardex.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>Reportes Kardex
+                </a>
+                <a href="/conciliacion.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>Finanzas (Conciliación)
+                </a>
+                <a href="/db-config.html" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>Mantenimiento BD
+                </a>
+            </nav>
+            <div class="user-profile">
+                <a href="/profile.html" style="text-decoration:none; display:flex; align-items:center; gap:0.75rem; flex:1;">
+                    <div class="avatar"><img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" id="userAvatar"></div>
+                    <div class="user-info">
+                        <span class="user-name" id="userNameDisplay">Usuario</span>
+                        <span class="user-role" id="userRoleDisplay">Cargando...</span>
+                    </div>
+                </a>
+                <button onclick="logout()" title="Cerrar sesión" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div>
+                        <h2>Módulo de Reparto</h2>
+                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística · Programación de Hojas de Ruta</p>
+                    </div>
+                </div>
+                <div class="filter-group" style="flex-direction:row; align-items:center; gap:0.5rem; min-width:250px;">
+                    <label style="margin:0;">Empresa:</label>
+                    <select id="filterCia" style="flex:1;" onchange="loadRepartoData()"><option value="">Cargando empresas...</option></select>
+                </div>
+            </header>
+
+            <section class="content fade-in">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('pendientes', this)">Solicitudes Pendientes</div>
+                    <div class="tab" onclick="switchTab('hojas-ruta', this)">Hojas de Ruta</div>
+                    <div class="tab" onclick="switchTab('crear-manual', this)">Crear Solicitud Manual</div>
+                </div>
+
+                <!-- Tab 1: Pendientes -->
+                <div id="tab-pendientes" class="tab-content active">
+                    <div class="asignacion-box">
+                        <div class="filter-group" style="flex:2;">
+                            <label>Chofer Asignado</label>
+                            <select id="selChofer"><option value="">Cargando...</option></select>
+                        </div>
+                        <div class="filter-group" style="flex:2;">
+                            <label>Placa / Movilidad</label>
+                            <select id="selMovilidad"><option value="">Cargando...</option></select>
+                        </div>
+                        <div class="filter-group" style="flex:1.5;">
+                            <label>Fecha de Ruta</label>
+                            <input type="date" id="selFechaRuta">
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="generarHojaRuta()" style="height:36px; padding:0 1.25rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.4rem;">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg> Generar Hoja de Ruta
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-panel table-responsive">
+                        <table id="pendientesTable" class="display nowrap" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px; text-align:center;"><input type="checkbox" id="chkAllSol" onchange="toggleAllSol()"></th>
+                                    <th>ID</th>
+                                    <th>Tipo</th>
+                                    <th>Proveedor</th>
+                                    <th>Celular</th>
+                                    <th>Origen</th>
+                                    <th>Destino</th>
+                                    <th>Fecha/Hora</th>
+                                    <th>Observaciones</th>
+                                    <th>OC / Ítems</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Hojas de Ruta -->
+                <div id="tab-hojas-ruta" class="tab-content">
+                    <div class="card-panel table-responsive">
+                        <table id="hojasRutaTable" class="display nowrap" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Acciones</th>
+                                    <th>ID Hoja</th>
+                                    <th>Fecha Ruta</th>
+                                    <th>Chofer</th>
+                                    <th>Movilidad / Placa</th>
+                                    <th>N° Solicitudes</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Solicitud Manual -->
+                <div id="tab-crear-manual" class="tab-content">
+                    <div class="card-panel" style="max-width:800px; margin:0 auto;">
+                        <h3 style="margin-bottom:1.5rem; font-size:1.15rem; color:var(--text-primary); border-bottom:1px solid #e2e8f0; padding-bottom:0.75rem;">
+                            Registrar Recojo o Traslado Independiente
+                        </h3>
+                        <form id="formManual">
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div class="filter-group">
+                                    <label>Fecha Recojo *</label>
+                                    <input type="date" id="manFecha" required>
+                                </div>
+                                <div class="filter-group">
+                                    <label>Hora Estimada</label>
+                                    <input type="time" id="manHora">
+                                </div>
+                                <div class="filter-group" style="grid-column: span 2;">
+                                    <label>Punto de Origen *</label>
+                                    <input type="text" id="manOrigen" required placeholder="Almacén X, Proveedor XYZ, etc.">
+                                </div>
+                                <div class="filter-group" style="grid-column: span 2;">
+                                    <label>Punto de Destino *</label>
+                                    <input type="text" id="manDestino" required placeholder="Almacén Central, Obra Y, etc.">
+                                </div>
+                                <div class="filter-group">
+                                    <label>Persona de Contacto</label>
+                                    <input type="text" id="manContacto">
+                                </div>
+                            </div>
+                            
+                            <h4 style="font-size:0.9rem; margin-bottom:0.75rem; color:var(--text-secondary);">Detalle de Productos a Transportar</h4>
+                            <div class="table-responsive" style="border:1px solid #e2e8f0; border-radius:6px; margin-bottom:1rem;">
+                                <table class="report-table" id="manItemsTable" style="margin:0; width:100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Descripción del Producto / Bien *</th>
+                                            <th style="width:100px;">Cantidad *</th>
+                                            <th style="width:100px;">Unidad</th>
+                                            <th style="width:50px; text-align:center;">Op</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="manItemsTbody">
+                                        <tr>
+                                            <td><input type="text" class="man-desc" style="width:100%;" required></td>
+                                            <td><input type="number" class="man-qty" style="width:100%;" min="0.01" step="0.01" required></td>
+                                            <td><input type="text" class="man-und" style="width:100%;" placeholder="UND, KG..."></td>
+                                            <td style="text-align:center;"><button type="button" class="btn" onclick="this.closest('tr').remove()" style="padding:0.2rem 0.5rem; color:red;">X</button></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button type="button" class="btn btn-outline" onclick="addManualItem()" style="margin-bottom:1.5rem; font-size:0.75rem;">+ Agregar Ítem</button>
+                            
+                            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                <button type="button" class="btn btn-outline" onclick="document.getElementById('formManual').reset()">Limpiar</button>
+                                <button type="button" class="btn btn-primary" onclick="submitSolicitudManual()">Guardar Solicitud</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Imprimir Hoja de Ruta -->
+    <div class="modal-overlay" id="hojaRutaModal">
+        <div class="modal glass-modal" style="max-width:850px; width:95%; height:90vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <h3>Hoja de Ruta <span id="hrViewId" style="color:var(--primary)"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printHojaRuta()" style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeHojaRutaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex:1; overflow-y:auto; padding:2rem; background:#fff;" id="hrPrintArea">
+                <style>
+                    /* Print specific styles injected here to ensure they print well */
+                    @media print {
+                        body * { visibility: hidden; }
+                        #hrPrintArea, #hrPrintArea * { visibility: visible; }
+                        #hrPrintArea { position: absolute; left: 0; top: 0; width: 100%; font-size:10pt;}
+                    }
+                </style>
+                <div id="hrContent">Cargando formato...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="reparto.js"></script>
+</body>
+</html>

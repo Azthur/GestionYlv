@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1,
+    "condicion": "OP-",
+    "resultado": ""
+  },
+  {
+    "id": 2,
+    "condicion": "OP-",
+    "resultado": ""
+  },
+  {
+    "id": 3,
+    "condicion": "^0+",
+    "resultado": ""
+  },
+  {
+    "condicion": "-\\s+",
+    "resultado": "-",
+    "id": 4
+  },
+  {
+    "condicion": "-(0+)",
+    "resultado": "-",
+    "id": 5
+  }
+]

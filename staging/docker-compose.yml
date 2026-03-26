@@ -1,0 +1,44 @@
+# ─── YELAVE ERP - Docker Compose ──────────────────────────────────────
+# Configuración para despliegue en producción
+# ──────────────────────────────────────────────────────────────────────
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yelave-erp-test
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    env_file:
+      - .env.docker
+    environment:
+      - PYTHONUNBUFFERED=1
+      - "ODBC_DRIVER={ODBC Driver 18 for SQL Server}"
+      - ATTACHMENTS_ROOT=/app/gestion-ylv
+    volumes:
+      - ./backend:/app/backend
+      - ./dashboard-prototype:/app/dashboard-prototype
+      - conciliacion_data:/app/backend/data
+      - "//192.168.1.200/gestion-ylv:/app/gestion-ylv"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+    networks:
+      - yelave-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/db')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  conciliacion_data:
+
+networks:
+  yelave-network:
+    driver: bridge
