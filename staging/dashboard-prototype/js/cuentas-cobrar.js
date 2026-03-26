@@ -14,6 +14,8 @@ let sortCol = -1;
 let sortAsc = true;
 let chartInstances = {};   // Canvas chart instances
 let homologacionMap = {};  // Vendedor alias mapping
+let currentDetailData = []; // Store active detail subset
+let currentDetailLabel = '';
 
 const API_BASE = '/api/cuentas-cobrar';
 const fmt = (n) => new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -472,23 +474,23 @@ function showSummary(type, btn) {
     switch (type) {
         case 'vendedor':
             items = summaryData.by_vendedor || [];
-            headers = '<tr><th>Vendedor</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th></tr>';
+            headers = '<tr><th>Vendedor</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th><th class="text-center">Acciones</th></tr>';
             break;
         case 'forma_pago':
             items = summaryData.by_forma_pago || [];
-            headers = '<tr><th>Forma de Pago</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th></tr>';
+            headers = '<tr><th>Forma de Pago</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th><th class="text-center">Acciones</th></tr>';
             break;
         case 'tienda':
             items = summaryData.by_tienda || [];
-            headers = '<tr><th>Tienda</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th></tr>';
+            headers = '<tr><th>Tienda</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th><th class="text-center">Acciones</th></tr>';
             break;
         case 'tipo_doc':
             items = summaryData.by_tipo_doc || [];
-            headers = '<tr><th>Tipo Doc</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th></tr>';
+            headers = '<tr><th>Tipo Doc</th><th class="text-right">Saldo</th><th class="text-right">Importe</th><th>Docs</th><th class="bar-cell">Proporción</th><th class="text-center">Acciones</th></tr>';
             break;
         case 'clientes':
             items = summaryData.top_clientes || [];
-            headers = '<tr><th>Código</th><th>Cliente</th><th class="text-right">Saldo</th><th>Docs</th><th class="bar-cell">Proporción</th></tr>';
+            headers = '<tr><th>Código</th><th>Cliente</th><th class="text-right">Saldo</th><th>Docs</th><th class="bar-cell">Proporción</th><th class="text-center">Acciones</th></tr>';
             break;
     }
 
@@ -504,6 +506,9 @@ function showSummary(type, btn) {
                 <td class="text-right" style="font-weight:600; color:#f87171;">S/ ${fmt(i.saldo)}</td>
                 <td class="text-center">${i.count}</td>
                 <td class="bar-cell"><div class="summary-bar"><div class="summary-bar-fill" style="width:${((i.saldo / maxSaldo) * 100).toFixed(1)}%"></div></div></td>
+                <td class="text-center">
+                    <button class="btn btn-glass btn-sm" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="showSummaryDetail('${type}', '${(i.codaux||'').replace(/'/g,"\\'")}')"><i class="fas fa-list"></i> Detalle</button>
+                </td>
             </tr>
         `).join('');
     } else {
@@ -514,6 +519,9 @@ function showSummary(type, btn) {
                 <td class="text-right">S/ ${fmt(i.importe)}</td>
                 <td class="text-center">${i.count}</td>
                 <td class="bar-cell"><div class="summary-bar"><div class="summary-bar-fill" style="width:${((i.saldo / maxSaldo) * 100).toFixed(1)}%"></div></div></td>
+                <td class="text-center">
+                    <button class="btn btn-glass btn-sm" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="showSummaryDetail('${type}', '${(i.label||'').replace(/'/g,"\\'")}')"><i class="fas fa-list"></i> Detalle</button>
+                </td>
             </tr>
         `).join('');
     }
@@ -697,6 +705,137 @@ function exportToPDF() {
     }
 
     doc.save(`Saldos_Cobrar_${(empresa.codcia || 'ALL')}_${fechas.fin || 'report'}.pdf`);
+}
+
+function closeSummaryDetailModal() {
+    document.getElementById('summaryDetailModal').classList.remove('active');
+}
+
+function showSummaryDetail(type, label) {
+    if (!filteredData || filteredData.length === 0) return;
+    
+    currentDetailLabel = label || '(Vacio)';
+    let title = `Detalle: ${currentDetailLabel}`;
+    
+    // Configurar titulo
+    const mapTitles = { 'vendedor': 'Vendedor', 'forma_pago': 'Forma de Pago', 'tienda': 'Tienda', 'tipo_doc': 'Tipo Documento', 'clientes': 'Cliente' };
+    document.getElementById('summaryDetailTitle').textContent = `Comprobantes de ${mapTitles[type] || 'Grupo'}: ${currentDetailLabel}`;
+    
+    // Filtrar localmente la data base a lo que se ve en la pantalla de datos
+    currentDetailData = filteredData.filter(r => {
+        let val = '';
+        if (type === 'vendedor') val = r.vendedor_homologado || r.nomven || '(Sin Vendedor)';
+        else if (type === 'forma_pago') val = r.nompgo || '(Sin Forma Pago)';
+        else if (type === 'tienda') val = r.nomsol || '(Sin Tienda)';
+        else if (type === 'tipo_doc') val = r.coddoc || '(Sin Tipo)';
+        else if (type === 'clientes') val = r.codaux || '(Sin Código)';
+        return String(val).trim() === String(label).trim();
+    });
+    
+    // Llenar tabla del modal
+    const tbody = document.getElementById('summaryDetailTbody');
+    const tfoot = document.getElementById('summaryDetailTfoot');
+    
+    if (currentDetailData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No se encontraron documentos en la vista actual.</td></tr>';
+        tfoot.innerHTML = '';
+    } else {
+        tbody.innerHTML = currentDetailData.map(r => `
+            <tr>
+                <td class="text-center" style="font-weight:600; color:var(--text-light);">${r.codcia || ''}</td>
+                <td>${r.fchdoc || ''}</td>
+                <td class="text-center">${(r.coddoc || '').includes('FACT') ? '<span class="badge-doc badge-fact">FACT</span>' : '<span class="badge-doc badge-bole">BOLE</span>'}</td>
+                <td>${r.serie}-${r.nrodoc}</td>
+                <td>${r.codaux}</td>
+                <td title="${r.nomaux}">${(r.nomaux || '').substring(0,30)}</td>
+                <td title="${r.vendedor_homologado || r.nomven}">${(r.vendedor_homologado || r.nomven || '').substring(0,15)}</td>
+                <td class="text-right">${fmt(r.imptot)}</td>
+                <td class="text-right">${fmt(r.acta)}</td>
+                <td class="text-right" style="color:#f87171; font-weight:600;">${fmt(r.saldo)}</td>
+            </tr>
+        `).join('');
+        
+        const tImporte = currentDetailData.reduce((s, r) => s + (r.imptot || 0), 0);
+        const tActa = currentDetailData.reduce((s, r) => s + (r.acta || 0), 0);
+        const tSaldo = currentDetailData.reduce((s, r) => s + (r.saldo || 0), 0);
+        
+        tfoot.innerHTML = `
+            <tr class="total-row">
+                <td colspan="7" class="text-right">TOTALES (${currentDetailData.length} docs)</td>
+                <td class="text-right">${fmt(tImporte)}</td>
+                <td class="text-right">${fmt(tActa)}</td>
+                <td class="text-right">${fmt(tSaldo)}</td>
+            </tr>
+        `;
+    }
+    
+    document.getElementById('summaryDetailModal').classList.add('active');
+}
+
+// ─── Export Detalle Resumen ──────────────────────────────────────
+function exportSummaryDetail(format) {
+    if (!currentDetailData || currentDetailData.length === 0) return alert('No hay detalle para exportar.');
+    
+    const empresa = window._empresa || {};
+    const { jsPDF } = window.jspdf;
+    
+    const head = [['Empresa', 'Fecha', 'T.D.', 'Serie - N° Doc.', 'Código', 'Cliente', 'Vendedor', 'Importe', 'A Cta', 'Saldo']];
+    const dataRows = currentDetailData.map(r => [
+        r.codcia, r.fchdoc, r.coddoc, `${r.serie}-${r.nrodoc}`, r.codaux,
+        (r.nomaux || '').substring(0,30), (r.vendedor_homologado || r.nomven || '').substring(0,18),
+        format === 'pdf' ? fmt(r.imptot) : r.imptot,
+        format === 'pdf' ? fmt(r.acta) : r.acta,
+        format === 'pdf' ? fmt(r.saldo) : r.saldo
+    ]);
+    
+    const tImporte = currentDetailData.reduce((s, r) => s + (r.imptot || 0), 0);
+    const tActa = currentDetailData.reduce((s, r) => s + (r.acta || 0), 0);
+    const tSaldo = currentDetailData.reduce((s, r) => s + (r.saldo || 0), 0);
+    
+    dataRows.push(['', '', '', '', '', '', 'TOTALES', 
+        format === 'pdf' ? fmt(tImporte) : tImporte,
+        format === 'pdf' ? fmt(tActa) : tActa,
+        format === 'pdf' ? fmt(tSaldo) : tSaldo
+    ]);
+
+    if (format === 'excel') {
+        const allRows = [
+            ['DETALLE DE COMPROBANTES: ' + currentDetailLabel],
+            [],
+            ...head,
+            ...dataRows
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(allRows);
+        ws['!cols'] = [{wch:8}, {wch:12}, {wch:6}, {wch:16}, {wch:12}, {wch:35}, {wch:20}, {wch:14}, {wch:14}, {wch:14}];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+        XLSX.writeFile(wb, `Detalle_${currentDetailLabel.replace(/[/\\?%*:|"<>]/g, '-')}.xlsx`);
+    } else {
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Detalle de Comprobantes: ${currentDetailLabel}`, 14, 15);
+        
+        doc.autoTable({
+            head: head,
+            body: dataRows,
+            startY: 25,
+            theme: 'striped',
+            styles: { fontSize: 7, cellPadding: 1.5 },
+            columnStyles: {
+                7: { halign: 'right' },
+                8: { halign: 'right' },
+                9: { halign: 'right', textColor: [220, 38, 38], fontStyle: 'bold' }
+            },
+            willDrawCell: function(data) {
+                if (data.row.section === 'body' && String(data.row.raw[6] || '') === 'TOTALES') {
+                    doc.setFillColor(200, 200, 220);
+                    doc.setFont('', 'bold');
+                }
+            }
+        });
+        doc.save(`Detalle_${currentDetailLabel.replace(/[/\\?%*:|"<>]/g, '-')}.pdf`);
+    }
 }
 
 // ─── Homologacion Vendedores (Persistencia Local) ─────────────────

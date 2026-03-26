@@ -741,6 +741,56 @@
         </div>
     </div>
 
+    <!-- Modal: Detalle de Resumen (Comprobantes) -->
+    <div class="modal-overlay" id="summaryDetailModal">
+        <div class="glass-modal" style="max-width:1050px; width:95%;">
+            <div class="modal-header d-flex justify-content-between align-items-center mb-3">
+                <h3 id="summaryDetailTitle" style="font-size: 1.1rem; color: var(--accent);">Detalle de Comprobantes</h3>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-glass btn-export-excel btn-sm" onclick="exportSummaryDetail('excel')" title="Exportar Detalle a Excel">
+                            <i class="fas fa-file-excel"></i>
+                        </button>
+                        <button class="btn btn-glass btn-export-pdf btn-sm" onclick="exportSummaryDetail('pdf')" title="Exportar Detalle a PDF">
+                            <i class="fas fa-file-pdf"></i>
+                        </button>
+                    </div>
+                    <button class="close-btn" onclick="closeSummaryDetailModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="report-table-wrapper" style="max-height: 50vh; overflow-y:auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                    <table class="report-table" style="margin-top:0;">
+                        <thead>
+                            <tr>
+                                <th>Empresa</th>
+                                <th>Fecha</th>
+                                <th>T.D.</th>
+                                <th>Serie - N° Doc.</th>
+                                <th>Código</th>
+                                <th>Cliente</th>
+                                <th>Vendedor</th>
+                                <th class="text-right">Importe</th>
+                                <th class="text-right">A Cta</th>
+                                <th class="text-right">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryDetailTbody">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                        <tfoot id="summaryDetailTfoot">
+                            <!-- Totales -->
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- SweetAlert2 -->
