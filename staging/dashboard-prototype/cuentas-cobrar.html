@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuentas por Cobrar - YELAVE ERP</title>
+    <meta name="description" content="Reporte de Saldos por Cobrar - Plataforma YELAVE Skincare">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════
+           YELAVE Cuentas por Cobrar – Premium Dark
+           ═══════════════════════════════════════════ */
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-hover: rgba(255, 255, 255, 0.07);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --accent2: #a855f7;
+            --accent3: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0d0f1a 40%, #131528 100%);
+            color: #e2e8f0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            font-size: 14px;
+        }
+
+        /* ─── Navbar ───────────────────────────────── */
+        .navbar-glass {
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 0.75rem 1.5rem;
+        }
+        .navbar-brand {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #fff, rgba(192, 132, 252, 0.9));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-link { color: rgba(255,255,255,0.5) !important; font-weight: 500; font-size: 0.85rem; transition: color 0.2s; }
+        .nav-link:hover, .nav-link.active { color: #fff !important; }
+
+        /* ─── Glass Card ───────────────────────────── */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover { border-color: rgba(255,255,255,0.12); }
+
+        /* ─── KPI Cards ────────────────────────────── */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .kpi-card {
+            padding: 1.25rem 1.5rem;
+            border-radius: 16px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--kpi-color), transparent);
+        }
+        .kpi-card .kpi-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--kpi-bg);
+            color: var(--kpi-color);
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+        .kpi-card .kpi-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); margin-bottom: 0.25rem; }
+        .kpi-card .kpi-value { font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 700; color: #fff; }
+        .kpi-card .kpi-sub { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 0.25rem; }
+
+        .kpi-card.kpi-saldo { --kpi-color: #ef4444; --kpi-bg: rgba(239, 68, 68, 0.12); }
+        .kpi-card.kpi-importe { --kpi-color: #6366f1; --kpi-bg: rgba(99, 102, 241, 0.12); }
+        .kpi-card.kpi-acta { --kpi-color: #10b981; --kpi-bg: rgba(16, 185, 129, 0.12); }
+        .kpi-card.kpi-docs { --kpi-color: #f59e0b; --kpi-bg: rgba(245, 158, 11, 0.12); }
+
+        /* ─── Inputs / Selects ─────────────────────── */
+        .form-control, .form-select {
+            background: rgba(255,255,255,0.05) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            color: #e2e8f0 !important;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            padding: 0.55rem 0.85rem;
+            transition: all 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-glow) !important;
+        }
+        .form-label { font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.5px; text-transform: uppercase; }
+
+        /* ─── Buttons ──────────────────────────────── */
+        .btn-accent {
+            background: linear-gradient(135deg, var(--accent), #818cf8);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            padding: 0.5rem 1.25rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        .btn-accent:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+            color: #fff;
+        }
+        .btn-glass {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+            font-weight: 500;
+            padding: 0.45rem 1rem;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .btn-glass:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }
+        .btn-glass.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        .btn-export-excel { --kpi-color: #10b981; border-color: rgba(16,185,129,0.3); color: #10b981; }
+        .btn-export-excel:hover { background: rgba(16,185,129,0.15); color: #10b981; border-color: rgba(16,185,129,0.5); }
+        .btn-export-pdf { --kpi-color: #ef4444; border-color: rgba(239,68,68,0.3); color: #ef4444; }
+        .btn-export-pdf:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.5); }
+
+        /* ─── Tabs ─────────────────────────────────── */
+        .nav-tabs-glass { border-bottom: 1px solid var(--glass-border); gap: 0.25rem; }
+        .nav-tabs-glass .nav-link {
+            border: none;
+            border-radius: 10px 10px 0 0;
+            color: rgba(255,255,255,0.45);
+            font-weight: 600;
+            font-size: 0.82rem;
+            padding: 0.6rem 1.25rem;
+            transition: all 0.2s;
+        }
+        .nav-tabs-glass .nav-link:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.04); }
+        .nav-tabs-glass .nav-link.active {
+            color: #fff;
+            background: rgba(99,102,241,0.15);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        /* ─── Data Table ───────────────────────────── */
+        .report-table-wrapper {
+            overflow-x: auto;
+            max-height: 65vh;
+            border-radius: 12px;
+        }
+        .report-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.75rem;
+        }
+        .report-table th {
+            background: rgba(99, 102, 241, 0.12);
+            color: rgba(255,255,255,0.7);
+            font-weight: 600;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.6rem 0.75rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--glass-border);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        .report-table th:hover { background: rgba(99, 102, 241, 0.2); }
+        .report-table th .sort-icon { margin-left: 4px; opacity: 0.4; font-size: 0.6rem; }
+        .report-table th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+        .report-table td {
+            padding: 0.45rem 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            white-space: nowrap;
+            color: rgba(255,255,255,0.8);
+        }
+        .report-table tbody tr { transition: background 0.15s; }
+        .report-table tbody tr:hover { background: rgba(99, 102, 241, 0.06); }
+        .report-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+        .report-table tbody tr:nth-child(even):hover { background: rgba(99, 102, 241, 0.06); }
+        .report-table .text-right { text-align: right; }
+        .report-table .text-center { text-align: center; }
+        .report-table .total-row { background: rgba(99,102,241,0.1) !important; font-weight: 700; color: #fff; }
+
+        .badge-doc { font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 6px; }
+        .badge-fact { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .badge-bole { background: rgba(168,85,247,0.15); color: #c084fc; }
+
+        /* ─── Charts ───────────────────────────────── */
+        .chart-container { position: relative; height: 300px; }
+        .chart-card { padding: 1.25rem; border-radius: 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); }
+        .chart-card h6 { font-family: 'Outfit', sans-serif; font-weight: 600; color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 1rem; }
+
+        /* ─── Summary Table ─────────────────────────── */
+        .summary-table { width: 100%; border-collapse: collapse; }
+        .summary-table th { background: rgba(168,85,247,0.1); color: rgba(255,255,255,0.7); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.5rem 0.75rem; font-weight: 600; }
+        .summary-table td { padding: 0.45rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.8rem; color: rgba(255,255,255,0.75); }
+        .summary-table tbody tr:hover { background: rgba(168,85,247,0.06); }
+        .summary-table .bar-cell { width: 200px; }
+        .summary-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; }
+        .summary-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease; }
+
+        /* ─── Search ───────────────────────────────── */
+        .search-box { position: relative; }
+        .search-box input { padding-left: 2.2rem; }
+        .search-box .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.3); font-size: 0.8rem; }
+
+        /* ─── Animations ───────────────────────────── */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.5s ease-out both; }
+        .fade-in-up-1 { animation-delay: 0.1s; }
+        .fade-in-up-2 { animation-delay: 0.2s; }
+        .fade-in-up-3 { animation-delay: 0.3s; }
+        .fade-in-up-4 { animation-delay: 0.4s; }
+
+        /* ─── Loader ───────────────────────────────── */
+        .loader-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10,10,15,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            justify-content: center; align-items: center;
+            flex-direction: column; gap: 1rem;
+        }
+        .loader-overlay.active { display: flex; }
+        .loader-ring {
+            width: 50px; height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 500; }
+
+        /* ─── Pagination ───────────────────────────── */
+        .pagination-info { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+        .page-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.6);
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .page-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ─── Print ────────────────────────────────── */
+        @media print {
+            body { background: #fff !important; color: #000 !important; }
+            .navbar-glass, .filters-section, .btn, .nav-tabs-glass, .no-print { display: none !important; }
+            .glass-card, .kpi-card { background: #fff !important; border: 1px solid #ddd !important; }
+            .report-table th { background: #f0f0f0 !important; color: #333 !important; }
+            .report-table td { color: #333 !important; border-bottom: 1px solid #ddd !important; }
+            .kpi-value { color: #000 !important; }
+        }
+
+        /* ─── Responsive ──────────────────────────── */
+        @media (max-width: 768px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .kpi-card .kpi-value { font-size: 1.2rem; }
+            .chart-container { height: 220px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loader -->
+    <div class="loader-overlay" id="loaderOverlay">
+        <div class="loader-ring"></div>
+        <div class="loader-text">Generando reporte...</div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-glass sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <i class="fas fa-layer-group me-2" style="font-size:0.9rem;"></i>YELAVE ERP
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navMain">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="cuentas-cobrar.html">Cuentas por Cobrar</a></li>
+                </ul>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-glass btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Imprimir</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4 px-4">
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 fade-in-up">
+            <div>
+                <h2 class="mb-0" style="font-family:'Outfit',sans-serif; font-weight:700;">
+                    <i class="fas fa-file-invoice-dollar me-2" style="color:var(--accent);"></i>Saldos por Cobrar
+                </h2>
+                <p class="mb-0" style="color:rgba(255,255,255,0.35); font-size:0.85rem;">Reporte de Cuentas por Cobrar — Documentos pendientes de pago</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="glass-card p-4 mb-4 fade-in-up fade-in-up-1 filters-section" id="filtersCard">
+            <form id="reportForm" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Empresa</label>
+                    <select class="form-select" id="selEmpresa" required>
+                        <option value="">Cargando...</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" class="form-control" id="fechaInicio" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Fecha Fin</label>
+                    <input type="date" class="form-control" id="fechaFin" required>
+                </div>
+                <div class="col-md-3">
+                    <div class="search-box">
+                        <label class="form-label">Buscar</label>
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Cliente, vendedor, documento...">
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-accent flex-grow-1" id="btnGenerar">
+                        <i class="fas fa-chart-bar me-1"></i>Generar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Container (hidden initially) -->
+        <div id="resultsContainer" style="display:none;">
+
+            <!-- KPI Cards -->
+            <div class="kpi-grid fade-in-up">
+                <div class="kpi-card kpi-saldo">
+                    <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="kpi-label">Saldo Pendiente</div>
+                    <div class="kpi-value" id="kpiSaldo">S/ 0.00</div>
+                    <div class="kpi-sub" id="kpiSaldoSub">0 documentos</div>
+                </div>
+                <div class="kpi-card kpi-importe">
+                    <div class="kpi-icon"><i class="fas fa-file-invoice"></i></div>
+                    <div class="kpi-label">Total Facturado</div>
+                    <div class="kpi-value" id="kpiImporte">S/ 0.00</div>
+                    <div class="kpi-sub" id="kpiImporteSub">Importe total</div>
+                </div>
+                <div class="kpi-card kpi-acta">
+                    <div class="kpi-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="kpi-label">A Cuenta</div>
+                    <div class="kpi-value" id="kpiActa">S/ 0.00</div>
+                    <div class="kpi-sub" id="kpiActaSub">Pagos parciales</div>
+                </div>
+                <div class="kpi-card kpi-docs">
+                    <div class="kpi-icon"><i class="fas fa-folder-open"></i></div>
+                    <div class="kpi-label">Documentos</div>
+                    <div class="kpi-value" id="kpiDocs">0</div>
+                    <div class="kpi-sub" id="kpiDocsSub">FACT + BOLE</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs nav-tabs-glass mb-0 no-print" id="mainTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-datos" data-bs-toggle="tab" data-bs-target="#pane-datos" type="button" role="tab">
+                        <i class="fas fa-table me-1"></i>Datos
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-graficos" data-bs-toggle="tab" data-bs-target="#pane-graficos" type="button" role="tab">
+                        <i class="fas fa-chart-pie me-1"></i>Gráficos
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-resumen" data-bs-toggle="tab" data-bs-target="#pane-resumen" type="button" role="tab">
+                        <i class="fas fa-layer-group me-1"></i>Resumen Agrupado
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+
+                <!-- ═══ TAB: Data Table ═══ -->
+                <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
+                    <div class="glass-card p-3" style="border-radius: 0 0 16px 16px;">
+                        <!-- Toolbar -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span style="font-size:0.75rem; color:rgba(255,255,255,0.4);">Agrupar por:</span>
+                                <select class="form-select" id="selGroupBy" style="width:auto; min-width:150px; padding:0.3rem 0.6rem; font-size:0.78rem;">
+                                    <option value="">Sin agrupación</option>
+                                    <option value="nomven">Vendedor</option>
+                                    <option value="nomaux">Cliente</option>
+                                    <option value="nompgo">Forma de Pago</option>
+                                    <option value="tienda">Tienda</option>
+                                    <option value="nomgru">Grupo</option>
+                                    <option value="coddoc">Tipo Documento</option>
+                                    <option value="nomsol">Tienda Rendición</option>
+                                </select>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-glass btn-export-excel" onclick="exportToExcel()">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                                <button class="btn btn-glass btn-export-pdf" onclick="exportToPDF()">
+                                    <i class="fas fa-file-pdf me-1"></i>PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="report-table-wrapper" id="tableWrapper">
+                            <table class="report-table" id="mainTable">
+                                <thead>
+                                    <tr>
+                                        <th onclick="sortTable(0)" data-col="0">Fecha <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(1)" data-col="1">T.D. <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(2)" data-col="2">Serie <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(3)" data-col="3">N° Docum. <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(4)" data-col="4">Código <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(5)" data-col="5">Nombre del Cliente <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(6)" data-col="6" class="text-right">Importe <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(7)" data-col="7" class="text-right">A Cta <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(8)" data-col="8" class="text-right">Saldo <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(9)" data-col="9">Vendedor <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(10)" data-col="10">Forma Pago <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(11)" data-col="11">Tienda Rendición <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody">
+                                </tbody>
+                                <tfoot id="tableFoot">
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 no-print" id="paginationContainer">
+                            <div class="pagination-info" id="paginationInfo">Mostrando 0 de 0</div>
+                            <div class="d-flex gap-1" id="paginationButtons"></div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <span style="font-size:0.75rem; color:rgba(255,255,255,0.4);">Filas:</span>
+                                <select class="form-select" id="selPageSize" style="width:auto; padding:0.25rem 0.5rem; font-size:0.75rem;">
+                                    <option value="50">50</option>
+                                    <option value="100" selected>100</option>
+                                    <option value="250">250</option>
+                                    <option value="500">500</option>
+                                    <option value="0">Todas</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: Charts ═══ -->
+                <div class="tab-pane fade" id="pane-graficos" role="tabpanel">
+                    <div class="glass-card p-4" style="border-radius: 0 0 16px 16px;">
+                        <div class="row g-4">
+                            <div class="col-lg-6">
+                                <div class="chart-card">
+                                    <h6><i class="fas fa-chart-pie me-2" style="color:var(--accent);"></i>Saldo por Vendedor</h6>
+                                    <div class="chart-container"><canvas id="chartVendedor"></canvas></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="chart-card">
+                                    <h6><i class="fas fa-chart-bar me-2" style="color:var(--accent2);"></i>Top Clientes Morosos</h6>
+                                    <div class="chart-container"><canvas id="chartClientes"></canvas></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="chart-card">
+                                    <h6><i class="fas fa-chart-pie me-2" style="color:var(--accent3);"></i>Saldo por Forma de Pago</h6>
+                                    <div class="chart-container"><canvas id="chartFormaPago"></canvas></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="chart-card">
+                                    <h6><i class="fas fa-chart-line me-2" style="color:var(--success);"></i>Evolución Mensual</h6>
+                                    <div class="chart-container"><canvas id="chartMensual"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: Summary ═══ -->
+                <div class="tab-pane fade" id="pane-resumen" role="tabpanel">
+                    <div class="glass-card p-4" style="border-radius: 0 0 16px 16px;">
+                        <div class="d-flex gap-2 mb-3 no-print">
+                            <button class="btn btn-glass active" onclick="showSummary('vendedor', this)">Por Vendedor</button>
+                            <button class="btn btn-glass" onclick="showSummary('forma_pago', this)">Por Forma Pago</button>
+                            <button class="btn btn-glass" onclick="showSummary('tienda', this)">Por Tienda</button>
+                            <button class="btn btn-glass" onclick="showSummary('tipo_doc', this)">Por Tipo Doc</button>
+                            <button class="btn btn-glass" onclick="showSummary('clientes', this)">Top Clientes</button>
+                        </div>
+                        <div class="report-table-wrapper" id="summaryTableWrapper">
+                            <table class="summary-table" id="summaryTable">
+                                <thead id="summaryHead"></thead>
+                                <tbody id="summaryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /tab-content -->
+
+        </div><!-- /resultsContainer -->
+
+        <!-- Empty State -->
+        <div id="emptyState" class="text-center py-5 fade-in-up" style="display:block;">
+            <div style="font-size:4rem; margin-bottom:1rem; opacity:0.1;"><i class="fas fa-file-invoice-dollar"></i></div>
+            <h5 style="color:rgba(255,255,255,0.3); font-family:'Outfit',sans-serif;">Seleccione empresa y rango de fechas para generar el reporte</h5>
+            <p style="color:rgba(255,255,255,0.15); font-size:0.85rem;">Los resultados se mostrarán en tabla, gráficos y resumen agrupado</p>
+        </div>
+
+        <!-- Report Header for Print -->
+        <div id="printHeader" style="display:none;" class="mb-3">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 id="printEmpresa" style="margin:0;"></h4>
+                    <small id="printRuc"></small>
+                </div>
+                <div class="text-end">
+                    <h3 style="margin:0;">SALDOS POR COBRAR</h3>
+                    <small id="printFechas"></small>
+                </div>
+            </div>
+            <hr>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/cuentas-cobrar.js"></script>
+</body>
+</html>

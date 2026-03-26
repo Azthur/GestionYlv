@@ -61,11 +61,11 @@ function renderUserInfo(user) {
         } else if (userRol === 'LOGISTICA') {
             if (href.includes('orders.html')) isVisible = true;
         } else if (userRol === 'CONTROL_INTERNO') {
-            if (href.includes('conciliacion.html')) isVisible = true;
+            if (href.includes('conciliacion.html') || href.includes('cuentas-cobrar.html')) isVisible = true;
         } else if (userRol === 'CONTABILIDAD') {
-            if (href.includes('orders.html') || href.includes('conciliacion.html')) isVisible = true;
+            if (href.includes('orders.html') || href.includes('conciliacion.html') || href.includes('cuentas-cobrar.html')) isVisible = true;
         } else if (userRol === 'COMERCIAL') {
-            if (href.includes('conciliacion.html')) isVisible = true;
+            if (href.includes('conciliacion.html') || href.includes('cuentas-cobrar.html')) isVisible = true;
         }
         // Others (USER or empty) only see index/profile (already handled above)
 
@@ -131,6 +131,17 @@ function renderLandingPage(user, ctx) {
             icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
             title: 'Logística & Compras',
             desc: 'Gestión integral de órdenes de compra, proveedores y seguimiento de entregas.'
+        });
+    }
+
+    // Cuentas por Cobrar card
+    if (ctx.isSuperuser || ctx.isAdmin || ctx.userRol === 'CONTROL_INTERNO' || ctx.userRol === 'CONTABILIDAD' || ctx.userRol === 'COMERCIAL') {
+        cards.push({
+            href: '/cuentas-cobrar.html',
+            cls: 'card-finance',
+            icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+            title: 'Cuentas por Cobrar',
+            desc: 'Reporte de saldos pendientes, agrupación dinámica, gráficos y exportación Excel/PDF.'
         });
     }
 

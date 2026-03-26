@@ -34,6 +34,9 @@ app.include_router(production_modules_router)
 from kardex import router as kardex_router
 app.include_router(kardex_router)
 
+from cuentas_cobrar import router as cuentas_cobrar_router
+app.include_router(cuentas_cobrar_router)
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
