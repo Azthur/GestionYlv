@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -41,6 +41,7 @@
             margin-bottom: 1.5rem; display: flex; gap: 1.5rem; align-items: flex-end;
         }
     </style>
+    <script src="auth-guard.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -133,7 +134,7 @@
                     </button>
                     <div>
                         <h2>Módulo de Reparto</h2>
-                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística · Programación de Hojas de Ruta</p>
+                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística - Programación de Hojas de Ruta</p>
                     </div>
                 </div>
                 <div class="filter-group" style="flex-direction:row; align-items:center; gap:0.5rem; min-width:250px;">
@@ -186,7 +187,7 @@
                                     <th>Destino</th>
                                     <th>Fecha/Hora</th>
                                     <th>Observaciones</th>
-                                    <th>OC / Ítems</th>
+                                    <th>OC / Ãtems</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -205,7 +206,7 @@
                                     <th>Fecha Ruta</th>
                                     <th>Chofer</th>
                                     <th>Movilidad / Placa</th>
-                                    <th>N° Solicitudes</th>
+                                    <th>NÂ° Solicitudes</th>
                                     <th>Estado</th>
                                 </tr>
                             </thead>
@@ -265,7 +266,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <button type="button" class="btn btn-outline" onclick="addManualItem()" style="margin-bottom:1.5rem; font-size:0.75rem;">+ Agregar Ítem</button>
+                            <button type="button" class="btn btn-outline" onclick="addManualItem()" style="margin-bottom:1.5rem; font-size:0.75rem;">+ Agregar Ãtem</button>
                             
                             <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
                                 <button type="button" class="btn btn-outline" onclick="document.getElementById('formManual').reset()">Limpiar</button>
@@ -314,3 +315,4 @@
     <script src="reparto.js"></script>
 </body>
 </html>
+

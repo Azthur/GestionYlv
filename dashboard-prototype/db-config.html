@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
-        /* ─── Page-specific styles ─── */
+        /* â”€â”€â”€ Page-specific styles â”€â”€â”€ */
         .glass-panel {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -385,6 +385,7 @@
             }
         }
     </style>
+    <script src="auth-guard.js"></script>
 </head>
 
 <body>
@@ -474,7 +475,7 @@
                     </button>
                     <div>
                         <h2>Configuración de Base de Datos</h2>
-                        <p class="top-bar-subtitle">Sistema · Administración</p>
+                        <p class="top-bar-subtitle">Sistema - Administración</p>
                     </div>
                 </div>
             </header>
@@ -516,7 +517,7 @@
                                 <div class="form-field">
                                     <label>Contraseña</label>
                                     <div class="input-with-toggle">
-                                        <input type="password" id="inputPassword" placeholder="••••••••">
+                                        <input type="password" id="inputPassword" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢">
                                         <button class="toggle-password" onclick="togglePasswordVisibility()"
                                             title="Mostrar/Ocultar">
                                             <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -579,7 +580,7 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <script>
-        // ─── Sidebar Toggle ──────────────────────────
+        // â”€â”€â”€ Sidebar Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
@@ -587,7 +588,7 @@
             overlay.classList.toggle('active', sidebar.classList.contains('open'));
         }
 
-        // ─── Toast ────────────────────────────────────
+        // â”€â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         function showToast(msg, type = 'info') {
             const c = document.getElementById('toastContainer');
             const t = document.createElement('div');
@@ -597,13 +598,13 @@
             setTimeout(() => { t.style.animation = 'slideIn 0.3s ease-out reverse forwards'; setTimeout(() => t.remove(), 300); }, 3500);
         }
 
-        // ─── Init ──────────────────────────────────────
+        // â”€â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         document.addEventListener('DOMContentLoaded', () => {
             loadCurrentConfig();
             checkStatus();
         });
 
-        // ─── Load Current Config ────────────────────
+        // â”€â”€â”€ Load Current Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         async function loadCurrentConfig() {
             try {
                 const res = await fetch('/api/config/db');
@@ -618,7 +619,7 @@
             }
         }
 
-        // ─── Check Status ──────────────────────────────
+        // â”€â”€â”€ Check Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         async function checkStatus() {
             const indicator = document.getElementById('statusIndicator');
             const text = document.getElementById('statusText');
@@ -636,25 +637,25 @@
 
                 if (data.connected) {
                     indicator.className = 'status-indicator connected';
-                    text.textContent = '✓ Conexión activa — Base de datos operativa';
+                    text.textContent = 'âœ“ Conexión activa â€” Base de datos operativa';
                 } else if (data.error_type === 'password_expired') {
                     indicator.className = 'status-indicator expired';
-                    text.textContent = '⚠ Contraseña expirada — Ingrese una nueva contraseña y guarde la configuración';
+                    text.textContent = 'âš  Contraseña expirada â€” Ingrese una nueva contraseña y guarde la configuración';
                 } else if (data.error_type === 'auth_failed') {
                     indicator.className = 'status-indicator disconnected';
-                    text.textContent = '✗ Credenciales inválidas — Verifique usuario y contraseña';
+                    text.textContent = 'âœ— Credenciales inválidas â€” Verifique usuario y contraseña';
                 } else {
                     indicator.className = 'status-indicator disconnected';
-                    text.textContent = `✗ Sin conexión — ${data.message}`;
+                    text.textContent = `âœ— Sin conexión â€” ${data.message}`;
                 }
             } catch (err) {
                 dot.classList.remove('pulse');
                 indicator.className = 'status-indicator disconnected';
-                text.textContent = '✗ Error al verificar la conexión';
+                text.textContent = 'âœ— Error al verificar la conexión';
             }
         }
 
-        // ─── Toggle Password ─────────────────────────
+        // â”€â”€â”€ Toggle Password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         function togglePasswordVisibility() {
             const input = document.getElementById('inputPassword');
             const icon = document.getElementById('eyeIcon');
@@ -667,7 +668,7 @@
             }
         }
 
-        // ─── Test Connection ───────────────────────────
+        // â”€â”€â”€ Test Connection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         async function testConnection() {
             const server = document.getElementById('inputServer').value;
             const db = document.getElementById('inputDatabase').value;
@@ -724,7 +725,7 @@
             area.innerHTML = html;
         }
 
-        // ─── Save Config ───────────────────────────────
+        // â”€â”€â”€ Save Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         async function saveConfig() {
             const server = document.getElementById('inputServer').value;
             const db = document.getElementById('inputDatabase').value;

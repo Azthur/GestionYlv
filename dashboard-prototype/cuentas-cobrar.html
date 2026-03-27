@@ -1,19 +1,22 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" data-bs-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cuentas por Cobrar - YELAVE ERP</title>
     <meta name="description" content="Reporte de Saldos por Cobrar - Plataforma YELAVE Skincare">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Select2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
-        /* ═══════════════════════════════════════════
-           YELAVE Cuentas por Cobrar – Premium Dark
-           ═══════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           YELAVE Cuentas por Cobrar â€“ Premium Dark
+           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
         :root {
             --glass-bg: rgba(255, 255, 255, 0.04);
             --glass-border: rgba(255, 255, 255, 0.08);
@@ -27,7 +30,11 @@
             --danger: #ef4444;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             background: linear-gradient(135deg, #0a0a0f 0%, #0d0f1a 40%, #131528 100%);
@@ -37,13 +44,14 @@
             font-size: 14px;
         }
 
-        /* ─── Navbar ───────────────────────────────── */
+        /* â”€â”€â”€ Navbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .navbar-glass {
             background: rgba(10, 10, 15, 0.85);
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--glass-border);
             padding: 0.75rem 1.5rem;
         }
+
         .navbar-brand {
             font-family: 'Outfit', sans-serif;
             font-weight: 700;
@@ -53,10 +61,20 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .nav-link { color: rgba(255,255,255,0.5) !important; font-weight: 500; font-size: 0.85rem; transition: color 0.2s; }
-        .nav-link:hover, .nav-link.active { color: #fff !important; }
 
-        /* ─── Glass Card ───────────────────────────── */
+        .nav-link {
+            color: rgba(255, 255, 255, 0.5) !important;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: #fff !important;
+        }
+
+        /* â”€â”€â”€ Glass Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(12px);
@@ -64,10 +82,19 @@
             border-radius: 16px;
             transition: all 0.3s ease;
         }
-        .glass-card:hover { border-color: rgba(255,255,255,0.12); }
 
-        /* ─── KPI Cards ────────────────────────────── */
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        /* â”€â”€â”€ KPI Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
         .kpi-card {
             padding: 1.25rem 1.5rem;
             border-radius: 16px;
@@ -76,52 +103,104 @@
             position: relative;
             overflow: hidden;
         }
+
         .kpi-card::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 3px;
             background: linear-gradient(90deg, var(--kpi-color), transparent);
         }
+
         .kpi-card .kpi-icon {
-            width: 40px; height: 40px;
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background: var(--kpi-bg);
             color: var(--kpi-color);
             font-size: 1.1rem;
             margin-bottom: 0.75rem;
         }
-        .kpi-card .kpi-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); margin-bottom: 0.25rem; }
-        .kpi-card .kpi-value { font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 700; color: #fff; }
-        .kpi-card .kpi-sub { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 0.25rem; }
 
-        .kpi-card.kpi-saldo { --kpi-color: #ef4444; --kpi-bg: rgba(239, 68, 68, 0.12); }
-        .kpi-card.kpi-importe { --kpi-color: #6366f1; --kpi-bg: rgba(99, 102, 241, 0.12); }
-        .kpi-card.kpi-acta { --kpi-color: #10b981; --kpi-bg: rgba(16, 185, 129, 0.12); }
-        .kpi-card.kpi-docs { --kpi-color: #f59e0b; --kpi-bg: rgba(245, 158, 11, 0.12); }
+        .kpi-card .kpi-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 0.25rem;
+        }
 
-        /* ─── Inputs / Selects ─────────────────────── */
-        .form-control, .form-select {
-            background: rgba(255,255,255,0.05) !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
+        .kpi-card .kpi-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .kpi-card .kpi-sub {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.35);
+            margin-top: 0.25rem;
+        }
+
+        .kpi-card.kpi-saldo {
+            --kpi-color: #ef4444;
+            --kpi-bg: rgba(239, 68, 68, 0.12);
+        }
+
+        .kpi-card.kpi-importe {
+            --kpi-color: #6366f1;
+            --kpi-bg: rgba(99, 102, 241, 0.12);
+        }
+
+        .kpi-card.kpi-acta {
+            --kpi-color: #10b981;
+            --kpi-bg: rgba(16, 185, 129, 0.12);
+        }
+
+        .kpi-card.kpi-docs {
+            --kpi-color: #f59e0b;
+            --kpi-bg: rgba(245, 158, 11, 0.12);
+        }
+
+        /* â”€â”€â”€ Inputs / Selects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .form-control,
+        .form-select {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
             color: #e2e8f0 !important;
             border-radius: 10px;
             font-size: 0.85rem;
             padding: 0.55rem 0.85rem;
             transition: all 0.2s;
         }
-        .form-control:focus, .form-select:focus {
+
+        .form-control:focus,
+        .form-select:focus {
             border-color: var(--accent) !important;
             box-shadow: 0 0 0 3px var(--accent-glow) !important;
         }
+
         option {
             background-color: #1e293b;
             color: #fff;
         }
-        .form-label { font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.5px; text-transform: uppercase; }
 
-        /* ─── Buttons ──────────────────────────────── */
+        .form-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* â”€â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .btn-accent {
             background: linear-gradient(135deg, var(--accent), #818cf8);
             border: none;
@@ -132,62 +211,104 @@
             font-size: 0.85rem;
             transition: all 0.3s;
         }
+
         .btn-accent:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 16px var(--accent-glow);
             color: #fff;
         }
+
         .btn-glass {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: rgba(255,255,255,0.7);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
             font-weight: 500;
             padding: 0.45rem 1rem;
             border-radius: 10px;
             font-size: 0.8rem;
             transition: all 0.2s;
         }
-        .btn-glass:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }
-        .btn-glass.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-        .btn-export-excel { --kpi-color: #10b981; border-color: rgba(16,185,129,0.3); color: #10b981; }
-        .btn-export-excel:hover { background: rgba(16,185,129,0.15); color: #10b981; border-color: rgba(16,185,129,0.5); }
-        .btn-export-pdf { --kpi-color: #ef4444; border-color: rgba(239,68,68,0.3); color: #ef4444; }
-        .btn-export-pdf:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.5); }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
 
-        /* ─── Tabs ─────────────────────────────────── */
-        .nav-tabs-glass { border-bottom: 1px solid var(--glass-border); gap: 0.25rem; }
+        .btn-glass.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .btn-export-excel {
+            --kpi-color: #10b981;
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .btn-export-excel:hover {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        .btn-export-pdf {
+            --kpi-color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .btn-export-pdf:hover {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        /* â”€â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .nav-tabs-glass {
+            border-bottom: 1px solid var(--glass-border);
+            gap: 0.25rem;
+        }
+
         .nav-tabs-glass .nav-link {
             border: none;
             border-radius: 10px 10px 0 0;
-            color: rgba(255,255,255,0.45);
+            color: rgba(255, 255, 255, 0.45);
             font-weight: 600;
             font-size: 0.82rem;
             padding: 0.6rem 1.25rem;
             transition: all 0.2s;
         }
-        .nav-tabs-glass .nav-link:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.04); }
+
+        .nav-tabs-glass .nav-link:hover {
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
         .nav-tabs-glass .nav-link.active {
             color: #fff;
-            background: rgba(99,102,241,0.15);
+            background: rgba(99, 102, 241, 0.15);
             border-bottom: 2px solid var(--accent);
         }
 
-        /* ─── Data Table ───────────────────────────── */
+        /* â”€â”€â”€ Data Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .report-table-wrapper {
             overflow-x: auto;
             max-height: 65vh;
             border-radius: 12px;
         }
+
         .report-table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
             font-size: 0.75rem;
         }
+
         .report-table th {
             background: rgba(99, 102, 241, 0.12);
-            color: rgba(255,255,255,0.7);
+            color: rgba(255, 255, 255, 0.7);
             font-weight: 600;
             font-size: 0.68rem;
             text-transform: uppercase;
@@ -201,103 +322,287 @@
             cursor: pointer;
             user-select: none;
         }
-        .report-table th:hover { background: rgba(99, 102, 241, 0.2); }
-        .report-table th .sort-icon { margin-left: 4px; opacity: 0.4; font-size: 0.6rem; }
-        .report-table th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+
+        .report-table th:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .report-table th .sort-icon {
+            margin-left: 4px;
+            opacity: 0.4;
+            font-size: 0.6rem;
+        }
+
+        .report-table th.sorted .sort-icon {
+            opacity: 1;
+            color: var(--accent);
+        }
+
         .report-table td {
             padding: 0.45rem 0.75rem;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             white-space: nowrap;
-            color: rgba(255,255,255,0.8);
+            color: rgba(255, 255, 255, 0.8);
         }
-        .report-table tbody tr { transition: background 0.15s; }
-        .report-table tbody tr:hover { background: rgba(99, 102, 241, 0.06); }
-        .report-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
-        .report-table tbody tr:nth-child(even):hover { background: rgba(99, 102, 241, 0.06); }
-        .report-table .text-right { text-align: right; }
-        .report-table .text-center { text-align: center; }
-        .report-table .total-row { background: rgba(99,102,241,0.1) !important; font-weight: 700; color: #fff; }
 
-        .badge-doc { font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 6px; }
-        .badge-fact { background: rgba(99,102,241,0.15); color: #818cf8; }
-        .badge-bole { background: rgba(168,85,247,0.15); color: #c084fc; }
+        .report-table tbody tr {
+            transition: background 0.15s;
+        }
 
-        /* ─── Charts ───────────────────────────────── */
-        .chart-container { position: relative; height: 300px; }
-        .chart-card { padding: 1.25rem; border-radius: 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); }
-        .chart-card h6 { font-family: 'Outfit', sans-serif; font-weight: 600; color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 1rem; }
+        .report-table tbody tr:hover {
+            background: rgba(99, 102, 241, 0.06);
+        }
 
-        /* ─── Summary Table ─────────────────────────── */
-        .summary-table { width: 100%; border-collapse: collapse; }
-        .summary-table th { background: rgba(168,85,247,0.1); color: rgba(255,255,255,0.7); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.5rem 0.75rem; font-weight: 600; }
-        .summary-table td { padding: 0.45rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.8rem; color: rgba(255,255,255,0.75); }
-        .summary-table tbody tr:hover { background: rgba(168,85,247,0.06); }
-        .summary-table .bar-cell { width: 200px; }
-        .summary-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; }
-        .summary-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease; }
+        .report-table tbody tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.015);
+        }
 
-        /* ─── Search ───────────────────────────────── */
-        .search-box { position: relative; }
-        .search-box input { padding-left: 2.2rem; }
-        .search-box .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.3); font-size: 0.8rem; }
+        .report-table tbody tr:nth-child(even):hover {
+            background: rgba(99, 102, 241, 0.06);
+        }
 
-        /* ─── Animations ───────────────────────────── */
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in-up { animation: fadeInUp 0.5s ease-out both; }
-        .fade-in-up-1 { animation-delay: 0.1s; }
-        .fade-in-up-2 { animation-delay: 0.2s; }
-        .fade-in-up-3 { animation-delay: 0.3s; }
-        .fade-in-up-4 { animation-delay: 0.4s; }
+        .report-table .text-right {
+            text-align: right;
+        }
 
-        /* ─── Loader ───────────────────────────────── */
+        .report-table .text-center {
+            text-align: center;
+        }
+
+        .report-table .total-row {
+            background: rgba(99, 102, 241, 0.1) !important;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .badge-doc {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+        }
+
+        .badge-fact {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+        }
+
+        .badge-bole {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+        }
+
+        /* â”€â”€â”€ Charts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-card {
+            padding: 1.25rem;
+            border-radius: 16px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+        }
+
+        .chart-card h6 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        /* â”€â”€â”€ Summary Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .summary-table th {
+            background: rgba(168, 85, 247, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.5rem 0.75rem;
+            font-weight: 600;
+        }
+
+        .summary-table td {
+            padding: 0.45rem 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .summary-table tbody tr:hover {
+            background: rgba(168, 85, 247, 0.06);
+        }
+
+        .summary-table .bar-cell {
+            width: 200px;
+        }
+
+        .summary-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+
+        .summary-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            transition: width 0.6s ease;
+        }
+
+        /* â”€â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding-left: 2.2rem;
+        }
+
+        .search-box .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.8rem;
+        }
+
+        /* â”€â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out both;
+        }
+
+        .fade-in-up-1 {
+            animation-delay: 0.1s;
+        }
+
+        .fade-in-up-2 {
+            animation-delay: 0.2s;
+        }
+
+        .fade-in-up-3 {
+            animation-delay: 0.3s;
+        }
+
+        .fade-in-up-4 {
+            animation-delay: 0.4s;
+        }
+
+        /* â”€â”€â”€ Loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .loader-overlay {
             display: none;
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10,10,15,0.8);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 15, 0.8);
             backdrop-filter: blur(8px);
             z-index: 9999;
-            justify-content: center; align-items: center;
-            flex-direction: column; gap: 1rem;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
         }
-        .loader-overlay.active { display: flex; }
+
+        .loader-overlay.active {
+            display: flex;
+        }
+
         .loader-ring {
-            width: 50px; height: 50px;
-            border: 3px solid rgba(255,255,255,0.1);
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loader-text { color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 500; }
 
-        /* ─── Pagination ───────────────────────────── */
-        .pagination-info { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loader-text {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* â”€â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .pagination-info {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
         .page-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.6);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
             padding: 0.35rem 0.65rem;
             border-radius: 6px;
             font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .page-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-        .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        /* ─── Modal ────────────────────────────────── */
+        .page-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .page-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* â”€â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .modal-overlay {
             display: none;
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(5px);
             z-index: 1050;
-            justify-content: center; align-items: center;
+            justify-content: center;
+            align-items: center;
         }
-        .modal-overlay.active { display: flex; }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
         .glass-modal {
             background: var(--glass-bg);
             backdrop-filter: blur(15px);
@@ -310,53 +615,77 @@
             display: flex;
             flex-direction: column;
         }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
             padding-bottom: 1rem;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
+
         .modal-header h3 {
             font-family: 'Outfit', sans-serif;
             font-weight: 700;
             font-size: 1.2rem;
             margin: 0;
         }
+
         .modal-header .close-btn {
             background: none;
             border: none;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255, 255, 255, 0.5);
             font-size: 1.5rem;
             cursor: pointer;
             transition: color 0.2s;
         }
-        .modal-header .close-btn:hover { color: #fff; }
+
+        .modal-header .close-btn:hover {
+            color: #fff;
+        }
+
         .modal-body {
             flex-grow: 1;
             overflow-y: auto;
-            padding-right: 0.5rem; /* For scrollbar */
+            padding-right: 0.5rem;
+            /* For scrollbar */
         }
-        .modal-body::-webkit-scrollbar { width: 8px; }
-        .modal-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-        .modal-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
 
         .btn-outline {
             background: none;
-            border: 1px solid rgba(255,255,255,0.2);
-            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.7);
             padding: 0.5rem 1rem;
             border-radius: 10px;
             font-size: 0.85rem;
             transition: all 0.2s;
         }
+
         .btn-outline:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             color: #fff;
-            border-color: rgba(255,255,255,0.4);
+            border-color: rgba(255, 255, 255, 0.4);
         }
+
         .btn-primary {
             background: var(--accent);
             border: none;
@@ -366,59 +695,131 @@
             font-size: 0.85rem;
             transition: all 0.2s;
         }
+
         .btn-primary:hover {
             background: #818cf8;
         }
 
-        /* ─── Select2 Customization ─── */
+        /* â”€â”€â”€ Select2 Customization â”€â”€â”€ */
         .select2-container--default .select2-selection--multiple {
-            background: rgba(15,23,42,0.6) !important;
-            border: 1px solid var(--border-dark, rgba(255,255,255,0.1)) !important; 
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid var(--border-dark, rgba(255, 255, 255, 0.1)) !important;
             border-radius: var(--radius-sm, 10px) !important;
-            min-height: 38px; padding-bottom: 2px; padding-top: 2px;
+            min-height: 38px;
+            padding-bottom: 2px;
+            padding-top: 2px;
         }
+
         .select2-container--default.select2-container--focus .select2-selection--multiple {
-            border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-glow) !important;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-glow) !important;
         }
+
         .select2-container--default .select2-selection--multiple .select2-selection__choice {
-            background-color: var(--accent) !important; 
+            background-color: var(--accent) !important;
             border: none !important;
-            border-radius: 6px; color: #fff !important; font-weight: 500; font-size: 0.82rem; padding: 2px 8px; margin-top: 6px;
+            border-radius: 6px;
+            color: #fff !important;
+            font-weight: 500;
+            font-size: 0.82rem;
+            padding: 2px 8px;
+            margin-top: 6px;
         }
+
         .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-            color: rgba(255,255,255,0.7) !important; border-right: none !important; padding-right: 5px !important; margin-right: 3px !important; margin-left: 2px !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            border-right: none !important;
+            padding-right: 5px !important;
+            margin-right: 3px !important;
+            margin-left: 2px !important;
         }
+
         .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
-            color: #fff !important; background: transparent !important;
+            color: #fff !important;
+            background: transparent !important;
         }
+
         .select2-dropdown {
             background-color: #1e293b !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
             color: #fff !important;
         }
-        .select2-container--default .select2-results__option--selected { background-color: rgba(99,102,241,0.2) !important; }
-        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable { background-color: var(--accent) !important; color: #fff !important; }
-        .select2-search--inline .select2-search__field { color: #fff !important; font-family: 'Inter', sans-serif; }
-        .select2-results__option { font-size: 0.85rem; font-family: 'Inter', sans-serif; padding: 8px 12px; }
 
-        /* ─── Print ────────────────────────────────── */
-        @media print {
-            body { background: #fff !important; color: #000 !important; }
-            .navbar-glass, .filters-section, .btn, .nav-tabs-glass, .no-print, .modal-overlay { display: none !important; }
-            .glass-card, .kpi-card { background: #fff !important; border: 1px solid #ddd !important; }
-            .report-table th { background: #f0f0f0 !important; color: #333 !important; }
-            .report-table td { color: #333 !important; border-bottom: 1px solid #ddd !important; }
-            .kpi-value { color: #000 !important; }
+        .select2-container--default .select2-results__option--selected {
+            background-color: rgba(99, 102, 241, 0.2) !important;
         }
 
-        /* ─── Responsive ──────────────────────────── */
+        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+            background-color: var(--accent) !important;
+            color: #fff !important;
+        }
+
+        .select2-search--inline .select2-search__field {
+            color: #fff !important;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .select2-results__option {
+            font-size: 0.85rem;
+            font-family: 'Inter', sans-serif;
+            padding: 8px 12px;
+        }
+
+        /* â”€â”€â”€ Print â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        @media print {
+            body {
+                background: #fff !important;
+                color: #000 !important;
+            }
+
+            .navbar-glass,
+            .filters-section,
+            .btn,
+            .nav-tabs-glass,
+            .no-print,
+            .modal-overlay {
+                display: none !important;
+            }
+
+            .glass-card,
+            .kpi-card {
+                background: #fff !important;
+                border: 1px solid #ddd !important;
+            }
+
+            .report-table th {
+                background: #f0f0f0 !important;
+                color: #333 !important;
+            }
+
+            .report-table td {
+                color: #333 !important;
+                border-bottom: 1px solid #ddd !important;
+            }
+
+            .kpi-value {
+                color: #000 !important;
+            }
+        }
+
+        /* â”€â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         @media (max-width: 768px) {
-            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-            .kpi-card .kpi-value { font-size: 1.2rem; }
-            .chart-container { height: 220px; }
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .kpi-card .kpi-value {
+                font-size: 1.2rem;
+            }
+
+            .chart-container {
+                height: 220px;
+            }
         }
     </style>
+    <script src="auth-guard.js"></script>
 </head>
+
 <body>
 
     <!-- Loader -->
@@ -439,10 +840,12 @@
             <div class="collapse navbar-collapse" id="navMain">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="cuentas-cobrar.html">Cuentas por Cobrar</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="cuentas-cobrar.html">Cuentas por Cobrar</a>
+                    </li>
                 </ul>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-glass btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Imprimir</button>
+                    <button class="btn btn-glass btn-sm" onclick="window.print()"><i
+                            class="fas fa-print me-1"></i>Imprimir</button>
                 </div>
             </div>
         </div>
@@ -456,7 +859,8 @@
                 <h2 class="mb-0" style="font-family:'Outfit',sans-serif; font-weight:700;">
                     <i class="fas fa-file-invoice-dollar me-2" style="color:var(--accent);"></i>Saldos por Cobrar
                 </h2>
-                <p class="mb-0" style="color:rgba(255,255,255,0.35); font-size:0.85rem;">Reporte de Cuentas por Cobrar — Documentos pendientes de pago</p>
+                <p class="mb-0" style="color:rgba(255,255,255,0.35); font-size:0.85rem;">Reporte de Cuentas por Cobrar -
+                    Documentos pendientes de pago</p>
             </div>
         </div>
 
@@ -481,7 +885,8 @@
                     <div class="search-box">
                         <label class="form-label">Buscar</label>
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" class="form-control" id="searchInput" placeholder="Cliente, vendedor, documento...">
+                        <input type="text" class="form-control" id="searchInput"
+                            placeholder="Cliente, vendedor, documento...">
                     </div>
                 </div>
                 <div class="col-md-2 d-flex gap-2">
@@ -526,17 +931,20 @@
             <!-- Tabs -->
             <ul class="nav nav-tabs nav-tabs-glass mb-0 no-print" id="mainTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tab-datos" data-bs-toggle="tab" data-bs-target="#pane-datos" type="button" role="tab">
+                    <button class="nav-link active" id="tab-datos" data-bs-toggle="tab" data-bs-target="#pane-datos"
+                        type="button" role="tab">
                         <i class="fas fa-table me-1"></i>Datos
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-graficos" data-bs-toggle="tab" data-bs-target="#pane-graficos" type="button" role="tab">
+                    <button class="nav-link" id="tab-graficos" data-bs-toggle="tab" data-bs-target="#pane-graficos"
+                        type="button" role="tab">
                         <i class="fas fa-chart-pie me-1"></i>Gráficos
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-resumen" data-bs-toggle="tab" data-bs-target="#pane-resumen" type="button" role="tab">
+                    <button class="nav-link" id="tab-resumen" data-bs-toggle="tab" data-bs-target="#pane-resumen"
+                        type="button" role="tab">
                         <i class="fas fa-layer-group me-1"></i>Resumen Agrupado
                     </button>
                 </li>
@@ -544,7 +952,7 @@
 
             <div class="tab-content">
 
-                <!-- ═══ TAB: Data Table ═══ -->
+                <!-- â•â•â• TAB: Data Table â•â•â• -->
                 <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
                     <div class="glass-card p-3" style="border-radius: 0 0 16px 16px;">
                         <!-- Toolbar -->
@@ -552,7 +960,8 @@
                             <div class="d-flex gap-2 align-items-center">
                                 <span style="font-size:0.75rem; color:rgba(255,255,255,0.4);">Agrupar por:</span>
                                 <div class="d-flex align-items-center gap-2">
-                                    <select class="form-select" id="selAgrupacion" style="width:auto; min-width:150px; padding:0.3rem 0.6rem; font-size:0.78rem;">
+                                    <select class="form-select" id="selAgrupacion"
+                                        style="width:auto; min-width:150px; padding:0.3rem 0.6rem; font-size:0.78rem;">
                                         <option value="">Sin agrupación</option>
                                         <option value="nomven">Vendedor (Original)</option>
                                         <option value="vendedor_homologado">Vendedor (Homologado)</option>
@@ -563,10 +972,14 @@
                                         <option value="coddoc">Tipo Documento</option>
                                         <option value="nomsol">Tienda Rendición</option>
                                     </select>
-                                    <button class="btn btn-outline" onclick="openHomologacionModal()" title="Configurar Homologación de Vendedores" style="padding: 0.35rem 0.6rem;">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <button class="btn btn-outline" onclick="openHomologacionModal()"
+                                        title="Configurar Homologación de Vendedores" style="padding: 0.35rem 0.6rem;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            width="16" height="16">
                                             <circle cx="12" cy="12" r="3"></circle>
-                                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                            <path
+                                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                            </path>
                                         </svg>
                                     </button>
                                 </div>
@@ -586,19 +999,32 @@
                             <table class="report-table" id="mainTable">
                                 <thead>
                                     <tr>
-                                        <th onclick="sortTable(0)" data-col="0">Empresa <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(1)" data-col="1">Fecha <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(2)" data-col="2">T.D. <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(3)" data-col="3">Serie <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(4)" data-col="4">N° Docum. <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(5)" data-col="5">Código <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(6)" data-col="6">Nombre del Cliente <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(7)" data-col="7" class="text-right">Importe <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(8)" data-col="8" class="text-right">A Cta <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(9)" data-col="9" class="text-right">Saldo <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(10)" data-col="10">Vendedor <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(11)" data-col="11">Forma Pago <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                        <th onclick="sortTable(12)" data-col="12">Tienda Rendición <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(0)" data-col="0">Empresa <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(1)" data-col="1">Fecha <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(2)" data-col="2">T.D. <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(3)" data-col="3">Serie <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(4)" data-col="4">NÂ° Docum. <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(5)" data-col="5">Código <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(6)" data-col="6">Nombre del Cliente <span
+                                                class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(7)" data-col="7" class="text-right">Importe <span
+                                                class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(8)" data-col="8" class="text-right">A Cta <span
+                                                class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(9)" data-col="9" class="text-right">Saldo <span
+                                                class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(10)" data-col="10">Vendedor <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(11)" data-col="11">Forma Pago <span class="sort-icon"><i
+                                                    class="fas fa-sort"></i></span></th>
+                                        <th onclick="sortTable(12)" data-col="12">Tienda Rendición <span
+                                                class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="tableBody">
@@ -609,12 +1035,14 @@
                         </div>
 
                         <!-- Pagination -->
-                        <div class="d-flex justify-content-between align-items-center mt-3 no-print" id="paginationContainer">
+                        <div class="d-flex justify-content-between align-items-center mt-3 no-print"
+                            id="paginationContainer">
                             <div class="pagination-info" id="paginationInfo">Mostrando 0 de 0</div>
                             <div class="d-flex gap-1" id="paginationButtons"></div>
                             <div class="d-flex gap-2 align-items-center">
                                 <span style="font-size:0.75rem; color:rgba(255,255,255,0.4);">Filas:</span>
-                                <select class="form-select" id="selPageSize" style="width:auto; padding:0.25rem 0.5rem; font-size:0.75rem;">
+                                <select class="form-select" id="selPageSize"
+                                    style="width:auto; padding:0.25rem 0.5rem; font-size:0.75rem;">
                                     <option value="50">50</option>
                                     <option value="100" selected>100</option>
                                     <option value="250">250</option>
@@ -626,31 +1054,35 @@
                     </div>
                 </div>
 
-                <!-- ═══ TAB: Charts ═══ -->
+                <!-- â•â•â• TAB: Charts â•â•â• -->
                 <div class="tab-pane fade" id="pane-graficos" role="tabpanel">
                     <div class="glass-card p-4" style="border-radius: 0 0 16px 16px;">
                         <div class="row g-4">
                             <div class="col-lg-6">
                                 <div class="chart-card">
-                                    <h6><i class="fas fa-chart-pie me-2" style="color:var(--accent);"></i>Saldo por Vendedor</h6>
+                                    <h6><i class="fas fa-chart-pie me-2" style="color:var(--accent);"></i>Saldo por
+                                        Vendedor</h6>
                                     <div class="chart-container"><canvas id="chartVendedor"></canvas></div>
                                 </div>
                             </div>
                             <div class="col-lg-6">
                                 <div class="chart-card">
-                                    <h6><i class="fas fa-chart-bar me-2" style="color:var(--accent2);"></i>Top Clientes Morosos</h6>
+                                    <h6><i class="fas fa-chart-bar me-2" style="color:var(--accent2);"></i>Top Clientes
+                                        Morosos</h6>
                                     <div class="chart-container"><canvas id="chartClientes"></canvas></div>
                                 </div>
                             </div>
                             <div class="col-lg-6">
                                 <div class="chart-card">
-                                    <h6><i class="fas fa-chart-pie me-2" style="color:var(--accent3);"></i>Saldo por Forma de Pago</h6>
+                                    <h6><i class="fas fa-chart-pie me-2" style="color:var(--accent3);"></i>Saldo por
+                                        Forma de Pago</h6>
                                     <div class="chart-container"><canvas id="chartFormaPago"></canvas></div>
                                 </div>
                             </div>
                             <div class="col-lg-6">
                                 <div class="chart-card">
-                                    <h6><i class="fas fa-chart-line me-2" style="color:var(--success);"></i>Evolución Mensual</h6>
+                                    <h6><i class="fas fa-chart-line me-2" style="color:var(--success);"></i>Evolución
+                                        Mensual</h6>
                                     <div class="chart-container"><canvas id="chartMensual"></canvas></div>
                                 </div>
                             </div>
@@ -658,12 +1090,14 @@
                     </div>
                 </div>
 
-                <!-- ═══ TAB: Summary ═══ -->
+                <!-- â•â•â• TAB: Summary â•â•â• -->
                 <div class="tab-pane fade" id="pane-resumen" role="tabpanel">
                     <div class="glass-card p-4" style="border-radius: 0 0 16px 16px;">
                         <div class="d-flex gap-2 mb-3 no-print">
-                            <button class="btn btn-glass active" onclick="showSummary('vendedor', this)">Por Vendedor</button>
-                            <button class="btn btn-glass" onclick="showSummary('forma_pago', this)">Por Forma Pago</button>
+                            <button class="btn btn-glass active" onclick="showSummary('vendedor', this)">Por
+                                Vendedor</button>
+                            <button class="btn btn-glass" onclick="showSummary('forma_pago', this)">Por Forma
+                                Pago</button>
                             <button class="btn btn-glass" onclick="showSummary('tienda', this)">Por Tienda</button>
                             <button class="btn btn-glass" onclick="showSummary('tipo_doc', this)">Por Tipo Doc</button>
                             <button class="btn btn-glass" onclick="showSummary('clientes', this)">Top Clientes</button>
@@ -683,9 +1117,12 @@
 
         <!-- Empty State -->
         <div id="emptyState" class="text-center py-5 fade-in-up" style="display:block;">
-            <div style="font-size:4rem; margin-bottom:1rem; opacity:0.1;"><i class="fas fa-file-invoice-dollar"></i></div>
-            <h5 style="color:rgba(255,255,255,0.3); font-family:'Outfit',sans-serif;">Seleccione empresa y rango de fechas para generar el reporte</h5>
-            <p style="color:rgba(255,255,255,0.15); font-size:0.85rem;">Los resultados se mostrarán en tabla, gráficos y resumen agrupado</p>
+            <div style="font-size:4rem; margin-bottom:1rem; opacity:0.1;"><i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <h5 style="color:rgba(255,255,255,0.3); font-family:'Outfit',sans-serif;">Seleccione empresa y rango de
+                fechas para generar el reporte</h5>
+            <p style="color:rgba(255,255,255,0.15); font-size:0.85rem;">Los resultados se mostrarán en tabla, gráficos
+                y resumen agrupado</p>
         </div>
 
         <!-- Report Header for Print -->
@@ -712,15 +1149,19 @@
                 <h3>Configurar Homologación de Vendedores</h3>
                 <button class="close-btn" onclick="closeHomologacionModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
                 </button>
             </div>
             <div class="modal-body">
                 <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1.5rem;">
-                    Asigna un <strong>Alias Global</strong> unificado a los vendedores que aparecen con diferentes códigos o nombres en las empresas. Los vendedores con el mismo Alias se agruparán como uno solo en los reportes y gráficos bajo la opción "Vendedor (Homologado)".
+                    Asigna un <strong>Alias Global</strong> unificado a los vendedores que aparecen con diferentes
+                    códigos o nombres en las empresas. Los vendedores con el mismo Alias se agruparán como uno solo en
+                    los reportes y gráficos bajo la opción "Vendedor (Homologado)".
                 </p>
-                <div class="table-responsive" style="max-height: 400px; overflow-y:auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                <div class="table-responsive"
+                    style="max-height: 400px; overflow-y:auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                     <table class="report-table" style="margin-top:0;">
                         <thead>
                             <tr>
@@ -745,32 +1186,38 @@
     <div class="modal-overlay" id="summaryDetailModal">
         <div class="glass-modal" style="max-width:1050px; width:95%;">
             <div class="modal-header d-flex justify-content-between align-items-center mb-3">
-                <h3 id="summaryDetailTitle" style="font-size: 1.1rem; color: var(--accent);">Detalle de Comprobantes</h3>
+                <h3 id="summaryDetailTitle" style="font-size: 1.1rem; color: var(--accent);">Detalle de Comprobantes
+                </h3>
                 <div class="d-flex align-items-center gap-3">
                     <div class="d-flex gap-2">
-                        <button class="btn btn-glass btn-export-excel btn-sm" onclick="exportSummaryDetail('excel')" title="Exportar Detalle a Excel">
+                        <button class="btn btn-glass btn-export-excel btn-sm" onclick="exportSummaryDetail('excel')"
+                            title="Exportar Detalle a Excel">
                             <i class="fas fa-file-excel"></i>
                         </button>
-                        <button class="btn btn-glass btn-export-pdf btn-sm" onclick="exportSummaryDetail('pdf')" title="Exportar Detalle a PDF">
+                        <button class="btn btn-glass btn-export-pdf btn-sm" onclick="exportSummaryDetail('pdf')"
+                            title="Exportar Detalle a PDF">
                             <i class="fas fa-file-pdf"></i>
                         </button>
                     </div>
                     <button class="close-btn" onclick="closeSummaryDetailModal()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
                 </div>
             </div>
             <div class="modal-body">
-                <div class="report-table-wrapper" style="max-height: 50vh; overflow-y:auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                <div class="report-table-wrapper"
+                    style="max-height: 50vh; overflow-y:auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                     <table class="report-table" style="margin-top:0;">
                         <thead>
                             <tr>
                                 <th>Empresa</th>
                                 <th>Fecha</th>
                                 <th>T.D.</th>
-                                <th>Serie - N° Doc.</th>
+                                <th>Serie - NÂ° Doc.</th>
                                 <th>Código</th>
                                 <th>Cliente</th>
                                 <th>Vendedor</th>
@@ -804,4 +1251,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="js/cuentas-cobrar.js?v=2.1"></script>
 </body>
+
 </html>

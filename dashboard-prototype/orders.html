@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YELAVE - Órdenes de Compra</title>
+    <title>YELAVE - Ã“rdenes de Compra</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- DataTables CSS -->
@@ -12,7 +12,7 @@
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
-        /* ─── Filter Bar ─── */
+        /* â”€â”€â”€ Filter Bar â”€â”€â”€ */
         .filter-bar {
             display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
             background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
@@ -26,13 +26,13 @@
         }
         .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
 
-        /* ─── Badges ─── */
+        /* â”€â”€â”€ Badges â”€â”€â”€ */
         .badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; display: inline-block; }
         .badge.approved { background: #dcfce7; color: #166534; }
         .badge.pending { background: #fef9c3; color: #854d0e; }
         .badge.canceled { background: #fee2e2; color: #991b1b; }
 
-        /* ─── DataTable customization ─── */
+        /* â”€â”€â”€ DataTable customization â”€â”€â”€ */
         .dataTables_wrapper { font-family: 'Inter', sans-serif; }
         .dataTables_wrapper .dataTables_filter input {
             border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
@@ -77,7 +77,7 @@
         }
         .btn-ver-oc:hover { background: #1d4ed8; }
 
-        /* ─── Report Modal Styles ─── */
+        /* â”€â”€â”€ Report Modal Styles â”€â”€â”€ */
         .report-header-band {
             display: flex; justify-content: space-between; align-items: flex-start;
             padding-bottom: 1.25rem; margin-bottom: 1.25rem;
@@ -141,12 +141,13 @@
             .modal-overlay, .sidebar, .top-bar, .filter-bar, .modal-header, .close-btn { display: none !important; }
         }
 
-        /* ─── Full Width Content ─── */
+        /* â”€â”€â”€ Full Width Content â”€â”€â”€ */
         .content {
             max-width: none !important;
             width: 100% !important;
         }
     </style>
+    <script src="auth-guard.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -236,8 +237,8 @@
                         </svg>
                     </button>
                     <div>
-                        <h2>Órdenes de Compra</h2>
-                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística &amp; Compras · Control de Requerimientos</p>
+                        <h2>Ã“rdenes de Compra</h2>
+                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística &amp; Compras - Control de Requerimientos</p>
                     </div>
                 </div>
             </header>
@@ -292,7 +293,7 @@
                             <thead>
                                 <tr>
                                     <th class="sticky-col-left">Acciones</th>
-                                    <th>N° Orden</th><th>Fecha</th><th>Tipo</th><th>Proveedor</th>
+                                    <th>NÂ° Orden</th><th>Fecha</th><th>Tipo</th><th>Proveedor</th>
                                     <th>RUC</th><th>Moneda</th><th>Total</th><th>Lug. Ent.</th>
                                     <th>Entrega</th><th>Contacto</th><th>Teléfono</th><th>Depto</th>
                                     <th>Comprador</th><th>Usuario</th><th>Estado</th>
@@ -356,7 +357,7 @@
                     <table class="data-table" style="font-size:0.8125rem;">
                         <thead>
                             <tr>
-                                <th>N° Ingreso</th>
+                                <th>NÂ° Ingreso</th>
                                 <th>Fecha</th>
                                 <th>Almacén</th>
                                 <th>Mov.</th>
@@ -482,7 +483,7 @@
                             <textarea id="recObservaciones" rows="2" style="padding:0.5rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.8125rem;"></textarea>
                         </div>
                     </div>
-                    <h4 style="font-size:0.875rem; margin-bottom:0.5rem; color:var(--text-primary);">Seleccionar Ítems</h4>
+                    <h4 style="font-size:0.875rem; margin-bottom:0.5rem; color:var(--text-primary);">Seleccionar Ãtems</h4>
                     <div class="table-responsive" style="max-height: 250px; overflow-y:auto; margin-bottom:1rem; border:1px solid #e2e8f0; border-radius:6px;">
                         <table class="report-table" style="margin-top:0;">
                             <thead>
@@ -525,3 +526,4 @@
     <script src="orders.js"></script>
 </body>
 </html>
+
