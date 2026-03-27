@@ -2,12 +2,57 @@
 (function() {
     // 1. Check if token exists immediately
     const token = localStorage.getItem('yelave_token');
-    if (!token) {
+    const userStr = localStorage.getItem('yelave_user');
+    
+    if (!token || !userStr) {
         window.location.href = 'login.html';
         return; // Stop execution
     }
 
-    // 2. Inactivity Timeout (10 minutes)
+    // 2. Role-Based Access Control (RBAC) at built-in Page Level
+    try {
+        const user = JSON.parse(userStr);
+        const currentPath = window.location.pathname.toLowerCase();
+        
+        // Always allowed pages
+        if (!currentPath.includes('login.html') && 
+            !currentPath.includes('index.html') && 
+            !currentPath.includes('profile.html') &&
+            currentPath.endsWith('.html')) {
+            
+            const currentLogin = String(user.login || '').trim().toUpperCase();
+            const userRol = String(user.rol || '').trim().toUpperCase();
+            const isAdmin = currentLogin === '71941916JL' || currentLogin.includes('71941916JL') || userRol === 'ADMIN';
+
+            if (!isAdmin) {
+                let isAllowed = false;
+
+                // Define role permissions based on app.js mapping
+                if (userRol === 'LOGISTICA') {
+                    if (currentPath.includes('orders.html')) isAllowed = true;
+                } else if (userRol === 'CONTROL_INTERNO') {
+                    if (currentPath.includes('conciliacion.html') || currentPath.includes('cuentas-cobrar.html')) isAllowed = true;
+                } else if (userRol === 'CONTABILIDAD') {
+                    if (currentPath.includes('orders.html') || currentPath.includes('conciliacion.html') || currentPath.includes('cuentas-cobrar.html')) isAllowed = true;
+                } else if (userRol === 'COMERCIAL') {
+                    if (currentPath.includes('conciliacion.html') || currentPath.includes('cuentas-cobrar.html')) isAllowed = true;
+                }
+
+                if (!isAllowed) {
+                    // Unauthorized access attempt, redirect to safe zone
+                    alert("Acceso Denegado: Su rol no tiene permisos para acceder a este módulo.");
+                    window.location.href = 'index.html';
+                    return;
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Error parsing user data for RBAC", e);
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // 3. Inactivity Timeout (10 minutes)
     let inactivityTimer;
     const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutos en milisegundos
 
