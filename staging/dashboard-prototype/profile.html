@@ -438,7 +438,12 @@
 
                                 <label>Contraseña Actual</label>
 
-                                <input type="password" id="oldPwd" required />
+                                <div style="position: relative;">
+                                    <input type="password" id="oldPwd" required style="padding-right: 40px; width: 100%; box-sizing: border-box;" oninput="this.value = this.value.toUpperCase()" />
+                                    <span onclick="togglePassword('oldPwd', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </span>
+                                </div>
 
                             </div>
 
@@ -446,7 +451,12 @@
 
                                 <label>Nueva Contraseña</label>
 
-                                <input type="password" id="newPwd" required />
+                                <div style="position: relative;">
+                                    <input type="password" id="newPwd" required style="padding-right: 40px; width: 100%; box-sizing: border-box;" oninput="this.value = this.value.toUpperCase()" />
+                                    <span onclick="togglePassword('newPwd', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </span>
+                                </div>
 
                             </div>
 
@@ -454,7 +464,12 @@
 
                                 <label>Confirmar Nueva Contraseña</label>
 
-                                <input type="password" id="confirmPwd" required />
+                                <div style="position: relative;">
+                                    <input type="password" id="confirmPwd" required style="padding-right: 40px; width: 100%; box-sizing: border-box;" oninput="this.value = this.value.toUpperCase()" />
+                                    <span onclick="togglePassword('confirmPwd', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </span>
+                                </div>
 
                             </div>
 
