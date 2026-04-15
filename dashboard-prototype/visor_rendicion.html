@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rendición de Gastos - Consulta</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #e2e8f0; margin: 0; padding: 20px; }
+        .page { background: #fff; max-width: 1200px; margin: 0 auto; padding: 40px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: #000; font-size: 0.8rem; }
+        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .h-col { display: flex; flex-direction: column; }
+        .title { font-size: 1.3rem; font-weight: bold; text-align: center; flex-grow: 1; align-self: center; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 20px; }
+        .info-box { border: 1px solid #ccc; padding: 10px; }
+        .info-row { display: grid; grid-template-columns: 120px 1fr; margin-bottom: 4px; }
+        .info-row b { font-size: 0.75rem; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.75rem;}
+        th, td { border: 1px solid #000; padding: 5px; text-align: left; }
+        th { background: #f1f5f9; text-align: center; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        
+        .summary-box { width: 400px; margin-left: auto; border: 2px solid #000; }
+        .summary-row { display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #ccc; font-weight: bold; }
+        .summary-row:last-child { border-bottom: none; }
+        .bg-green { background: #dcfce7; }
+        
+        .firm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; margin-top: 50px; }
+        .firm { border-top: 1px solid #000; text-align: center; padding-top: 5px; font-weight: bold; }
+        
+        @media print {
+            body { background: #fff; padding: 0; }
+            .page { box-shadow: none; max-width: 100%; padding: 0;  }
+            button { display: none; }
+        }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <main class="main-content">
+    <div style="text-align:center; margin-bottom: 15px;">
+        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #2563eb; color:white; border:none; border-radius:4px; font-weight:bold;">Imprimir Documento</button>
+    </div>
+
+    <div class="page" id="reportContent">
+        <div class="header">
+            <div class="h-col">
+                <h2 style="margin:0; font-size: 1.5rem;" id="lblEmpNom">CARGANDO...</h2>
+                <div style="font-size: 0.8rem; color:#444;" id="lblEmpRuc"></div>
+            </div>
+            <div class="title">RENDICIÓN DE GASTOS<br>EXPENSE REPORT</div>
+            <div class="h-col" style="text-align: right;">
+                <div>RENDICIÓN N°: <b id="lblNro"></b></div>
+                <div>FECHA: <b id="lblFecha"></b></div>
+                <div>PERIODO: <b id="lblPeriodo"></b></div>
+                <div>MONEDA: <b id="lblMoneda"></b></div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-box">
+                <div class="info-row"><b>DATOS TRABAJADOR:</b> <span id="lblTrabajador"></span></div>
+                <div class="info-row"><b>DOC / D.N.I.:</b> <span id="lblDni"></span></div>
+                <div class="info-row"><b>TIPO REND.:</b> <span id="lblTipoRend"></span></div>
+            </div>
+            <div class="info-box" style="background:#f8fafc;">
+                <div class="info-row"><b>SALDO INICIAL:</b> <span id="lblSi" class="text-right"></span></div>
+                <div class="info-row"><b>SALDO FINAL:</b> <span id="lblSf" class="text-right"></span></div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2">FECHA</th>
+                    <th rowspan="2">TIPO DOC</th>
+                    <th rowspan="2">SERIE</th>
+                    <th rowspan="2">NUMERO</th>
+                    <th rowspan="2">RUC PROV.</th>
+                    <th rowspan="2">RAZON SOCIAL PROV.</th>
+                    <th rowspan="2">PROJECT CARD</th>
+                    <th rowspan="2">C. COSTO</th>
+                    <th rowspan="2">CATEGORÍA</th>
+                    <th rowspan="2">DETALLES</th>
+                    <th colspan="2">IMPORTES</th>
+                </tr>
+                <tr>
+                    <th>SOLES S/</th>
+                    <th>US $</th>
+                </tr>
+            </thead>
+            <tbody id="tbDetails"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="10" class="text-right"><b>TOTAL GASTADO</b></td>
+                    <th class="text-right" id="lblTotSol"></th>
+                    <th class="text-right" id="lblTotDol"></th>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="summary-box">
+            <div class="summary-row"><span>TOTAL SALDO INICIAL</span> <span id="s1"></span></div>
+            <div class="summary-row"><span>TOTAL GASTADO</span> <span id="s2"></span></div>
+            <div class="summary-row"><span>TOTAL SALDO FINAL</span> <span id="s3"></span></div>
+            <div class="summary-row bg-green"><span>TOTAL REEMBOLSO</span> <span id="s4"></span></div>
+        </div>
+
+        <div class="firm-grid">
+            <div class="firm" style="border:none;" id="boxFirmaGerencia">
+                <div style="border-top:1px solid #000; padding-top:5px;">Aprobación (Supervisor)</div>
+            </div>
+            <div class="firm" style="border:none;" id="boxFirmaTrabajador">
+                <div style="border-top:1px solid #000; padding-top:5px;">Firma del Trabajador</div>
+            </div>
+        </div>
+        
+        <div id="adjuntosBox" style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 15px; display: none;">
+            <h3 style="font-size: 0.9rem;">Documentos Adjuntos:</h3>
+            <ul id="listaAdjuntos" style="list-style-type: none; padding: 0;"></ul>
+        </div>
+    </div>
+
+    <script>
+        const qs = new URLSearchParams(window.location.search);
+        const uuid = qs.get("uuid");
+        if(uuid) {
+            axios.get(`http://localhost:8000/api/finanzas/public/rendiciones/${uuid}`)
+            .then(res => {
+                const cab = res.data.cabecera;
+                const det = res.data.detalle;
+                
+                document.getElementById("lblEmpNom").textContent = cab.EmpresaNom || cab.CodCia;
+                document.getElementById("lblEmpRuc").textContent = "RUC/NIT: " + cab.EmpresaRuc;
+                document.getElementById("lblNro").textContent = cab.NroRendicion;
+                document.getElementById("lblFecha").textContent = cab.Fecha;
+                document.getElementById("lblPeriodo").textContent = cab.Periodo;
+                document.getElementById("lblMoneda").textContent = cab.Moneda;
+                
+                document.getElementById("lblTrabajador").textContent = cab.NomAux;
+                document.getElementById("lblDni").textContent = cab.RucDni;
+                document.getElementById("lblTipoRend").textContent = cab.TipoRendicion;
+                
+                document.getElementById("lblSi").textContent = cab.SaldoInicial.toFixed(2);
+                document.getElementById("lblSf").textContent = cab.SaldoFinal.toFixed(2);
+                
+                let totS = 0, totD = 0;
+                
+                const tb = document.getElementById("tbDetails");
+                det.forEach(d => {
+                    totS += d.ImporteSoles;
+                    totD += d.ImporteDolares;
+                    
+                    let linkSoporte = '';
+                    if (d.UuidSoporte) {
+                        if (d.TipoDoc === '01-Factura' || d.TipoDoc === '03-Boleta') {
+                            linkSoporte = `<a href="/factura_publica.html?uuid=${d.UuidSoporte}" target="_blank" style="color:blue;">[Ver]</a>`;
+                        } else if (d.TipoDoc === 'PGM-Planilla') {
+                            linkSoporte = `<a href="/visor_planilla.html?uuid=${d.UuidSoporte}" target="_blank" style="color:blue;">[Ver]</a>`;
+                        }
+                    }
+                    
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td class="text-center">${d.Fecha}</td>
+                        <td class="text-center">${d.TipoDoc} ${linkSoporte}</td>
+                        <td class="text-center">${d.Serie || ''}</td>
+                        <td>${d.Numero || ''}</td>
+                        <td>${d.RucPro || ''}</td>
+                        <td>${d.NomPro || ''}</td>
+                        <td>${d.ProjectCard || ''}</td>
+                        <td>${d.CentroCostos || ''}</td>
+                        <td>${d.ExpenseCategory || ''}</td>
+                        <td>${d.Detalles || ''}</td>
+                        <td class="text-right">${d.ImporteSoles.toFixed(2)}</td>
+                        <td class="text-right">${d.ImporteDolares.toFixed(2)}</td>
+                    `;
+                    tb.appendChild(tr);
+                });
+                
+                document.getElementById("lblTotSol").textContent = totS.toFixed(2);
+                document.getElementById("lblTotDol").textContent = totD.toFixed(2);
+                
+                document.getElementById("s1").textContent = cab.SaldoInicial.toFixed(2);
+                document.getElementById("s2").textContent = cab.TotalGastado.toFixed(2);
+                document.getElementById("s3").textContent = cab.SaldoFinal < 0 ? "0.00" : cab.SaldoFinal.toFixed(2);
+                document.getElementById("s4").textContent = cab.TotalReembolso.toFixed(2);
+                
+                if (cab.AprobadorNombre) {
+                    const strFecha = new Date(cab.FechaAprobacion).toLocaleString('es-PE');
+                    document.getElementById("boxFirmaGerencia").innerHTML = `
+                        <div style="border:2px solid #22c55e; color:#15803d; padding:10px; border-radius:8px; background:#f0fdf4;">
+                            <div style="font-size:0.7rem; font-weight:bold;">CERTIFICADO DE APROBACIÓN GERENCIAL</div>
+                            <div style="font-size:0.65rem; margin-top:5px;">
+                                Aprobado por: <b>${cab.AprobadorNombre}</b><br>
+                                Doc: ${cab.AprobadorDocumento || ''}<br>
+                                Fecha: ${strFecha}<br>
+                                <span style="font-family:monospace;">Sello: YLV-${cab.UuidLink.split('-')[0].toUpperCase()}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (cab.UsuarioRegistro) {
+                    document.getElementById("boxFirmaTrabajador").innerHTML = `
+                        <div style="border:1px dashed #64748b; color:#334155; padding:10px; border-radius:8px; background:#f8fafc;">
+                            <div style="font-size:0.7rem; font-weight:bold;">DECLARACIÓN JURADA</div>
+                            <div style="font-size:0.65rem; margin-top:5px;">
+                                Rendido por: <b>${cab.UsuarioRegistro}</b><br>
+                                En Fecha: ${cab.FechaRegistro}<br>
+                                Trabajador: ${cab.NomAux}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (res.data.adjuntos && res.data.adjuntos.length > 0) {
+                    document.getElementById("adjuntosBox").style.display = "block";
+                    const ul = document.getElementById("listaAdjuntos");
+                    res.data.adjuntos.forEach(a => {
+                        const li = document.createElement("li");
+                        li.style.marginBottom = "5px";
+                        li.innerHTML = `<a href="http://localhost:8000/api/finanzas/adjuntos/rendicion/${a.Id}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:bold;">📎 ${a.ArchivoNombre}</a> <span style="color:#666; font-size:0.75rem;">(${a.TipoMime})</span>`;
+                        ul.appendChild(li);
+                    });
+                }
+            })
+            .catch(err => {
+                document.getElementById("reportContent").innerHTML = "<h2 style='text-align:center; color:red;'>No se encontró el documento o formato inválido.</h2>";
+            });
+        } else {
+            document.getElementById("reportContent").innerHTML = "<h2 style='text-align:center;'>Falta UUID</h2>";
+        }
+    </script>
+    <script src="sidebar.js"></script>
+        </main>
+    </div>
+</body>
+</html>

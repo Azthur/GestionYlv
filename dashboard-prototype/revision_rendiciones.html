@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revisión de Rendiciones - YELAVE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- DataTables CSS/JS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+<main class="main-content" style="padding: 2rem;">
+            <div style="background: white; padding: 2rem 3rem; border-radius: 8px; width: 100%; border: 1px solid #ccc; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
+                    <div>
+                        <h2 style="font-size:1.8rem; font-weight:800; color:#1e293b; margin:0;">BANDEJA DE APROBACIÓN GERENCIAL</h2>
+                        <div style="font-size:0.9rem; color:#64748b; margin-top:5px;">Rendiciones de Gastos y Planillas Asociadas</div>
+                    </div>
+                </div>
+
+                <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; gap:15px; border:1px solid #e2e8f0;">
+                    <label style="font-weight:700; color:#334155;">FILTRO DE SEDE / EMPRESA:</label>
+                    <select id="selFiltroCia" onchange="cargarBandeja()" style="padding:8px; width:300px; border-radius:4px; border:1px solid #cbd5e1; font-family:'Inter',sans-serif; font-weight:500;">
+                        <option value="">-- TODAS LAS EMPRESAS --</option>
+                    </select>
+                </div>
+
+                <table id="tablaRevision" class="display" style="width:100%; font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>EMPRESA</th>
+                            <th>FECHA REG.</th>
+                            <th>NRO RENDICIÓN</th>
+                            <th>TRABAJADOR</th>
+                            <th>REEMBOLSO</th>
+                            <th>ESTADO</th>
+                            <th>PDF</th>
+                            <th>ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbBodyRevision"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000/api";
+        let tbl;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Cargar Empresas del Filtro
+            try {
+                const res = await axios.get(`${API_URL}/finanzas/empresas`);
+                const sel = document.getElementById("selFiltroCia");
+                res.data.forEach(e => {
+                    const opt = document.createElement("option");
+                    opt.value = e.codcia;
+                    opt.textContent = `${e.codcia} - ${e.nomcia}`;
+                    sel.appendChild(opt);
+                });
+            } catch(e) { console.error(e); }
+
+            // Iniciar DataTable
+            tbl = $('#tablaRevision').DataTable({
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+                order: [[1, "desc"]]
+            });
+
+            cargarBandeja();
+        });
+
+        async function cargarBandeja() {
+            try {
+                const codcia = document.getElementById("selFiltroCia").value;
+                let url = `${API_URL}/finanzas/rendiciones/revision`;
+                if(codcia) url += `?codcia=${codcia}`;
+
+                const res = await axios.get(url);
+                
+                tbl.clear();
+                
+                res.data.forEach(r => {
+                    const badge = r.FechaAprobacion 
+                        ? `<span style="padding: 3px 8px; border-radius: 4px; background: #dcfce7; color: #166534; font-weight:bold; font-size:0.75rem;">APROBADO</span>` 
+                        : `<span style="padding: 3px 8px; border-radius: 4px; background: #fef08a; color: #854d0e; font-weight:bold; font-size:0.75rem;">PENDIENTE</span>`;
+                    
+                    const btnPdf = `<a href="/visor_rendicion.html?uuid=${r.UuidLink}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: bold; border: 1px solid #2563eb; padding: 4px 8px; border-radius: 4px;">👁 VER PDF</a>`;
+                    
+                    const btnAccion = r.FechaAprobacion 
+                        ? `<button disabled style="background:#e2e8f0; color:#94a3b8; border:none; padding:4px 8px; border-radius:4px; font-weight:600;">Ya Aprobado</button>`
+                        : `<button onclick="aprobarRendicion(${r.Id})" style="background:#10b981; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:600;">✔ APROBAR</button>`;
+
+                    tbl.row.add([
+                        r.nomcia || r.CodCia,
+                        r.FechaRegistro,
+                        r.NroRendicion,
+                        r.NomAux,
+                        `S/ ${r.TotalReembolso.toFixed(2)}`,
+                        badge,
+                        btnPdf,
+                        btnAccion
+                    ]);
+                });
+                
+                tbl.draw();
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function aprobarRendicion(id) {
+            const current = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+            let nomUser = current.username || '';
+            let docUser = current.dni || '';
+
+            // Use SweetAlert instead of native prompt if data is missing
+            if (!nomUser || !docUser) {
+                const { value: formValues } = await Swal.fire({
+                    title: '🔐 Credenciales de Aprobación',
+                    html:
+                        '<input id="swal-input1" class="swal2-input" placeholder="DNI del Aprobador" value="'+docUser+'">' +
+                        '<input id="swal-input2" class="swal2-input" placeholder="Nombre del Aprobador" value="'+nomUser+'">',
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        return [
+                            document.getElementById('swal-input1').value,
+                            document.getElementById('swal-input2').value
+                        ]
+                    }
+                });
+
+                if (formValues) {
+                    docUser = formValues[0];
+                    nomUser = formValues[1];
+                } else {
+                    return; // Cancelled
+                }
+            }
+            
+            if (!nomUser || !docUser) {
+                return Swal.fire("Campos Incompletos", "Debe ingresar DNI y Nombre para firmar", "warning");
+            }
+
+            const resConfirm = await Swal.fire({
+                title: '¿Firmar Electrónicamente?',
+                html: "Estampará su aprobación gerencial bajo el usuario:<br><br><b>" + nomUser + "</b><br><span style='color:#64748b; font-size:0.85rem'>DNI: "+docUser+"</span><br><br>Esta acción sellará el documento y no se puede deshacer.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '✔ Sí, Sellar y Aprobar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if(resConfirm.isConfirmed) {
+                try {
+                    Swal.fire({ title: 'Procesando firma...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+                    
+                    await axios.post(`${API_URL}/finanzas/rendiciones/${id}/aprobar`, {
+                        aprobador_documento: docUser,
+                        aprobador_nombre: nomUser
+                    });
+                    
+                    Swal.fire({
+                        title: "✅ Aprobación Exitosa", 
+                        html: "La rendición ha sido firmada electrónicamente y sellada.", 
+                        icon: "success",
+                        confirmButtonColor: "#2563eb"
+                    });
+                    cargarBandeja(); // recargar
+                } catch(e) {
+                    Swal.fire("Error Sistémico", "No se pudo procesar la aprobación. Intente nuevamente.", "error");
+                }
+            }
+        }
+    </script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saldos de Inventario - YELAVE ERP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="auth-guard.js"></script>
+    <style>
+        .inv-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
+        .inv-tab-btn {
+            padding:0.75rem 1.5rem; border:none; background:transparent; cursor:pointer;
+            font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:600;
+            color:var(--text-muted); border-bottom:3px solid transparent;
+            transition:all 0.2s ease; position:relative; bottom:-2px;
+        }
+        .inv-tab-btn:hover { color:var(--text-primary); background:rgba(59,130,246,0.05); }
+        .inv-tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); }
+        .inv-tab-pane { display:none; animation: fadeIn 0.3s ease; }
+        .inv-tab-pane.active { display:block; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+        .inv-filters {
+            display:flex; flex-wrap:wrap; gap:0.75rem; padding:1.25rem; margin-bottom:1.25rem;
+            background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
+        }
+        .inv-filter-group { display:flex; flex-direction:column; gap:0.25rem; }
+        .inv-filter-group label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); }
+        .inv-filter-group select, .inv-filter-group input {
+            padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border);
+            background:var(--bg-base); color:var(--text-primary); font-family:'Inter',sans-serif; font-size:0.8rem;
+            min-width:180px;
+        }
+        .inv-filter-group .toggle-label {
+            display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; color:var(--text-primary);
+            cursor:pointer; padding:0.45rem 0; font-weight:500;
+        }
+        .inv-filter-group .toggle-label input[type="checkbox"] { accent-color:var(--primary); width:16px; height:16px; }
+
+        .inv-kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem; }
+        .inv-kpi {
+            padding:1.25rem; border-radius:12px; background:var(--bg-card); border:1px solid var(--border);
+            display:flex; flex-direction:column; gap:0.5rem;
+        }
+        .inv-kpi-label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); }
+        .inv-kpi-value { font-size:1.6rem; font-weight:800; color:var(--text-primary); }
+        .inv-kpi-sub { font-size:0.75rem; color:var(--text-muted); }
+        .inv-kpi.warning .inv-kpi-value { color:#f59e0b; }
+        .inv-kpi.danger .inv-kpi-value { color:#ef4444; }
+        .inv-kpi.success .inv-kpi-value { color:#10b981; }
+
+        .inv-table-wrap {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
+            padding:1rem; overflow-x:auto;
+        }
+
+        .badge-lote {
+            display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;
+        }
+        .badge-lote.ok { background:#dcfce7; color:#166534; }
+        .badge-lote.warning { background:#fef3c7; color:#92400e; }
+        .badge-lote.danger { background:#fee2e2; color:#991b1b; }
+        .badge-lote.expired { background:#f1f5f9; color:#64748b; text-decoration:line-through; }
+
+        /* Dark mode overrides */
+        [data-theme="dark"] .inv-filters { background:rgba(30,41,59,0.7); border-color:rgba(255,255,255,0.1); }
+        [data-theme="dark"] .inv-filter-group select, [data-theme="dark"] .inv-filter-group input {
+            background:rgba(15,23,42,0.8); border-color:rgba(255,255,255,0.15); color:#f1f5f9;
+        }
+        [data-theme="dark"] .inv-kpi { background:rgba(30,41,59,0.7); border-color:rgba(255,255,255,0.1); }
+        [data-theme="dark"] .inv-table-wrap { background:rgba(30,41,59,0.5); border-color:rgba(255,255,255,0.1); }
+        [data-theme="dark"] .badge-lote.ok { background:rgba(22,163,74,0.2); color:#86efac; }
+        [data-theme="dark"] .badge-lote.warning { background:rgba(245,158,11,0.2); color:#fde68a; }
+        [data-theme="dark"] .badge-lote.danger { background:rgba(239,68,68,0.2); color:#fca5a5; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <main class="main-content" style="padding:2rem;">
+            <div class="top-bar-actions">
+                <select id="filterCia" onchange="onCompanyChange()" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-base);color:var(--text-primary);font-size:0.8rem;min-width:200px;"></select>
+            </div>
+
+            <!-- Page Header -->
+            <div style="margin-bottom:1.5rem;">
+                <h1 style="font-size:1.6rem; font-weight:800; margin:0;">📦 Saldos de Inventario</h1>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.3rem;">Consulta de stock por producto, almacén y lote con trazabilidad completa</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="inv-tabs">
+                <button class="inv-tab-btn active" onclick="switchTab('producto')" data-tab="producto">Por Producto</button>
+                <button class="inv-tab-btn" onclick="switchTab('almacen')" data-tab="almacen">Por Almacén</button>
+                <button class="inv-tab-btn" onclick="switchTab('lote')" data-tab="lote">Por Lote</button>
+            </div>
+
+            <!-- ══════ TAB: Por Producto ══════ -->
+            <div id="tab-producto" class="inv-tab-pane active">
+                <div class="inv-filters">
+                    <div class="inv-filter-group">
+                        <label>Familia</label>
+                        <button id="btnFamProd" onclick="openModalFamilia()" style="padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary); text-align:left; min-width:180px; font-family:'Inter',sans-serif; cursor:pointer;" data-val="">Todas</button>
+                    </div>
+                    <div class="inv-filter-group">
+                        <label>Búsqueda</label>
+                        <input type="text" id="filBuscaProd" placeholder="Código o nombre..." onkeydown="if(event.key==='Enter')loadProductos()">
+                    </div>
+                    <div class="inv-filter-group" style="justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <label class="toggle-label"><input type="checkbox" id="chkStockProd" checked onchange="loadProductos()"> Solo con stock</label>
+                    </div>
+                    <div class="inv-filter-group" style="margin-left:auto; justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="loadProductos()" style="padding:0.45rem 1.2rem; font-size:0.8rem;">🔍 Consultar</button>
+                    </div>
+                </div>
+                <div class="inv-kpi-row" id="kpiProd"></div>
+                <div class="inv-table-wrap">
+                    <table id="tblProducto" class="display" style="width:100%; font-size:0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Código</th><th>Descripción</th><th>Und</th><th>Familia</th>
+                                <th style="text-align:right;">Stock</th>
+                                <th style="text-align:right;">Valor MN</th>
+                                <th style="text-align:right;">Valor US$</th>
+                                <th>Stk Mín</th><th>Stk Máx</th>
+                                <th>Últ. Compra</th><th>Últ. Salida</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══════ TAB: Por Almacén ══════ -->
+            <div id="tab-almacen" class="inv-tab-pane">
+                <div class="inv-filters">
+                    <div class="inv-filter-group">
+                        <label>Almacén</label>
+                        <button id="btnAlmAlm" onclick="openModalAlmacen('Alm')" style="padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary); text-align:left; min-width:180px; font-family:'Inter',sans-serif; cursor:pointer;" data-val="">Todos</button>
+                    </div>
+                    <div class="inv-filter-group">
+                        <label>Búsqueda</label>
+                        <input type="text" id="filBuscaAlm" placeholder="Código o nombre..." onkeydown="if(event.key==='Enter')loadAlmacenStock()">
+                    </div>
+                    <div class="inv-filter-group" style="justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <label class="toggle-label"><input type="checkbox" id="chkStockAlm" checked onchange="loadAlmacenStock()"> Solo con stock</label>
+                    </div>
+                    <div class="inv-filter-group" style="margin-left:auto; justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="loadAlmacenStock()" style="padding:0.45rem 1.2rem; font-size:0.8rem;">🔍 Consultar</button>
+                    </div>
+                </div>
+                <div class="inv-kpi-row" id="kpiAlm"></div>
+                <div class="inv-table-wrap">
+                    <table id="tblAlmacen" class="display" style="width:100%; font-size:0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Almacén</th><th>Desc. Almacén</th><th>Código</th><th>Descripción</th><th>Und</th>
+                                <th style="text-align:right;">Stock</th>
+                                <th style="text-align:right;">Valor MN</th>
+                                <th style="text-align:right;">Valor US$</th>
+                                <th>Últ. Ingreso</th><th>Últ. Salida</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══════ TAB: Por Lote ══════ -->
+            <div id="tab-lote" class="inv-tab-pane">
+                <div class="inv-filters">
+                    <div class="inv-filter-group">
+                        <label>Almacén</label>
+                        <button id="btnAlmLote" onclick="openModalAlmacen('Lote')" style="padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary); text-align:left; min-width:180px; font-family:'Inter',sans-serif; cursor:pointer;" data-val="">Todos</button>
+                    </div>
+                    <div class="inv-filter-group">
+                        <label>Búsqueda</label>
+                        <input type="text" id="filBuscaLote" placeholder="Código, nombre o lote..." onkeydown="if(event.key==='Enter')loadLoteStock()">
+                    </div>
+                    <div class="inv-filter-group" style="justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <label class="toggle-label"><input type="checkbox" id="chkStockLote" checked onchange="loadLoteStock()"> Solo con stock</label>
+                    </div>
+                    <div class="inv-filter-group" style="justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <label class="toggle-label"><input type="checkbox" id="chkVencer" onchange="loadLoteStock()"> Próximos a vencer (90d)</label>
+                    </div>
+                    <div class="inv-filter-group" style="margin-left:auto; justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="loadLoteStock()" style="padding:0.45rem 1.2rem; font-size:0.8rem;">🔍 Consultar</button>
+                    </div>
+                </div>
+                <div class="inv-kpi-row" id="kpiLote"></div>
+                <div class="inv-table-wrap">
+                    <table id="tblLote" class="display" style="width:100%; font-size:0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Almacén</th><th>Código</th><th>Descripción</th><th>Und</th>
+                                <th>Nro Lote</th><th>Fch. Vencimiento</th><th>Días p/Vencer</th>
+                                <th style="text-align:right;">Stock</th><th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Generic Search Modal -->
+    <div class="modal-overlay" id="searchModal" style="z-index: 2147483647; backdrop-filter: blur(4px);">
+        <div class="modal" style="background:var(--bg-base, #ffffff); color:var(--text-primary, #000000); border-radius:12px; padding:1.5rem; display:flex; flex-direction:column; max-height:85vh; border: 1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 id="searchModalTitle" style="margin:0; font-family:'Inter', sans-serif; font-weight: 700;">Seleccionar</h3>
+                <button onclick="closeSearchModal()" class="btn-close-modal" style="background:var(--danger, #ef4444); color:white; border:none; cursor:pointer; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; padding:0;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <input type="text" id="searchModalInput" placeholder="Escriba para buscar..." style="padding:0.7rem 1rem; border-radius:8px; border:2px solid var(--primary, #3b82f6); width:100%; font-size:0.95rem; background: var(--bg-body, #f8fafc); color: var(--text-primary, #000); outline:none; box-sizing: border-box;">
+            </div>
+            <div id="searchModalList" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:0.2rem; min-height: 200px;"></div>
+        </div>
+    </div>
+
+    <script src="inventario.js?v=20260414185732"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

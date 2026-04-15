@@ -37,6 +37,21 @@ app.include_router(kardex_router)
 from cuentas_cobrar import router as cuentas_cobrar_router
 app.include_router(cuentas_cobrar_router)
 
+from contabilidad import router as contabilidad_router
+app.include_router(contabilidad_router)
+
+from cargos_documentales import router as cargos_router
+app.include_router(cargos_router)
+
+from gastos_rendiciones import router as finanzas_router
+app.include_router(finanzas_router)
+
+from permisos import router as permisos_router, setup_permisos_tables
+app.include_router(permisos_router)
+
+# Crear tablas de permisos al iniciar
+setup_permisos_tables()
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,

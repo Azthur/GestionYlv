@@ -1,0 +1,632 @@
+/* ═══════════════════════════════════════════
+   Módulo Contable - Estilos Específicos
+   ═══════════════════════════════════════════ */
+
+/* ─── Tabs Navigation ─── */
+.cnt-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+.cnt-tab-btn {
+    flex: 1;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: calc(var(--radius-lg) - 4px);
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.cnt-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(37, 99, 235, 0.04);
+}
+
+.cnt-tab-btn.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.cnt-tab-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.cnt-tab-panel {
+    display: none;
+    animation: cntFadeIn 0.3s ease-out;
+}
+
+.cnt-tab-panel.active {
+    display: block;
+}
+
+@keyframes cntFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Sync Bar ─── */
+.cnt-sync-bar {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    background: var(--bg-card);
+    padding: 1.25rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    align-items: flex-end;
+}
+
+.cnt-sync-bar .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 140px;
+}
+
+.cnt-sync-bar .filter-group label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cnt-sync-bar .filter-group select,
+.cnt-sync-bar .filter-group input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    background: #FFFFFF;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+}
+
+.cnt-sync-bar .filter-group select:focus,
+.cnt-sync-bar .filter-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ─── Invoice Form ─── */
+.cnt-invoice-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.cnt-invoice-form .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.cnt-invoice-form .form-field label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cnt-invoice-form .form-field input,
+.cnt-invoice-form .form-field select,
+.cnt-invoice-form .form-field textarea {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.cnt-invoice-form .form-field input:focus,
+.cnt-invoice-form .form-field select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cnt-invoice-form .form-field.span-2 {
+    grid-column: span 2;
+}
+
+.cnt-invoice-form .form-field.span-full {
+    grid-column: 1 / -1;
+}
+
+/* ─── Section Titles ─── */
+.cnt-section-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary);
+}
+
+.cnt-section-title svg {
+    width: 18px;
+    height: 18px;
+    color: var(--primary);
+}
+
+/* ─── Action Buttons Row ─── */
+.cnt-actions-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+/* ─── Mode Toggle ─── */
+.cnt-mode-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.25rem;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 3px;
+    width: fit-content;
+}
+
+.cnt-mode-btn {
+    padding: 0.5rem 1.25rem;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.775rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.cnt-mode-btn.active {
+    background: #fff;
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Items Table Editable ─── */
+.cnt-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.cnt-items-table th {
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 0.55rem 0.5rem;
+    border-bottom: 2px solid #cbd5e1;
+    text-align: left;
+}
+
+.cnt-items-table td {
+    padding: 0.45rem 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.cnt-items-table tbody tr:hover {
+    background: #f0f7ff;
+}
+
+.cnt-items-table input {
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.775rem;
+    font-family: 'Inter', sans-serif;
+}
+
+.cnt-items-table input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.cnt-items-table input[type="number"] {
+    text-align: right;
+    width: 90px;
+}
+
+/* ─── Totals Box ─── */
+.cnt-totals-box {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.cnt-totals-box table {
+    border-collapse: collapse;
+    min-width: 280px;
+}
+
+.cnt-totals-box td {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+}
+
+.cnt-totals-box .total-row {
+    font-weight: 700;
+    font-size: 0.95rem;
+    background: #f0f4f8;
+    border-top: 2px solid var(--primary);
+}
+
+/* ─── Token Cards ─── */
+.cnt-token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.cnt-token-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    transition: all 0.2s;
+}
+
+.cnt-token-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
+}
+
+.cnt-token-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.cnt-token-card-title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.cnt-token-card-ruc {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.cnt-token-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cnt-token-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.775rem;
+}
+
+.cnt-token-field .tlabel {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.cnt-token-field .tvalue {
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 0.725rem;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cnt-token-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+/* ─── Status Badges ─── */
+.cnt-badge {
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.675rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cnt-badge.active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.cnt-badge.inactive {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.cnt-badge.registrada {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.cnt-badge.anulada {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.cnt-badge.verificada {
+    background: #dcfce7;
+    color: #166534;
+}
+
+/* ─── Progress Bar ─── */
+.cnt-progress {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.cnt-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.cnt-progress-fill.complete { background: var(--success); }
+.cnt-progress-fill.partial { background: var(--warning); }
+.cnt-progress-fill.pending { background: #e2e8f0; }
+
+/* ─── Full Width Content ─── */
+.content { max-width: none !important; width: 100% !important; }
+
+/* ─── DataTable Premium Overrides ─── */
+.dataTables_wrapper { 
+    font-family: 'Inter', sans-serif; 
+    padding: 0.5rem 0;
+}
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 1.5rem;
+}
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #cbd5e1; 
+    border-radius: 99px;
+    padding: 0.5rem 1.2rem; 
+    font-size: 0.85rem; 
+    font-family: 'Inter', sans-serif;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    width: 250px;
+    background: #f8fafc url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 95% center / 16px;
+}
+.dataTables_wrapper .dataTables_filter input:focus {
+    width: 300px;
+    background-color: #fff;
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
+}
+.dataTables_wrapper .dataTables_length select {
+    border: 1px solid #cbd5e1; 
+    border-radius: 8px;
+    padding: 0.4rem 2rem 0.4rem 0.75rem; 
+    font-size: 0.85rem;
+    background: #f8fafc;
+    cursor: pointer;
+    font-weight: 500;
+}
+.dataTables_wrapper .dataTables_info { 
+    font-size: 0.8rem; 
+    color: #64748b; 
+    margin-top: 1rem;
+    font-weight: 500;
+}
+.dataTables_wrapper .dataTables_paginate {
+    margin-top: 1rem !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border-radius: 8px !important; 
+    font-size: 0.85rem; 
+    padding: 0.4rem 0.8rem !important;
+    margin: 0 2px;
+    border: 1px solid transparent !important;
+    font-weight: 500;
+    color: #475569 !important;
+    transition: all 0.2s;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+    color: var(--primary) !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: linear-gradient(135deg, var(--primary), #1d4ed8) !important; 
+    color: #fff !important; 
+    border: none !important;
+    box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2) !important;
+}
+table.dataTable {
+    border-collapse: separate !important;
+    border-spacing: 0;
+    width: 100% !important;
+    border: none !important;
+}
+table.dataTable thead th {
+    background: #f8fafc; 
+    color: #475569; 
+    font-size: 0.75rem; 
+    font-weight: 700;
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+    border-bottom: 2px solid #e2e8f0 !important;
+    padding: 1rem 0.75rem !important;
+}
+table.dataTable thead th:first-child { border-top-left-radius: 12px; border-left: 1px solid #e2e8f0; }
+table.dataTable thead th:last-child { border-top-right-radius: 12px; border-right: 1px solid #e2e8f0; }
+table.dataTable tbody td { 
+    font-size: 0.85rem; 
+    padding: 0.85rem 0.75rem !important; 
+    vertical-align: middle; 
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9 !important;
+    transition: background 0.2s;
+}
+table.dataTable tbody tr {
+    transition: all 0.2s ease;
+}
+table.dataTable tbody tr:hover td { 
+    background: #f8fafc !important; 
+}
+table.dataTable tbody tr:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    position: relative;
+    z-index: 10;
+}
+
+.dt-buttons { margin-bottom: 1.5rem !important; display: flex; gap: 0.5rem; }
+.dt-buttons .dt-button {
+    background: #fff !important; 
+    border: 1px solid #e2e8f0 !important; 
+    border-radius: 8px !important;
+    padding: 0.5rem 1rem !important; 
+    font-size: 0.8rem !important; 
+    font-family: 'Inter', sans-serif !important;
+    color: #475569 !important; 
+    font-weight: 600 !important; 
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+}
+.dt-buttons .dt-button:hover {
+    background: #f8fafc !important; 
+    border-color: var(--primary) !important; 
+    color: var(--primary) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(37,99,235,0.1) !important;
+}
+
+/* ─── Invoice List Table Buttons ─── */
+.cnt-btn-sm {
+    display: inline-flex; align-items: center; gap: 0.2rem;
+    padding: 0.25rem 0.55rem; border: none; border-radius: 5px;
+    font-size: 0.7rem; font-weight: 600; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: all 0.15s;
+}
+.cnt-btn-sm svg { width: 12px; height: 12px; }
+.cnt-btn-sm.view { background: var(--primary); color: #fff; }
+.cnt-btn-sm.view:hover { background: #1d4ed8; }
+.cnt-btn-sm.cancel { background: #ef4444; color: #fff; }
+.cnt-btn-sm.cancel:hover { background: #dc2626; }
+.cnt-btn-sm.trace { background: #8b5cf6; color: #fff; }
+.cnt-btn-sm.trace:hover { background: #7c3aed; }
+
+/* ─── OC Selector in Invoice ─── */
+.cnt-oc-search {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.cnt-oc-info {
+    background: #f0f4ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    display: none;
+}
+
+.cnt-oc-info.visible {
+    display: block;
+}
+
+/* ─── Dark Mode Overrides ─── */
+[data-theme="dark"] .cnt-sync-bar {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .cnt-items-table th {
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="dark"] .cnt-items-table td {
+    color: #cbd5e1;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .cnt-items-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+[data-theme="dark"] .cnt-mode-toggle {
+    background: rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .cnt-mode-btn.active {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+}
+[data-theme="dark"] .cnt-token-card-ruc {
+    background: rgba(255, 255, 255, 0.06);
+    color: #94a3b8;
+}
+[data-theme="dark"] .cnt-totals-box .total-row {
+    background: rgba(255, 255, 255, 0.04);
+}
+[data-theme="dark"] .cnt-oc-info {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.2);
+    color: #e2e8f0;
+}

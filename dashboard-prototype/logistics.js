@@ -9,10 +9,44 @@ let dtRequerimientos, dtCotizaciones, dtAprobaciones, dtKardex, dtQC;
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initDataTables();
-    loadKPIs();
-    loadRequerimientos();
+    loadCompanies();
     loadFormulasToSelect();
 });
+
+async function loadCompanies() {
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/permisos/empresas/me', { 
+            headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        if (!res.ok) throw new Error();
+        const companies = await res.json();
+        const sel = document.getElementById('filterCia');
+        sel.innerHTML = '<option value="" disabled selected>Selecciona Empresa...</option>';
+        companies.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.codcia; opt.textContent = `${c.codcia} - ${c.nomcia}`;
+            sel.appendChild(opt);
+        });
+
+        const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+        if (cu.codcia && Array.from(sel.options).some(o => o.value === cu.codcia)) {
+            sel.value = cu.codcia;
+        } else if (companies.length > 0) {
+            sel.value = companies[0].codcia;
+        }
+        
+        if (sel.value) loadLogisticsData();
+    } catch (e) {
+        console.error('Error loadCompanies:', e);
+        document.getElementById('filterCia').innerHTML = '<option value="" disabled>Sin acceso a empresas</option>';
+    }
+}
+
+function loadLogisticsData() {
+    loadKPIs();
+    loadRequerimientos();
+}
 
 function initTabs() {
     const tabs = document.querySelectorAll('.tab-btn');
@@ -53,8 +87,13 @@ function initDataTables() {
 
 // ─── 10. KPIS ─────────────────────────────────────────────────────────────
 async function loadKPIs() {
+    const codcia = document.getElementById('filterCia').value;
+    if (!codcia) return;
     try {
-        const res = await fetch(`${BASE_URL}/logistics/dashboard/kpis?codcia=01`);
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`${BASE_URL}/logistics/dashboard/kpis?codcia=${codcia}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Error al cargar KPIs');
         const data = await res.json();
         
@@ -69,8 +108,13 @@ async function loadKPIs() {
 
 // ─── 1. REQUERIMIENTOS ────────────────────────────────────────────────────
 async function loadRequerimientos() {
+    const codcia = document.getElementById('filterCia').value;
+    if (!codcia) return;
     try {
-        const res = await fetch(`${BASE_URL}/logistics/requirements?codcia=01`);
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`${BASE_URL}/logistics/requirements?codcia=${codcia}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Error de red');
         const data = await res.json();
         
@@ -89,8 +133,12 @@ async function loadRequerimientos() {
 }
 
 async function viewReq(nrodoc) {
+    const codcia = document.getElementById('filterCia').value;
     try {
-        const res = await fetch(`${BASE_URL}/logistics/requirements/${nrodoc}?codcia=01`);
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`${BASE_URL}/logistics/requirements/${nrodoc}?codcia=${codcia}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Error cargando detalles');
         const data = await res.json();
         
@@ -135,16 +183,21 @@ async function loadFormulasToSelect() {
 async function runCalculationEngine() {
     const codlin = document.getElementById('calcFormulaSelect').value;
     const qty = document.getElementById('calcQty').value;
+    const codcia = document.getElementById('filterCia').value;
     
-    if (!codlin || !qty) return Swal.fire('Error', 'Debe seleccionar fórmula y cantidad a producir', 'warning');
+    if (!codlin || !qty || !codcia) return Swal.fire('Error', 'Debe seleccionar empresa, fórmula y cantidad a producir', 'warning');
 
     Swal.fire({ title: 'Ejecutando Motor...', text: 'Cruzando receta contra stock por almacenes', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
     try {
+        const token = localStorage.getItem('yelave_token');
         const res = await fetch(`${BASE_URL}/logistics/calculate-needs`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codlin: codlin, cantidad_producir: parseFloat(qty), codcia: '01', almcen: '01' })
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ codlin: codlin, cantidad_producir: parseFloat(qty), codcia: codcia, almcen: '01' })
         });
         
         if (!res.ok) throw new Error((await res.json()).detail || 'Error en el cálculo');
@@ -287,12 +340,16 @@ function openNewQcModal() {
 // ─── 9. KARDEX ─────────────────────────────────────────────────────────────
 async function loadKardex() {
     const cod = document.getElementById('kardexCodMat').value;
-    if(!cod) return Swal.fire('Error', 'Ingrese código', 'warning');
+    const codcia = document.getElementById('filterCia').value;
+    if(!cod || !codcia) return Swal.fire('Error', 'Ingrese código y seleccione empresa', 'warning');
 
     Swal.fire({ title: 'Generando Kardex...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
     try {
-        const res = await fetch(`${BASE_URL}/logistics/kardex/${cod}?codcia=01`);
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`${BASE_URL}/logistics/kardex/${cod}?codcia=${codcia}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Material no encontrado o sin movs');
         const data = await res.json();
         

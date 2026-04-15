@@ -1,76 +1,328 @@
 /* =============================================
    YELAVE ERP - Corporate Dashboard Theme
    Professional SaaS Design for Managers & Users
+   Dual Theme: Light (default vars) + Dark Override
    ============================================= */
 
-/* Root Variables - Corporate Palette */
+/* Root Variables - Light Theme (Corporate Palette) */
 :root {
     --bg-app: #F1F5F9;
-    /* Slate-100: Clean neutral background */
     --bg-sidebar: #0F172A;
-    /* Slate-900: Dark professional sidebar */
     --bg-sidebar-hover: #1E293B;
-    /* Slate-800 */
     --bg-card: #FFFFFF;
-    /* Pure white cards */
     --bg-thead: #F8FAFC;
-    /* Slate-50: Table header bg */
 
     --text-primary: #0F172A;
-    /* Slate-900: Headings */
     --text-secondary: #334155;
-    /* Slate-700: Body text */
     --text-muted: #64748B;
-    /* Slate-500: Subtitles & labels */
     --text-sidebar: #94A3B8;
-    /* Slate-400: Sidebar inactive text */
     --text-sidebar-active: #FFFFFF;
 
-    /* Corporate Blue Accent */
     --primary: #2563EB;
-    /* Blue-600 */
     --primary-hover: #1D4ED8;
-    /* Blue-700 */
     --primary-light: #EFF6FF;
-    /* Blue-50 */
     --primary-border: #BFDBFE;
-    /* Blue-200 */
 
-    /* Semantic Colors */
     --success: #059669;
-    /* Emerald-600 */
     --success-bg: #ECFDF5;
-    /* Emerald-50 */
     --warning: #D97706;
-    /* Amber-600 */
     --warning-bg: #FFFBEB;
-    /* Amber-50 */
     --danger: #DC2626;
-    /* Red-600 */
     --danger-bg: #FEF2F2;
-    /* Red-50 */
     --info: #0284C7;
-    /* Sky-600 */
     --info-bg: #F0F9FF;
-    /* Sky-50 */
 
-    /* Borders & Shadows */
     --border: #E2E8F0;
-    /* Slate-200 */
     --border-dark: #CBD5E1;
-    /* Slate-300 */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
 
-    /* Typography */
     --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-    /* Layout */
     --sidebar-width: 260px;
     --radius-sm: 6px;
     --radius-md: 8px;
     --radius-lg: 10px;
+}
+
+/* ── Dark Theme Override ── */
+[data-theme="dark"] {
+    --bg-app: #0a0a0f;
+    --bg-sidebar: #0F172A;
+    --bg-sidebar-hover: #1E293B;
+    --bg-card: rgba(255, 255, 255, 0.04);
+    --bg-thead: rgba(255, 255, 255, 0.06);
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-sidebar: #94A3B8;
+    --text-sidebar-active: #FFFFFF;
+
+    --primary: #818cf8;
+    --primary-hover: #6366f1;
+    --primary-light: rgba(99, 102, 241, 0.12);
+    --primary-border: rgba(99, 102, 241, 0.3);
+
+    --success: #34d399;
+    --success-bg: rgba(16, 185, 129, 0.1);
+    --warning: #fbbf24;
+    --warning-bg: rgba(245, 158, 11, 0.1);
+    --danger: #f87171;
+    --danger-bg: rgba(239, 68, 68, 0.1);
+    --info: #38bdf8;
+    --info-bg: rgba(14, 165, 233, 0.1);
+
+    --border: rgba(255, 255, 255, 0.08);
+    --border-dark: rgba(255, 255, 255, 0.12);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .top-bar {
+    background: rgba(15, 17, 30, 0.7) !important;
+    backdrop-filter: blur(20px);
+    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="dark"] .top-bar h2 {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+[data-theme="dark"] .main-content {
+    background: linear-gradient(135deg, #0a0a0f 0%, #0d0f1a 30%, #131528 60%, #0f1020 100%);
+}
+[data-theme="dark"] .data-table tbody tr:nth-child(even),
+[data-theme="dark"] .report-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+[data-theme="dark"] .data-table tbody tr:hover,
+[data-theme="dark"] .report-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #e2e8f0 !important;
+}
+[data-theme="dark"] input:focus, [data-theme="dark"] select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+}
+[data-theme="dark"] .modal {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .modal-header, [data-theme="dark"] .modal-footer {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .modal-footer {
+    background: rgba(255, 255, 255, 0.03);
+}
+[data-theme="dark"] .btn-outline {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] .corporate-panel,
+[data-theme="dark"] .card-panel,
+[data-theme="dark"] .glass-panel,
+[data-theme="dark"] .card,
+[data-theme="dark"] .form-container,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .modal-content {
+    background: rgba(30, 41, 59, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #f8fafc !important;
+}
+
+[data-theme="dark"] table.dataTable thead th,
+[data-theme="dark"] .pago-tab.active {
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] table.dataTable tbody td {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] table.dataTable tbody tr:hover td {
+    background: rgba(99, 102, 241, 0.1) !important;
+}
+
+[data-theme="dark"] .action-dropdown-menu,
+[data-theme="dark"] .action-dropdown-btn {
+    background: #1e293b !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .action-dropdown-item {
+    color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .action-dropdown-item:hover {
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: #818cf8 !important;
+}
+
+[data-theme="dark"] .tab,
+[data-theme="dark"] .tab-btn,
+[data-theme="dark"] .cargo-tab {
+    color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .tab-btn.active,
+[data-theme="dark"] .cargo-tab.active {
+    color: #818cf8 !important;
+    background: rgba(99, 102, 241, 0.1) !important;
+    border-bottom-color: #818cf8 !important;
+}
+
+[data-theme="dark"] .asignacion-box,
+[data-theme="dark"] .filter-bar {
+    background: rgba(30, 41, 59, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* DataTables wrapper controls */
+[data-theme="dark"] .dataTables_wrapper .dataTables_filter input,
+[data-theme="dark"] .dataTables_wrapper .dataTables_length select {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #e2e8f0 !important;
+}
+[data-theme="dark"] .dataTables_wrapper .dataTables_info,
+[data-theme="dark"] .dataTables_wrapper .dataTables_filter label,
+[data-theme="dark"] .dataTables_wrapper .dataTables_length label {
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button {
+    color: #94a3b8 !important;
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: #818cf8 !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+}
+[data-theme="dark"] .dt-buttons .dt-button {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #cbd5e1 !important;
+}
+[data-theme="dark"] .dt-buttons .dt-button:hover {
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: #818cf8 !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Sticky columns in dark mode */
+[data-theme="dark"] table.dataTable tbody td.sticky-col-left {
+    background: #0f172a !important;
+}
+[data-theme="dark"] table.dataTable tbody tr:hover td.sticky-col-left {
+    background: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Report tables and supplier box */
+[data-theme="dark"] .report-table th {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="dark"] .report-table td {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    color: #cbd5e1 !important;
+}
+[data-theme="dark"] .report-supplier-box {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="dark"] .report-supplier-box .val,
+[data-theme="dark"] .report-supplier-box .val-full {
+    color: #e2e8f0 !important;
+}
+
+/* Traza summary */
+[data-theme="dark"] .traza-summary {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="dark"] .traza-factura-card {
+    background: rgba(99, 102, 241, 0.1) !important;
+    border-color: rgba(99, 102, 241, 0.2) !important;
+    color: #e2e8f0 !important;
+}
+
+/* Top bar buttons */
+[data-theme="dark"] .topbar-btn {
+    color: #e2e8f0 !important;
+}
+[data-theme="light"] .topbar-btn-profile,
+[data-theme="light"] .topbar-btn-logout {
+    color: var(--text-secondary);
+}
+
+/* View toggle buttons */
+[data-theme="dark"] .view-toggle {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="dark"] .view-toggle button {
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] .view-toggle button[style*="background:#fff"],
+[data-theme="dark"] .view-toggle button[style*="background: #fff"] {
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: #818cf8 !important;
+    box-shadow: none !important;
+}
+
+/* Pago tabs */
+[data-theme="dark"] .pago-tab {
+    color: #94a3b8 !important;
+    background: transparent !important;
+}
+[data-theme="dark"] .pago-tab.active {
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: #818cf8 !important;
+}
+
+/* ── Sidebar Nav Group Labels ── */
+.nav-group-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(148, 163, 184, 0.5);
+    padding: 1rem 0.75rem 0.4rem;
+    margin-top: 0.25rem;
+    user-select: none;
+}
+
+/* ── Bootstrap Pages Integration ── */
+/* Hide old internal navbars in pages that now use sidebar */
+.main-content .navbar-glass,
+.main-content > nav.navbar {
+    display: none !important;
+}
+/* Constrain heading sizes inside main content for Bootstrap pages */
+.main-content .container-fluid h2,
+.main-content section h2 {
+    font-size: 1.15rem;
+}
+.main-content .container-fluid h3,
+.main-content section h3 {
+    font-size: 1rem;
+}
+.main-content .container-fluid {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
 }
 
 /* Reset */
@@ -314,6 +566,11 @@ h6 {
     gap: 2px;
     padding: 0 0.75rem;
     overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+.nav-menu::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
 .nav-item {
@@ -428,11 +685,58 @@ h6 {
     justify-content: space-between;
     align-items: center;
     padding: 1.25rem 2rem;
-    background: #FFFFFF;
+    background: var(--bg-card);
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     z-index: 50;
+}
+
+/* Top Bar buttons - theme adaptive */
+.top-bar .topbar-btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+.top-bar .topbar-btn-profile {
+    color: var(--text-secondary);
+    background: var(--primary-light);
+    border: 1px solid var(--primary-border);
+}
+.top-bar .topbar-btn-profile:hover {
+    background: var(--primary);
+    color: #fff;
+}
+.top-bar .topbar-btn-logout {
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+}
+.top-bar .topbar-btn-logout:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+.top-bar .topbar-btn-theme {
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-border);
+    color: var(--primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s;
+}
+.top-bar .topbar-btn-theme:hover {
+    background: var(--primary);
+    color: #fff;
 }
 
 .top-bar-left {

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor de Comprobante</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#f1f5f9; --surface:#ffffff; --primary:#2563eb; --text:#0f172a; --muted:#64748b; --border:#e2e8f0; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { background:var(--bg); font-family:'Inter',sans-serif; color:var(--text); min-height:100vh; }
+        .container { max-width:920px; margin:2rem auto; padding:0 1rem; }
+        .page {
+            background:var(--surface); border:1px solid var(--border); border-radius:12px;
+            padding:3rem; box-shadow:0 4px 20px rgba(0,0,0,0.06);
+        }
+        .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2.5rem; border-bottom:2px solid #e2e8f0; padding-bottom:2rem; }
+        .header h1 { font-size:1.4rem; color:#0f172a; text-transform:uppercase; letter-spacing:1px; }
+        .header .sub { color:var(--muted); font-size:0.85rem; margin-top:0.3rem; }
+        .header .right { text-align:right; }
+        .header .doc-num { font-size:1.5rem; color:var(--primary); font-weight:800; }
+        .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-bottom:2.5rem; }
+        .panel { background:#f8fafc; padding:1.5rem; border-radius:8px; border:1px solid #f1f5f9; }
+        .panel h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin:0 0 1rem 0; font-weight:700; }
+        .row { display:flex; justify-content:space-between; margin-bottom:0.6rem; font-size:0.85rem; }
+        .row strong { color:#334155; min-width:40%; }
+        .row span { color:#475569; text-align:right; }
+        table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+        thead { background:#f8fafc; }
+        th { padding:0.85rem 1rem; text-align:left; color:#64748b; font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #cbd5e1; }
+        td { padding:0.85rem 1rem; border-bottom:1px solid #f1f5f9; color:#1e293b; }
+        tbody tr:hover { background:#f8fafc; }
+        .r { text-align:right; }
+        .b { font-weight:700; }
+        .totals-box { width:340px; background:#f8fafc; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; margin-left:auto; }
+        .trow { display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.85rem; }
+        .trow .lb { color:#64748b; }
+        .tfinal { display:flex; justify-content:space-between; margin-top:1rem; padding-top:1rem; border-top:2px solid #cbd5e1; font-size:1.1rem; }
+        .docs { margin-top:2rem; padding-top:1.5rem; border-top:1px dashed #cbd5e1; }
+        .docs h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin:0 0 1rem 0; }
+        .fitem { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px dashed #e2e8f0; }
+        .fbadge { padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600; color:white; }
+        .flink { color:var(--primary); text-decoration:none; font-size:0.85rem; font-weight:500; }
+        .obs { margin-bottom:2.5rem; background:#eff6ff; border-left:4px solid #3b82f6; padding:1.25rem; border-radius:0 8px 8px 0; }
+        .obs h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin:0 0 0.5rem 0; }
+        .footer { text-align:center; color:#94a3b8; font-size:0.75rem; margin-top:3rem; padding-top:1.5rem; border-top:1px solid #f1f5f9; }
+        .badge { padding:0.3rem 1rem; border-radius:999px; font-size:0.8rem; font-weight:600; display:inline-block; margin-bottom:1rem; }
+        .badge-ok { background:#dcfce7; color:#166534; }
+        .badge-an { background:#fee2e2; color:#991b1b; }
+        .loading { text-align:center; padding:4rem; color:var(--muted); }
+        .error { text-align:center; padding:4rem; color:#ef4444; }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @media print { body{background:white} .page{box-shadow:none;border:none;padding:1.5rem} }
+        @media(max-width:768px) { .grid2{grid-template-columns:1fr} .totals-box{width:100%} .page{padding:1.5rem} .header{flex-direction:column;gap:1rem} .header .right{text-align:left} }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <main class="main-content">
+    <div id="content">
+        <div class="loading">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+            <div style="margin-top:1rem;font-weight:500;">Cargando comprobante...</div>
+        </div>
+    </div>
+    <script>
+        var params = new URLSearchParams(window.location.search);
+        var uid = params.get('uid');
+        if (!uid) {
+            document.getElementById('content').innerHTML = '<div class="error"><h2>URL inválida</h2><p>No se proporcionó un identificador.</p></div>';
+        } else {
+            fetch('/api/contabilidad/facturas/public/' + uid)
+                .then(function(r) { if(!r.ok) throw new Error('Factura no encontrada'); return r.json(); })
+                .then(function(d) { render(d); })
+                .catch(function(e) { document.getElementById('content').innerHTML = '<div class="error"><h2>Error</h2><p>' + e.message + '</p></div>'; });
+        }
+        function fmt(n) { return (n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+        function render(d) {
+            var tm = {'01':'Factura','03':'Boleta de Venta','07':'Nota de Crédito','08':'Nota de Débito'};
+            var tipo = tm[d.CodTipoDoc] || d.CodTipoDoc;
+            var estado = d.Estado === 'Anulada' ? '<span class="badge badge-an">ANULADO</span>' : '<span class="badge badge-ok">REGISTRADO</span>';
+            // Items
+            var rows = '';
+            var items = d.items || [];
+            for (var i=0; i<items.length; i++) {
+                var it = items[i];
+                rows += '<tr><td>'+(i+1)+'</td><td>'+(it.CodMaterial||'-')+'</td><td>'+(it.Descripcion||'-')+'</td><td>'+(it.UnidadMedida||'-')+'</td><td class="r">'+fmt(it.Cantidad)+'</td><td class="r">'+fmt(it.PrecioUnitario)+'</td><td class="r">'+fmt(it.SubTotal)+'</td><td class="r">'+fmt(it.IGV)+'</td><td class="r b">'+fmt(it.Total)+'</td></tr>';
+            }
+            // Archivos
+            var previewUrl = '';
+            var archs = d.archivos || [];
+            if (archs.length > 0) {
+                var fl = '';
+                for (var j=0; j<archs.length; j++) {
+                    var a = archs[j];
+                    var ext = (a.NombreArchivo||'').split('.').pop().toUpperCase();
+                    var u = '/api/contabilidad/archivos/'+a.Id+'/descargar?v=' + Date.now();
+                    var isPreviewable = ['PDF','JPG','PNG','JPEG','WEBP'].indexOf(ext) !== -1;
+                    if (isPreviewable && !previewUrl) previewUrl = u;
+                    var col = ext==='PDF'?'#ef4444':ext==='XML'?'#10b981':'#6366f1';
+                    
+                    var act = isPreviewable ? 'onclick="document.getElementById(\'visorIframe\').src=\''+u+'\'" style="cursor:pointer;"' : 'href="'+u+'" target="_blank"';
+                    var aLink = isPreviewable ? '<span '+act+' class="flink">'+a.NombreArchivo+'</span>' : '<a '+act+' class="flink">'+a.NombreArchivo+'</a>';
+                    
+                    fl += '<div class="fitem"><span class="fbadge" style="background:'+col+'">'+ext+'</span>'+aLink+'<a href="'+u+'" target="_blank" style="margin-left:auto; color:#64748b; text-decoration:none;" title="Descargar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a></div>';
+                }
+                archHTML = '<div class="docs"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"><h3>Documentos Adjuntos</h3><span style="font-size:0.75rem; color:#64748b;">(Clic para previsualizar)</span></div>'+fl+'</div>';
+            } else {
+                archHTML = '<div class="docs"><h3>Documentos Adjuntos</h3><div style="color:#94a3b8;font-size:0.85rem;padding:0.5rem 0;">Sin documentos adjuntos.</div></div>';
+            }
+            // Obs
+            var obsHTML = '';
+            if (d.Observaciones) {
+                obsHTML = '<div class="obs"><h3>Observaciones</h3><p style="margin:0;font-size:0.9rem;color:#1e40af;line-height:1.5;">'+d.Observaciones+'</p></div>';
+            }
+            var pageHTML = 
+                '<div class="page">' +
+                estado +
+                '<div class="header"><div><h1>CONSTANCIA DE REGISTRO</h1><div class="sub">Recepción de Compras / '+tipo+'</div></div><div class="right"><div class="doc-num">'+(d.CodTipoDoc||'01')+' '+(d.Serie||'')+'-'+(d.Numero||'')+'</div><div style="font-weight:600;color:#334155;margin-top:0.35rem;font-size:0.85rem;">Emisión: '+(d.FecEmision||'-')+' | Vence: '+(d.FecVencimiento||'-')+'</div><div style="color:#64748b;font-size:0.85rem;">Moneda: '+(d.CodMoneda||'PEN')+' (TC: '+(d.TipoCambio||1)+')</div></div></div>' +
+                '<div class="grid2">' +
+                    '<div class="panel"><h3>Datos del Proveedor</h3>' +
+                        '<div class="row"><strong>Razón Social:</strong><span>'+(d.NomProveedor||'-')+'</span></div>' +
+                        '<div class="row"><strong>RUC:</strong><span>'+(d.NumRucProveedor||'-')+'</span></div>' +
+                        '<div class="row"><strong>Nombre Comercial:</strong><span>'+(d.NomComercialEmisor||d.NomComercialProv||'-')+'</span></div>' +
+                        '<div class="row"><strong>Dirección:</strong><span>'+(d.DirEmisor||d.DirProveedor||'-')+'</span></div>' +
+                    '</div>' +
+                    '<div class="panel"><h3>Datos Operativos</h3>' +
+                        '<div class="row"><strong>Orden de Compra:</strong><span>'+(d.NroOrdenCompra?(d.TipoOc||'')+d.NroOrdenCompra:'Ninguna')+'</span></div>' +
+                        '<div class="row"><strong>Doc. Modifica:</strong><span>'+(d.DocModificaSerie?d.DocModificaSerie+'-'+d.DocModificaNumero:'-')+'</span></div>' +
+                        '<div class="row"><strong>Modo Registro:</strong><span>'+(d.ModoRegistro||'-')+'</span></div>' +
+                        '<div class="row"><strong>Registrado por:</strong><span>'+(d.CreatedBy||'SISTEMA')+'</span></div>' +
+                        '<div class="row"><strong>Fecha Registro:</strong><span>'+(d.CreatedAt||'-')+'</span></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="margin-bottom:2.5rem;"><h3 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin:0 0 1rem 0;">Detalle de Ítems</h3><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><table><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>UM</th><th class="r">Cant.</th><th class="r">P.Unit</th><th class="r">SubTotal</th><th class="r">IGV</th><th class="r">Total</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>' +
+                obsHTML +
+                '<div class="totals-box">' +
+                    '<div class="trow"><span class="lb">Op. Gravada:</span><strong>'+fmt(d.MtoGravado||d.SubTotal)+'</strong></div>' +
+                    '<div class="trow"><span class="lb">Op. Inafecta:</span><strong>'+fmt(d.MtoInafecto||0)+'</strong></div>' +
+                    '<div class="trow"><span class="lb">Op. Exonerada:</span><strong>'+fmt(d.MtoExonerado||0)+'</strong></div>' +
+                    '<div class="trow"><span class="lb">IGV (18%):</span><strong>'+fmt(d.IGV||0)+'</strong></div>' +
+                    '<div class="trow"><span class="lb">Otros Tributos:</span><strong>'+fmt((d.OtrosTributos||0)+(d.MtoICBPER||0)+(d.MtoOtrosCargos||0))+'</strong></div>' +
+                    '<div class="tfinal"><strong style="color:#0f172a;">TOTAL:</strong><strong style="font-size:1.25rem;color:#2563eb;">'+(d.CodMoneda||'PEN')+' '+fmt(d.Total)+'</strong></div>' +
+                '</div>' +
+                archHTML +
+                '<div class="footer">Documento generado por ERP Yelave &bull; '+new Date().toLocaleString('es-PE')+'</div>' +
+                '</div>';
+            
+            if (previewUrl) {
+                document.getElementById('content').innerHTML = 
+                    '<div class="container" style="max-width:1500px; display:flex; gap:2rem; align-items:flex-start;">' +
+                        '<div style="flex:1; min-width:0;">' + pageHTML + '</div>' +
+                        '<div style="flex:1; position:sticky; top:2rem;"><iframe id="visorIframe" src="'+previewUrl+'" width="100%" height="850px" style="border-radius:12px; border:1px solid #e2e8f0; background:white; display:block;"></iframe></div>' +
+                    '</div>';
+            } else {
+                document.getElementById('content').innerHTML = '<div class="container">' + pageHTML + '</div>';
+            }
+        }
+    </script>
+    <script src="sidebar.js"></script>
+        </main>
+    </div>
+</body>
+</html>

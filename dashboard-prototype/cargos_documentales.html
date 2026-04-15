@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Cargos Documentales</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <style>
+        /* ─── Filter Bar ─── */
+        .filter-bar {
+            display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+            background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 0.35rem; min-width: 150px; }
+        .filter-group label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-group select, .filter-group input {
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+            background: #FFFFFF; font-family: var(--font); font-size: 0.8125rem; color: var(--text-secondary);
+        }
+        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+        /* ─── Badges ─── */
+        .badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; display: inline-block; }
+        .badge.approved { background: #dcfce7; color: #166534; }
+        .badge.pending { background: #fef9c3; color: #854d0e; }
+        .badge.received { background: #dbeafe; color: #1e40af; }
+        .badge.processed { background: #d1fae5; color: #065f46; }
+
+        /* ─── DataTable Overrides ─── */
+        .dataTables_wrapper .dataTables_filter input { border: 1px solid var(--border-dark); border-radius: var(--radius-sm); padding: 0.4rem 0.75rem; font-size: 0.8125rem; }
+        .dataTables_wrapper .dataTables_length select { border: 1px solid var(--border-dark); border-radius: var(--radius-sm); padding: 0.3rem 0.5rem; font-size: 0.8125rem; }
+        .dataTables_wrapper .dataTables_info { font-size: 0.75rem; color: var(--text-muted); }
+        .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: var(--radius-sm) !important; font-size: 0.8rem; padding: 0.3rem 0.65rem !important; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
+        table.dataTable thead th { background: #1e293b; color: #f8fafc; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none !important; padding: 0.85rem 0.5rem !important; }
+        #tableWrapperBandeja, #tableWrapperHistorial { display:none; overflow: visible !important; }
+        .dataTables_wrapper { font-family: 'Inter', sans-serif; overflow: visible !important; }
+        table.dataTable { border-bottom: 1px solid #e2e8f0 !important; overflow: visible !important; }
+        table.dataTable tbody td { font-size: 0.8125rem; padding: 0.5rem 0.5rem !important; vertical-align: middle; overflow: visible !important; }
+        table.dataTable tbody tr:hover { background: #f0f7ff !important; }
+        .dt-buttons .dt-button { background: #fff !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important; padding: 0.4rem 0.85rem !important; font-size: 0.775rem !important; font-family: 'Inter', sans-serif !important; color: #374151 !important; font-weight: 500 !important; }
+        .dt-buttons .dt-button:hover { background: #f1f5f9 !important; border-color: var(--primary) !important; color: var(--primary) !important; }
+
+        /* ─── Tabs ─── */
+        .cargo-tabs { display: flex; gap: 0.25rem; background: #f1f5f9; border-radius: 8px; padding: 3px; width: fit-content; margin-bottom: 1.5rem; }
+        .cargo-tab {
+            padding: 0.5rem 1.5rem; border: none; border-radius: 6px; font-weight: 500; font-size: 0.85rem;
+            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.4rem;
+            background: transparent; color: var(--text-muted); font-family: 'Inter', sans-serif;
+        }
+        .cargo-tab.active { background: white; color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .cargo-tab svg { width: 16px; height: 16px; }
+
+        /* ─── OC Selection Cards ─── */
+        .oc-select-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .oc-select-table th { background: #f1f5f9; padding: 0.65rem 0.75rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.3px; }
+        .oc-select-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f1f5f9; }
+        .oc-select-table tbody tr:hover { background: #f0f7ff; }
+        .oc-select-table input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+
+        /* ─── Btn Styles ─── */
+        .btn-action {
+            display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.75rem;
+            border-radius: 6px; border: none; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+            font-family: 'Inter', sans-serif; transition: all 0.15s;
+        }
+        .btn-action.primary { background: var(--primary); color: #fff; }
+        .btn-action.primary:hover { background: #1d4ed8; }
+        .btn-action.success { background: #10b981; color: #fff; }
+        .btn-action.success:hover { background: #059669; }
+        .btn-action.outline { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
+        .btn-action.outline:hover { background: #f8fafc; border-color: var(--primary); color: var(--primary); }
+        .btn-action.danger { background: #fff; border: 1px solid #fca5a5; color: #ef4444; }
+        .btn-action.danger:hover { background: #fef2f2; }
+
+        /* ─── Report Preview ─── */
+        .report-preview { padding: 2rem; background: #fff; font-family: 'Inter', sans-serif; }
+        .report-band { display: flex; justify-content: space-between; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 3px solid #1e3a5f; }
+        .report-badge-box { background: #1e3a5f; color: #fff; padding: 0.75rem 1.25rem; border-radius: 8px; text-align: right; }
+        .report-badge-box .rpt-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
+        .report-badge-box .rpt-number { font-size: 1.4rem; font-weight: 700; }
+        .report-badge-box .rpt-date { font-size: 0.8rem; opacity: 0.9; }
+        .rpt-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.8rem; }
+        .rpt-table th { background: #e2e8f0; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; padding: 0.5rem; border: 1px solid #cbd5e1; text-align: left; }
+        .rpt-table td { border: 1px solid #e2e8f0; padding: 0.4rem 0.5rem; }
+        .rpt-table tbody tr:nth-child(even) { background: #fafbfc; }
+        .report-signatures { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 0.5rem; }
+        .sig-block { text-align: center; width: 35%; }
+        .sig-line { border-top: 1.5px solid #334155; padding-top: 0.4rem; font-size: 0.75rem; font-weight: 600; color: #334155; }
+
+        /* ─── Full Width Content ─── */
+        .content { max-width: none !important; width: 100% !important; }
+
+        /* ─── Modal Overlay ─── */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; animation: modFadeIn 0.15s ease-out; }
+        @keyframes modFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal { background: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); display: flex; flex-direction: column; max-height: 90vh; }
+        .modal-header { padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
+        .modal-header h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+        .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+        .close-btn { background: #f1f5f9; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; }
+        .close-btn:hover { background: #e2e8f0; color: #ef4444; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #cargoDetailModal.active, #cargoDetailModal.active .modal { 
+                position: absolute !important; left: 0; top: 0; 
+                width: 100%; height: auto !important; max-height: none !important; 
+                visibility: visible; background: transparent; box-shadow: none; display: block !important;
+                overflow: visible !important;
+            }
+            .modal-body { overflow: visible !important; max-height: none !important; }
+            #reportPreviewContent, #reportPreviewContent * { visibility: visible; }
+            #reportPreviewContent { position: static; width: 100%; padding: 0 !important; }
+            .modal-overlay:not(.active), .sidebar, .top-bar, .filter-bar, .cargo-tabs, .modal-header, .no-print { display: none !important; }
+            ::-webkit-scrollbar { display: none; }
+            @page { size: portrait; margin: 1cm; }
+        }
+
+        /* Action Dropdown Split Buttons */
+        .action-dropdown { position: relative; display: inline-block; }
+        .action-dropdown-btn {
+            background: #fff; border: 1px solid #cbd5e1;
+            padding: 4px 8px; border-radius: 6px;
+            font-size: 0.85rem; color: #475569;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); height: 26px;
+        }
+        .action-dropdown-btn:hover { background: #f1f5f9; border-color: var(--primary); color: var(--primary); }
+        .action-dropdown-menu {
+            display: none; position: absolute; right: 0; top: 100%; margin-top: 4px;
+            background: #fff; min-width: 140px;
+            border: 1px solid #e2e8f0; border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            z-index: 9999; padding: 4px 0;
+            animation: dropdownFade 0.12s ease-out;
+        }
+        @keyframes dropdownFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .action-dropdown-menu.show { display: block; }
+        .action-dropdown-item {
+            display: flex; align-items: center; gap: 6px;
+            width: 100%; padding: 6px 12px;
+            background: none; border: none; text-align: left;
+            font-size: 0.75rem; color: #334155; font-weight: 500;
+            cursor: pointer; transition: background 0.1s, color 0.1s;
+        }
+        .action-dropdown-item:hover { background: #f1f5f9; color: var(--primary); }
+        .action-dropdown-divider { height: 1px; background: #e2e8f0; margin: 4px 0; }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+<main class="main-content">
+            <div class="top-bar">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="breadcrumb">
+                    <span>Cargos Documentales</span>
+                    <span class="separator">›</span>
+                    <span>Flujo OC: Logística → Contabilidad → Tesorería</span>
+                </div>
+                <div class="top-bar-actions">
+                    <select id="filterCia" class="filter-group" style="padding:0.4rem 0.75rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-size:0.8125rem; background:#fff;"></select>
+                </div>
+            </div>
+
+            <section class="content" style="padding:1.5rem 2rem;">
+                <!-- TABS DE AREA -->
+                <div class="cargo-tabs" style="justify-content:center; margin-bottom:0.5rem;">
+                    <button class="cargo-tab active" onclick="setArea('LOGISTICA')" id="areaLOGISTICA">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                        Área Logística
+                    </button>
+                    <button class="cargo-tab" onclick="setArea('CONTABILIDAD')" id="areaCONTABILIDAD">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2z"></path></svg>
+                        Área Contabilidad
+                    </button>
+                    <button class="cargo-tab" onclick="setArea('TESORERIA')" id="areaTESORERIA">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Área Tesorería
+                    </button>
+                </div>
+
+                <!-- SUB TABS -->
+                <div id="subTabsBar" style="display:flex; justify-content:center; gap:0.75rem; margin-bottom:1.5rem;">
+                    <!-- Rellenado por JS -->
+                </div>
+
+                <!-- ═══ TAB: GENERAR CARGO ═══ -->
+                <div id="panelGenerar">
+                    <div class="filter-bar" style="flex-direction: column; gap: 1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+                            <div>
+                                <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:var(--text-primary);">Seleccionar Órdenes de Compra</h3>
+                                <p style="margin:0.25rem 0 0; font-size:0.8rem; color:var(--text-muted);">Bandeja de documentos libres correspondientes a su área.</p>
+                            </div>
+                            <div id="filtroFechas" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+                                <div class="filter-group">
+                                    <label>Año</label>
+                                    <select id="filterAno">
+                                        <option value="2026" selected>2026</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2024">2024</option>
+                                        <option value="2023">2023</option>
+                                        <option value="2022">2022</option>
+                                        <option value="2021">2021</option>
+                                        <option value="2020">2020</option>
+                                        <option value="2019">2019</option>
+                                        <option value="2018">2018</option>
+                                        <option value="2017">2017</option>
+                                        <option value="2016">2016</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label>Mes</label>
+                                    <select id="filterMes">
+                                        <option value="0">Todos</option>
+                                        <option value="1">Enero</option>
+                                        <option value="2">Febrero</option>
+                                        <option value="3">Marzo</option>
+                                        <option value="4">Abril</option>
+                                        <option value="5">Mayo</option>
+                                        <option value="6">Junio</option>
+                                        <option value="7">Julio</option>
+                                        <option value="8">Agosto</option>
+                                        <option value="9">Septiembre</option>
+                                        <option value="10">Octubre</option>
+                                        <option value="11">Noviembre</option>
+                                        <option value="12">Diciembre</option>
+                                    </select>
+                                </div>
+                                <button class="btn-action primary" onclick="loadOCsDisponibles()" style="height:fit-content;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                    Cargar OCs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem;">
+                        <div style="overflow-x: auto;">
+                            <table class="display nowrap" id="ocsDisponiblesTable" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllOcs" onchange="toggleAllOcs()"></th>
+                                        <th>N° OC</th>
+                                        <th>Fecha OC</th>
+                                        <th>Proveedor</th>
+                                        <th>RUC</th>
+                                        <th>Tipo</th>
+                                        <th style="text-align:right;">Monto OC</th>
+                                        <th>Almacén</th>
+                                        <th>N° Factura</th>
+                                        <th style="text-align:right;">Monto Factura</th>
+                                        <th class="no-print" style="width:40px;">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ocsDisponiblesTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Observation + Submit -->
+                    <div class="card glass-panel" style="padding: 1.25rem;">
+                        <div style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+                            <div class="filter-group" style="display:none;">
+                                <label>Tipo de Cargo</label>
+                                <select id="tipoCargo">
+                                    <option value="LOG_A_CONT">Logística → Contabilidad</option>
+                                    <option value="CONT_A_TES">Contabilidad → Tesorería</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" style="flex:2; min-width:300px;">
+                                <label>Observaciones (opcional)</label>
+                                <input type="text" id="cargoObservaciones" placeholder="Notas adicionales para el cargo...">
+                            </div>
+                            <button class="btn-action primary" onclick="generarCargo()" style="padding:0.55rem 1.5rem; font-size:0.85rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                                Generar Cargo de Entrega
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: CARGOS RECIBIDOS ═══ -->
+                <div id="panelRecibidos" style="display:none;">
+                    <div class="card glass-panel" style="padding: 1.25rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h3 style="margin:0; font-size:1rem; font-weight:700;">Cargos Pendientes de Procesar</h3>
+                            <div style="display:flex; gap:1rem; align-items:center;">
+                                <div class="view-toggle" style="display:flex; background:#e2e8f0; border-radius:6px; padding:2px;">
+                                    <button id="btnVistaBandejaCargo" onclick="setVistaBandeja('CARGO')" style="padding:4px 12px; font-size:0.75rem; border:none; border-radius:4px; cursor:pointer; font-weight:600; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.1); color:#1e3a5f;">Agrupado por Cargo</button>
+                                    <button id="btnVistaBandejaDetalle" onclick="setVistaBandeja('DETALLE')" style="padding:4px 12px; font-size:0.75rem; border:none; border-radius:4px; font-weight:600; cursor:pointer; background:transparent; color:#64748b;">Detallado por OC</button>
+                                </div>
+                                <button class="btn-action outline" onclick="loadCargosRecibidos()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                    Actualizar
+                                </button>
+                            </div>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table id="cargosRecibidosTable" class="display nowrap" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
+                                        <th>Estado İtem</th><th>N° Cargo</th><th>Generado</th><th>Origen</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Cargo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cargosRecibidosTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: HISTORIAL ═══ -->
+                <div id="panelHistorial" style="display:none;">
+                    <div class="card glass-panel" style="padding: 1.25rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h3 style="margin:0; font-size:1rem; font-weight:700;">Historial de Todos los Cargos</h3>
+                            <div style="display:flex; gap:1rem; align-items:center;">
+                                <div class="view-toggle" style="display:flex; background:#e2e8f0; border-radius:6px; padding:2px;">
+                                    <button id="btnVistaHistorialCargo" onclick="setVistaHistorial('CARGO')" style="padding:4px 12px; font-size:0.75rem; border:none; border-radius:4px; cursor:pointer; font-weight:600; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.1); color:#1e3a5f;">Agrupado por Cargo</button>
+                                    <button id="btnVistaHistorialDetalle" onclick="setVistaHistorial('DETALLE')" style="padding:4px 12px; font-size:0.75rem; border:none; border-radius:4px; font-weight:600; cursor:pointer; background:transparent; color:#64748b;">Detallado por OC</button>
+                                </div>
+                                <button class="btn-action outline" onclick="loadHistorial()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                    Actualizar
+                                </button>
+                            </div>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table id="historialTable" class="display nowrap" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Estado İtem</th><th>N° Cargo</th><th>Fecha Cargo</th><th>Flujo</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Cargo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historialTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ═══ MODAL: DETALLE DE CARGO ═══ -->
+    <div class="modal-overlay" id="cargoDetailModal">
+        <div class="modal" style="max-width:950px; width:95%;">
+            <div class="modal-header">
+                <h3>Cargo <span id="cargoDetailNro" style="color:var(--primary);"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn-action outline" onclick="printCargoReport()" style="font-size:0.75rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeCargoDetail()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
+                <div id="reportPreviewContent" class="report-preview">
+                    <div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL SECUNDARIO: VISTA DE EMBEBIEDOS ═══ -->
+    <div class="modal-overlay" id="secondaryModal_cargos" style="z-index: 10000;">
+        <div class="modal" style="max-width:950px; width:95%;">
+            <div class="modal-header">
+                <h3 id="secondaryModalTitle" style="color:var(--primary);">Detalle</h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="close-btn" onclick="document.getElementById('secondaryModal_cargos').classList.remove('active')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0; background:#f4f7f6;">
+                <div id="secondaryModalContent" style="padding:1rem;">Cargando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: PAGAR Y REGISTRAR EN TESORERIA ═══ -->
+    <div class="modal-overlay" id="modalPagoTesoreria" style="z-index: 10200;">
+        <div class="modal" style="max-width:550px; width:95%;">
+            <div class="modal-header" style="background:#1e3a5f;">
+                <h3 style="color:#fff;">Registro de Pago - Tesorería</h3>
+                <button class="close-btn" style="color:#fff; opacity:0.8;" onclick="document.getElementById('modalPagoTesoreria').classList.remove('active')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:1.5rem; text-align:left;">
+                <form id="formPagoTesoreria" onsubmit="event.preventDefault(); submitPagoTesoreria();">
+                    <input type="hidden" id="pago_idDetalle">
+                    <input type="hidden" id="pago_codcia">
+                    <input type="hidden" id="pago_nrodoc">
+                    <input type="hidden" id="pago_tipooc">
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:0.8rem;">Moneda</label>
+                            <select id="pago_moneda" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="PEN">Soles (PEN)</option>
+                                <option value="USD">Dólares (USD)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:0.8rem;">Monto Pagado</label>
+                            <input type="number" step="0.01" id="pago_monto" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;">
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:0.8rem;">Banco Emisor</label>
+                            <select id="pago_banco" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="BCP">BCP</option>
+                                <option value="BBVA">BBVA</option>
+                                <option value="SCOTIABANK">Scotiabank</option>
+                                <option value="INTERBANK">Interbank</option>
+                                <option value="BANBIF">BanBif</option>
+                                <option value="EFECTIVO">Caja / Efectivo</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:0.8rem;">Tipo de Pago</label>
+                            <select id="pago_tipo" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="TRANSFERENCIA">Transferencia</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="EFECTIVO">Efectivo</option>
+                                <option value="TARJETA">Tarjeta</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                         <div class="form-group">
+                            <label style="font-weight:600; font-size:0.8rem;">Fecha de Pago</label>
+                            <input type="date" id="pago_fecha" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;">
+                        </div>
+                         <div class="form-group">
+                            <label style="font-weight:600; font-size:0.8rem;">Nro. Operación / Ref.</label>
+                            <input type="text" id="pago_nro_operacion" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;" placeholder="Ej: 198273645">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:1rem;">
+                        <label style="font-weight:600; font-size:0.8rem;">Subir Archivos (Vouchers, Reportes - MAX 3)</label>
+                        <input type="file" id="pago_adjuntos" multiple accept="image/*,application/pdf" style="width:100%; padding:0.5rem; border:1px dotted #94a3b8; border-radius:4px; font-size:0.8rem;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:1.5rem;">
+                        <label style="font-weight:600; font-size:0.8rem;">Notas u Observaciones (Opcional)</label>
+                        <textarea id="pago_notas" rows="2" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px;"></textarea>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                        <button type="button" class="btn btn-outline" style="padding:0.6rem 1rem;" onclick="document.getElementById('modalPagoTesoreria').classList.remove('active')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="padding:0.6rem 1rem; background:#10b981; border:none; display:flex; align-items:center; gap:0.5rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            Registrar Pago
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="cargos_documentales.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

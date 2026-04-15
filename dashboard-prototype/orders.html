@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YELAVE - Ã“rdenes de Compra</title>
+    <title>YELAVE - Órdenes de Compra</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- DataTables CSS -->
@@ -14,134 +15,580 @@
     <style>
         /* â”€â”€â”€ Filter Bar â”€â”€â”€ */
         .filter-bar {
-            display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
-            background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-lg);
-            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+            background: var(--bg-card);
+            padding: 1.25rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
         }
-        .filter-group { display: flex; flex-direction: column; gap: 0.35rem; min-width: 150px; }
-        .filter-group label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .filter-group select, .filter-group input {
-            padding: 0.5rem 0.75rem; border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
-            background: #FFFFFF; font-family: var(--font); font-size: 0.8125rem; color: var(--text-secondary);
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            min-width: 150px;
         }
-        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+        .filter-group label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            background: #FFFFFF;
+            font-family: var(--font);
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
 
         /* â”€â”€â”€ Badges â”€â”€â”€ */
-        .badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; display: inline-block; }
-        .badge.approved { background: #dcfce7; color: #166534; }
-        .badge.pending { background: #fef9c3; color: #854d0e; }
-        .badge.canceled { background: #fee2e2; color: #991b1b; }
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge.approved {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge.pending {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .badge.canceled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
         /* â”€â”€â”€ DataTable customization â”€â”€â”€ */
-        .dataTables_wrapper { font-family: 'Inter', sans-serif; }
+        .dataTables_wrapper {
+            font-family: 'Inter', sans-serif;
+        }
+
         .dataTables_wrapper .dataTables_filter input {
-            border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
-            padding: 0.4rem 0.75rem; font-size: 0.8125rem; font-family: 'Inter', sans-serif;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8125rem;
+            font-family: 'Inter', sans-serif;
         }
+
         .dataTables_wrapper .dataTables_length select {
-            border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
-            padding: 0.3rem 0.5rem; font-size: 0.8125rem;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            padding: 0.3rem 0.5rem;
+            font-size: 0.8125rem;
         }
-        .dataTables_wrapper .dataTables_info { font-size: 0.75rem; color: var(--text-muted); }
+
+        .dataTables_wrapper .dataTables_info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
         .dataTables_wrapper .dataTables_paginate .paginate_button {
-            border-radius: var(--radius-sm) !important; font-size: 0.8rem; padding: 0.3rem 0.65rem !important;
+            border-radius: var(--radius-sm) !important;
+            font-size: 0.8rem;
+            padding: 0.3rem 0.65rem !important;
         }
+
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-            background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important;
+            background: var(--primary) !important;
+            color: #fff !important;
+            border-color: var(--primary) !important;
         }
-        table.dataTable thead th { background: #f1f5f9; color: #334155; font-size: 0.75rem; font-weight: 600;
-            text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #cbd5e1 !important; }
-        table.dataTable tbody td { font-size: 0.8125rem; padding: 0.65rem 0.75rem !important; vertical-align: middle; }
-        table.dataTable tbody tr:hover { background: #f0f7ff !important; }
-        table.dataTable { border-bottom: 1px solid #e2e8f0 !important; }
+
+        table.dataTable thead th {
+            background: #f1f5f9;
+            color: #334155;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 2px solid #cbd5e1 !important;
+        }
+
+        table.dataTable tbody td {
+            font-size: 0.8125rem;
+            padding: 0.65rem 0.75rem !important;
+            vertical-align: middle;
+        }
+
+        table.dataTable tbody tr:hover {
+            background: #f0f7ff !important;
+        }
+
+        table.dataTable {
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+
         /* Sticky Column */
-        table.dataTable thead th.sticky-col-left { position: sticky; left: 0; z-index: 11 !important; }
-        table.dataTable tbody td.sticky-col-left { position: sticky; left: 0; z-index: 9 !important; background-color: #fff; border-right: 1px solid #e2e8f0; }
-        table.dataTable tbody tr:nth-child(even) td.sticky-col-left { background-color: #f8fafc; }
-        table.dataTable tbody tr:hover td.sticky-col-left { background-color: #f0f7ff !important; }
+        table.dataTable thead th.sticky-col-left {
+            position: sticky;
+            left: 0;
+            z-index: 11 !important;
+        }
+
+        table.dataTable tbody td.sticky-col-left {
+            position: sticky;
+            left: 0;
+            z-index: 9 !important;
+            background-color: #fff;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        table.dataTable tbody tr:nth-child(even) td.sticky-col-left {
+            background-color: #f8fafc;
+        }
+
+        table.dataTable tbody tr:hover td.sticky-col-left {
+            background-color: #f0f7ff !important;
+        }
+
         /* Export buttons */
-        .dt-buttons { margin-bottom: 0.75rem !important; }
+        .dt-buttons {
+            margin-bottom: 0.75rem !important;
+        }
+
         .dt-buttons .dt-button {
-            background: #fff !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important;
-            padding: 0.4rem 0.85rem !important; font-size: 0.775rem !important; font-family: 'Inter', sans-serif !important;
-            color: #374151 !important; font-weight: 500 !important; transition: all 0.15s !important;
+            background: #fff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            padding: 0.4rem 0.85rem !important;
+            font-size: 0.775rem !important;
+            font-family: 'Inter', sans-serif !important;
+            color: #374151 !important;
+            font-weight: 500 !important;
+            transition: all 0.15s !important;
         }
+
         .dt-buttons .dt-button:hover {
-            background: #f1f5f9 !important; border-color: var(--primary) !important; color: var(--primary) !important;
+            background: #f1f5f9 !important;
+            border-color: var(--primary) !important;
+            color: var(--primary) !important;
         }
+
         .btn-ver-oc {
-            display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.7rem;
-            background: var(--primary); color: #fff; border: none; border-radius: 6px;
-            font-size: 0.725rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.725rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
             transition: background 0.15s;
         }
-        .btn-ver-oc:hover { background: #1d4ed8; }
+
+        .btn-ver-oc:hover {
+            background: #1d4ed8;
+        }
+
+        /* ─── Action Dropdown ─── */
+        .action-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .action-dropdown-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: #475569;
+            font-size: 1.1rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .action-dropdown-btn:hover {
+            background: #f1f5f9;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .action-dropdown-menu {
+            display: none;
+            position: fixed;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 9999;
+            padding: 4px;
+            font-family: 'Inter', sans-serif;
+            animation: dropdownFade 0.12s ease-out;
+        }
+
+        @keyframes dropdownFade {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .action-dropdown-menu.show {
+            display: block;
+        }
+
+        .action-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #334155;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.1s;
+            white-space: nowrap;
+        }
+
+        .action-dropdown-item:hover {
+            background: #f1f5f9;
+            color: var(--primary);
+        }
+
+        .action-dropdown-item svg {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+        }
+
+        .action-dropdown-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 4px 0;
+        }
 
         /* â”€â”€â”€ Report Modal Styles â”€â”€â”€ */
         .report-header-band {
-            display: flex; justify-content: space-between; align-items: flex-start;
-            padding-bottom: 1.25rem; margin-bottom: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 1.25rem;
+            margin-bottom: 1.25rem;
             border-bottom: 3px solid #1e3a5f;
         }
-        .report-company-info h2 { font-size: 1.15rem; font-weight: 700; color: #1e3a5f; margin: 0 0 0.15rem 0; }
-        .report-company-info p { font-size: 0.75rem; color: #6b7280; margin: 0; line-height: 1.4; }
+
+        .report-company-info h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #1e3a5f;
+            margin: 0 0 0.15rem 0;
+        }
+
+        .report-company-info p {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin: 0;
+            line-height: 1.4;
+        }
+
         .report-oc-badge {
-            text-align: right; background: #1e3a5f; color: #fff; padding: 0.75rem 1.25rem;
-            border-radius: 8px; min-width: 200px;
+            text-align: right;
+            background: #1e3a5f;
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            min-width: 200px;
         }
-        .report-oc-badge .oc-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
-        .report-oc-badge .oc-number { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; margin: 0.15rem 0; }
-        .report-oc-badge .oc-date { font-size: 0.85rem; font-weight: 400; opacity: 0.9; }
+
+        .report-oc-badge .oc-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.8;
+        }
+
+        .report-oc-badge .oc-number {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0.15rem 0;
+        }
+
+        .report-oc-badge .oc-date {
+            font-size: 0.85rem;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+
         .report-supplier-box {
-            display: grid; grid-template-columns: 110px 1fr 110px 1fr; gap: 0.25rem 0.5rem;
-            font-size: 0.775rem; padding: 0.85rem 1rem; background: #f8fafc;
-            border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1.25rem;
+            display: grid;
+            grid-template-columns: 110px 1fr 110px 1fr;
+            gap: 0.25rem 0.5rem;
+            font-size: 0.775rem;
+            padding: 0.85rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
         }
-        .report-supplier-box .lbl { font-weight: 600; color: #64748b; }
-        .report-supplier-box .val { color: #0f172a; }
-        .report-supplier-box .val-full { color: #0f172a; grid-column: span 3; }
-        .report-table { width: 100%; border-collapse: collapse; margin-top: 0.25rem; }
+
+        .report-supplier-box .lbl {
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .report-supplier-box .val {
+            color: #0f172a;
+        }
+
+        .report-supplier-box .val-full {
+            color: #0f172a;
+            grid-column: span 3;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.25rem;
+        }
+
         .report-table th {
-            background: #e2e8f0; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;
-            letter-spacing: 0.5px; color: #334155; padding: 0.5rem;
-            border: 1px solid #cbd5e1; text-align: left;
+            background: #e2e8f0;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #334155;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            text-align: left;
         }
-        .report-table td { border: 1px solid #e2e8f0; padding: 0.4rem 0.5rem; font-size: 0.775rem; vertical-align: top; }
-        .report-table tbody tr:nth-child(even) { background: #fafbfc; }
-        .report-table .note-row td { border-top: none; padding-top: 0.1rem; padding-bottom: 0.2rem; color: #6b7280; font-size: 0.7rem; }
+
+        .report-table td {
+            border: 1px solid #e2e8f0;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.775rem;
+            vertical-align: top;
+        }
+
+        .report-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        .report-table .note-row td {
+            border-top: none;
+            padding-top: 0.1rem;
+            padding-bottom: 0.2rem;
+            color: #6b7280;
+            font-size: 0.7rem;
+        }
+
         .report-totals-box {
-            display: flex; justify-content: flex-end; margin-top: 0.75rem;
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 0.75rem;
         }
-        .report-totals-box table { border-collapse: collapse; min-width: 300px; }
-        .report-totals-box td { padding: 0.35rem 0.85rem; font-size: 0.825rem; }
-        .report-totals-box .row-total { font-weight: 700; font-size: 0.95rem; background: #f0f4f8; border-top: 2px solid #1e3a5f; }
-        .report-footer-dl { font-size: 0.775rem; margin-top: 1.25rem; display: grid; grid-template-columns: 140px 1fr; gap: 0.2rem 0.75rem; }
-        .report-footer-dl dt { font-weight: 600; color: #475569; }
-        .report-footer-dl dd { margin: 0; color: #1e293b; }
+
+        .report-totals-box table {
+            border-collapse: collapse;
+            min-width: 300px;
+        }
+
+        .report-totals-box td {
+            padding: 0.35rem 0.85rem;
+            font-size: 0.825rem;
+        }
+
+        .report-totals-box .row-total {
+            font-weight: 700;
+            font-size: 0.95rem;
+            background: #f0f4f8;
+            border-top: 2px solid #1e3a5f;
+        }
+
+        .report-footer-dl {
+            font-size: 0.775rem;
+            margin-top: 1.25rem;
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 0.2rem 0.75rem;
+        }
+
+        .report-footer-dl dt {
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .report-footer-dl dd {
+            margin: 0;
+            color: #1e293b;
+        }
+
         .report-disclaimer {
-            margin-top: 1.25rem; padding: 0.65rem 1rem; border: 1px solid #94a3b8;
-            border-radius: 6px; font-size: 0.7rem; text-align: center; color: #475569;
-            line-height: 1.6; background: #f8fafc;
+            margin-top: 1.25rem;
+            padding: 0.65rem 1rem;
+            border: 1px solid #94a3b8;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            text-align: center;
+            color: #475569;
+            line-height: 1.6;
+            background: #f8fafc;
         }
+
         .report-signatures {
-            display: flex; justify-content: space-between; margin-top: 2.5rem; padding-top: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2.5rem;
+            padding-top: 0.5rem;
         }
-        .report-signatures .sig-block { text-align: center; width: 28%; }
+
+        .report-signatures .sig-block {
+            text-align: center;
+            width: 28%;
+        }
+
         .report-signatures .sig-line {
-            border-top: 1.5px solid #334155; padding-top: 0.4rem;
-            font-size: 0.725rem; font-weight: 600; color: #334155;
+            border-top: 1.5px solid #334155;
+            padding-top: 0.4rem;
+            font-size: 0.725rem;
+            font-weight: 600;
+            color: #334155;
         }
 
         @media print {
-            body * { visibility: hidden; }
-            #reportContent, #reportContent * { visibility: visible; }
-            #reportContent { position: absolute; left: 0; top: 0; width: 100%; padding: 12mm !important; font-size: 11pt !important; }
-            .report-oc-badge { background: #1e3a5f !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .report-table th { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .modal-overlay, .sidebar, .top-bar, .filter-bar, .modal-header, .close-btn { display: none !important; }
+            body * {
+                visibility: hidden;
+            }
+
+            .modal-overlay.active,
+            .modal-overlay.active * {
+                visibility: visible;
+            }
+
+            .modal-overlay.active {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                background: white !important;
+            }
+
+            #reportContent,
+            #warehouse-tbody {
+                position: relative;
+                width: 100%;
+                padding: 0 !important;
+                display: block !important;
+            }
+
+            .modal.glass-modal {
+                box-shadow: none !important;
+                border: none !important;
+                background: none !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+            }
+
+            .modal-body {
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            .report-oc-badge {
+                color: #fff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .report-table th {
+                background: #e2e8f0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .sidebar,
+            .top-bar,
+            .filter-bar,
+            .modal-header,
+            .close-btn {
+                display: none !important;
+            }
         }
 
-        /* â”€â”€â”€ Full Width Content â”€â”€â”€ */
+        /* --- Row Types --- */
+        .oc-type-m { background-color: rgba(255, 255, 255, 1) !important; }
+        .oc-type-s { background-color: #f0fdf4 !important; } /* Soft green for Services */
+        .oc-type-t { background-color: #f5f3ff !important; } /* Soft purple for Accounting */
+
+        table.dataTable tbody tr.oc-type-s:hover { background-color: #dcfce7 !important; }
+        table.dataTable tbody tr.oc-type-t:hover { background-color: #ede9fe !important; }
+
+        /* --- Watermarks --- */
+        .watermark-container {
+            position: relative;
+        }
+
+        .watermark-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            font-size: 3.5rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            pointer-events: none;
+            z-index: 10;
+            white-space: nowrap;
+            opacity: 0.12;
+            width: 100%;
+            text-align: center;
+        }
+
+        .wm-anulado { color: #ef4444; }
+        .wm-completo { color: #22c55e; }
+
+        /* --- Full Width Content --- */
         .content {
             max-width: none !important;
             width: 100% !important;
@@ -149,122 +596,46 @@
     </style>
     <script src="auth-guard.js"></script>
 </head>
+
 <body>
     <div class="app-container">
-        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
         <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="brand"><h1>YELAVE</h1><span>Skincare</span></div>
-            <nav class="nav-menu">
-                <a href="/index.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
-                    </svg>Dashboard
-                </a>
-                <a href="/logistics.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                    </svg>Centro Logístico
-                </a>
-                <a href="/orders.html" class="nav-item active">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
-                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                    </svg>Compras (Legacy)
-                </a>
-                <a href="/production.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                    </svg>Producción y Costos
-                </a>
-                <a href="/reparto.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
-                    </svg>Reparto y Rutas
-                </a>
-                <a href="/kardex.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg>Reportes Kardex
-                </a>
-                <a href="/cuentas-cobrar.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                    </svg>Cuentas por Cobrar
-                </a>
-                <a href="/conciliacion.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>Finanzas (Conciliación)
-                </a>
-                <a href="/db-config.html" class="nav-item">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-                    </svg>Mantenimiento BD
-                </a>
-            </nav>
-            <div class="user-profile">
-                <a href="/profile.html" style="text-decoration:none; display:flex; align-items:center; gap:0.75rem; flex:1;">
-                    <div class="avatar"><img src="https://ui-avatars.com/api/?name=User&background=2b3954&color=fff" alt="User Avatar" id="userAvatar"></div>
-                    <div class="user-info">
-                        <span class="user-name" id="userNameDisplay">Usuario</span>
-                        <span class="user-role" id="userRoleDisplay">Cargando...</span>
-                    </div>
-                </a>
-                <button onclick="logout()" title="Cerrar sesión" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                        <polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
-                </button>
-            </div>
-        </aside>
-
         <!-- Main Content -->
         <main class="main-content">
-            <header class="top-bar">
-                <div class="top-bar-left">
-                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                    <div>
-                        <h2>Ã“rdenes de Compra</h2>
-                        <p style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-top:0.15rem;">Logística &amp; Compras - Control de Requerimientos</p>
-                    </div>
-                </div>
-            </header>
-
             <section class="content fade-in">
                 <!-- Filter Bar -->
                 <div class="filter-bar">
                     <div class="filter-group" style="flex: 2;">
                         <label for="filterCia">Empresa</label>
-                        <select id="filterCia"><option value="">Cargando empresas...</option></select>
+                        <select id="filterCia">
+                            <option value="">Cargando empresas...</option>
+                        </select>
                     </div>
                     <div class="filter-group" style="flex: 1;">
                         <label for="filterYear">Año</label>
                         <select id="filterYear">
                             <option value="">(Todos)</option>
-                            <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026" selected>2026</option>
                         </select>
                     </div>
                     <div class="filter-group" style="flex: 1;">
                         <label for="filterPeriod">Periodo</label>
                         <select id="filterPeriod">
                             <option value="">(Todos)</option>
-                            <option value="1">Enero</option><option value="2">Febrero</option><option value="3" selected>Marzo</option>
-                            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-                            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3" selected>Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
                         </select>
                     </div>
                     <div class="filter-group" style="flex: 1.5;">
@@ -278,9 +649,12 @@
                     </div>
                     <div class="filter-group" style="flex: 0.5; justify-content: flex-end;">
                         <label>&nbsp;</label>
-                        <button class="btn btn-primary" onclick="loadOrders()" style="height:36px; padding:0 1.25rem; font-size:0.8rem;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.4rem">
-                                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <button class="btn btn-primary" onclick="loadOrders()"
+                            style="height:36px; padding:0 1.25rem; font-size:0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                                height="15" style="margin-right:0.4rem">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                             </svg>Buscar
                         </button>
                     </div>
@@ -293,18 +667,34 @@
                             <thead>
                                 <tr>
                                     <th class="sticky-col-left">Acciones</th>
-                                    <th>NÂ° Orden</th><th>Fecha</th><th>Tipo</th><th>Proveedor</th>
-                                    <th>RUC</th><th>Moneda</th><th>Total</th><th>Lug. Ent.</th>
-                                    <th>Entrega</th><th>Contacto</th><th>Teléfono</th><th>Depto</th>
-                                    <th>Comprador</th><th>Usuario</th><th>Estado</th>
+                                    <th>NÂ° Orden</th>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Proveedor</th>
+                                    <th>RUC</th>
+                                    <th>Moneda</th>
+                                    <th>Total</th>
+                                    <th>Lug. Ent.</th>
+                                    <th>Entrega</th>
+                                    <th>Contacto</th>
+                                    <th>Teléfono</th>
+                                    <th>Depto</th>
+                                    <th>Comprador</th>
+                                    <th>Usuario</th>
+                                    <th>Estado</th>
+                                    <th></th><!-- watermark helper (hidden) -->
+                                    <th></th><!-- tipooc helper (hidden) -->
                                 </tr>
                             </thead>
                             <tbody></tbody>
                         </table>
                     </div>
-                    <div id="initialMessage" style="text-align:center; padding: 3rem; color: var(--text-muted); font-size: 0.875rem;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="margin-bottom:1rem; opacity:0.4;">
-                            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    <div id="initialMessage"
+                        style="text-align:center; padding: 3rem; color: var(--text-muted); font-size: 0.875rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48"
+                            height="48" style="margin-bottom:1rem; opacity:0.4;">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                         <br>Seleccione una empresa y haga clic en <strong>Buscar</strong>
                     </div>
@@ -319,58 +709,62 @@
             <div class="modal-header" style="justify-content:space-between;">
                 <h3>Orden de Compra <span id="reportOcNro" style="color:var(--primary)"></span></h3>
                 <div style="display:flex; gap:0.5rem; align-items:center;">
-                    <button class="btn btn-outline" onclick="printReport()" style="padding:0.35rem 0.75rem; font-size:0.775rem;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.3rem">
+                    <button class="btn btn-outline" onclick="printReport()"
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
                             <polyline points="6 9 6 2 18 2 18 9"></polyline>
                             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                             <rect x="6" y="14" width="12" height="8"></rect>
                         </svg>Imprimir
                     </button>
                     <button class="close-btn" onclick="closeReportModal()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
                 </div>
             </div>
             <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
-                <div id="reportContent" style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
-                    <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando reporte...</div>
+                <div id="reportContent"
+                    style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
+                    <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando
+                        reporte...</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Warehouse Entries -->
+    <!-- Modal: Warehouse Entries (Voucher estilo Crystal Report) -->
     <div class="modal-overlay" id="warehouseModal">
-        <div class="modal glass-modal" style="max-width:800px; width:95%;">
-            <div class="modal-header">
+        <div class="modal glass-modal" style="max-width:950px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
                 <h3>Ingresos a Almacén - OC <span id="warehouseOcNro" style="color:var(--primary)"></span></h3>
-                <button class="close-btn" onclick="closeWarehouseModal()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="data-table" style="font-size:0.8125rem;">
-                        <thead>
-                            <tr>
-                                <th>NÂ° Ingreso</th>
-                                <th>Fecha</th>
-                                <th>Almacén</th>
-                                <th>Mov.</th>
-                                <th>Código Mat.</th>
-                                <th>Descripción</th>
-                                <th style="text-align:right;">Cantidad</th>
-                            </tr>
-                        </thead>
-                        <tbody id="warehouse-tbody">
-                            <tr><td colspan="7" class="loading-state">Cargando ingresos...</td></tr>
-                        </tbody>
-                    </table>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printWarehouseVoucher()"
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeWarehouseModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
+                <div id="warehouse-tbody" style="display:none;"></div>
+                <div style="text-align:center; padding:3rem; color:var(--text-muted);">Seleccione una OC para ver
+                    ingresos</div>
             </div>
         </div>
     </div>
@@ -378,27 +772,36 @@
     <div class="modal-overlay" id="attachmentModal">
         <div class="modal glass-modal" style="max-width:600px; width:95%;">
             <div class="modal-header">
-                <h3><span id="attachmentModalTitle">Adjuntos</span> - OC <span id="attachmentOcNro" style="color:var(--primary)"></span></h3>
+                <h3><span id="attachmentModalTitle">Adjuntos</span> - OC <span id="attachmentOcNro"
+                        style="color:var(--primary)"></span></h3>
                 <button class="close-btn" onclick="closeAttachmentModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
                 </button>
             </div>
             <div class="modal-body">
-                <div id="attachmentUploadArea" style="margin-bottom:1.5rem; padding:1.5rem; border:2px dashed var(--border); border-radius:12px; text-align:center; background:rgba(255,255,255,0.5);">
-                    <p style="margin-bottom:1rem; font-size:0.875rem; color:var(--text-muted);">Subir nuevo archivo (PDF o Imagen)</p>
-                    <input type="file" id="attachmentFileInput" accept=".pdf,image/*" style="display:none" onchange="handleAttachmentUpload()">
+                <div id="attachmentUploadArea"
+                    style="margin-bottom:1.5rem; padding:1.5rem; border:2px dashed var(--border); border-radius:12px; text-align:center; background:rgba(255,255,255,0.5);">
+                    <p style="margin-bottom:1rem; font-size:0.875rem; color:var(--text-muted);">Subir nuevo archivo (PDF
+                        o Imagen)</p>
+                    <input type="file" id="attachmentFileInput" accept=".pdf,image/*" style="display:none"
+                        onchange="handleAttachmentUpload()">
                     <button class="btn btn-primary" onclick="document.getElementById('attachmentFileInput').click()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.5rem">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16" style="margin-right:0.5rem">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
                         </svg>Seleccionar y Subir
                     </button>
                 </div>
                 <h4 style="font-size:0.875rem; margin-bottom:1rem; color:var(--text-primary);">Archivos Guardados:</h4>
-                <div id="attachmentList" class="custom-scrollbar" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
-                    <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando archivos...</div>
+                <div id="attachmentList" class="custom-scrollbar"
+                    style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
+                    <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando
+                        archivos...</div>
                 </div>
             </div>
         </div>
@@ -406,24 +809,32 @@
 
     <!-- Modal: File Preview window -->
     <div class="modal-overlay" id="previewModal">
-        <div class="modal glass-modal" style="max-width:900px; width:95%; height:85vh; display:flex; flex-direction:column;">
+        <div class="modal glass-modal"
+            style="max-width:900px; width:95%; height:85vh; display:flex; flex-direction:column;">
             <div class="modal-header">
                 <h3 id="previewModalTitle">Visualización de Archivo</h3>
                 <div style="display:flex; gap:0.5rem; align-items:center;">
-                    <a href="#" id="previewModalDownloadBtn" class="btn btn-outline" download style="padding:0.35rem 0.75rem; font-size:0.775rem; text-decoration:none;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="margin-right:0.3rem">
+                    <a href="#" id="previewModalDownloadBtn" class="btn btn-outline" download
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem; text-decoration:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>Descargar
                     </a>
                     <button class="close-btn" onclick="closePreviewModal()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
                 </div>
             </div>
-            <div class="modal-body" style="flex:1; padding:0; background:#f1f5f9; display:flex; justify-content:center; align-items:center; overflow:hidden;" id="previewModalBody">
+            <div class="modal-body"
+                style="flex:1; padding:0; background:#f1f5f9; display:flex; justify-content:center; align-items:center; overflow:hidden;"
+                id="previewModalBody">
                 <div style="color:var(--text-muted);">Cargando previsualización...</div>
             </div>
         </div>
@@ -436,7 +847,8 @@
                 <h3>Generar Solicitud de Recojo - OC <span id="recojoOcNro" style="color:var(--primary)"></span></h3>
                 <button class="close-btn" onclick="closeRecojoModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
                 </button>
             </div>
@@ -464,7 +876,8 @@
                         </div>
                         <div class="filter-group url-maps-group" style="grid-column: span 2;">
                             <label>URL de Google Maps (Origen)</label>
-                            <input type="url" id="recUrlMaps" placeholder="https://maps.google.com/..." style="font-family:monospace; font-size:0.75rem;">
+                            <input type="url" id="recUrlMaps" placeholder="https://maps.google.com/..."
+                                style="font-family:monospace; font-size:0.75rem;">
                         </div>
                         <div class="filter-group">
                             <label>Contacto Origen</label>
@@ -480,15 +893,19 @@
                         </div>
                         <div class="filter-group" style="grid-column: span 2;">
                             <label>Observaciones</label>
-                            <textarea id="recObservaciones" rows="2" style="padding:0.5rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.8125rem;"></textarea>
+                            <textarea id="recObservaciones" rows="2"
+                                style="padding:0.5rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.8125rem;"></textarea>
                         </div>
                     </div>
-                    <h4 style="font-size:0.875rem; margin-bottom:0.5rem; color:var(--text-primary);">Seleccionar Ãtems</h4>
-                    <div class="table-responsive" style="max-height: 250px; overflow-y:auto; margin-bottom:1rem; border:1px solid #e2e8f0; border-radius:6px;">
+                    <h4 style="font-size:0.875rem; margin-bottom:0.5rem; color:var(--text-primary);">Seleccionar Ãtems
+                    </h4>
+                    <div class="table-responsive"
+                        style="max-height: 250px; overflow-y:auto; margin-bottom:1rem; border:1px solid #e2e8f0; border-radius:6px;">
                         <table class="report-table" style="margin-top:0;">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px; text-align:center;"><input type="checkbox" id="chkAllRecojo" onchange="toggleAllRecojo()"></th>
+                                    <th style="width: 40px; text-align:center;"><input type="checkbox" id="chkAllRecojo"
+                                            onchange="toggleAllRecojo()"></th>
                                     <th>Código</th>
                                     <th>Descripción</th>
                                     <th style="width: 80px; text-align:center;">Unid</th>
@@ -497,18 +914,115 @@
                                 </tr>
                             </thead>
                             <tbody id="recojoItemsTbody">
-                                <tr><td colspan="6" style="text-align:center; padding:2rem;">Cargando ítems...</td></tr>
+                                <tr>
+                                    <td colspan="6" style="text-align:center; padding:2rem;">Cargando ítems...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
                     <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
                         <button type="button" class="btn btn-outline" onclick="closeRecojoModal()">Cancelar</button>
-                        <button type="button" class="btn btn-primary" onclick="submitSolicitudRecojo()">Generar Solicitud</button>
+                        <button type="button" class="btn btn-primary" onclick="submitSolicitudRecojo()">Generar
+                            Solicitud</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    <!-- Modal: Trazabilidad OC → Almacén → Factura -->
+    <div class="modal-overlay" id="trazaModal">
+        <div class="modal glass-modal" style="max-width:1050px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Trazabilidad - OC <span id="trazaOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeTrazaModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto;">
+                <div id="trazaContent" style="padding:0.5rem;">
+                    <div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando trazabilidad...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .traza-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+
+        .traza-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        .traza-bar-fill.complete {
+            background: #22c55e;
+        }
+
+        .traza-bar-fill.partial {
+            background: #f59e0b;
+        }
+
+        .traza-bar-fill.pending {
+            background: #e2e8f0;
+        }
+
+        .traza-summary {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.25rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .traza-summary-item {
+            text-align: center;
+        }
+
+        .traza-summary-item .tval {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .traza-summary-item .tlabel {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .traza-factura-list {
+            margin-top: 1rem;
+        }
+
+        .traza-factura-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.65rem 1rem;
+            background: #f0f4ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+    </style>
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -524,6 +1038,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
     <script src="orders.js"></script>
+    <script src="sidebar.js"></script>
 </body>
-</html>
 
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rendición de Gastos - YELAVE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- DataTables CSS/JS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        .form-container {
+            background: white; padding: 2rem 3rem; border-radius: 8px; color: #333; width: 100%; border: 1px solid #ccc; font-size: 0.8rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .header-section {
+            display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;
+        }
+        .brand-logo { color: #d97706; font-size: 2rem; font-weight: 800; line-height: 1; }
+        .brand-logo span { display: block; font-size: 1rem; font-weight: 400; letter-spacing: 5px; }
+        .title { text-align: center; font-size: 1.3rem; font-weight: 700; flex-grow: 1; padding-top: 1rem; text-transform: uppercase; }
+        
+        .meta-group { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 5px; }
+        .meta-group label { width: 120px; font-weight: 600; text-align: right; margin-right: 10px; }
+        .meta-group input, .meta-group select { border: 1px solid #000; padding: 4px; width: 150px; font-size: 0.8rem; background: #fff; }
+        
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 1.5rem; }
+        .grid-box { border: 1px solid #000; padding: 10px; }
+        
+        .grid-row { display: grid; grid-template-columns: 180px 1fr; gap: 5px; margin-bottom: 5px; align-items: center; }
+        .grid-row label { font-size: 0.75rem; font-weight: 600; }
+        .grid-row input, .grid-row select { border: 1px solid #000; padding: 4px; font-size: 0.8rem; width: 100%; }
+
+        table.rg-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.75rem; text-align: center; }
+        .rg-table th, .rg-table td { border: 1px solid #000; padding: 4px; }
+        .rg-table th { background: #f0f0f0; font-weight: 700; }
+        .rg-table input, .rg-table select { width: 100%; border: none; background: transparent; font-size: 0.75rem; text-align: center; outline: none; }
+        .rg-table input:focus { background: #eef2ff; }
+        .text-left { text-align: left !important; }
+        .text-right { text-align: right !important; }
+
+        .btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: #10b981; color: white; }
+        .btn-del { background: #ef4444; color: white; }
+        .btn-search { background: #3b82f6; color: white; font-size: 0.7rem; padding: 4px 6px; }
+
+        .summary-box { border: 1px solid #000; display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 2rem; }
+        .summary-row { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid #ccc; font-weight: 600; }
+        .summary-row:last-child { border-bottom: none; }
+        .col-r { border-left: 1px solid #000; }
+        .bg-green { background: #dcfce7; }
+        
+        /* Modal Base */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-start; padding-top: 5vh; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 80%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .close-modal { float: right; cursor: pointer; font-size: 1.5rem; font-weight: bold; line-height: 1; }
+        
+        .search-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-bar input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .search-btn { background: #3b82f6; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        
+        table.modal-table { width: 100%; border-collapse: collapse; }
+        .modal-table th, .modal-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+        .modal-table tbody tr:hover { background: #f8fafc; cursor: pointer; }
+
+        .actions-bar { margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid #eee; padding-top: 1rem; }
+        .btn-primary { background: #3b82f6; color: white; padding: 10px 20px; border-radius: 6px; border:none; cursor: pointer;}
+        .btn-secondary { background: #64748b; color: white; padding: 10px 20px; border-radius: 6px; border:none; cursor: pointer;}
+        
+        #fileZone { border: 2px dashed #cbd5e1; padding: 1rem; text-align: center; border-radius: 8px; margin-top: 1rem; background: #f8fafc; }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+<main class="main-content" style="padding: 2rem;">
+            <div class="form-container">
+                <!-- Selector Superior -->
+                <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; gap:15px; border:1px solid #e2e8f0;">
+                    <label style="font-weight:700; color:#334155; font-size:1rem;">1. SELECCIONAR EMPRESA:</label>
+                    <select id="selEmpresa" onchange="seleccionarEmpresa()" style="padding:8px; width:300px; border-radius:4px; border:1px solid #cbd5e1; font-family:'Inter',sans-serif; font-weight:500;">
+                        <option value="">Cargando empresas...</option>
+                    </select>
+                </div>
+
+                <div class="header-section" style="margin-bottom:1rem;">
+                    <div style="flex-grow:1;">
+                        <h2 style="font-size:1.8rem; font-weight:800; color:#1e293b; margin:0; line-height:1;" id="txtHeaderEmpresa">---</h2>
+                        <div style="font-size:0.9rem; color:#64748b; margin-top:5px; text-transform:uppercase;">SISTEMA INTEGRADO DE GESTIÓN</div>
+                    </div>
+                    <div class="title" style="text-align:right;">RENDICIÓN DE GASTOS / EXPENSE REPORT*</div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
+                    <div>
+                        <div class="meta-group">
+                            <label>RENDICIÓN NRO:</label>
+                            <input type="text" id="iptNroRendicion" value="RG-202X-XX-XXXX" readonly style="background:#f0f0f0;">
+                        </div>
+                        <div class="meta-group">
+                            <label>FECHA:</label>
+                            <input type="date" id="iptFecha" onchange="autoFillPeriod()">
+                        </div>
+                        <div class="meta-group" style="margin-top: 1rem;">
+                            <label>PERÍODO:</label>
+                            <input type="text" id="iptPeriodo">
+                        </div>
+                        <div class="meta-group">
+                            <label>MONEDA:</label>
+                            <select id="selMoneda">
+                                <option value="Soles">Soles</option>
+                                <option value="Dolares">Dólares</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-layout">
+                    <!-- Left block -->
+                    <div>
+                        <div style="font-weight:700; margin-bottom:5px;">*DATOS DE LA EMPRESA:</div>
+                        <div class="grid-row">
+                            <label>RUC/NIT:</label>
+                            <input type="text" readonly id="iptEmpresaRuc" style="background:#f8fafc; border-color:#cbd5e1;">
+                        </div>
+                        <div class="grid-row">
+                            <label>RAZON SOCIAL:</label>
+                            <input type="text" readonly id="iptEmpresaNom" style="background:#f8fafc; border-color:#cbd5e1;">
+                        </div>
+                        
+                        <div style="font-weight:700; margin-top:15px; margin-bottom:5px;">*DATOS DEL TRABAJADOR/SOCIO:</div>
+                        <div class="grid-row">
+                            <label>BUSCAR PERSONA:</label>
+                            <select id="selPersona" onchange="seleccionarPersona()">
+                                <option value="">Seleccione o escriba...</option>
+                                <!-- Async Loaded from 009 -->
+                            </select>
+                        </div>
+                        <div class="grid-row">
+                            <label>NOMBRES:</label>
+                            <input type="text" id="iptPersonaNom" readonly>
+                        </div>
+                        <div class="grid-row">
+                            <label>DOC / N.A:</label>
+                            <input type="text" id="iptPersonaDoc" readonly>
+                        </div>
+                        <div class="grid-row">
+                            <label>T.REND:</label>
+                            <select id="selTipoRendicion">
+                                <option value="Cash">Cash (Cash Spent by Employee)</option>
+                                <option value="Petty Cash">Petty Cash</option>
+                                <option value="Advance Cash">Advance Cash</option>
+                                <option value="Credit Card">Credit Card</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Right block: Initial Balances -->
+                    <div style="display: flex; flex-direction: column; justify-content: flex-end;">
+                        <fieldset style="border: 1px solid #777; padding: 10px;">
+                            <legend style="font-weight:600; font-size:0.75rem;">Saldos para Tipos de Rendición (Advance / Petty Cash)</legend>
+                            <div class="grid-row" style="grid-template-columns: 80px 1fr;">
+                                <label>S. INICIAL:</label>
+                                <input type="number" step="0.01" id="iptSaldoInicial" value="0.00" onkeyup="calcularResumen()" onchange="calcularResumen()">
+                            </div>
+                            <div class="grid-row" style="grid-template-columns: 80px 1fr; margin-bottom:0;">
+                                <label>S. FINAL:</label>
+                                <input type="number" id="iptSaldoFinal" readonly style="background:#f0f0f0;">
+                            </div>
+                        </fieldset>
+                        <div style="font-style:italic; font-size:0.7rem; color:#666; margin-top:10px;">
+                            Moneda de Conversión: Solo utilizar para convertir monedas extrajeras a la Moneda base de la rendición.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Remove datalist we now use modal -->
+
+                <!-- Table -->
+                <table class="rg-table">
+                    <thead>
+                        <tr>
+                            <th>N°</th>
+                            <th>FECHA**</th>
+                            <th>TIPO**</th>
+                            <th>SERIE**</th>
+                            <th>NUMERO**</th>
+                            <th>RUC / NIT**</th>
+                            <th>NOMBRE O DENOMINACION SOCIAL**</th>
+                            <th>Project / Job Card**</th>
+                            <th>CC #**</th>
+                            <th>Expense Category**</th>
+                            <th>Details**</th>
+                            <th>Soles - IMPORTE**</th>
+                            <th>US $ - IMPORTE**</th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyRendicion">
+                        <!-- rows -->
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="11" class="text-right" style="font-weight:bold; font-size:0.8rem;">TOTAL GASTADO</td>
+                            <td><input type="text" id="iptTotalSol" readonly class="text-right" style="font-weight:bold;" value="0.00"></td>
+                            <td><input type="text" id="iptTotalUS" readonly class="text-right" style="font-weight:bold;" value="0.00"></td>
+                            <td><button type="button" class="btn btn-add" style="width:100%" onclick="agregarFila()">+ Fila</button></td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- Summary Footer -->
+                <div style="text-align: center; font-weight:700; background:#eee; border:1px solid #000; border-bottom:none; padding:4px;">RESUMEN</div>
+                <div class="summary-box">
+                    <div>
+                        <div class="summary-row"><span>TOTAL SALDO INICIAL</span> <span id="lblSaldoIn">0.00</span></div>
+                        <div class="summary-row"><span>TOTAL GASTADO</span> <span id="lblTotalGas">0.00</span></div>
+                    </div>
+                    <div class="col-r">
+                        <div class="summary-row"><span>TOTAL SALDO FINAL</span> <span id="lblSaldoFi">0.00</span></div>
+                        <div class="summary-row bg-green"><span>TOTAL REEMBOLSO</span> <span id="lblReembolso">0.00</span></div>
+                    </div>
+                </div>
+
+                <div class="section-title">ADJUNTAR SUSTENTOS GLOBALES</div>
+                <div id="fileZone">
+                    Seleccione archivos PDF, imágenes u otros documentos de sustento.<br>
+                    <small style="color:#64748b;">Puede agregar archivos uno por uno, no se eliminarán los anteriores.</small><br>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" style="display:none;" onchange="agregarArchivos()">
+                    <button type="button" class="btn-secondary" style="margin-top:10px; padding: 5px 10px;" onclick="document.getElementById('fileInput').click()">📎 Agregar Archivos</button>
+                    <div id="fileList" style="margin-top: 10px; text-align:left; font-size:0.8rem; color:#333;"></div>
+                </div>
+
+                <div class="actions-bar">
+                    <a href="/historial_rendiciones.html" class="btn-secondary" style="text-decoration:none; text-align:center;">📋 Mi Historial</a>
+                    <button type="button" class="btn-secondary" onclick="window.history.back()">Cancelar</button>
+                    <button type="button" class="btn-primary" onclick="guardarRendicion()">Registrar Rendición</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Modal Facturas -->
+    <div id="modalFacturas" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('modalFacturas')">&times;</span>
+            <h2>Buscar Factura de Proveedor</h2>
+            <div class="search-bar">
+                <input type="text" id="qFactura" placeholder="Buscar por Serie, Número, RUC o Razón Social..." onkeyup="if(event.key==='Enter') buscarFacturax()">
+                <button class="search-btn" onclick="buscarFacturax()">Buscar</button>
+            </div>
+            <table class="modal-table">
+                <thead><tr><th>Emisión</th><th>Serie/Num</th><th>RUC</th><th>Proveedor</th><th>Total</th></tr></thead>
+                <tbody id="tbModalFacturas"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Planillas -->
+    <div id="modalPlanillas" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('modalPlanillas')">&times;</span>
+            <h2>Buscar Planillas de Movilidad Pendientes</h2>
+            <div style="font-size:0.8rem; margin-bottom:10px; color:#555;">Se muestran las planillas no rendidas del trabajador seleccionado.</div>
+            <table class="modal-table">
+                <thead><tr><th>Nro Planilla</th><th>Fecha Emis.</th><th>Monto Total</th><th>Acción</th></tr></thead>
+                <tbody id="tbModalPlanillas"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal CONGASTO -->
+    <div id="modalCongasto" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('modalCongasto')">&times;</span>
+            <h2>Buscar Categoría de Gasto</h2>
+            <div class="search-bar">
+                <input type="text" id="qCongasto" placeholder="Buscar concepto..." onkeyup="filtrarCongasto()">
+            </div>
+            <table class="modal-table">
+                <thead><tr><th>Código</th><th>Descripción</th><th>Cuenta</th></tr></thead>
+                <tbody id="tbModalCongasto"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="rendicion_gastos.js?v=2.5"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

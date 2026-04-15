@@ -5,39 +5,56 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Enable connection pooling
-pyodbc.pooling = True
+import sys
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+import urllib.parse
 
-def get_db_connection(retries=3, delay=1):
-    for attempt in range(retries):
-        try:
-            # Re-read from the .env file each time so dynamic updates from UI
-            # take effect across all workers immediately.
-            load_dotenv(override=True)
-            db_server = os.getenv("DB_SERVER")
-            db_name = os.getenv("DB_NAME")
-            db_user = os.getenv("DB_USER")
-            db_password = os.getenv("DB_PASSWORD")
-            odbc_driver = os.getenv("ODBC_DRIVER", "{SQL Server}")
-            
-            conn_str = (
-                f"DRIVER={odbc_driver};"
-                f"SERVER={db_server};"
-                f"DATABASE={db_name};"
-                f"UID={db_user};"
-                f"PWD={db_password};"
-                "TrustServerCertificate=yes;"
-                "Encrypt=no;"
-                "Connection Timeout=15;"
-            )
-            conn = pyodbc.connect(conn_str, timeout=15)
-            conn.timeout = 30  # query timeout
-            return conn
-        except Exception as e:
-            print(f"DB connection attempt {attempt+1}/{retries} failed: {e}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-            else:
-                print(f"Error conectando a la base de datos tras {retries} intentos: {e}")
-                return None
+load_dotenv()
+
+# Singleton SQLAlchemy Engine
+engine = None
+
+def init_db_engine():
+    global engine
+    if engine is not None:
+        return engine
+        
+    db_server = os.getenv("DB_SERVER", "sistemamigconta-db")
+    db_name = os.getenv("DB_NAME", "master")
+    db_user = os.getenv("DB_USER", "sa")
+    db_password = os.getenv("DB_PASSWORD", "")
+    
+    default_driver = "{SQL Server}" if sys.platform == "win32" else "ODBC Driver 18 for SQL Server"
+    odbc_driver = os.getenv("ODBC_DRIVER", default_driver)
+    if sys.platform != "win32" and "ODBC Driver" not in odbc_driver:
+        odbc_driver = "ODBC Driver 18 for SQL Server"
+        
+    connection_string = (
+        f"Driver={odbc_driver};"
+        f"Server={db_server};"
+        f"Database={db_name};"
+        f"UID={db_user};"
+        f"PWD={db_password};"
+        "TrustServerCertificate=yes;"
+        "Encrypt=no;"
+    )
+    
+    params = urllib.parse.quote_plus(connection_string)
+    engine = create_engine(
+        f"mssql+pyodbc:///?odbc_connect={params}",
+        pool_size=50,
+        max_overflow=20,
+        pool_pre_ping=True
+    )
+    return engine
+
+def get_db_connection():
+    eng = init_db_engine()
+    try:
+        # Get a DBAPI connection mapped closely to pyodbc from the SQLAlchemy Pool
+        return eng.raw_connection()
+    except Exception as e:
+        print(f"Error getting pooled DB connection: {e}")
+        return None
 

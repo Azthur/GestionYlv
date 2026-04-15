@@ -1,89 +1,22 @@
-// ─── Auth Guard & Session ────────────
-function checkAuth() {
-    const token = localStorage.getItem('yelave_token');
-    if (!token) { window.location.href = 'login.html'; return null; }
-    try { 
-        const user = JSON.parse(localStorage.getItem('yelave_user')); 
-        if (!user) throw new Error('No user data');
-        return user;
+// ─── Global State ────────────
+let dtInstance = null;
+let currentRole = '';
+let currentLogin = '';
+let currentAttachmentContext = null; // { codcia, tipooc, nrodoc, docType }
+
+// ─── Session Init (sidebar.js handles UI, auth-guard.js handles auth) ────────
+(function initSession() {
+    try {
+        const user = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+        const login = String(user.login || '').trim().toUpperCase();
+        const isSuperuser = login === '71941916JL';
+        currentLogin = login;
+        currentRole = isSuperuser ? 'ADMIN' : String(user.rol || '').trim().toUpperCase();
+    } catch(e) {
+        currentLogin = '';
+        currentRole = '';
     }
-    catch (e) { window.location.href = 'login.html'; return null; }
-}
-function renderUserInfo(user) {
-    if (!user) return;
-    const nameEl = document.getElementById('userNameDisplay');
-    const roleEl = document.getElementById('userRoleDisplay');
-    const avatarEl = document.getElementById('userAvatar');
-    if (nameEl) nameEl.textContent = user.nombre || user.login;
-    
-    // Role display
-    let roleLabel = 'Consultor';
-    if (user.login === '71941916JL' || user.rol === 'ADMIN') {
-        roleLabel = 'Administrador';
-    } else if (user.rol) {
-        roleLabel = user.rol;
-    }
-    if (roleEl) roleEl.textContent = roleLabel;
-    
-    if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
-
-    // Access Control
-    currentLogin = String(user.login || '').trim().toUpperCase();
-    const isSuperuser = currentLogin === '71941916JL' || currentLogin.includes('71941916JL');
-    const isAdmin = String(user.rol || '').trim().toUpperCase() === 'ADMIN';
-    currentRole = String(user.rol || '').trim().toUpperCase();
-    if (isSuperuser) currentRole = 'ADMIN';
-
-    if (isSuperuser || isAdmin) {
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-    }
-
-    // Role-based navigation visibility
-    document.querySelectorAll('.nav-item, .nav-group').forEach(el => {
-        const href = (el.getAttribute('href') || '').toLowerCase();
-        
-        // Dashboard and Profile are always visible
-        if (href.includes('index.html') || href.includes('profile.html')) {
-            el.style.display = 'flex';
-            return;
-        }
-
-        let isVisible = false;
-
-        if (isSuperuser || isAdmin) {
-            isVisible = true;
-        } else if (userRol === 'LOGISTICA') {
-            if (href.includes('orders.html')) isVisible = true;
-        } else if (userRol === 'CONTROL_INTERNO') {
-            if (href.includes('conciliacion.html')) isVisible = true;
-        } else if (userRol === 'CONTABILIDAD') {
-            if (href.includes('orders.html') || href.includes('conciliacion.html')) isVisible = true;
-        } else if (userRol === 'COMERCIAL') {
-            if (href.includes('conciliacion.html')) isVisible = true;
-        }
-
-        if (!isVisible) {
-            el.style.display = 'none';
-        }
-    });
-
-    // Handle nav groups
-    document.querySelectorAll('.nav-group').forEach(group => {
-        const visibleItems = Array.from(group.querySelectorAll('.nav-item')).filter(item => item.style.display !== 'none');
-        if (visibleItems.length === 0) {
-            group.style.display = 'none';
-        } else {
-            group.style.display = 'block';
-        }
-    });
-}
-function logout() { localStorage.removeItem('yelave_token'); localStorage.removeItem('yelave_user'); window.location.href = 'login.html'; }
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('active', sidebar.classList.contains('open'));
-}
+})();
 
 // ─── Format Utils ────────────
 const fmtNum = (val, dec = 2) => {
@@ -92,30 +25,36 @@ const fmtNum = (val, dec = 2) => {
 };
 const formatCurrency = (val, sym = 'S/') => (val === null || val === undefined) ? '-' : `${sym} ${fmtNum(val)}`;
 
-const TIPO_OC_MAP = { 'O': 'Nacional', 'S': 'Exterior', 'T': 'Contable', 'M': 'Mercadería' };
+const TIPO_OC_MAP = { 'M': 'Mercadería', 'S': 'Servicios', 'T': 'Contable' };
 const formatTipo = (t) => TIPO_OC_MAP[t] || t || '-';
 
-const formatStatus = (status) => {
-    if (!status) return '<span class="badge pending">Pendiente</span>';
-    const s = status.trim().toUpperCase();
-    if (s === 'A') return '<span class="badge approved">Aprobado</span>';
-    if (s === 'X') return '<span class="badge canceled">Anulado</span>';
-    if (s === '1') return '<span class="badge approved">Cerrada</span>';
-    if (s === 'E') return '<span class="badge canceled">Eliminado</span>';
-    return `<span class="badge pending">${s}</span>`;
-};
+function formatStatus(status) {
+    const s = String(status || '').trim().toUpperCase();
+    let watermark = '';
+    let badge = '';
 
-// ─── Global State ────────────
-let dtInstance = null;
-let currentRole = '';
-let currentLogin = '';
-let currentAttachmentContext = null; // { codcia, tipooc, nrodoc, docType }
+    if (s === 'X' || s === 'E' || s === 'ELIMINADO' || s === 'ANULADO') {
+        watermark = '<div class="watermark-text wm-anulado">ANULADO</div>';
+        badge = '<span class="badge canceled"><i class="fas fa-times-circle"></i> ANULADO</span>';
+    } else if (s === '1' || s === 'C' || s === 'CERRADA' || s === 'COMPLETO') {
+        watermark = '<div class="watermark-text wm-completo">COMPLETO</div>';
+        badge = '<span class="badge approved"><i class="fas fa-check-double"></i> CERRADA</span>';
+    } else if (s === 'A' || s === 'APROBADA') {
+        badge = '<span class="badge approved"><i class="fas fa-check-circle"></i> APROBADA</span>';
+    } else {
+        badge = '<span class="badge pending"><i class="fas fa-clock"></i> PENDIENTE</span>';
+    }
+    
+    return { watermark, badge };
+}
 
-// ─── Load Companies ──────────
+
 async function loadCompanies() {
     try {
         const token = localStorage.getItem('yelave_token');
-        const res = await fetch('/api/logistics/companies', { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch('/api/permisos/empresas/me', { 
+            headers: { 'Authorization': `Bearer ${token}` } 
+        });
         if (!res.ok) throw new Error();
         const companies = await res.json();
         const sel = document.getElementById('filterCia');
@@ -125,100 +64,86 @@ async function loadCompanies() {
             opt.value = c.codcia; opt.textContent = `${c.codcia} - ${c.nomcia}`;
             sel.appendChild(opt);
         });
+        // Default from session or first available
+        const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+        if (cu.codcia) sel.value = cu.codcia;
+        else if (companies.length > 0) sel.value = companies[0].codcia;
     } catch (e) {
-        document.getElementById('filterCia').innerHTML = '<option value="" disabled>Error cargando</option>';
+        document.getElementById('filterCia').innerHTML = '<option value="" disabled>Sin acceso a empresas</option>';
     }
 }
 
 // ─── Load Orders into DataTable ──────
 async function loadOrders() {
-    const codcia = document.getElementById('filterCia').value;
-    const year = document.getElementById('filterYear').value;
-    const period = document.getElementById('filterPeriod').value;
-    const tipoOc = document.getElementById('filterType').value;
-    if (!codcia) { alert('Seleccione una empresa primero.'); return; }
-
-    // Show table wrapper and hide initial message
-    document.getElementById('initialMessage').style.display = 'none';
-    document.getElementById('tableWrapper').style.display = 'block';
-
-    // Destroy existing DataTable if any
-    if (dtInstance) { dtInstance.destroy(); dtInstance = null; }
-    $('#ordersTable tbody').html('<tr><td colspan="9" style="text-align:center;padding:2rem;color:#94a3b8;">Buscando órdenes...</td></tr>');
+    const cia = document.getElementById('filterCia').value;
+    if (!cia) {
+        Swal.fire('Atención', 'Seleccione una empresa primero', 'warning');
+        return;
+    }
 
     try {
-        let url = `/api/logistics/orders?codcia=${encodeURIComponent(codcia)}`;
-        if (year) url += `&year=${year}`;
-        if (period) url += `&period=${period}`;
-        if (tipoOc) url += `&tipo_oc=${tipoOc}`;
+        const year = document.getElementById('filterYear').value;
+        const period = document.getElementById('filterPeriod').value;
+        const type = document.getElementById('filterType').value;
 
-        const token = localStorage.getItem('yelave_token');
-        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!res.ok) {
-            if (res.status === 401) { logout(); return; }
-            if (res.status === 403) { window.location.href = 'index.html'; return; }
-            throw new Error('Error al obtener datos');
-        }
+        // Show loading state
+        $('#tableWrapper').show();
+        $('#initialMessage').hide();
+        
+        const params = new URLSearchParams({ codcia: cia });
+        if (year) params.append('year', year);
+        if (period) params.append('period', period);
+        if (type) params.append('tipo_oc', type);
+
+        const res = await fetch(`/api/logistics/orders?${params.toString()}`);
+        if (!res.ok) throw new Error('Error al cargar órdenes');
         const orders = await res.json();
+
+        if (dtInstance) {
+            dtInstance.destroy();
+        }
 
         // Build DataTable data array
         const dtData = orders.map(o => {
+            const statusInfo = formatStatus(o.estado);
             const mon = String(o.moneda || '1').trim();
             const sym = (mon === '2') ? 'USD' : 'S/';
             const total = parseFloat(o.total) || 0;
             const tipoLabel = formatTipo(o.tipooc);
-            const statusHtml = formatStatus(o.estado);
             
-            // Only show Warehouse button if Type is 'M' (Mercadería)
-            const showWarehouseBtn = String(o.tipooc).trim().toUpperCase() === 'M';
-            
-            // Role-based attachment buttons
+            // Build actions dropdown
             const isLogistics = currentRole === 'LOGISTICA' || currentRole === 'ADMIN';
             const isTreasury = currentRole === 'TESORERIA' || currentRole === 'ADMIN';
-            
-            const showRecojoBtn = (String(o.tipooc).trim().toUpperCase() === 'M' || String(o.tipooc).trim().toUpperCase() === 'O');
-            
-            const btnHtml = `<div style="display:flex; gap:0.25rem;">
-                <button class="btn-ver-oc" onclick="openReportModal('${codcia}','${o.nrodoc}','${o.tipooc || ''}','${o.anos || year || ''}')" title="Ver Orden">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                    </svg>
-                </button>
-                ${showRecojoBtn ? 
-                    (o.has_recojo ? `
-                    <button class="btn-ver-oc" style="background:var(--success); opacity:0.8; cursor:not-allowed;" title="Solicitud Enviada a Recojo">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </button>` : `
-                    <button class="btn-ver-oc" style="background:#0ea5e9;" onclick="openRecojoModal('${codcia}','${o.tipooc}','${o.nrodoc}','${o.anos || year || ''}')" title="Generar Solicitud de Recojo">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                            <path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>
-                        </svg>
-                    </button>`)
-                : ''}
-                ${showWarehouseBtn ? `
-                <button class="btn-ver-oc" style="background:var(--success);" onclick="openWarehouseModal('${codcia}','${o.nrodoc}')" title="Ver Ingresos a Almacén">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg>
-                </button>` : ''}
-                ${isLogistics ? `
-                <button class="btn-ver-oc" style="${o.has_signed_order ? 'background:#6366f1;' : 'background:#94a3b8; opacity:0.7;'}" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','signed_order')" title="Orden Firmada${o.has_signed_order ? '' : ' (Vacío)'}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                        <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
-                        <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
-                    </svg>
-                </button>` : ''}
-                ${isTreasury ? `
-                <button class="btn-ver-oc" style="${o.has_voucher ? 'background:#f59e0b;' : 'background:#94a3b8; opacity:0.7;'}" onclick="openAttachmentModal('${codcia}','${o.tipooc}','${o.nrodoc}','voucher')" title="Voucher de Pago${o.has_voucher ? '' : ' (Vacío)'}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                        <line x1="2" y1="10" x2="22" y2="10"></line>
-                    </svg>
-                </button>` : ''}
+            const showWarehouseBtn = String(o.tipooc).trim().toUpperCase() === 'M';
+
+            const btnHtml = `<div class="action-dropdown">
+                <button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Acciones">⋮</button>
+                <div class="action-dropdown-menu">
+                    <button class="action-dropdown-item" onclick="openReportModal('${cia}','${o.nrodoc}','${o.tipooc || ''}','${o.anos || year || ''}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        Orden de Compra (Imprimir)
+                    </button>
+                    ${showWarehouseBtn ? `
+                    <button class="action-dropdown-item" onclick="openWarehouseModal('${cia}','${o.nrodoc}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Ingresos Almacén
+                    </button>` : ''}
+                    <button class="action-dropdown-item" onclick="openTrazaModal('${cia}','${o.nrodoc}','${o.tipooc}','${o.anos}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                        Trazabilidad OC
+                    </button>
+                    <div class="action-dropdown-divider"></div>
+                    ${isLogistics ? `
+                    <button class="action-dropdown-item" onclick="openAttachmentModal('${cia}','${o.tipooc}','${o.nrodoc}','signed_order')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon></svg>
+                        Orden Firmada
+                    </button>` : ''}
+                    ${isTreasury ? `
+                    <button class="action-dropdown-item" onclick="openAttachmentModal('${cia}','${o.tipooc}','${o.nrodoc}','voucher')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                        Voucher de Pago
+                    </button>` : ''}
+                </div>
             </div>`;
 
             return [
@@ -237,7 +162,9 @@ async function loadOrders() {
                 (o.nomdep || '').substring(0, 20),
                 (o.nomcom || '').substring(0, 20),
                 o.usuario || '',
-                statusHtml
+                statusInfo.badge,
+                statusInfo.watermark, // Hidden col 16
+                o.tipooc || ''        // Hidden col 17
             ];
         });
 
@@ -245,36 +172,31 @@ async function loadOrders() {
         dtInstance = $('#ordersTable').DataTable({
             data: dtData,
             destroy: true,
-            order: [[1, 'desc'], [0, 'desc']],
+            order: [[1, 'desc']],
             pageLength: 25,
             scrollX: true,
             language: {
                 search: 'Buscar:',
                 lengthMenu: 'Mostrar _MENU_ registros',
                 info: 'Mostrando _START_ a _END_ de _TOTAL_ órdenes',
-                infoEmpty: 'Sin registros',
-                infoFiltered: '(filtrado de _MAX_ total)',
-                zeroRecords: 'No se encontraron órdenes',
-                paginate: { first: '«', previous: '‹', next: '›', last: '»' },
-                buttons: { copy: 'Copiar', excel: 'Excel', pdf: 'PDF', print: 'Imprimir' }
+                paginate: { first: '«', previous: '‹', next: '›', last: '»' }
             },
-            dom: '<"dt-top"Bfl>rt<"dt-bottom"ip>',
-            buttons: [
-                { extend: 'copy', text: '📋 Copiar', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] } },
-                { extend: 'excel', text: '📊 Excel', title: 'Ordenes_de_Compra', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] } },
-                { extend: 'pdf', text: '📄 PDF', title: 'Órdenes de Compra', orientation: 'landscape', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] } },
-            ],
+            createdRow: function(row, data, dataIndex) {
+                // Add type coloring
+                const t = String(data[17] || '').trim().toUpperCase();
+                if (t === 'S') $(row).addClass('oc-type-s');
+                else if (t === 'T') $(row).addClass('oc-type-t');
+                else $(row).addClass('oc-type-m');
+            },
             columnDefs: [
-                { targets: 0, className: 'dt-body-center sticky-col-left', orderable: false, searchable: false },
-                { targets: 1, className: 'dt-body-left', render: (d) => `<strong>${d}</strong>` },
-                { targets: 6, className: 'dt-body-center' },
+                { targets: 0, className: 'dt-body-center sticky-col-left', orderable: false },
                 { targets: 7, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
-                { targets: 15, className: 'dt-body-center', orderable: false }
+                { targets: [16, 17], visible: false } // Hide helper columns
             ]
         });
 
     } catch (err) {
-        $('#ordersTable tbody').html(`<tr><td colspan="9" style="text-align:center;padding:2rem;color:#ef4444;">${err.message}</td></tr>`);
+        $('#ordersTable tbody').html(`<tr><td colspan="18" style="text-align:center;padding:2rem;color:#ef4444;">${err.message}</td></tr>`);
     }
 }
 
@@ -307,19 +229,33 @@ function renderReport(data) {
     const sym = header.codmon || 'S/';
     let html = '';
 
+    // ── Watermark inside Report ──
+    const statusInfo = formatStatus(header.flgest || header.estado);
+    if (statusInfo.watermark) {
+        html += `<div style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); z-index:0; pointer-events:none; opacity:0.15; width:100%; text-align:center;">
+                    ${statusInfo.watermark.replace('position: absolute;', '')}
+                 </div>`;
+    }
+
     // ── Header Band ──
     const orderStatusColor = (header.estado_ingreso && header.estado_ingreso.includes('Completo')) ? 'var(--success)' : (header.estado_ingreso === 'Parcial' ? 'var(--warning)' : 'var(--text-sidebar)');
     
+    let reportTitle = 'ORDEN DE COMPRA';
+    let reportBg = '#1e3a5f'; // Default blue
+    const t = String(header.tipooc || '').trim().toUpperCase();
+    if (t === 'S') { reportTitle = 'ORDEN DE SERVICIOS'; reportBg = '#16a34a'; }
+    if (t === 'T') { reportTitle = 'ORDEN CONTABLE'; reportBg = '#8b5cf6'; }
+
     html += `
-    <div class="report-header-band">
+    <div class="report-header-band" style="position:relative; z-index:1;">
         <div class="report-company-info">
             <h2>${company.nomcia || 'EMPRESA'}</h2>
             <p>${company.dircia || ''}</p>
             <p>RUC: <strong>${company.ruccia || ''}</strong></p>
         </div>
-        <div class="report-oc-badge">
+        <div class="report-oc-badge" style="background:${reportBg} !important;">
             <div class="oc-label" style="display:flex; justify-content:space-between; align-items:center;">
-                Orden de Compra N° 
+                ${reportTitle} N° 
                 <span style="background:${orderStatusColor}; color:white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600;">
                     ${header.estado_ingreso || 'Pendiente'}
                 </span>
@@ -331,7 +267,7 @@ function renderReport(data) {
 
     // ── Supplier Box ──
     html += `
-    <div class="report-supplier-box">
+    <div class="report-supplier-box" style="position:relative; z-index:1;">
         <span class="lbl">Señores :</span><span class="val-full" style="font-weight:600;">${header.nomaux}</span>
         <span class="lbl">Dirección :</span><span class="val-full">${header.diraux}</span>
         <span class="lbl">Atención :</span><span class="val">${header.contacto}</span>
@@ -343,15 +279,19 @@ function renderReport(data) {
     </div>`;
 
     // ── Items Table ──
+    const isGoods = (t === 'M');
+    const colCantLabel = isGoods ? 'Cant' : 'Cantidad';
+    const statusColLabel = isGoods ? 'Recibido' : 'Facturado';
+
     html += `
-    <table class="report-table">
+    <table class="report-table" style="position:relative; z-index:1;">
         <thead><tr>
             <th style="width:30px;text-align:center;">N°</th>
             <th style="width:75px;">Código</th>
-            <th>Producto</th>
+            <th>Producto / Servicio</th>
             <th style="width:35px;text-align:center;">Und</th>
-            <th style="width:65px;text-align:right;">Cant</th>
-            <th style="width:65px;text-align:right;">Recib</th>
+            <th style="width:65px;text-align:right;">${colCantLabel}</th>
+            <th style="width:65px;text-align:right;">${statusColLabel}</th>
             <th style="width:65px;text-align:center;">Estado</th>
             <th style="width:70px;text-align:right;">Precio</th>
             <th style="width:80px;text-align:right;">Total</th>
@@ -362,13 +302,15 @@ function renderReport(data) {
     } else {
         items.forEach(it => {
             const rowColor = (it.estado_ingreso === 'Completo') ? 'color: var(--success); font-weight:600;' : (it.estado_ingreso === 'Parcial' ? 'color: var(--warning); font-weight:600;' : 'color:#64748b;');
+            const compareQty = isGoods ? it.cant_ingresada : it.cant_facturada;
+
             html += `<tr>
                 <td style="text-align:center;color:#64748b;font-weight:600;">${it.item_display}</td>
                 <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
                 <td style="font-weight:500;">${it.desmat}</td>
                 <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
                 <td style="text-align:right;">${fmtNum(it.candes)}</td>
-                <td style="text-align:right;font-weight:600;">${fmtNum(it.cant_ingresada)}</td>
+                <td style="text-align:right;font-weight:600;">${fmtNum(compareQty)}</td>
                 <td style="text-align:center;font-size:0.7rem;${rowColor}">${it.estado_ingreso}</td>
                 <td style="text-align:right;">${fmtNum(it.preuni)}</td>
                 <td style="text-align:right;font-weight:600;color:var(--primary);">${sym} ${fmtNum(it.imptot)}</td>
@@ -426,12 +368,14 @@ function renderReport(data) {
 function closeReportModal() { document.getElementById('reportModal').classList.remove('active'); }
 function printReport() { window.print(); }
 
-// ─── Warehouse Modal ─────────────────────────
+// ─── Warehouse Modal (Voucher estilo Crystal Report) ─────────────────────────
 async function openWarehouseModal(codcia, nrodoc) {
     document.getElementById('warehouseOcNro').textContent = nrodoc;
     document.getElementById('warehouseModal').classList.add('active');
     const tbody = document.getElementById('warehouse-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-state">Consultando ingresos a almacén...</td></tr>';
+    // Use the modal body directly for a richer layout
+    const modalBody = tbody.closest('.modal-body');
+    modalBody.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">Consultando ingresos a almacén...</div>';
 
     try {
         const token = localStorage.getItem('yelave_token');
@@ -439,46 +383,172 @@ async function openWarehouseModal(codcia, nrodoc) {
         const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         
         if (!res.ok) throw new Error('Error al obtener ingresos a almacén');
-        const entries = await res.json();
+        const data = await res.json();
         
-        if (entries.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:2rem;">No hay ingresos a almacén registrados para esta OC.</td></tr>';
+        if (!data.vouchers || data.vouchers.length === 0) {
+            modalBody.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">No hay ingresos a almacén registrados para esta OC.</div>';
             return;
         }
 
         let html = '';
-        entries.forEach(e => {
-            html += `<tr>
-                <td style="font-weight:600; text-align:center;">${e.nro_ingreso}</td>
-                <td>${e.fecha_ingreso || '-'}</td>
-                <td style="text-align:center;"><span class="badge pending">${e.almacen}</span></td>
-                <td style="text-align:center;">${e.tipo_movimiento}</td>
-                <td style="font-family:monospace; font-size:0.75rem;">${e.codigo_material}</td>
-                <td style="font-weight:500;">${e.descripcion}</td>
-                <td style="text-align:right; font-weight:600; color:var(--primary);">${fmtNum(e.cantidad_ingresada, 4)}</td>
-            </tr>`;
+        const co = data.company;
+
+        data.vouchers.forEach((v, idx) => {
+            const h = v.header;
+            const isAnulado = h.estado && h.estado.trim().toUpperCase() === 'A';
+
+            html += `<div id="warehouseVoucher${idx}" style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem; ${idx > 0 ? 'margin-top:1.5rem; border-top:3px dashed #cbd5e1; padding-top:2rem;' : ''}">`;
+
+            // ── Header Band ──
+            html += `
+            <div class="report-header-band">
+                <div class="report-company-info">
+                    <h2>${co.nomcia || 'EMPRESA'}</h2>
+                    <p>${co.dircia || ''}</p>
+                </div>
+                <div class="report-oc-badge">
+                    <div class="oc-label">Documento N°</div>
+                    <div class="oc-number">${h.nrodoc}</div>
+                    <div class="oc-date">${h.fchdoc}</div>
+                </div>
+            </div>`;
+
+            // ── Info Box ──
+            html += `
+            <div style="font-size:0.8rem; margin-bottom:1rem;">
+                <div style="display:flex; gap:2rem; margin-bottom:0.5rem;">
+                    <div><strong>${h.almacen}</strong> &nbsp; ${h.des_almacen}</div>
+                </div>
+            </div>
+            <div class="report-supplier-box">
+                <span class="lbl">Movimiento :</span><span class="val">${h.tipmov} &nbsp; ${h.codmov} &nbsp; ${h.des_movimiento}</span>
+                <span class="lbl">Documento :</span><span class="val"><strong>${h.nrodoc}</strong></span>
+                ${h.proveedor ? `<span class="lbl">Proveedor :</span><span class="val">${h.ruc_proveedor} &nbsp; ${h.proveedor}</span>` : ''}
+                <span class="lbl">Moneda :</span><span class="val">${h.moneda}</span>
+                <span class="lbl">T.Cambio :</span><span class="val">${fmtNum(h.tipo_cambio, 4)}</span>
+                <span class="lbl">Fecha :</span><span class="val">${h.fchdoc}</span>
+                <span class="lbl">USUARIO :</span><span class="val"><strong>${h.usuario}</strong></span>
+                ${h.ordcmp ? `<span class="lbl">O. Compra :</span><span class="val">${h.ordcmp}</span>` : ''}
+            </div>`;
+
+            // Referencias
+            if (h.referencias && h.referencias.length > 0) {
+                html += `<div style="font-size:0.775rem; padding:0.5rem 1rem; background:#f0f4ff; border:1px solid #c7d2fe; border-radius:6px; margin-bottom:0.75rem;">
+                    <strong>Documentos de Referencia:</strong><br>`;
+                h.referencias.forEach(r => { html += `<span style="margin-right:1.5rem;">${r}</span>`; });
+                html += `</div>`;
+            }
+
+            // Observacion
+            if (h.observacion) {
+                html += `<div style="font-size:0.775rem; margin-bottom:0.75rem;"><strong>Observación:</strong> ${h.observacion}</div>`;
+            }
+
+            // Anulado banner
+            if (isAnulado) {
+                html += `<div style="text-align:center; padding:0.75rem; background:#fee2e2; border:2px solid #ef4444; border-radius:8px; margin-bottom:1rem; font-weight:700; color:#991b1b; font-size:1rem;">** A N U L A D O **</div>`;
+            }
+
+            // ── Items Table ──
+            html += `
+            <table class="report-table">
+                <thead><tr>
+                    <th style="width:30px;text-align:center;">Ite</th>
+                    <th style="width:80px;">Artículo</th>
+                    <th>Descripción</th>
+                    <th style="width:45px;text-align:center;">Unidad</th>
+                    <th style="width:80px;">NROLOTE</th>
+                    <th style="width:75px;">Fch. Vto</th>
+                    <th style="width:80px;text-align:right;">Cantidad</th>
+                    <th style="width:80px;text-align:right;">Precio</th>
+                    <th style="width:90px;text-align:right;">Total</th>
+                </tr></thead><tbody>`;
+
+            if (v.items.length === 0) {
+                html += '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:1.5rem;">Sin ítems</td></tr>';
+            } else {
+                v.items.forEach(it => {
+                    html += `<tr>
+                        <td style="text-align:center;font-weight:600;">${it.nroitm}</td>
+                        <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
+                        <td style="font-weight:500;">${it.desmat}</td>
+                        <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
+                        <td style="font-family:monospace;font-size:0.725rem;">${it.nrolote || ''}</td>
+                        <td style="font-size:0.75rem;">${it.fchlote || ''}</td>
+                        <td style="text-align:right;font-weight:600;">${fmtNum(it.candes, 6)}</td>
+                        <td style="text-align:right;">${fmtNum(it.preuni, 6)}</td>
+                        <td style="text-align:right;font-weight:600;color:var(--primary);">${fmtNum(it.impcto, 6)}</td>
+                    </tr>`;
+                });
+            }
+            html += '</tbody></table>';
+
+            // ── Totals ──
+            html += `
+            <div class="report-totals-box">
+                <table>
+                    <tr>
+                        <td style="text-align:right;font-weight:700;font-size:0.875rem;padding:0.5rem 1rem;">TOTAL :</td>
+                        <td style="text-align:right;min-width:90px;font-weight:600;">${fmtNum(h.total_cantidad, 6)}</td>
+                        <td style="text-align:right;min-width:90px;font-weight:600;">${fmtNum(h.total_precio, 6)}</td>
+                        <td style="text-align:right;min-width:100px;font-weight:700;color:var(--primary);font-size:0.9rem;">${fmtNum(h.total_importe, 6)}</td>
+                    </tr>
+                </table>
+            </div>`;
+
+            html += '</div>'; // close voucher div
         });
-        tbody.innerHTML = html;
+
+        modalBody.innerHTML = html;
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--danger);">${err.message}</td></tr>`;
+        modalBody.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger);">${err.message}</div>`;
     }
 }
 
 function closeWarehouseModal() { document.getElementById('warehouseModal').classList.remove('active'); }
 
+function printWarehouseVoucher() {
+    const modal = document.getElementById('warehouseModal');
+    const content = modal.querySelector('.modal-body');
+    if (!content) return;
+    const printWin = window.open('', '_blank');
+    printWin.document.write(`<!DOCTYPE html><html><head><title>Voucher de Almacén</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 11pt; color: #1a1a1a; margin: 12mm; }
+            .report-header-band { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:1rem; margin-bottom:1rem; border-bottom:3px solid #1e3a5f; }
+            .report-company-info h2 { font-size:1.1rem; font-weight:700; color:#1e3a5f; margin:0 0 0.1rem; }
+            .report-company-info p { font-size:0.75rem; color:#6b7280; margin:0; }
+            .report-oc-badge { text-align:right; background:#1e3a5f; color:#fff; padding:0.6rem 1rem; border-radius:6px; min-width:160px; }
+            .report-oc-badge .oc-label { font-size:0.6rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8; }
+            .report-oc-badge .oc-number { font-size:1.4rem; font-weight:700; }
+            .report-oc-badge .oc-date { font-size:0.8rem; opacity:0.9; }
+            .report-supplier-box { display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0.2rem 0.4rem; font-size:0.75rem; padding:0.7rem 0.8rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:0.75rem; }
+            .report-supplier-box .lbl { font-weight:600; color:#64748b; }
+            .report-supplier-box .val { color:#0f172a; }
+            .report-table { width:100%; border-collapse:collapse; margin-top:0.25rem; }
+            .report-table th { background:#e2e8f0; font-weight:700; font-size:0.65rem; text-transform:uppercase; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; text-align:left; }
+            .report-table td { border:1px solid #e2e8f0; padding:0.35rem 0.4rem; font-size:0.75rem; }
+            .report-totals-box { display:flex; justify-content:flex-end; margin-top:0.5rem; }
+            .report-totals-box td { padding:0.3rem 0.5rem; font-size:0.8rem; }
+            @media print { body { margin: 8mm; } }
+        </style>
+    </head><body>${content.innerHTML}</body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 300);
+}
+
 // ─── Init ────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    const user = checkAuth();
-    if (!user) return;
-    renderUserInfo(user);
     loadCompanies();
 
     // Role-based restrictions for Logística
-    if (user.rol === 'LOGISTICA') {
+    const user = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+    if (String(user.rol || '').toUpperCase() === 'LOGISTICA') {
         const filterType = document.getElementById('filterType');
         if (filterType) {
-            // Remove option 7 as requested
             for (let i = 0; i < filterType.options.length; i++) {
                 if (filterType.options[i].value === '7') {
                     filterType.options[i].remove();
@@ -749,3 +819,220 @@ async function submitSolicitudRecojo() {
         Swal.fire({ icon: 'error', title: 'Error', text: err.message });
     }
 }
+
+// ════════════════════════════════════════════════════════════
+//  TRAZABILIDAD OC → ALMACÉN → FACTURA
+// ════════════════════════════════════════════════════════════
+
+function closeTrazaModal() {
+    document.getElementById('trazaModal').classList.remove('active');
+}
+
+async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
+    document.getElementById('trazaModal').classList.add('active');
+    document.getElementById('trazaOcNro').textContent = nrodoc;
+    const content = document.getElementById('trazaContent');
+    content.innerHTML = '<div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando trazabilidad...</div>';
+
+    try {
+        let url = `/api/contabilidad/trazabilidad/${encodeURIComponent(nrodoc)}?codcia=${encodeURIComponent(codcia)}`;
+        if (tipooc) url += `&tipo_oc=${encodeURIComponent(tipooc)}`;
+        if (anos) url += `&year=${encodeURIComponent(anos)}`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Error cargando trazabilidad');
+        const data = await res.json();
+
+        const r = data.resumen;
+        const fmtN = (v) => v != null ? parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0.00';
+
+        let html = `
+        <div class="traza-summary">
+            <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_items_oc}</div><div class="tlabel">Items OC</div></div>
+            <div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>
+            <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#22c55e;">${fmtN(r.total_almacen)}</div><div class="tlabel">Cant. Almacén</div></div>
+            <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>
+            <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_facturas}</div><div class="tlabel">Facturas</div></div>
+        </div>`;
+
+        // Items Table
+        html += `<div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1rem;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+                <tr style="background:#f1f5f9;">
+                    <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">#</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Código</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Descripción</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Cant. OC</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#22c55e; border-bottom:2px solid #cbd5e1;">Almacén</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">Facturado</th>
+                </tr>
+            </thead><tbody>`;
+
+        if (data.items.length === 0) {
+            html += '<tr><td colspan="6" style="text-align:center; padding:2rem; color:#94a3b8;">Sin ítems encontrados en la OC</td></tr>';
+        } else {
+            data.items.forEach((it, idx) => {
+                const almClass = it.pct_almacen >= 100 ? 'complete' : (it.pct_almacen > 0 ? 'partial' : 'pending');
+                const facClass = it.pct_facturado >= 100 ? 'complete' : (it.pct_facturado > 0 ? 'partial' : 'pending');
+
+                html += `<tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:0.5rem; text-align:center; color:#64748b;">${it.nroitm}</td>
+                    <td style="padding:0.5rem; font-family:monospace; font-size:0.725rem;">${it.codmat}</td>
+                    <td style="padding:0.5rem;">${(it.desmat || '').substring(0, 50)}</td>
+                    <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(it.candes)}</td>
+                    <td style="padding:0.5rem; text-align:center;">
+                        <div style="font-weight:600; ${almClass === 'complete' ? 'color:#22c55e;' : almClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_almacen)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_almacen}%)</span></div>
+                        <div class="traza-bar"><div class="traza-bar-fill ${almClass}" style="width:${Math.min(it.pct_almacen, 100)}%;"></div></div>
+                    </td>
+                    <td style="padding:0.5rem; text-align:center;">
+                        <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_facturada)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
+                        <div class="traza-bar"><div class="traza-bar-fill ${facClass}" style="width:${Math.min(it.pct_facturado, 100)}%;"></div></div>
+                    </td>
+                </tr>`;
+            });
+        }
+        html += '</tbody></table></div>';
+
+        // Detailed warehouse movements
+        if (data.movimientos_almacen && data.movimientos_almacen.length > 0) {
+            html += `
+            <h5 style="font-size:0.8rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.75rem; color:#334155;">Detalle de Movimientos Almacén</h5>
+            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1.5rem;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+                <thead>
+                    <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                        <th style="padding:0.5rem; text-align:left;">Almacén</th>
+                        <th style="padding:0.5rem; text-align:left;">Doc. Referencia</th>
+                        <th style="padding:0.5rem; text-align:left;">Fecha</th>
+                        <th style="padding:0.5rem; text-align:left;">Material</th>
+                        <th style="padding:0.5rem; text-align:right;">Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            data.movimientos_almacen.forEach(m => {
+                html += `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:0.4rem 0.5rem;">${m.almcen}</td>
+                        <td style="padding:0.4rem 0.5rem;"><strong>${m.tipmov}-${m.codmov}-${m.nrodoc}</strong></td>
+                        <td style="padding:0.4rem 0.5rem; color:#64748b;">${m.fchdoc}</td>
+                        <td style="padding:0.4rem 0.5rem; font-size:0.7rem;">${m.codmat}</td>
+                        <td style="padding:0.4rem 0.5rem; text-align:right; font-weight:600;">${fmtN(m.candes)}</td>
+                    </tr>`;
+            });
+            html += '</tbody></table></div>';
+        }
+
+        // Linked invoices
+        if (data.facturas && data.facturas.length > 0) {
+            html += '<h5 style="font-size:0.8rem; font-weight:700; margin-bottom:1rem; color:#334155;">Facturas Vinculadas</h5><div class="traza-factura-list">';
+            data.facturas.forEach(f => {
+                const facturaUrl = f.Uuid ? `factura_visor.html?uid=${f.Uuid}` : '#';
+                html += `
+                <div class="traza-factura-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <div style="background:#f0f7ff; color:#2563eb; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        </div>
+                        <div>
+                            <div style="font-weight:700; color:#1e293b;">${f.Serie || ''}-${f.Numero || ''}</div>
+                            <div style="font-size:0.7rem; color:#64748b;">${f.NomProveedor || '-'}</div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:700; color:#1e293b;">${fmtN(f.Total)} ${f.CodMoneda === '1' ? 'S/' : 'USD'}</div>
+                        <div style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem;">
+                            <span style="font-size:0.7rem; color:#64748b;">${f.FecEmision || '-'}</span>
+                            ${f.Uuid ? `<a href="${facturaUrl}" target="_blank" class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.65rem; height:auto; text-decoration:none;">Ver PDF</a>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+        } else {
+            html += '<div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.8rem; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px;">No hay facturas vinculadas aún.</div>';
+        }
+
+        content.innerHTML = html;
+    } catch(err) {
+        content.innerHTML = `<div style="text-align:center; padding:3rem; color:#ef4444; font-weight:500;">❌ Error: ${err.message}</div>`;
+    }
+}
+
+// ─── Dropdown Toggle & Close ──────────
+let _activeDropdownMenu = null;
+let _activeDropdownBtn = null;
+
+function toggleDropdown(event, btn) {
+    event.stopPropagation();
+    
+    // If clicking the same button, close it
+    if (_activeDropdownBtn === btn && _activeDropdownMenu) {
+        _closeActiveDropdown();
+        return;
+    }
+    
+    _closeActiveDropdown();
+
+    const menu = btn.nextElementSibling;
+    if (!menu) return;
+    
+    // Clone menu and append to body for proper positioning
+    const clone = menu.cloneNode(true);
+    clone.style.display = 'block';
+    clone.classList.add('show');
+    document.body.appendChild(clone);
+    
+    // Position relative to button
+    const rect = btn.getBoundingClientRect();
+    const menuH = clone.offsetHeight;
+    const menuW = clone.offsetWidth;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    
+    // Vertical: prefer below, fallback above
+    if (spaceBelow >= menuH + 8) {
+        clone.style.top = (rect.bottom + 4) + 'px';
+    } else {
+        clone.style.top = Math.max(4, rect.top - menuH - 4) + 'px';
+    }
+    // Horizontal: align right edge to button right edge
+    clone.style.left = Math.max(8, rect.right - menuW) + 'px';
+    
+    _activeDropdownMenu = clone;
+    _activeDropdownBtn = btn;
+}
+
+function _closeActiveDropdown() {
+    if (_activeDropdownMenu && _activeDropdownMenu.parentNode) {
+        _activeDropdownMenu.parentNode.removeChild(_activeDropdownMenu);
+    }
+    _activeDropdownMenu = null;
+    _activeDropdownBtn = null;
+}
+
+document.addEventListener('click', function(e) {
+    if (_activeDropdownMenu && !_activeDropdownMenu.contains(e.target)) {
+        _closeActiveDropdown();
+    }
+});
+
+document.addEventListener('scroll', function() {
+    _closeActiveDropdown();
+}, true);
+
+// ─── Auto-Open Modals via URL Params ────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const seek_oc = urlParams.get('seek_oc');
+    const seek_oc_report = urlParams.get('seek_oc_report');
+    const seek_wh = urlParams.get('seek_warehouse');
+    const cia = urlParams.get('cia');
+
+    if (seek_oc_report && cia) {
+        setTimeout(() => openReportModal(cia, seek_oc_report, 'O', new Date().getFullYear().toString()), 600);
+    } else if (seek_oc && cia) {
+        setTimeout(() => openAttachmentModal(cia, 'O', seek_oc, 'signed_order'), 600);
+    } else if (seek_wh && cia) {
+        setTimeout(() => openWarehouseModal(cia, seek_wh), 600);
+    }
+});

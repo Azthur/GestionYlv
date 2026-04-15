@@ -54,7 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadCompanies() {
     try {
         const token = localStorage.getItem('yelave_token');
-        const res = await fetch('/api/logistics/companies', { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch('/api/permisos/empresas/me', { 
+            headers: { 'Authorization': `Bearer ${token}` } 
+        });
         if (!res.ok) throw new Error();
         const companies = await res.json();
         const sel = document.getElementById('filterCia');
@@ -64,8 +66,19 @@ async function loadCompanies() {
             opt.value = c.codcia; opt.textContent = `${c.codcia} - ${c.nomcia}`;
             sel.appendChild(opt);
         });
+
+        // Default selection from user session or first available
+        const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+        if (cu.codcia) {
+            if (Array.from(sel.options).some(o => o.value === cu.codcia)) {
+                sel.value = cu.codcia;
+                loadRepartoData();
+            }
+        }
     } catch (e) {
-        document.getElementById('filterCia').innerHTML = '<option value="" disabled>Error cargando</option>';
+        console.error('Error loadCompanies:', e);
+        if (document.getElementById('filterCia'))
+            document.getElementById('filterCia').innerHTML = '<option value="" disabled>Sin acceso a empresas</option>';
     }
 }
 

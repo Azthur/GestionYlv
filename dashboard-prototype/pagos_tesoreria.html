@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagos Tesorería - Yelave ERP</title>
+    <meta name="description" content="Módulo de gestión de pagos y conciliación bancaria de Tesorería">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e3a5f;
+            --primary-light: #2d5a8e;
+            --accent: #10b981;
+            --accent-light: #d1fae5;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-body: #f4f7f6;
+            --text-primary: #0f172a;
+            --text-muted: #64748b;
+            --border-dark: #cbd5e1;
+            --radius-sm: 6px;
+        }
+
+        /* ─── DataTable Overrides ─── */
+        .dataTables_wrapper { font-family: 'Inter', sans-serif; overflow: visible !important; }
+        .dataTables_wrapper .dataTables_filter input { border: 1px solid var(--border-dark); border-radius: var(--radius-sm); padding: 0.4rem 0.75rem; font-size: 0.8125rem; }
+        .dataTables_wrapper .dataTables_length select { border: 1px solid var(--border-dark); border-radius: var(--radius-sm); padding: 0.3rem 0.5rem; font-size: 0.8125rem; }
+        .dataTables_wrapper .dataTables_info { font-size: 0.75rem; color: var(--text-muted); }
+        .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: var(--radius-sm) !important; font-size: 0.8rem; padding: 0.3rem 0.65rem !important; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
+        table.dataTable thead th { background: #1e293b; color: #f8fafc; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none !important; padding: 0.85rem 0.5rem !important; }
+        table.dataTable { border-bottom: 1px solid #e2e8f0 !important; overflow: visible !important; }
+        table.dataTable tbody td { font-size: 0.8125rem; padding: 0.5rem 0.5rem !important; vertical-align: middle; overflow: visible !important; }
+        table.dataTable tbody tr:hover { background: #f0f7ff !important; }
+        .dt-buttons .dt-button { background: #fff !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important; padding: 0.4rem 0.85rem !important; font-size: 0.775rem !important; font-family: 'Inter', sans-serif !important; color: #374151 !important; font-weight: 500 !important; }
+        .dt-buttons .dt-button:hover { background: #f1f5f9 !important; border-color: var(--primary) !important; color: var(--primary) !important; }
+
+        .content { max-width: none !important; width: 100% !important; }
+
+        /* ─── Tabs ─── */
+        .pago-tabs { display: flex; gap: 0.5rem; }
+        .pago-tab {
+            padding: 0.65rem 1.25rem; border: none; border-radius: 8px 8px 0 0;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            background: #e2e8f0; color: #64748b; transition: all 0.2s;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .pago-tab.active { background: #fff; color: var(--primary); box-shadow: 0 -2px 0 var(--primary) inset; }
+        .pago-tab:hover:not(.active) { background: #f1f5f9; }
+
+        /* ─── Stats Cards ─── */
+        .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .stat-card {
+            flex: 1; min-width: 160px;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+            padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.25rem;
+        }
+        .stat-card .stat-label { font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px; }
+        .stat-card .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+        .stat-card.accent .stat-value { color: var(--accent); }
+        .stat-card.primary .stat-value { color: var(--primary); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+
+        /* ─── Modal Overlay ─── */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px); z-index: 10000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; animation: modFadeIn 0.15s ease-out; }
+        @keyframes modFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal { background: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); display: flex; flex-direction: column; max-height: 90vh; }
+        .modal-header { padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
+        .modal-header h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+        .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+        .close-btn { background: #f1f5f9; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; }
+        .close-btn:hover { background: #e2e8f0; color: #ef4444; }
+
+        .badge { display: inline-block; font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+        .badge.pending { background: #fef3c7; color: #92400e; }
+        .badge.success { background: #d1fae5; color: #065f46; }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+<main class="main-content">
+            <div class="top-bar">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="breadcrumb">
+                    <span>Tesorería</span>
+                    <span class="separator">›</span>
+                    <span>Gestión de Pagos</span>
+                </div>
+                <div class="top-bar-actions">
+                    <select id="filterCia" class="filter-group" style="padding:0.4rem 0.75rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-size:0.8125rem; background:#fff;" onchange="onCiaChange()"></select>
+                </div>
+            </div>
+
+            <section class="content" style="padding:1.5rem 2rem;">
+                <!-- Stats Cards -->
+                <div class="stats-row" id="statsRow">
+                    <div class="stat-card warning">
+                        <span class="stat-label">Pendientes de Pago</span>
+                        <span class="stat-value" id="statPendientes">—</span>
+                    </div>
+                    <div class="stat-card primary">
+                        <span class="stat-label">Monto Total Pendiente</span>
+                        <span class="stat-value" id="statMontoPend">—</span>
+                    </div>
+                    <div class="stat-card accent">
+                        <span class="stat-label">Pagos Realizados</span>
+                        <span class="stat-value" id="statPagados">—</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Monto Total Pagado</span>
+                        <span class="stat-value" id="statMontoPagado">—</span>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="pago-tabs" id="pagoTabs">
+                    <button class="pago-tab active" onclick="switchTab('pendientes')" id="tabPendientes">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        Pendientes de Pago
+                    </button>
+                    <button class="pago-tab" onclick="switchTab('historial')" id="tabHistorial">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        Pagos Realizados
+                    </button>
+                </div>
+
+                <!-- Panel Pendientes -->
+                <div id="panelPendientes" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 0 8px 8px 8px; padding: 1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3 style="margin:0; font-size:1rem; font-weight:700; color:var(--text-primary);">📋 Órdenes de Compra Pendientes de Pago</h3>
+                        <button class="btn-action outline" onclick="loadPendientes()" style="font-size:0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            Actualizar
+                        </button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table id="pendientesTable" class="display nowrap" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>N° OC</th><th>Tipo</th><th>Proveedor</th><th>N° Factura</th><th>Fecha OC</th><th>N° Cargo</th><th style="text-align:right;">Monto Factura</th><th style="width:140px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendientesTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Panel Historial -->
+                <div id="panelHistorial" style="display:none; background: #fff; border: 1px solid #e2e8f0; border-radius: 0 8px 8px 8px; padding: 1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3 style="margin:0; font-size:1rem; font-weight:700; color:var(--text-primary);">✅ Historial de Pagos Realizados</h3>
+                        <button class="btn-action outline" onclick="loadHistorialPagos()" style="font-size:0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            Actualizar
+                        </button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table id="historialPagosTable" class="display nowrap" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Tipo</th><th>N° Operación</th><th>Fecha Pago</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historialPagosTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ═══ MODAL: REGISTRO DE PAGO ═══ -->
+    <div class="modal-overlay" id="modalPago">
+        <div class="modal" style="max-width:550px; width:95%;">
+            <div class="modal-header" style="background:#1e3a5f;">
+                <h3 style="color:#fff;" id="modalPagoTitle">Registro de Pago</h3>
+                <button class="close-btn" style="color:#fff; opacity:0.8;" onclick="document.getElementById('modalPago').classList.remove('active')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:1.5rem; text-align:left;">
+                <div id="pagoResumen" style="background:#f0f4f8; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem 1rem; margin-bottom:1.25rem; font-size:0.8rem;"></div>
+                <form id="formPago" onsubmit="event.preventDefault(); submitPago();">
+                    <input type="hidden" id="pago_idDetalle">
+                    <input type="hidden" id="pago_codcia">
+                    <input type="hidden" id="pago_nrodoc">
+                    <input type="hidden" id="pago_tipooc">
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div>
+                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Moneda</label>
+                            <select id="pago_moneda" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
+                                <option value="PEN">Soles (PEN)</option>
+                                <option value="USD">Dólares (USD)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Monto Pagado</label>
+                            <input type="number" step="0.01" id="pago_monto" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div>
+                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Banco Emisor</label>
+                            <select id="pago_banco" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
+                                <option value="BCP">BCP</option>
+                                <option value="BBVA">BBVA</option>
+                                <option value="SCOTIABANK">Scotiabank</option>
+                                <option value="INTERBANK">Interbank</option>
+                                <option value="BANBIF">BanBif</option>
+                                <option value="EFECTIVO">Caja / Efectivo</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Tipo de Pago</label>
+                            <select id="pago_tipo" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
+                                <option value="TRANSFERENCIA">Transferencia</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="EFECTIVO">Efectivo</option>
+                                <option value="TARJETA">Tarjeta</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div>
+                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Fecha de Pago</label>
+                            <input type="date" id="pago_fecha" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
+                        </div>
+                        <div>
+                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Nro. Operación / Ref.</label>
+                            <input type="text" id="pago_nro_operacion" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;" placeholder="Ej: 198273645">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:1rem;">
+                        <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Subir Archivos (Vouchers, Reportes — MAX 3)</label>
+                        <input type="file" id="pago_adjuntos" multiple accept="image/*,application/pdf" style="width:100%; padding:0.5rem; border:1px dotted #94a3b8; border-radius:4px; font-size:0.8rem;">
+                    </div>
+
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Notas u Observaciones (Opcional)</label>
+                        <textarea id="pago_notas" rows="2" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;"></textarea>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                        <button type="button" class="btn-action outline" style="padding:0.6rem 1rem;" onclick="document.getElementById('modalPago').classList.remove('active')">Cancelar</button>
+                        <button type="submit" class="btn-action primary" style="padding:0.6rem 1.25rem; display:flex; align-items:center; gap:0.5rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            Registrar Pago
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="pagos_tesoreria.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

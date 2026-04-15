@@ -290,3 +290,245 @@ def get_traceability(
         }
     finally:
         conn.close()
+
+
+# ═══════════════════════════════════════════════════
+#  SALDOS DE INVENTARIO (para inventario.html)
+# ═══════════════════════════════════════════════════
+
+@router.get("/almacenes")
+def get_almacenes(
+    codcia: str = Query(..., description="Código de la empresa")
+):
+    """Obtener lista de almacenes disponibles"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT RTRIM(almcen) as codigo, RTRIM(desalm) as nombre 
+            FROM AlmTsalm 
+            WHERE RTRIM(codcia) = ?
+            ORDER BY almcen
+        """, (codcia.strip(),))
+        return [{"codigo": row.codigo, "nombre": row.nombre} for row in cursor.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/familias")
+def get_familias(
+    codcia: str = Query(..., description="Código de la empresa")
+):
+    """Obtener lista de familias de productos"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT RTRIM(codigo) as codigo, RTRIM(nombre) as nombre 
+            FROM AlmTabla 
+            WHERE RTRIM(codcia) = ? AND RTRIM(tabla) = '0001'
+            ORDER BY codigo
+        """, (codcia.strip(),))
+        return [{"codigo": row.codigo, "nombre": row.nombre} for row in cursor.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/saldos-producto")
+def get_saldos_producto(
+    codcia: str = Query(..., description="Código de la empresa"),
+    busqueda: Optional[str] = Query(None, description="Buscar por código o nombre"),
+    codfam: Optional[str] = Query(None, description="Filtrar por familia"),
+    solo_stock: bool = Query(False, description="Solo items con stock > 0")
+):
+    """Stock general por producto (AlmmMatg) - todas las almacenes consolidado"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                RTRIM(codmat) as codmat, RTRIM(desmat) as desmat, 
+                RTRIM(undstk) as undstk, RTRIM(codfam) as codfam,
+                RTRIM(codlin) as codlin, RTRIM(codmar) as codmar,
+                stksub, stkact, vctomn, vctous, vctoeu,
+                stkmin, stkmax, stkrep,
+                ultcmp, ultsal
+            FROM AlmmMatg 
+            WHERE RTRIM(codcia) = ?
+        """
+        params = [codcia.strip()]
+        
+        if codfam:
+            query += " AND RTRIM(codfam) = ?"
+            params.append(codfam.strip())
+        if busqueda:
+            query += " AND (RTRIM(codmat) LIKE ? OR RTRIM(desmat) LIKE ?)"
+            params.extend([f"%{busqueda}%", f"%{busqueda}%"])
+        if solo_stock:
+            query += " AND (stkact > 0 OR stkact < 0)"
+            
+        query += " ORDER BY codmat"
+        
+        cursor.execute(query, params)
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                "codmat": row.codmat or "",
+                "desmat": row.desmat or "",
+                "undstk": row.undstk or "",
+                "codfam": row.codfam or "",
+                "codlin": row.codlin or "",
+                "codmar": row.codmar or "",
+                "stock": float(row.stkact) if row.stkact else 0,
+                "stock_sub": float(row.stksub) if row.stksub else 0,
+                "valor_mn": float(row.vctomn) if row.vctomn else 0,
+                "valor_us": float(row.vctous) if row.vctous else 0,
+                "valor_eu": float(row.vctoeu) if row.vctoeu else 0,
+                "stk_min": float(row.stkmin) if row.stkmin else 0,
+                "stk_max": float(row.stkmax) if row.stkmax else 0,
+                "stk_rep": float(row.stkrep) if row.stkrep else 0,
+                "ult_compra": row.ultcmp.strftime("%Y-%m-%d") if row.ultcmp else "",
+                "ult_salida": row.ultsal.strftime("%Y-%m-%d") if row.ultsal else "",
+            })
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/saldos-almacen")
+def get_saldos_almacen(
+    codcia: str = Query(..., description="Código de la empresa"),
+    almacen: Optional[str] = Query(None, description="Código de almacén"),
+    busqueda: Optional[str] = Query(None, description="Buscar por código o nombre"),
+    solo_stock: bool = Query(False, description="Solo items con stock > 0")
+):
+    """Stock por almacén (AlmmMate) - desglosado por almacén y producto"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                RTRIM(m.almcen) as almacen, RTRIM(m.codmat) as codmat, 
+                RTRIM(m.desmat) as desmat, RTRIM(m.undstk) as undstk,
+                m.stksub as stock, m.vctomn, m.vctous, m.vctoeu,
+                m.fching, m.fchsal,
+                RTRIM(a.desalm) as des_almacen
+            FROM AlmmMate m
+            LEFT JOIN AlmTsalm a ON RTRIM(a.codcia) = RTRIM(m.codcia) AND RTRIM(a.almcen) = RTRIM(m.almcen)
+            WHERE RTRIM(m.codcia) = ?
+        """
+        params = [codcia.strip()]
+        
+        if almacen:
+            query += " AND RTRIM(m.almcen) = ?"
+            params.append(almacen.strip())
+        if busqueda:
+            query += " AND (RTRIM(m.codmat) LIKE ? OR RTRIM(m.desmat) LIKE ?)"
+            params.extend([f"%{busqueda}%", f"%{busqueda}%"])
+        if solo_stock:
+            query += " AND (m.stksub > 0 OR m.stksub < 0)"
+            
+        query += " ORDER BY m.almcen, m.codmat"
+        
+        cursor.execute(query, params)
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                "almacen": row.almacen or "",
+                "des_almacen": row.des_almacen or "",
+                "codmat": row.codmat or "",
+                "desmat": row.desmat or "",
+                "undstk": row.undstk or "",
+                "stock": float(row.stock) if row.stock else 0,
+                "valor_mn": float(row.vctomn) if row.vctomn else 0,
+                "valor_us": float(row.vctous) if row.vctous else 0,
+                "valor_eu": float(row.vctoeu) if row.vctoeu else 0,
+                "fch_ingreso": row.fching.strftime("%Y-%m-%d") if row.fching else "",
+                "fch_salida": row.fchsal.strftime("%Y-%m-%d") if row.fchsal else "",
+            })
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/saldos-lote")
+def get_saldos_lote(
+    codcia: str = Query(..., description="Código de la empresa"),
+    almacen: Optional[str] = Query(None, description="Código de almacén"),
+    busqueda: Optional[str] = Query(None, description="Buscar por código, nombre o lote"),
+    solo_stock: bool = Query(False, description="Solo lotes con stock > 0"),
+    proximos_vencer: bool = Query(False, description="Solo lotes próximos a vencer (90 días)")
+):
+    """Stock por lote (AlmAcmLt) - con trazabilidad de lote y vencimiento"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                RTRIM(l.almcen) as almacen, RTRIM(l.codmat) as codmat, 
+                RTRIM(l.desmat) as desmat, RTRIM(l.undstk) as undstk,
+                RTRIM(l.nrolote) as nrolote, l.fchlote, l.candes as stock,
+                RTRIM(a.desalm) as des_almacen
+            FROM AlmAcmLt l
+            LEFT JOIN AlmTsalm a ON RTRIM(a.codcia) = RTRIM(l.codcia) AND RTRIM(a.almcen) = RTRIM(l.almcen)
+            WHERE RTRIM(l.codcia) = ?
+        """
+        params = [codcia.strip()]
+        
+        if almacen:
+            query += " AND RTRIM(l.almcen) = ?"
+            params.append(almacen.strip())
+        if busqueda:
+            query += " AND (RTRIM(l.codmat) LIKE ? OR RTRIM(l.desmat) LIKE ? OR RTRIM(l.nrolote) LIKE ?)"
+            params.extend([f"%{busqueda}%", f"%{busqueda}%", f"%{busqueda}%"])
+        if solo_stock:
+            query += " AND (l.candes > 0 OR l.candes < 0)"
+        if proximos_vencer:
+            query += " AND l.fchlote IS NOT NULL AND l.fchlote <= DATEADD(day, 90, GETDATE()) AND l.fchlote >= GETDATE()"
+            
+        query += " ORDER BY l.almcen, l.codmat, l.nrolote"
+        
+        cursor.execute(query, params)
+        results = []
+        for row in cursor.fetchall():
+            fch_vto = row.fchlote
+            dias_vencer = None
+            if fch_vto:
+                from datetime import datetime as dt_util
+                delta = fch_vto - dt_util.now()
+                dias_vencer = delta.days
+            
+            results.append({
+                "almacen": row.almacen or "",
+                "des_almacen": row.des_almacen or "",
+                "codmat": row.codmat or "",
+                "desmat": row.desmat or "",
+                "undstk": row.undstk or "",
+                "nrolote": row.nrolote or "",
+                "fch_vencimiento": fch_vto.strftime("%Y-%m-%d") if fch_vto else "",
+                "dias_vencer": dias_vencer,
+                "stock": float(row.stock) if row.stock else 0,
+            })
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

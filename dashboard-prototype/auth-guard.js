@@ -1,60 +1,118 @@
-// auth-guard.js
+/**
+ * YELAVE ERP — Auth Guard Reforzado
+ * Verifica sesión y permisos dinámicos antes de mostrar contenido.
+ * - Verifica JWT en localStorage
+ * - Valida permisos contra el servidor (GET /api/permisos/me)
+ * - Oculta body hasta validación completa
+ * - Timeout de inactividad (10 min)
+ */
 (function() {
-    // 1. Check if token exists immediately
+    'use strict';
+
+    // 1. Ocultar body hasta validación
+    document.documentElement.style.visibility = 'hidden';
+
+    // 2. Check token exists
     const token = localStorage.getItem('yelave_token');
     const userStr = localStorage.getItem('yelave_user');
     
     if (!token || !userStr) {
         window.location.href = 'login.html';
-        return; // Stop execution
+        return;
     }
 
-    // 2. Role-Based Access Control (RBAC) at built-in Page Level
+    // 3. Parse user
+    let user;
     try {
-        const user = JSON.parse(userStr);
-        const currentPath = window.location.pathname.toLowerCase();
-        
-        // Always allowed pages
-        if (!currentPath.includes('login.html') && 
-            !currentPath.includes('index.html') && 
-            !currentPath.includes('profile.html') &&
-            currentPath.endsWith('.html')) {
-            
-            const currentLogin = String(user.login || '').trim().toUpperCase();
-            const userRol = String(user.rol || '').trim().toUpperCase();
-            const isAdmin = currentLogin === '71941916JL' || currentLogin.includes('71941916JL') || userRol === 'ADMIN';
-
-            if (!isAdmin) {
-                let isAllowed = false;
-
-                // Define role permissions based on app.js mapping
-                if (userRol === 'LOGISTICA') {
-                    if (currentPath.includes('orders.html')) isAllowed = true;
-                } else if (userRol === 'CONTROL_INTERNO') {
-                    if (currentPath.includes('conciliacion.html') || currentPath.includes('cuentas-cobrar.html')) isAllowed = true;
-                } else if (userRol === 'CONTABILIDAD') {
-                    if (currentPath.includes('orders.html') || currentPath.includes('conciliacion.html') || currentPath.includes('cuentas-cobrar.html')) isAllowed = true;
-                } else if (userRol === 'COMERCIAL') {
-                    if (currentPath.includes('conciliacion.html') || currentPath.includes('cuentas-cobrar.html')) isAllowed = true;
-                }
-
-                if (!isAllowed) {
-                    // Unauthorized access attempt, redirect to safe zone
-                    alert("Acceso Denegado: Su rol no tiene permisos para acceder a este módulo.");
-                    window.location.href = 'index.html';
-                    return;
-                }
-            }
-        }
+        user = JSON.parse(userStr);
     } catch (e) {
-        console.error("Error parsing user data for RBAC", e);
+        console.error("Error parsing user data", e);
         window.location.href = 'login.html';
         return;
     }
 
-    // 3. Inactivity Timeout (10 minutes)
+    // 4. Determine current page
+    const currentPath = window.location.pathname.toLowerCase();
+    
+    // Pages that don't need permission checks (always accessible if logged in)
+    const alwaysAllowed = ['login.html', 'index.html', 'profile.html'];
+    const isAlwaysAllowed = alwaysAllowed.some(p => currentPath.includes(p));
+    
+    // Public viewers (no auth needed at all)
+    const publicPages = ['visor_planilla.html', 'visor_rendicion.html', 'factura_visor.html'];
+    const isPublicPage = publicPages.some(p => currentPath.includes(p));
+
+    if (isPublicPage) {
+        document.documentElement.style.visibility = 'visible';
+        return; // Public pages don't need auth
+    }
+
+    // 5. Validate with server and check permissions
+    const login = String(user.login || '').trim().toUpperCase();
+    const isSuperuser = login === '71941916JL';
+    const userRol = String(user.rol || '').trim().toUpperCase();
+    const isAdmin = isSuperuser || userRol === 'ADMIN';
+
+    // If admin or always-allowed page, show immediately
+    if (isAdmin || isAlwaysAllowed) {
+        document.documentElement.style.visibility = 'visible';
+    }
+
+    // Server-side validation (async, non-blocking for admin/allowed)
+    fetch('http://localhost:8000/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => {
+        if (!res.ok) {
+            // Token expired or invalid
+            localStorage.removeItem('yelave_token');
+            localStorage.removeItem('yelave_user');
+            window.location.href = 'login.html';
+            return null;
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (!data) return;
+        
+        // Update stored user data if server provides newer info
+        if (data.nombre || data.rol) {
+            user.nombre = data.nombre || user.nombre;
+            user.rol = data.rol || user.rol;
+            localStorage.setItem('yelave_user', JSON.stringify(user));
+        }
+
+        // For non-admin, non-always-allowed pages, check permissions
+        if (!isAdmin && !isAlwaysAllowed) {
+            return fetch('http://localhost:8000/api/permisos/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(r => r.json()).then(permData => {
+                const modulos = permData.modulos || [];
+                const hasAccess = modulos.some(m => 
+                    currentPath.includes(m.RutaHtml.toLowerCase().replace('/', ''))
+                );
+                
+                if (!hasAccess) {
+                    alert("Acceso Denegado: Su rol no tiene permisos para acceder a este módulo.");
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                document.documentElement.style.visibility = 'visible';
+            });
+        } else {
+            document.documentElement.style.visibility = 'visible';
+        }
+    })
+    .catch(err => {
+        console.warn('Auth verify failed (network):', err);
+        // If server is unreachable but token exists, still show (graceful degradation)
+        document.documentElement.style.visibility = 'visible';
+    });
+
+    // 6. Inactivity Timeout (10 minutes)
     let inactivityTimer;
-    const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutos en milisegundos
+    const INACTIVITY_LIMIT_MS = 10 * 60 * 1000;
 
     function resetInactivityTimer() {
         clearTimeout(inactivityTimer);
@@ -68,13 +126,11 @@
         window.location.href = 'login.html';
     }
 
-    // Listen to user events globally to reset the timer
     window.addEventListener('mousemove', resetInactivityTimer);
     window.addEventListener('keypress', resetInactivityTimer);
     window.addEventListener('click', resetInactivityTimer);
     window.addEventListener('scroll', resetInactivityTimer);
     window.addEventListener('touchstart', resetInactivityTimer);
 
-    // Initialize timer on load
     resetInactivityTimer();
 })();

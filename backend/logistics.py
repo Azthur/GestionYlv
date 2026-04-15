@@ -11,9 +11,23 @@ ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
 
 router = APIRouter(prefix="/api/logistics", tags=["Logística y Compras"])
 
+import time
+
+import json
+
+# Global cache for companies: (expiry_timestamp, data)
+_COMPANIES_CACHE = (0, [])
+
 @router.get("/companies")
 def get_companies():
-    """Obtener lista de empresas para filtrar"""
+    """Obtener lista de empresas con caché en memoria (TTL: 60s)"""
+    global _COMPANIES_CACHE
+    now = time.time()
+    
+    # Return from cache if valid
+    if now < _COMPANIES_CACHE[0] and _COMPANIES_CACHE[1]:
+        return _COMPANIES_CACHE[1]
+        
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Error de base de datos")
@@ -25,7 +39,10 @@ def get_companies():
         companies = []
         for row in cursor.fetchall():
             companies.append({"codcia": row.codcia, "nomcia": row.nomcia})
-            
+        
+        # Save to cache with 60s Time-To-Live
+        _COMPANIES_CACHE = (now + 60, companies)
+        
         return companies
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -37,7 +54,8 @@ def get_purchase_orders(
     codcia: str = Query(..., description="Código de la empresa (Ej. 01)"),
     year: Optional[str] = Query(None, description="Año (Anos)"),
     period: Optional[int] = Query(None, description="Mes / Periodo (1-12)"),
-    tipo_oc: Optional[str] = Query(None, description="Tipo de OC (TipoOc)")
+    tipo_oc: Optional[str] = Query(None, description="Tipo de OC (TipoOc)"),
+    proveedor: Optional[str] = Query(None, description="RUC o Nombre de proveedor")
 ):
     """Obtener cabeceras de Órdenes de Compra (CmpVOcom)"""
     conn = get_db_connection()
@@ -83,6 +101,11 @@ def get_purchase_orders(
         if tipo_oc:
             query += " AND RTRIM(TipoOc) = ?"
             params.append(tipo_oc)
+            
+        if proveedor:
+            query += " AND (RTRIM(RucAux) LIKE ? OR RTRIM(NomAux) LIKE ?)"
+            params.append(f"%{proveedor}%")
+            params.append(f"%{proveedor}%")
             
         query += " ORDER BY Fchdoc DESC, NroDoc DESC"
         
@@ -177,7 +200,13 @@ def get_purchase_order_report(
         
     try:
         cursor = conn.cursor()
+        t_oc = str(tipo_oc).strip().upper()
         
+        # 0. Título dinámico
+        report_title = "ORDEN DE COMPRA"
+        if t_oc == 'S': report_title = "ORDEN DE SERVICIO"
+        elif t_oc == 'T': report_title = "ORDEN CONTABLE"
+
         # 1. Datos de la empresa
         cursor.execute("""
             SELECT RTRIM(CodCia) as codcia, RTRIM(NomCia) as nomcia, 
@@ -232,6 +261,7 @@ def get_purchase_order_report(
             "fchdoc": h_row.fchdoc.strftime("%d/%m/%Y") if h_row.fchdoc else "",
             "usuario": h_row.usuario or "",
             "tipooc": h_row.tipooc or "",
+            "title": report_title,
             "codmon": "S/" if str(h_row.codmon).strip() in ("1", "1.0") else "USD",
             "codaux": h_row.codaux or "",
             "nomaux": h_row.nomaux or "",
@@ -254,7 +284,7 @@ def get_purchase_order_report(
             "flgest": h_row.flgest or "",
         }
         
-        # 3. Detalle de ítems (CmpROcom) con ingresos a almacén (AlmRMovm) agregados
+        # 3. Detalle de ítems (CmpROcom) con ingresos a almacén y facturado agregados
         detail_query = """
             SELECT 
                 r.NroItm as nroitm,
@@ -280,8 +310,16 @@ def get_purchase_order_report(
                     WHERE RTRIM(a.CodCia) = RTRIM(r.CodCia) 
                       AND RTRIM(a.ordcmp) = RTRIM(r.NroDoc) 
                       AND RTRIM(a.codmat) = RTRIM(r.CodMat)
-                      -- AND RTRIM(a.tipmov) = 'I' -- Only counting inputs, but assuming all are inputs here
-                ), 0) as cant_ingresada
+                ), 0) as cant_ingresada,
+                COALESCE((
+                    SELECT SUM(fd.Cantidad)
+                    FROM CntFacturaDet fd
+                    INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
+                    WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
+                      AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
+                      AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
+                      AND fc.Estado != 'Anulada'
+                ), 0) as cant_facturada
             FROM CmpROcom r
             WHERE RTRIM(r.CodCia) = ? AND RTRIM(r.NroDoc) = ?
         """
@@ -300,10 +338,11 @@ def get_purchase_order_report(
         item_counter = 0
         total_requested = 0
         total_received = 0
+        total_invoiced = 0
         
         for row in cursor.fetchall():
-            # Skip items flagged as eliminated
-            if row.flgest and row.flgest.strip():
+            # Skip items flagged as eliminated (flgest = '*')
+            if row.flgest and row.flgest.strip() == '*':
                 continue
             item_counter += 1
             
@@ -316,15 +355,19 @@ def get_purchase_order_report(
             
             req_qty = float(row.candes) if row.candes else 0
             rec_qty = float(row.cant_ingresada) if row.cant_ingresada else 0
+            invoiced_qty = float(row.cant_facturada) if row.cant_facturada else 0
             
             total_requested += req_qty
             total_received += rec_qty
+            total_invoiced += invoiced_qty
             
             # Line item status
             line_status = "Pendiente"
-            if rec_qty >= req_qty and req_qty > 0:
+            # Decide base for "status" based on type
+            compare_qty = rec_qty if t_oc == 'M' else invoiced_qty
+            if compare_qty >= req_qty and req_qty > 0:
                 line_status = "Completo"
-            elif rec_qty > 0:
+            elif compare_qty > 0:
                 line_status = "Parcial"
                 
             items.append({
@@ -335,6 +378,7 @@ def get_purchase_order_report(
                 "undstk": row.undstk or "",
                 "candes": req_qty,
                 "cant_ingresada": rec_qty,
+                "cant_facturada": invoiced_qty,
                 "estado_ingreso": line_status,
                 "preuni": float(row.preuni) if row.preuni else 0,
                 "impigv": float(row.impigv) if row.impigv else 0,
@@ -345,9 +389,10 @@ def get_purchase_order_report(
         # Overall order receive status
         order_receive_status = "Pendiente"
         if total_requested > 0:
-            if total_received >= total_requested:
+            compare_total = total_received if t_oc == 'M' else total_invoiced
+            if compare_total >= total_requested:
                 order_receive_status = "Completo (Cerrada)"
-            elif total_received > 0:
+            elif compare_total > 0:
                 order_receive_status = "Parcial"
         else:
             order_receive_status = "Sin Ítems"
@@ -368,47 +413,188 @@ def get_purchase_order_report(
         conn.close()
 
 
+
 @router.get("/orders/{nrodoc}/warehouse-entry")
 def get_warehouse_entry(
     nrodoc: str,
     codcia: str = Query(..., description="Código de la empresa")
 ):
-    """Obtener ingresos a almacén (AlmRMovm) asociados a una Orden de Compra"""
+    """Obtener ingresos a almacén (AlmVMovm + AlmRMovm) asociados a una Orden de Compra.
+    Devuelve vouchers agrupados por documento con cabecera y detalle tipo Crystal Report."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Error de base de datos")
         
     try:
         cursor = conn.cursor()
+        codcia_s = codcia.strip()
+        nrodoc_s = nrodoc.strip()
         
-        # ordcmp stores the original PO number.
-        query = """
-            SELECT 
-                RTRIM(nrodoc) as nro_ingreso,
-                fchdoc as fecha_ingreso,
-                RTRIM(almcen) as almacen,
-                RTRIM(tipmov) as tipo_movimiento,
-                RTRIM(codmat) as codigo_material,
-                RTRIM(desmat) as descripcion,
-                candes as cantidad_ingresada
-            FROM AlmRMovm 
-            WHERE RTRIM(CodCia) = ? AND RTRIM(ordcmp) = ?
-            ORDER BY fchdoc DESC, nrodoc DESC
-        """
-        params = (codcia, nrodoc)
+        # 1. Datos de la empresa
+        cursor.execute("""
+            SELECT RTRIM(NomCia) as nomcia, RTRIM(DirCia) as dircia, RTRIM(RucCia) as ruccia
+            FROM AdmMcias WHERE RTRIM(CodCia) = ?
+        """, (codcia_s,))
+        cia_row = cursor.fetchone()
+        company = {
+            "nomcia": cia_row.nomcia if cia_row else "",
+            "dircia": cia_row.dircia if cia_row else "",
+            "ruccia": cia_row.ruccia if cia_row else ""
+        }
         
-        cursor.execute(query, params)
-        entries = []
-        columns = [column[0] for column in cursor.description]
+        # 2. Encontrar documentos de almacén vinculados a esta OC (via ordcmp en AlmRMovm)
+        cursor.execute("""
+            SELECT DISTINCT 
+                RTRIM(r.almcen) as almcen, RTRIM(r.tipmov) as tipmov, 
+                RTRIM(r.codmov) as codmov, RTRIM(r.nrodoc) as nrodoc
+            FROM AlmRMovm r
+            WHERE RTRIM(r.CodCia) = ? AND LTRIM(RTRIM(r.ordcmp)) = ?
+            ORDER BY r.nrodoc
+        """, (codcia_s, nrodoc_s))
+        
+        doc_keys = []
         for row in cursor.fetchall():
-            entry_dict = dict(zip(columns, row))
-            if entry_dict['fecha_ingreso']:
-                entry_dict['fecha_ingreso'] = entry_dict['fecha_ingreso'].strftime("%Y-%m-%d")
-            # Clean up floats
-            entry_dict['cantidad_ingresada'] = float(entry_dict['cantidad_ingresada']) if entry_dict['cantidad_ingresada'] is not None else 0
-            entries.append(entry_dict)
+            doc_keys.append({
+                "almcen": row.almcen, "tipmov": row.tipmov,
+                "codmov": row.codmov, "nrodoc": row.nrodoc
+            })
+        
+        if not doc_keys:
+            return {"company": company, "vouchers": []}
+        
+        vouchers = []
+        for dk in doc_keys:
+            # 3. Cabecera del voucher (AlmVMovm)
+            cursor.execute("""
+                SELECT 
+                    fchdoc, codmon, tpocmb, tpocmbe,
+                    RTRIM(codpro) as codpro, RTRIM(codcli) as codcli,
+                    RTRIM(ordtra) as ordtra, RTRIM(codcos) as codcos,
+                    RTRIM(glodoc) as glodoc, RTRIM(usuario) as usuario,
+                    RTRIM(nroref1) as nroref1, RTRIM(nroref2) as nroref2, RTRIM(nroref3) as nroref3,
+                    RTRIM(flgest) as flgest
+                FROM AlmVMovm 
+                WHERE RTRIM(codcia) = ? AND RTRIM(almcen) = ? 
+                  AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ? AND RTRIM(nrodoc) = ?
+            """, (codcia_s, dk["almcen"], dk["tipmov"], dk["codmov"], dk["nrodoc"]))
             
-        return entries
+            h_row = cursor.fetchone()
+            
+            # Descripción del almacén
+            cursor.execute("""
+                SELECT RTRIM(nombre) as nombre FROM AlmTabla 
+                WHERE RTRIM(codcia) = ? AND RTRIM(tabla) = 'ALMC' AND RTRIM(codigo) = ?
+            """, (codcia_s, dk["almcen"]))
+            alm_row = cursor.fetchone()
+            des_almacen = alm_row.nombre if alm_row else ""
+            
+            # Descripción del tipo de movimiento
+            cursor.execute("""
+                SELECT RTRIM(desmov) as desmov,
+                       RTRIM(gloref1) as gloref1, RTRIM(gloref2) as gloref2, RTRIM(gloref3) as gloref3
+                FROM almTmovm 
+                WHERE RTRIM(codcia) = ? AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ?
+            """, (codcia_s, dk["tipmov"], dk["codmov"]))
+            mov_row = cursor.fetchone()
+            des_movimiento = mov_row.desmov if mov_row else ""
+            
+            # Nombre del proveedor (si aplica)
+            nom_proveedor = ""
+            ruc_proveedor = ""
+            if h_row and h_row.codpro and h_row.codpro.strip():
+                cursor.execute("""
+                    SELECT RTRIM(nomaux) as nomaux, RTRIM(codaux) as codaux 
+                    FROM CbdMauxi 
+                    WHERE RTRIM(codcia) = ? AND RTRIM(codaux) = ?
+                """, (codcia_s, h_row.codpro.strip()))
+                prov_row = cursor.fetchone()
+                if prov_row:
+                    nom_proveedor = prov_row.nomaux or ""
+                    ruc_proveedor = prov_row.codaux or ""
+            
+            # Moneda
+            moneda_str = "S/."
+            if h_row:
+                cod_mon = str(h_row.codmon).strip() if h_row.codmon else "1"
+                if cod_mon == "2":
+                    moneda_str = "US$"
+                elif cod_mon == "3":
+                    moneda_str = "Eu$"
+            
+            # Formato de referencias
+            refs = []
+            if mov_row and h_row:
+                for i in range(1, 4):
+                    glo = getattr(mov_row, f'gloref{i}', None)
+                    nro = getattr(h_row, f'nroref{i}', None)
+                    if glo and glo.strip() and nro and nro.strip():
+                        refs.append(f"{glo.strip()} - {nro.strip()}")
+            
+            header = {
+                "almacen": dk["almcen"],
+                "des_almacen": des_almacen,
+                "tipmov": dk["tipmov"],
+                "codmov": dk["codmov"],
+                "des_movimiento": des_movimiento,
+                "nrodoc": dk["nrodoc"],
+                "fchdoc": h_row.fchdoc.strftime("%d/%m/%Y") if h_row and h_row.fchdoc else "",
+                "moneda": moneda_str,
+                "tipo_cambio": float(h_row.tpocmb) if h_row and h_row.tpocmb else 0,
+                "proveedor": nom_proveedor,
+                "ruc_proveedor": ruc_proveedor,
+                "observacion": h_row.glodoc if h_row and h_row.glodoc else "",
+                "usuario": h_row.usuario if h_row and h_row.usuario else "",
+                "ordcmp": nrodoc_s,
+                "referencias": refs,
+                "estado": h_row.flgest if h_row and h_row.flgest else ""
+            }
+            
+            # 4. Items del voucher (AlmRMovm)
+            cursor.execute("""
+                SELECT 
+                    nroitm, RTRIM(codmat) as codmat, RTRIM(desmat) as desmat,
+                    RTRIM(undstk) as undstk, facequ, candes, preuni, impcto,
+                    RTRIM(nrolote) as nrolote, fchlote
+                FROM AlmRMovm 
+                WHERE RTRIM(codcia) = ? AND RTRIM(almcen) = ? 
+                  AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ? AND RTRIM(nrodoc) = ?
+                ORDER BY nroitm
+            """, (codcia_s, dk["almcen"], dk["tipmov"], dk["codmov"], dk["nrodoc"]))
+            
+            items = []
+            total_cantidad = 0
+            total_precio = 0
+            total_importe = 0
+            
+            for it in cursor.fetchall():
+                cant = float(it.candes) if it.candes else 0
+                precio = float(it.preuni) if it.preuni else 0
+                importe = float(it.impcto) if it.impcto else cant * precio
+                
+                total_cantidad += cant
+                total_precio += precio
+                total_importe += importe
+                
+                items.append({
+                    "nroitm": int(it.nroitm) if it.nroitm else 0,
+                    "codmat": it.codmat or "",
+                    "desmat": it.desmat or "",
+                    "undstk": it.undstk or "",
+                    "nrolote": it.nrolote or "",
+                    "fchlote": it.fchlote.strftime("%d/%m/%Y") if it.fchlote else "",
+                    "candes": cant,
+                    "preuni": precio,
+                    "impcto": importe
+                })
+            
+            header["total_cantidad"] = total_cantidad
+            header["total_precio"] = total_precio
+            header["total_importe"] = total_importe
+            
+            vouchers.append({"header": header, "items": items})
+        
+        return {"company": company, "vouchers": vouchers}
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
