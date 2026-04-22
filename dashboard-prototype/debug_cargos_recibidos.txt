@@ -1,0 +1,1702 @@
+async function loadCargosRecibidos() {
+    const codcia = document.getElementById('filterCia').value;
+    if (!codcia) return;
+
+    if (recibidosDT) { recibidosDT.destroy(); recibidosDT = null; }
+    const thead = $('#cargosRecibidosTable thead');
+    const tbody = document.getElementById('cargosRecibidosTbody');
+    
+    if (viewModeBandeja === 'CARGO') {
+        thead.html(`<tr>
+            <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
+            <th>N° Cargo</th><th>Flujo</th><th>Estado</th><th>Generado</th><th>Área Origen</th><th style="text-align:right;">Items</th><th style="text-align:right;">Monto Total</th><th style="width:120px;">Acciones</th>
+        </tr>`);
+    } else {
+        thead.html(`<tr>
+            <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
+            <th>Estado İtem</th><th>N° Cargo</th><th>Generado</th><th>Origen</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
+        </tr>`);
+    }
+
+    tbody.innerHTML = `<tr><td colspan="${viewModeBandeja === 'CARGO' ? 9 : 11}" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando...</td></tr>`;
+
+    try {
+        
+        const res = await axios.get(`/api/cargos/bandeja?codcia=${encodeURIComponent(codcia)}&current_area=${currentArea}&_t=${new Date().getTime()}`);
+        const allItems = res.data;
+        let pending = allItems;
+tbody.innerHTML = '';
+        if (pending.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${viewModeBandeja === 'CARGO' ? 9 : 11}" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay OCs pendientes.</td></tr>`;
+            return;
+        }
+
+        let dtData = [];
+
+        if (viewModeBandeja === 'CARGO') {
+            const mapCargo = {};
+            pending.forEach(c => {
+                if (!mapCargo[c.CargoId]) {
+                    mapCargo[c.CargoId] = { CargoId: c.CargoId, NroCargo: c.NroCargo, TipoCargo: c.TipoCargo, FechaCargo: c.FechaCargo, AreaOrigen: c.AreaOrigen, EstadoCargo: c.EstadoCargo, Items: 0, MontoTotal: 0, EsDevuelto: false };
+                }
+                mapCargo[c.CargoId].Items++;
+                mapCargo[c.CargoId].MontoTotal += parseFloat(c.MontoFactura || 0);
+                if (c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO') mapCargo[c.CargoId].EsDevuelto = true;
+            });
+
+            dtData = Object.values(mapCargo).map(cg => {
+                const tipoLabel = cg.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
+                let estadoItem = cg.EsDevuelto 
+                    ? '<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTOS</span>' 
+                    : `<span style="color:#64748b; font-size:0.65rem; font-weight:700;">${cg.EstadoCargo}</span>`;
+
+                let dpItems = `<button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${cg.CargoId})">📄 Vista Cargo</button>`;
+                
+                let mainButtons = '';
+                if (cg.EstadoCargo === 'PENDIENTE' && !cg.EsDevuelto) {
+                    mainButtons += `<button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.7rem; display:inline-flex; align-items:center; gap:0.25rem;" onclick="event.preventDefault(); recibirCargo(${cg.CargoId})">📥 Recibir (${cg.Items})</button>`;
+                }
+                
+                let actionsHtml = `<div style="display:flex; align-items:center; gap:0.5rem; white-space:nowrap;">${mainButtons}<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Más Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div></div>`;
+
+                return [
+                    `<input type="checkbox" class="rec-chk no-print" data-cargoid="${cg.CargoId}">`,
+                    `<strong>${cg.NroCargo}</strong>`, tipoLabel, estadoItem, cg.FechaCargo || '-', cg.AreaOrigen || '-',
+                    `<span style="font-weight:700;">${cg.Items}</span>`, `S/ ${cg.MontoTotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                ];
+            });
+
+            recibidosDT = $('#cargosRecibidosTable').DataTable({
+                data: dtData, destroy: true,
+            deferRender: true, order: [[4, 'desc']], pageLength: 10,
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
+                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7] } } ],
+                columnDefs: [ { targets: [0, 8], orderable: false }, { targets: [6, 7], className: 'dt-right font-semibold text-slate-800' } ]
+            });
+        } else {
+            dtData = pending.map(c => {
+                const esDevueltoTesoreria = c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO';
+                let estadoItem;
+                if (esDevueltoTesoreria) estadoItem = '<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTO POR TESORERÍA</span>';
+                else if (c.EstadoContable === 'RECHAZADO') estadoItem = '<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">RECHAZADO</span>';
+                else if (c.EstadoContable === 'ACEPTADO') estadoItem = '<span style="color:#10b981; font-size:0.65rem; font-weight:700;">ACEPTADO</span>';
+                else estadoItem = '<span style="color:#64748b; font-size:0.65rem; font-weight:700;">PENDIENTE</span>';
+                
+                const tipoLabel = c.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
+
+                let dpItems = `
+                    <button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${c.CargoId})">📄 Vista Cargo</button>
+                    <button class="action-dropdown-item" onclick="openReportModal('${c.CodCiaOc||''}','${c.NroOrdenCompra||''}','${c.TipoOc||''}','')">📋 Ver Orden</button>
+                `;
+
+                let showWarehouse = String(c.TipoOc||'').trim().toUpperCase() === 'M';
+                if (showWarehouse) {
+                    dpItems += `<button class="action-dropdown-item" onclick="openWarehouseModal('${c.CodCiaOc||''}','${c.NroOrdenCompra||''}')">📦 Ingresos Almacén</button>`;
+                }
+                dpItems += `<button class="action-dropdown-item" onclick="openTrazaModal('${c.CodCiaOc||''}','${c.NroOrdenCompra||''}','${c.TipoOc||''}','')">🔗 Trazabilidad OC</button>`;
+                dpItems += `<div class="action-dropdown-divider"></div>`;
+                dpItems += `<button class="action-dropdown-item" onclick="openAttachmentModal('${c.CodCiaOc||''}','${c.TipoOc||''}','${c.NroOrdenCompra||''}','signed_order')">📝 Orden Firmada</button>`;
+                dpItems += `<button class="action-dropdown-item" onclick="openAttachmentModal('${c.CodCiaOc||''}','${c.TipoOc||''}','${c.NroOrdenCompra||''}','voucher')">💳 Voucher de Pago</button>`;
+                
+                let mainButtons = '';
+                if (c.EstadoCargo === 'PENDIENTE' && !esDevueltoTesoreria) {
+                    mainButtons += `<button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.7rem; display:inline-flex; align-items:center; gap:0.25rem;" onclick="event.preventDefault(); recibirCargo(${c.CargoId})">📥 Recibir</button>`;
+                }
+
+                if (esDevueltoTesoreria) {
+                    mainButtons += `<button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.7rem; display:inline-flex; align-items:center; gap:0.25rem; background:#dc2626; border-color:#dc2626;" onclick="reenviarATesoreria(${c.CargoId}, ${c.DetalleId}, '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${c.CodCiaOc||''}', '', '${(c.Proveedor||'').replace(/'/g,"\\'")}', '', ${c.MontoOC||0}, ${c.MontoFactura||0}, '${c.NroFactura||''}')">🔄 Reenviar a Tesorería</button>`;
+                }
+                if (c.FacturaUuid) {
+                    dpItems += `<div class="action-dropdown-divider"></div><button class="action-dropdown-item" onclick="window.open('/factura_visor.html?uid=${c.FacturaUuid}', '_blank')">📄 Ver Factura (PDF)</button>`;
+                }
+
+                let actionsHtml = `<div style="display:flex; align-items:center; gap:0.5rem; white-space:nowrap;">${mainButtons}<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Más Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div></div>`;
+                let facturaCell = c.NroFactura || '-';
+                if (c.FacturaUuid && c.NroFactura) facturaCell = `<a href="/factura_visor.html?uid=${c.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline;">${c.NroFactura}</a>`;
+
+                return [
+                    `<input type="checkbox" class="rec-chk no-print" data-cargoid="${c.CargoId}">`,
+                    estadoItem, `<strong>${c.NroCargo}</strong>`, c.FechaCargo || '-', tipoLabel, `<strong>${c.NroOrdenCompra || '-'}</strong>`,
+                    c.Proveedor || '-', facturaCell, c.EstadoAlmacen || '-', `S/ ${parseFloat(c.MontoFactura || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                ];
+            });
+
+            recibidosDT = $('#cargosRecibidosTable').DataTable({
+                data: dtData, destroy: true,
+            deferRender: true, order: [[3, 'desc']], pageLength: 10,
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
+                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
+                columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [9], className: 'dt-right font-semibold text-slate-800' } ]
+            });
+        }
+
+        $('#chkAllRecibidos').off('change').on('change', function() {
+            const checked = this.checked;
+            recibidosDT.rows().nodes().each(function(row) {
+                $(row).find('.rec-chk').prop('checked', checked);
+            });
+        });
+
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="${viewModeBandeja === 'CARGO' ? 9 : 11}" style="color:#ef4444; text-align:center; padding:2rem;">${err.message}</td></tr>`;
+    }
+}
+
+async function recibirCargo(id) {
+    try {
+        Swal.fire({title: 'Cargando detalle...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+        const res = await axios.get(`/api/cargos/${id}`);
+        const data = res.data;
+        Swal.close();
+        
+        // Add onchange handler to toggle observation input visibility
+        window.toggleObsInput = function(checkbox, id) {
+            const obsInput = document.getElementById(`obs_rechazo_${id}`);
+            if (checkbox.checked) {
+                obsInput.style.display = 'none';
+                obsInput.value = '';
+            } else {
+                obsInput.style.display = 'block';
+            }
+        };
+
+        let htmlContent = `
+            <div style="text-align:left; font-size:0.85rem; margin-bottom:1rem; color:#475569;">
+                Por favor, verifique los documentos recibidos. Desmarque los que presenten inconformidades y explique el motivo de rechazo.
+            </div>
+            <div style="max-height:50vh; overflow-y:auto; border:1px solid #cbd5e1; border-radius:6px; text-align:left;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead style="background:#f1f5f9; position:sticky; top:0; z-index:2;">
+                        <tr>
+                            <th style="padding:0.5rem; border-bottom:1px solid #cbd5e1; text-align:center; width:40px;">
+                                <input type="checkbox" checked onclick="document.querySelectorAll('.chk-recibir').forEach(cb => { cb.checked = this.checked; window.toggleObsInput(cb, cb.value); });" style="cursor:pointer; accent-color:#10b981;">
+                            </th>
+                            <th style="padding:0.5rem; border-bottom:1px solid #cbd5e1;">Evaluación OC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.detail.map(d => `
+                            <tr>
+                                <td style="padding:0.4rem; border-bottom:1px solid #e2e8f0; text-align:center; vertical-align:top;">
+                                    <input type="checkbox" class="chk-recibir" value="${d.Id}" checked onchange="window.toggleObsInput(this, ${d.Id})" style="cursor:pointer; accent-color:#10b981; margin-top:5px;">
+                                </td>
+                                <td style="padding:0.5rem; border-bottom:1px solid #e2e8f0;">
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                        <strong>OC: ${d.NroOrdenCompra || '-'}</strong>
+                                        <span style="color:#64748b;">Fac: ${d.NroFactura || '-'} (S/ ${parseFloat(d.MontoOC || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})})</span>
+                                    </div>
+                                    <input type="text" id="obs_rechazo_${d.Id}" class="obs-rechazo-input" placeholder="Especifique el motivo de rechazo..." style="display:none; width:100%; font-size:0.75rem; padding:0.3rem; border:1px solid #ef4444; border-radius:4px; margin-top:4px;">
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        const confirm = await Swal.fire({
+            title: `¿Recibir Cargo ${data.header.NroCargo}?`,
+            html: htmlContent,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar Recepción/Rechazo',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#10b981',
+            width: '650px'
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        const acceptedIds = [];
+        const rejectedItems = [];
+        let validationError = false;
+
+        document.querySelectorAll('.chk-recibir').forEach(cb => { 
+            const idInt = parseInt(cb.value);
+            if (cb.checked) {
+                acceptedIds.push(idInt); 
+            } else {
+                const obs = document.getElementById(`obs_rechazo_${idInt}`).value.trim();
+                if (!obs) validationError = true;
+                rejectedItems.push({ id: idInt, observacion: obs });
+            }
+        });
+
+        if (validationError) {
+            Swal.fire('Atención', 'Debe especificar el motivo de rechazo en todas las OCs desmarcadas.', 'warning');
+            return;
+        }
+
+        Swal.fire({title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+
+        await axios.post(`/api/cargos/${id}/recibir`, { 
+            usuario: currentUser, 
+            ids_aceptados: acceptedIds,
+            items_rechazados: rejectedItems
+        });
+
+        Swal.fire('Recepción Exitosa', 'El cargo y sus ítems han sido procesados y devueltos correctamente.', 'success');
+        loadCargosRecibidos();
+    } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+    }
+}
+
+function procesarPagoOC(detalleId, codcia, nrodoc, tipooc) {
+    document.getElementById('pago_idDetalle').value = detalleId;
+    document.getElementById('pago_codcia').value = codcia;
+    document.getElementById('pago_nrodoc').value = nrodoc;
+    document.getElementById('pago_tipooc').value = tipooc || 'O';
+    
+    // Default values
+    document.getElementById('pago_fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('pago_moneda').value = 'PEN';
+    document.getElementById('pago_banco').value = 'BCP';
+    document.getElementById('pago_tipo').value = 'TRANSFERENCIA';
+    document.getElementById('pago_nro_operacion').value = '';
+    document.getElementById('pago_monto').value = '';
+    document.getElementById('pago_adjuntos').value = '';
+    document.getElementById('pago_notas').value = '';
+
+    document.getElementById('modalPagoTesoreria').classList.add('active');
+}
+
+async function submitPagoTesoreria() {
+    const detalleId = document.getElementById('pago_idDetalle').value;
+    const files = document.getElementById('pago_adjuntos').files;
+
+    if (files.length > 3) {
+        Swal.fire('Atención', 'Puede subir un máximo de 3 adjuntos.', 'warning');
+        return;
+    }
+
+    let formData = new FormData();
+    formData.append('usuario', currentUser);
+    formData.append('moneda', document.getElementById('pago_moneda').value);
+    formData.append('monto', document.getElementById('pago_monto').value);
+    formData.append('banco', document.getElementById('pago_banco').value);
+    formData.append('tipo', document.getElementById('pago_tipo').value);
+    formData.append('fecha', document.getElementById('pago_fecha').value);
+    formData.append('nro_operacion', document.getElementById('pago_nro_operacion').value);
+    formData.append('notas', document.getElementById('pago_notas').value);
+    
+    for (let i = 0; i < files.length; i++) {
+        formData.append('archivos', files[i]);
+    }
+
+    try {
+        document.getElementById('modalPagoTesoreria').classList.remove('active');
+        Swal.fire({title: 'Registrando Pago...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+        
+        await axios.post(`/api/cargos/detalle/${detalleId}/pagar_completo`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        Swal.fire('Completado', 'El pago ha sido registrado y el cargo actualizado.', 'success');
+        loadCargosRecibidos();
+    } catch(err) {
+        Swal.fire('Error', err.response?.data?.detail || err.message, 'error');
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 3: HISTORIAL
+// ════════════════════════════════════════════════════════════
+
+let historialDT = null;
+
+async function loadHistorial() {
+    const codcia = document.getElementById('filterCia').value;
+    if (!codcia) return;
+
+    if (historialDT) { historialDT.destroy(); historialDT = null; }
+    
+    const thead = $('#historialTable thead');
+    const tbody = document.getElementById('historialTbody');
+
+    if (viewModeHistorial === 'CARGO') {
+        thead.html(`<tr>
+            <th>N° Cargo</th><th>Estado</th><th>Fecha Cargo</th><th>Flujo</th><th>Origen</th><th>Destino</th><th style="text-align:right;">Items</th><th style="text-align:right;">Monto Total</th><th style="width:100px;">Acciones</th>
+        </tr>`);
+    } else {
+        thead.html(`<tr>
+            <th>Estado İtem</th><th>N° Cargo</th><th>Fecha Cargo</th><th>Flujo</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
+        </tr>`);
+    }
+
+    tbody.innerHTML = `<tr><td colspan="${viewModeHistorial === 'CARGO' ? 9 : 10}" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando historial...</td></tr>`;
+
+    try {
+        const ano = document.getElementById("filterAno").value;
+        const mes = document.getElementById("filterMes").value;
+        const res = await axios.get(`/api/cargos/detallado/lista?codcia=${encodeURIComponent(codcia)}&ano=${ano}&mes=${mes}`);
+        const allItems = res.data;
+
+        let validos = [];
+        if (currentArea === 'LOGISTICA') validos = allItems.filter(c => c.AreaOrigen === 'LOGISTICA');
+        else if (currentArea === 'CONTABILIDAD') validos = allItems.filter(c => c.AreaDestino === 'CONTABILIDAD' || c.AreaOrigen === 'CONTABILIDAD');
+        else if (currentArea === 'TESORERIA') validos = allItems.filter(c => c.AreaDestino === 'TESORERIA');
+        else validos = allItems;
+
+        tbody.innerHTML = '';
+        if (validos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${viewModeHistorial === 'CARGO' ? 9 : 10}" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay historial para su área.</td></tr>`;
+            return;
+        }
+
+        let dtData = [];
+
+        if (viewModeHistorial === 'CARGO') {
+            const mapCargo = {};
+            validos.forEach(c => {
+                if (!mapCargo[c.CargoId]) {
+                    mapCargo[c.CargoId] = { CargoId: c.CargoId, NroCargo: c.NroCargo, TipoCargo: c.TipoCargo, FechaCargo: c.FechaCargo, AreaOrigen: c.AreaOrigen, AreaDestino: c.AreaDestino, EstadoCargo: c.EstadoCargo, Items: 0, MontoTotal: 0 };
+                }
+                mapCargo[c.CargoId].Items++;
+                mapCargo[c.CargoId].MontoTotal += parseFloat(c.MontoFactura || 0);
+            });
+
+            dtData = Object.values(mapCargo).map(cg => {
+                const tipoLabel = cg.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
+                const estadoItem = `<span style="color:#64748b; font-size:0.65rem; font-weight:700;">${cg.EstadoCargo}</span>`;
+                
+                let dpItems = `<button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${cg.CargoId})">📄 Vista Cargo Completo</button>`;
+                let actionsHtml = `<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div>`;
+
+                return [
+                    `<strong>${cg.NroCargo}</strong>`, estadoItem, cg.FechaCargo || '-', tipoLabel,
+                    cg.AreaOrigen || '-', cg.AreaDestino || '-',
+                    `<span style="font-weight:700;">${cg.Items}</span>`, `S/ ${cg.MontoTotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                ];
+            });
+
+            historialDT = $('#historialTable').DataTable({
+                data: dtData, destroy: true,
+            deferRender: true, order: [[2, 'desc']], pageLength: 10,
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
+                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7] } } ],
+                columnDefs: [ { targets: [6, 7], className: 'dt-right font-semibold text-slate-800' } ]
+            });
+        } else {
+            dtData = validos.map(c => {
+                let estadoItem = c.EstadoContable === 'RECHAZADO' 
+                    ? '<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">RECHAZADO</span>' 
+                    : (c.EstadoContable === 'ACEPTADO' ? '<span style="color:#10b981; font-size:0.65rem; font-weight:700;">ACEPTADO</span>' : '<span style="color:#64748b; font-size:0.65rem; font-weight:700;">PENDIENTE</span>');
+                if (c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO') {
+                    estadoItem = '<span style="color:#fff; background:#dc2626; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;">DEVUELTO TESORERÍA</span>';
+                }
+
+                const tipoLabel = c.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
+
+                let dpItems = `<button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${c.CargoId})">📄 Vista Cargo</button>`;
+                
+                if (c.NroOrdenCompra) {
+                    const codcia = (c.CodCiaOc || '').trim();
+                    const nrodoc = (c.NroOrdenCompra || '').trim();
+                    const tipooc = (c.TipoOc || '').trim();
+                    const anos = (c.AnosOc || '').trim();
+                    const showWarehouse = tipooc.toUpperCase() === 'M';
+
+                    dpItems += `<button class="action-dropdown-item" onclick="openReportModal('${codcia}','${nrodoc}','${tipooc}','${anos}')">📋 Ver Orden</button>`;
+                    if (showWarehouse) dpItems += `<button class="action-dropdown-item" onclick="openWarehouseModal('${codcia}','${nrodoc}')">📦 Ingresos Almacén</button>`;
+                    dpItems += `<button class="action-dropdown-item" onclick="openTrazaModal('${codcia}','${nrodoc}','${tipooc}','${anos}')">🔗 Trazabilidad OC</button>`;
+                    dpItems += `<div class="action-dropdown-divider"></div>`;
+                    dpItems += `<button class="action-dropdown-item" onclick="openAttachmentModal('${codcia}','${tipooc}','${nrodoc}','signed_order')">📝 Orden Firmada</button>`;
+                    dpItems += `<button class="action-dropdown-item" onclick="openAttachmentModal('${codcia}','${tipooc}','${nrodoc}','voucher')">💳 Voucher de Pago</button>`;
+                }
+                
+                if (c.FacturaUuid) {
+                    dpItems += `<div class="action-dropdown-divider"></div><button class="action-dropdown-item" onclick="window.open('/factura_visor.html?uid=${c.FacturaUuid}', '_blank')">📄 Ver Factura (PDF)</button>`;
+                }
+
+                let actionsHtml = `<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div>`;
+                let facturaCell = c.NroFactura || '-';
+                if (c.FacturaUuid && c.NroFactura) facturaCell = `<a href="/factura_visor.html?uid=${c.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline;">${c.NroFactura}</a>`;
+
+                return [
+                    estadoItem, `<strong>${c.NroCargo}</strong><br><span style="font-size:0.65rem; color:#64748b;">${c.EstadoCargo}</span>`,
+                    c.FechaCargo || '-', tipoLabel, `<strong>${c.NroOrdenCompra || '-'}</strong>`, c.Proveedor || '-',
+                    facturaCell, c.EstadoAlmacen || '-', `S/ ${parseFloat(c.MontoFactura || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                ];
+            });
+
+            historialDT = $('#historialTable').DataTable({
+                data: dtData, destroy: true,
+            deferRender: true, order: [[2, 'desc']], pageLength: 10,
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
+                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8] } } ],
+                columnDefs: [ { targets: [8], className: 'dt-right font-semibold text-slate-800' } ]
+            });
+        }
+
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="${viewModeHistorial === 'CARGO' ? 9 : 10}" style="color:#ef4444; text-align:center; padding:2rem;">${err.message}</td></tr>`;
+    }
+}
+
+async function eliminarCargo(id) {
+    const confirm = await Swal.fire({
+        title: '¿Eliminar Cargo?',
+        text: 'Esta acción eliminará permanentemente el cargo y su detalle.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, Eliminar',
+        confirmButtonColor: '#ef4444'
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+        await axios.delete(`/api/cargos/${id}`);
+        Swal.fire('Eliminado', 'Cargo eliminado exitosamente.', 'success');
+        loadHistorial();
+        loadCargosRecibidos();
+    } catch (err) {
+        Swal.fire('Error', err.response?.data?.detail || err.message, 'error');
+    }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  CARGO DETAIL MODAL + REPORTE
+// ════════════════════════════════════════════════════════════
+
+async function openCargoDetail(cargoId) {
+    document.getElementById('cargoDetailModal').classList.add('active');
+    const content = document.getElementById('reportPreviewContent');
+    
+    try {
+        Swal.fire({title: 'Cargando detalle...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+        const res = await axios.get(`/api/cargos/${cargoId}`);
+        const data = res.data;
+        Swal.close();
+        const h = data.header;
+        const det = data.detail;
+
+        document.getElementById('cargoDetailNro').textContent = h.NroCargo;
+
+        const tipoLabel = h.TipoCargo === 'LOG_A_CONT'
+            ? 'LOGÍSTICA → CONTABILIDAD'
+            : 'CONTABILIDAD → TESORERÍA';
+
+        let mapOC = {};
+        let totalOC = 0, totalFact = 0;
+        
+        det.forEach(d => {
+            const key = d.NroOrdenCompra || d.Id;
+            if (!mapOC[key]) {
+                mapOC[key] = { ...d, MontoFacturaTotal: 0, FacturasList: [], LinksHtml: [] };
+                totalOC += parseFloat(d.MontoOC || 0);
+                
+                if (d.NroOrdenCompra) {
+                    const codcia = (d.CodCiaOc || '').trim();
+                    const nrodoc = (d.NroOrdenCompra || '').trim();
+                    const tipooc = (d.TipoOc || '').trim();
+                    mapOC[key].LinksHtml.push(`<a href="#" onclick="event.preventDefault(); openReportModal('${codcia}', '${nrodoc}', '${tipooc}', '')" class="no-print" style="color:#10b981; text-decoration:none; margin-right:4px;" title="Ver OC">🔗OC</a>`);
+                    if (tipooc === 'M') {
+                        mapOC[key].LinksHtml.push(`<a href="#" onclick="event.preventDefault(); openWarehouseModal('${codcia}', '${nrodoc}')" class="no-print" style="color:#f59e0b; text-decoration:none; margin-right:4px;" title="Ver Almacén">📦Almacén</a>`);
+                    }
+                    mapOC[key].LinksHtml.push(`<a href="#" onclick="event.preventDefault(); openTrazaModal('${codcia}', '${nrodoc}', '${tipooc}', '')" class="no-print" style="color:#8b5cf6; text-decoration:none; margin-right:4px;" title="Trazabilidad">📊Traza</a>`);
+                }
+            }
+            
+            mapOC[key].MontoFacturaTotal += parseFloat(d.MontoFactura || 0);
+            totalFact += parseFloat(d.MontoFactura || 0);
+            
+            if (d.FacturaUuid) {
+                mapOC[key].LinksHtml.push(`<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" class="no-print" style="color:#2563eb; text-decoration:none; margin-right:4px;" title="Ver Factura">📄</a>`);
+            }
+
+            let fHtml = d.NroFactura || '-';
+            if (d.FacturaUuid && d.NroFactura) {
+                fHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">${d.NroFactura}</a>`;
+            }
+            mapOC[key].FacturasList.push({
+                fHtml: fHtml,
+                fch: d.fch_factura || '-',
+                monto: parseFloat(d.MontoFactura || 0)
+            });
+        });
+
+        const detailRows = Object.values(mapOC).map((d, i) => {
+            const estadoItem = d.EstadoContable === 'RECHAZADO' 
+                ? '<span style="color:#ef4444; font-size:0.65rem; font-weight:700; border:1px solid #fecaca; padding:1px 4px; border-radius:3px; background:#fef2f2;">RECHAZADO</span>' 
+                : '';
+
+            const linksHtml = d.LinksHtml.join('');
+            const rspan = d.FacturasList.length;
+            
+            let rowsHtml = '';
+            d.FacturasList.forEach((fact, idx) => {
+                if (idx === 0) {
+                    rowsHtml += `<tr>
+                        <td style="text-align:center;" rowspan="${rspan}">${i + 1}</td>
+                        <td rowspan="${rspan}"><strong>${d.NroOrdenCompra || '-'}</strong> ${estadoItem}<br><span style="font-size:0.65rem; color:#64748b;">${linksHtml}</span></td>
+                        <td rowspan="${rspan}">${d.TipoOc || '-'}</td>
+                        <td style="font-size:0.75rem;" rowspan="${rspan}">${d.fch_oc || '-'}</td>
+                        <td style="font-size:0.75rem;" rowspan="${rspan}">${d.Proveedor || '-'}<br><small style="color:#64748b;">${d.RucProveedor || '-'}</small></td>
+                        <td style="border-left: 1px solid #cbd5e1;">${fact.fHtml}</td>
+                        <td style="font-size:0.75rem;">${fact.fch}</td>
+                        <td style="text-align:center; font-size:0.75rem;" rowspan="${rspan}">${d.EstadoAlmacen || '-'}<br><small style="color:#64748b;">${d.fch_almacen || '-'}</small></td>
+                        <td style="text-align:right;" rowspan="${rspan}">S/ ${parseFloat(d.MontoOC || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                        <td style="text-align:right; font-weight:600;">S/ ${fact.monto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                    </tr>`;
+                } else {
+                    rowsHtml += `<tr>
+                        <td style="border-left: 1px solid #cbd5e1;">${fact.fHtml}</td>
+                        <td style="font-size:0.75rem;">${fact.fch}</td>
+                        <td style="text-align:right; font-weight:600;">S/ ${fact.monto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                    </tr>`;
+                }
+            });
+
+            if (d.OCItems) {
+                rowsHtml += `<tr><td colspan="10" style="font-size:0.7rem; color:#475569; background:#f8fafc; padding:0.25rem 0.5rem; text-align:left; border-bottom:1px solid #e2e8f0; border-top:1px dashed #cbd5e1;">↳ <strong>Detalle OC:</strong> ${d.OCItems}</td></tr>`;
+            }
+            return rowsHtml;
+        }).join('');
+
+        content.innerHTML = `
+            <div class="report-band">
+                <div>
+                    <h2 style="font-size:1.15rem; font-weight:700; color:#1e3a5f; margin:0 0 0.15rem;">CORPORACIÓN Y.L.V S.A.C</h2>
+                    <p style="font-size:0.75rem; color:#6b7280; margin:0; line-height:1.4;">RUC: 20601234567<br>CARGO DE ENTREGA DOCUMENTAL</p>
+                </div>
+                <div class="report-badge-box">
+                    <div class="rpt-label">CARGO DE ENTREGA</div>
+                    <div class="rpt-number">${h.NroCargo}</div>
+                    <div class="rpt-date">Generado: ${h.FechaCargo || '-'}</div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0.3rem 0.75rem; font-size:0.8rem; padding:0.85rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1.25rem;">
+                <span style="font-weight:600; color:#64748b;">Tipo:</span>
+                <span style="color:#0f172a; font-weight:600;">${tipoLabel}</span>
+                <span style="font-weight:600; color:#64748b;">Estado:</span>
+                <span style="color:#0f172a; font-weight:600;">${h.Estado}</span>
+                <span style="font-weight:600; color:#64748b;">Entrega:</span>
+                <span>${h.AreaOrigen} — ${h.UsuarioOrigen || '-'}</span>
+                <span style="font-weight:600; color:#64748b;">Recepción:</span>
+                <span>${h.UsuarioDestino ? h.AreaDestino + ' — ' + h.UsuarioDestino : '(Pendiente)'} ${h.FechaRecepcion ? '<br><small>(' + h.FechaRecepcion + ')</small>' : ''}</span>
+                ${h.Observaciones ? `<span style="font-weight:600; color:#64748b;">Notas:</span><span style="grid-column:span 3;">${h.Observaciones}</span>` : ''}
+            </div>
+
+            <table class="rpt-table">
+                <thead>
+                    <tr>
+                        <th style="width:30px; text-align:center;">N°</th>
+                        <th>N° OC</th><th>Tipo</th><th>Fch. OC</th><th>Proveedor / RUC</th><th>N° Factura</th><th>Fch. Factura</th><th>Almacén</th>
+                        <th style="text-align:right;">Monto OC</th><th style="text-align:right;">Monto Factura</th>
+                    </tr>
+                </thead>
+                <tbody>${detailRows}</tbody>
+                <tfoot>
+                    <tr style="background:#f0f4f8; font-weight:700; border-top:2px solid #1e3a5f;">
+                        <td colspan="8" style="text-align:right; border:1px solid #cbd5e1;">TOTALES (${det.length} documentos):</td>
+                        <td style="text-align:right; border:1px solid #cbd5e1;">S/ ${totalOC.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                        <td style="text-align:right; border:1px solid #cbd5e1;">S/ ${totalFact.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div style="margin-top:1.25rem; padding:0.65rem 1rem; border:1px solid #94a3b8; border-radius:6px; font-size:0.7rem; text-align:center; color:#475569; background:#f8fafc;">
+                Declaro haber recibido la documentación arriba descrita en conformidad y buen estado.<br>
+                Cualquier observación deberá ser comunicada dentro de las 24 horas siguientes a la recepción.
+            </div>
+
+            <div style="display:flex; justify-content:center; gap:2rem; margin-top:1.5rem; flex-wrap:wrap;">
+                ${(() => {
+                    const isSignedOrigin = !!h.FechaCargo;
+                    const b64Origin = btoa(h.UsuarioOrigen || 'N/A').substring(0,8);
+                    const suffixOrigin = 'ORG-' + b64Origin;
+                    if (isSignedOrigin) {
+                        return `<div style="flex:1; max-width:320px; border:1.5px dashed #22c55e; border-radius:12px; padding:1.25rem; text-align:left; background:rgba(34, 197, 94, 0.05); position:relative; box-shadow:0 4px 6px -1px rgba(34,197,94,0.1);">
+                            <div style="position:absolute; top:-12px; right:15px; background:#fff; padding:0 8px; color:#22c55e;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                            </div>
+                            <h4 style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#166534; font-weight:700; display:flex; align-items:center; gap:0.4rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                                FIRMADO ELECTRÓNICAMENTE
+                            </h4>
+                            <div style="font-family:monospace; font-size:0.75rem; color:#475569; margin-bottom:0.5rem;">
+                                <strong>Rol:</strong> EMISOR (ORIGEN)<br>
+                                <strong>Área:</strong> ${h.AreaOrigen}<br>
+                                <strong>Usuario:</strong> ${h.UsuarioOrigen || 'Desconocido'}
+                            </div>
+                            <div style="font-family:monospace; font-size:0.65rem; color:#94a3b8; border-top:1px solid #bbf7d0; padding-top:0.5rem; margin-top:0.5rem; word-break:break-all;">
+                                <strong>Sello Timestamp:</strong> ${h.FechaCargo}<br>
+                                <strong>Hash Conform:</strong> SHA256-${suffixOrigin}
+                            </div>
+                        </div>`;
+                    } else {
+                        return `<div style="flex:1; max-width:320px; border:1.5px dashed #cbd5e1; border-radius:12px; padding:1.25rem; text-align:center; background:#f8fafc; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:160px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" width="32" height="32" style="margin-bottom:0.75rem;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            <h4 style="margin:0 0 0.5rem 0; font-size:0.8rem; color:#64748b; font-weight:700;">EMISOR (ORIGEN)</h4>
+                            <span style="font-size:0.75rem; color:#94a3b8;">Pendiente de Firma<br>(${h.AreaOrigen})</span>
+                        </div>`;
+                    }
+                })()}
+
+                ${(() => {
+                    const isSignedDest = (h.FechaRecepcion && h.FechaRecepcion !== '-');
+                    const b64Dest = btoa(h.UsuarioDestino || 'N/A').substring(0,8);
+                    const suffixDest = 'DST-' + b64Dest;
+                    if (isSignedDest) {
+                        return `<div style="flex:1; max-width:320px; border:1.5px dashed #22c55e; border-radius:12px; padding:1.25rem; text-align:left; background:rgba(34, 197, 94, 0.05); position:relative; box-shadow:0 4px 6px -1px rgba(34,197,94,0.1);">
+                            <div style="position:absolute; top:-12px; right:15px; background:#fff; padding:0 8px; color:#22c55e;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                            </div>
+                            <h4 style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#166534; font-weight:700; display:flex; align-items:center; gap:0.4rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                                FIRMADO ELECTRÓNICAMENTE
+                            </h4>
+                            <div style="font-family:monospace; font-size:0.75rem; color:#475569; margin-bottom:0.5rem;">
+                                <strong>Rol:</strong> RECEPTOR (DESTINO)<br>
+                                <strong>Área:</strong> ${h.AreaDestino}<br>
+                                <strong>Usuario:</strong> ${h.UsuarioDestino || 'Desconocido'}
+                            </div>
+                            <div style="font-family:monospace; font-size:0.65rem; color:#94a3b8; border-top:1px solid #bbf7d0; padding-top:0.5rem; margin-top:0.5rem; word-break:break-all;">
+                                <strong>Sello Timestamp:</strong> ${h.FechaRecepcion}<br>
+                                <strong>Hash Conform:</strong> SHA256-${suffixDest}
+                            </div>
+                        </div>`;
+                    } else {
+                        return `<div style="flex:1; max-width:320px; border:1.5px dashed #cbd5e1; border-radius:12px; padding:1.25rem; text-align:center; background:#f8fafc; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:160px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" width="32" height="32" style="margin-bottom:0.75rem;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            <h4 style="margin:0 0 0.5rem 0; font-size:0.8rem; color:#64748b; font-weight:700;">RECEPTOR (DESTINO)</h4>
+                            <span style="font-size:0.75rem; color:#94a3b8;">Pendiente de Firma<br>(${h.AreaDestino})</span>
+                        </div>`;
+                    }
+                })()}
+            </div>
+        `;
+    } catch (err) {
+        content.innerHTML = `<div style="text-align:center; padding:3rem; color:#ef4444;">${err.message}</div>`;
+    }
+}
+
+function closeCargoDetail() {
+    document.getElementById('cargoDetailModal').classList.remove('active');
+}
+
+function printCargoReport() {
+    window.print();
+}
+
+// ════════════════════════════════════════════════════════════
+//  REENVIAR A TESORERÍA (Devueltos)
+// ════════════════════════════════════════════════════════════
+
+async function reenviarATesoreria(cargoId, detalleId, nroOc, tipoOc, codciaOc, anosOc, proveedor, ruc, montoOc, montoFactura, nroFactura) {
+    const { value: nota } = await Swal.fire({
+        title: '🔄 Reenviar a Tesorería',
+        html: `<div style="text-align:left; font-size:0.85rem; margin-bottom:1rem;">
+            <p><strong>OC:</strong> ${nroOc} | <strong>Proveedor:</strong> ${proveedor}</p>
+            <p>Indique las subsanaciones realizadas:</p></div>`,
+        input: 'textarea',
+        inputPlaceholder: 'Describa las correcciones realizadas...',
+        showCancelButton: true,
+        confirmButtonText: 'Reenviar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#2563eb',
+        inputValidator: (val) => { if (!val) return 'Debe indicar la subsanación.'; }
+    });
+    if (!nota) return;
+
+    try {
+        Swal.fire({ title: 'Reenviando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const payload = {
+            codcia: document.getElementById('filterCia').value,
+            tipo_cargo: 'CONT_A_TES',
+            usuario_origen: currentUser,
+            area_origen: 'CONTABILIDAD',
+            area_destino: 'TESORERIA',
+            observaciones: `REENVÍO - Subsanación: ${nota}`,
+            detalle: [{ nro_orden_compra: nroOc, tipo_oc: tipoOc, codcia_oc: codciaOc, anos_oc: anosOc || '', nro_factura: nroFactura || '', monto_oc: parseFloat(montoOc || 0), monto_factura: parseFloat(montoFactura || 0), proveedor: proveedor || '', ruc_proveedor: ruc || '' }]
+        };
+        await axios.post('/api/cargos/generar', payload);
+        Swal.fire({ icon: 'success', title: '¡Reenviado!', text: `La OC ${nroOc} fue reenviada a Tesorería.`, timer: 2000, showConfirmButton: false });
+        loadCargosRecibidos();
+        loadHistorial();
+    } catch (err) {
+        Swal.fire('Error', String(err), 'error');
+    }
+}
+
+
+
+// ── MODALES MIGRATIOS DESDE ORDERS.JS ──
+function formatStatus(status) {
+    const s = String(status || '').trim().toUpperCase();
+    let watermark = '';
+    let badge = '';
+
+    if (s === 'X' || s === 'E*' || s === 'ANULADO') {
+        watermark = '<div class="watermark-text wm-anulado">ANULADO</div>';
+        badge = '<span class="badge canceled"><i class="fas fa-times-circle"></i> ANULADO</span>';
+    } else if (s === 'C' || s === 'CERRADO') {
+        watermark = '<div class="watermark-text wm-completo">CERRADO</div>';
+        badge = '<span class="badge approved" style="background:#f0fdf4; color:#16a34a;"><i class="fas fa-check-double"></i> CERRADO</span>';
+    } else if (s === 'P') {
+        badge = '<span class="badge" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-clock"></i> PENDIENTE</span>';
+    } else if (s === 'E') {
+        badge = '<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fas fa-file-signature"></i> EMITIDO</span>';
+    } else {
+        badge = '<span class="badge pending"><i class="fas fa-clock"></i> SIN ESTADO</span>';
+    }
+    
+    return { watermark, badge };
+}
+
+async function openReportModal(codcia, nrodoc, tipooc, year) {
+    document.getElementById('reportOcNro').textContent = `N° ${nrodoc}`;
+    document.getElementById('reportModal').classList.add('active');
+    const container = document.getElementById('reportContent');
+    container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">Cargando reporte...</div>';
+
+    try {
+        const token = localStorage.getItem('yelave_token');
+        let url = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/report?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}`;
+        if (year) url += `&year=${encodeURIComponent(year)}`;
+
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Error al cargar reporte');
+        }
+        const data = await res.json();
+        
+        // Cargar Firmas (Acciones)
+        let acciones = [];
+        try {
+            const urlAcc = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/acciones?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}&year=${encodeURIComponent(year || '')}`;
+            const resAcc = await fetch(urlAcc, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (resAcc.ok) {
+                const accData = await resAcc.json();
+                acciones = accData.acciones || [];
+            }
+        } catch(e) { console.warn("Error cargando firmas", e); }
+
+        // Cargar Adjuntos
+        let attachedDocs = { signed: [], voucher: [] };
+        try {
+            const getDocs = async (type) => {
+                const resApp = await fetch(`/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=${type}`);
+                return resApp.ok ? await resApp.json() : [];
+            };
+            attachedDocs.signed = await getDocs('signed_order');
+            attachedDocs.voucher = await getDocs('voucher');
+        } catch(e) { console.warn("Error cargando archivos adjuntos en reporte", e); }
+
+        renderReport(data, acciones, attachedDocs);
+    } catch (err) {
+        container.innerHTML = `<div style="text-align:center;padding:3rem;color:#ef4444;font-weight:500;">❌ ${err.message}</div>`;
+    }
+}
+
+function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher: [] }) {
+    const { company, header, items } = data;
+    const sym = header.codmon || 'S/';
+    let html = '';
+
+    // ── Watermark inside Report ──
+    const statusInfo = formatStatus(header.flgest || header.estado);
+    if (statusInfo.watermark) {
+        html += `<div style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); z-index:0; pointer-events:none; opacity:0.15; width:100%; text-align:center;">
+                    ${statusInfo.watermark.replace('position: absolute;', '')}
+                 </div>`;
+    }
+
+    // ── Header Band ──
+    const orderStatusColor = (header.estado_ingreso && header.estado_ingreso.includes('Completo')) ? 'var(--success)' : (header.estado_ingreso === 'Parcial' ? 'var(--warning)' : 'var(--text-sidebar)');
+    
+    let reportTitle = 'ORDEN DE COMPRA';
+    let reportBg = '#1e3a5f'; // Default blue
+    const t = String(header.tipooc || '').trim().toUpperCase();
+    if (t === 'S') { reportTitle = 'ORDEN DE SERVICIOS'; reportBg = '#16a34a'; }
+    if (t === 'T') { reportTitle = 'ORDEN CONTABLE'; reportBg = '#8b5cf6'; }
+
+    html += `
+    <div class="report-header-band" style="position:relative; z-index:1;">
+        <div class="report-company-info">
+            <h2>${company.nomcia || 'EMPRESA'}</h2>
+            <p>${company.dircia || ''}</p>
+            <p>RUC: <strong>${company.ruccia || ''}</strong></p>
+        </div>
+        <div class="report-oc-badge" style="background:${reportBg} !important;">
+            <div class="oc-label" style="display:flex; justify-content:space-between; align-items:center;">
+                ${reportTitle} N° 
+                <span style="background:${orderStatusColor}; color:white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600;">
+                    ${header.estado_ingreso || 'Pendiente'}
+                </span>
+            </div>
+            <div class="oc-number">${header.nrodoc}</div>
+            <div class="oc-date">${header.fchdoc}</div>
+        </div>
+    </div>`;
+
+    // ── Supplier Box ──
+    html += `
+    <div class="report-supplier-box" style="position:relative; z-index:1;">
+        <span class="lbl">Señores :</span><span class="val-full" style="font-weight:600;">${header.nomaux}</span>
+        <span class="lbl">Dirección :</span><span class="val-full">${header.diraux}</span>
+        <span class="lbl">Atención :</span><span class="val">${header.contacto}</span>
+        <span class="lbl">Teléfono :</span><span class="val">${header.tlfaux}</span>
+        <span class="lbl">Ruc :</span><span class="val"><strong>${header.rucaux}</strong></span>
+        <span class="lbl">Comprador :</span><span class="val">${header.nomcom}</span>
+        ${header.fax ? `<span class="lbl">Fax :</span><span class="val">${header.fax}</span>` : ''}
+        ${header.nroreq ? `<span class="lbl">N° Req. :</span><span class="val">${header.nroreq}</span>` : ''}
+    </div>`;
+
+    // ── Items Table ──
+    const isGoods = (t === 'M');
+    const colCantLabel = isGoods ? 'Cant' : 'Cantidad';
+    const statusColLabel = isGoods ? 'Recibido' : 'Facturado';
+
+    html += `
+    <table class="report-table" style="position:relative; z-index:1;">
+        <thead><tr>
+            <th style="width:30px;text-align:center;">N°</th>
+            <th style="width:75px;">Código</th>
+            <th>Producto / Servicio</th>
+            <th style="width:35px;text-align:center;">Und</th>
+            <th style="width:65px;text-align:right;">${colCantLabel}</th>
+            ${isGoods ? '<th style="width:65px;text-align:right;">Recibido</th>' : ''}
+            <th style="width:65px;text-align:right;">Facturado</th>
+            <th style="width:65px;text-align:center;">Estado</th>
+            <th style="width:70px;text-align:right;">Precio</th>
+            <th style="width:80px;text-align:right;">Total</th>
+        </tr></thead><tbody>`;
+
+    if (items.length === 0) {
+        html += `<tr><td colspan="${isGoods ? '10' : '9'}" style="text-align:center;color:#94a3b8;padding:2rem;">Sin ítems</td></tr>`;
+    } else {
+        items.forEach(it => {
+            const rowColor = (it.estado_ingreso === 'Completo') ? 'color: var(--success); font-weight:600;' : (it.estado_ingreso === 'Parcial' ? 'color: var(--warning); font-weight:600;' : 'color:#64748b;');
+
+            html += `<tr>
+                <td style="text-align:center;color:#64748b;font-weight:600;">${it.item_display}</td>
+                <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
+                <td style="font-weight:500;">${it.desmat}</td>
+                <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
+                <td style="text-align:right;">${fmtNum(it.candes)}</td>
+                ${isGoods ? `<td style="text-align:right;font-weight:600;color:#22c55e;">${fmtNum(it.cant_ingresada)}</td>` : ''}
+                <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(it.cant_facturada)}</td>
+                <td style="text-align:center;font-size:0.7rem;${rowColor}">${it.estado_ingreso}</td>
+                <td style="text-align:right;">${fmtNum(it.preuni)}</td>
+                <td style="text-align:right;font-weight:600;color:var(--primary);">${sym} ${fmtNum(it.imptot)}</td>
+            </tr>`;
+            if (it.notas && it.notas.length) {
+                it.notas.forEach(n => {
+                    html += `<tr class="note-row"><td></td><td></td><td colspan="${isGoods ? '8' : '7'}" style="padding-left:1.5rem;"><span style="color:#94a3b8;">↳</span> ${n}</td></tr>`;
+                });
+            }
+        });
+    }
+    html += '</tbody></table>';
+
+    // ── Totals ──
+    html += `
+    <div class="report-totals-box">
+        <table>
+            <tr><td style="text-align:right;color:#64748b;font-weight:500;">Sub Total :</td>
+                <td style="text-align:center;width:40px;color:#64748b;">${sym}</td>
+                <td style="text-align:right;min-width:100px;">${fmtNum(header.impnet)}</td></tr>
+            <tr><td style="text-align:right;color:#64748b;">IGV ${fmtNum(header.porigv, 2)}% :</td>
+                <td style="text-align:center;color:#64748b;">${sym}</td>
+                <td style="text-align:right;">${fmtNum(header.impigv)}</td></tr>
+            <tr class="row-total"><td style="text-align:right;color:#1e3a5f;">Total General</td>
+                <td style="text-align:center;color:#1e3a5f;">${sym}</td>
+                <td style="text-align:right;color:#1e3a5f;">${fmtNum(header.imptot)}</td></tr>
+        </table>
+    </div>`;
+
+    // ── Footer Info ──
+    html += '<dl class="report-footer-dl">';
+    if (header.glodoc) html += `<dt>Nota :</dt><dd>${header.glodoc}</dd>`;
+    if (header.tmpent) html += `<dt>Tiempo Entrega :</dt><dd>${header.tmpent}</dd>`;
+    if (header.entrega) html += `<dt>Entrega :</dt><dd>${header.entrega}</dd>`;
+    if (header.lugent) html += `<dt>Lugar Entrega :</dt><dd>${header.lugent}</dd>`;
+    if (header.despag) html += `<dt>Cond. de Pago :</dt><dd><strong>${header.despag}</strong></dd>`;
+    html += '</dl>';
+
+    // ── Disclaimer ──
+    html += `<div class="report-disclaimer">
+        A la entrega de la mercadería dejar copia o fotostática de la guía de remisión.<br>
+        En la oficina se recepcionará facturas adjuntando guía y o/c.
+    </div>`;
+
+    // ── Signatures ──
+    html += `<style>
+        .report-signatures { display:flex; justify-content:space-between; margin-top:2.5rem; gap:1.5rem; }
+        .sig-block { flex:1; padding:0.75rem; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; font-size:0.75rem; text-align:center; }
+        .sig-pending { background:#fff; border-style:dashed; color:#94a3b8; }
+        .sig-approved { border-color:#22c55e; background:#f0fdf4; }
+        .sig-registered { border-color:#3b82f6; background:#eff6ff; }
+        .sig-closed { border-color:#8b5cf6; background:#faf5ff; }
+        .sig-title { font-weight:700; margin-bottom:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.5rem; font-size:0.8rem; }
+        .sig-user { font-weight:600; color:#1e293b; margin-bottom:0.25rem; font-size:0.85rem;}
+        .sig-date { color:#64748b; font-size:0.7rem; }
+    </style>`;
+
+    html += `<div class="report-signatures">`;
+    
+    const getActionDate = (fch) => {
+        if(!fch) return '';
+        const d = new Date(fch);
+        return `${d.toLocaleDateString('es-PE')} ${d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'})}`;
+    }
+
+    const reg = acciones.find(a => a.accion === 'REGISTRO');
+    if (reg) {
+        html += `<div class="sig-block sig-registered">
+            <div class="sig-title"><span style="color:#3b82f6;">📝</span> REGISTRADO POR</div>
+            <div class="sig-user">${reg.usuario_nombre || reg.usuario_login || 'Usuario'}</div>
+            <div class="sig-date">${getActionDate(reg.fecha_hora)}</div>
+        </div>`;
+    } else {
+        html += `<div class="sig-block sig-pending"><div class="sig-title">REGISTRO PENDIENTE</div></div>`;
+    }
+
+    const apr = acciones.find(a => a.accion === 'APROBACION');
+    if (apr) {
+        html += `<div class="sig-block sig-approved">
+            <div class="sig-title"><span style="color:#22c55e;">✅</span> APROBADO POR</div>
+            <div class="sig-user">${apr.usuario_nombre || apr.usuario_login || 'Usuario'}</div>
+            <div class="sig-date">${getActionDate(apr.fecha_hora)}</div>
+        </div>`;
+    } else {
+        html += `<div class="sig-block sig-pending"><div class="sig-title">APROBACIÓN PENDIENTE</div><div class="sig-date">En espera</div></div>`;
+    }
+
+    const cie = acciones.find(a => a.accion === 'CIERRE');
+    if (cie) {
+        html += `<div class="sig-block sig-closed">
+            <div class="sig-title"><span style="color:#8b5cf6;">🔒</span> CERRADO POR</div>
+            <div class="sig-user">${cie.usuario_nombre || cie.usuario_login || 'Usuario'}</div>
+            <div class="sig-date">${getActionDate(cie.fecha_hora)}</div>
+        </div>`;
+    } else {
+        html += `<div class="sig-block sig-pending"><div class="sig-title">CIERRE PENDIENTE</div><div class="sig-date">En proceso</div></div>`;
+    }
+
+    html += `</div>`;
+
+    html += `</div>`;
+
+    html += `</div>`;
+
+    // ─── Attachments List in Report
+    const signedFiles = attachedDocs.signed || [];
+    const voucherFiles = attachedDocs.voucher || [];
+
+    if(signedFiles.length > 0 || voucherFiles.length > 0) {
+        html += `
+            <div style="margin-top: 2rem; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-family: 'Inter', sans-serif;">
+                <div style="background: #f8fafc; padding: 0.75rem 1.25rem; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center; gap:0.5rem;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Documentos Adjuntos
+                </div>
+                <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        `;
+        
+        const renderFiles = (files, title, color) => {
+            if(!files.length) return '';
+            let filesHtml = files.map(f => {
+                const isImg = f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 0.6rem 0.8rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; margin-top:0.4rem;">
+                        <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; color:#475569; overflow:hidden;">
+                            ${isImg ? '🖼️' : '📄'} 
+                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.filename}">${f.filename}</span>
+                        </div>
+                        <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" onclick="viewReportAttachment('${f.url}', '${f.filename}')">Virtualizar 👁</button>
+                    </div>
+                `;
+            }).join('');
+            return `
+                <div>
+                    <h5 style="margin: 0 0 0.2rem 0; font-size: 0.85rem; font-weight: 600; color: ${color};">${title}</h5>
+                    ${filesHtml}
+                </div>
+            `;
+        };
+
+        html += renderFiles(signedFiles, 'Orden Firmada - OC', '#2563eb');
+        html += renderFiles(voucherFiles, 'Vouchers de Pago', '#f59e0b');
+
+        html += `</div></div>`;
+    }
+
+    document.getElementById('reportContent').innerHTML = html;
+}
+
+function closeReportModal() { 
+    document.getElementById('reportModal').classList.remove('active'); 
+    closeReportViewer();
+}
+
+function printReport() { window.print(); }
+
+// ─── Attachments Split View ─────────────────────────
+function viewReportAttachment(url, filename) {
+    const viewer = document.getElementById('reportAttachmentViewer');
+    const iframe = document.getElementById('reportAttachmentIframe');
+    const loader = document.getElementById('reportViewerLoader');
+    const title = document.getElementById('reportViewerTitle');
+    
+    const modal = document.querySelector('#reportModal .modal');
+    modal.style.transition = 'max-width 0.3s ease-out';
+    modal.style.maxWidth = '1400px';
+
+    viewer.style.display = 'flex';
+    loader.style.display = 'flex';
+    iframe.style.display = 'none'; // hide until loaded
+    iframe.onload = () => {
+        loader.style.display = 'none';
+        iframe.style.display = 'block';
+    };
+    iframe.src = url;
+    
+    title.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <span style="white-space:nowrap; max-width:250px; overflow:hidden; text-overflow:ellipsis;" title="${filename}">${filename}</span>
+    `;
+}
+
+function viewReportAttachment(url, filename) {
+    const viewer = document.getElementById('reportAttachmentViewer');
+    const iframe = document.getElementById('reportAttachmentIframe');
+    const loader = document.getElementById('reportViewerLoader');
+    const title = document.getElementById('reportViewerTitle');
+    
+    const modal = document.querySelector('#reportModal .modal');
+    modal.style.transition = 'max-width 0.3s ease-out';
+    modal.style.maxWidth = '1400px';
+
+    viewer.style.display = 'flex';
+    loader.style.display = 'flex';
+    iframe.style.display = 'none'; // hide until loaded
+    iframe.onload = () => {
+        loader.style.display = 'none';
+        iframe.style.display = 'block';
+    };
+    iframe.src = url;
+    
+    title.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <span style="white-space:nowrap; max-width:250px; overflow:hidden; text-overflow:ellipsis;" title="${filename}">${filename}</span>
+    `;
+}
+
+function closeReportViewer() {
+    const viewer = document.getElementById('reportAttachmentViewer');
+    const iframe = document.getElementById('reportAttachmentIframe');
+    
+    if(viewer) viewer.style.display = 'none';
+    if(iframe) iframe.src = '';
+    
+    const modal = document.querySelector('#reportModal .modal');
+    if(modal) modal.style.maxWidth = '920px';
+}
+
+async function openWarehouseModal(codcia, nrodoc) {
+    document.getElementById('warehouseOcNro').textContent = nrodoc;
+    document.getElementById('warehouseModal').classList.add('active');
+    const tbody = document.getElementById('warehouse-tbody');
+    // Use the modal body directly for a richer layout
+    const modalBody = tbody.closest('.modal-body');
+    modalBody.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">Consultando ingresos a almacén...</div>';
+
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const url = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/warehouse-entry?codcia=${encodeURIComponent(codcia)}`;
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        
+        if (!res.ok) throw new Error('Error al obtener ingresos a almacén');
+        const data = await res.json();
+        
+        if (!data.vouchers || data.vouchers.length === 0) {
+            modalBody.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">No hay ingresos a almacén registrados para esta OC.</div>';
+            return;
+        }
+
+        let html = '';
+        const co = data.company;
+
+        data.vouchers.forEach((v, idx) => {
+            const h = v.header;
+            const isAnulado = h.estado && h.estado.trim().toUpperCase() === 'A';
+
+            html += `<div id="warehouseVoucher${idx}" style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem; ${idx > 0 ? 'margin-top:1.5rem; border-top:3px dashed #cbd5e1; padding-top:2rem;' : ''}">`;
+
+            // ── Header Band ──
+            html += `
+            <div class="report-header-band">
+                <div class="report-company-info">
+                    <h2>${co.nomcia || 'EMPRESA'}</h2>
+                    <p>${co.dircia || ''}</p>
+                </div>
+                <div class="report-oc-badge">
+                    <div class="oc-label">Documento N°</div>
+                    <div class="oc-number">${h.nrodoc}</div>
+                    <div class="oc-date">${h.fchdoc}</div>
+                </div>
+            </div>`;
+
+            // ── Info Box ──
+            html += `
+            <div style="font-size:0.8rem; margin-bottom:1rem;">
+                <div style="display:flex; gap:2rem; margin-bottom:0.5rem;">
+                    <div><strong>${h.almacen}</strong> &nbsp; ${h.des_almacen}</div>
+                </div>
+            </div>
+            <div class="report-supplier-box">
+                <span class="lbl">Movimiento :</span><span class="val">${h.tipmov} &nbsp; ${h.codmov} &nbsp; ${h.des_movimiento}</span>
+                <span class="lbl">Documento :</span><span class="val"><strong>${h.nrodoc}</strong></span>
+                ${h.proveedor ? `<span class="lbl">Proveedor :</span><span class="val">${h.ruc_proveedor} &nbsp; ${h.proveedor}</span>` : ''}
+                <span class="lbl">Moneda :</span><span class="val">${h.moneda}</span>
+                <span class="lbl">T.Cambio :</span><span class="val">${fmtNum(h.tipo_cambio, 4)}</span>
+                <span class="lbl">Fecha :</span><span class="val">${h.fchdoc}</span>
+                <span class="lbl">USUARIO :</span><span class="val"><strong>${h.usuario}</strong></span>
+                ${h.ordcmp ? `<span class="lbl">O. Compra :</span><span class="val">${h.ordcmp}</span>` : ''}
+            </div>`;
+
+            // Referencias
+            if (h.referencias && h.referencias.length > 0) {
+                html += `<div style="font-size:0.775rem; padding:0.5rem 1rem; background:#f0f4ff; border:1px solid #c7d2fe; border-radius:6px; margin-bottom:0.75rem;">
+                    <strong>Documentos de Referencia:</strong><br>`;
+                h.referencias.forEach(r => { html += `<span style="margin-right:1.5rem;">${r}</span>`; });
+                html += `</div>`;
+            }
+
+            // Observacion
+            if (h.observacion) {
+                html += `<div style="font-size:0.775rem; margin-bottom:0.75rem;"><strong>Observación:</strong> ${h.observacion}</div>`;
+            }
+
+            // Anulado banner
+            if (isAnulado) {
+                html += `<div style="text-align:center; padding:0.75rem; background:#fee2e2; border:2px solid #ef4444; border-radius:8px; margin-bottom:1rem; font-weight:700; color:#991b1b; font-size:1rem;">** A N U L A D O **</div>`;
+            }
+
+            // ── Items Table ──
+            html += `
+            <table class="report-table">
+                <thead><tr>
+                    <th style="width:30px;text-align:center;">Ite</th>
+                    <th style="width:80px;">Artículo</th>
+                    <th>Descripción</th>
+                    <th style="width:45px;text-align:center;">Unidad</th>
+                    <th style="width:80px;">NROLOTE</th>
+                    <th style="width:75px;">Fch. Vto</th>
+                    <th style="width:80px;text-align:right;">Cantidad</th>
+                    <th style="width:80px;text-align:right;">Precio</th>
+                    <th style="width:90px;text-align:right;">Total</th>
+                </tr></thead><tbody>`;
+
+            if (v.items.length === 0) {
+                html += '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:1.5rem;">Sin ítems</td></tr>';
+            } else {
+                v.items.forEach(it => {
+                    html += `<tr>
+                        <td style="text-align:center;font-weight:600;">${it.nroitm}</td>
+                        <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
+                        <td style="font-weight:500;">${it.desmat}</td>
+                        <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
+                        <td style="font-family:monospace;font-size:0.725rem;">${it.nrolote || ''}</td>
+                        <td style="font-size:0.75rem;">${it.fchlote || ''}</td>
+                        <td style="text-align:right;font-weight:600;">${fmtNum(it.candes, 6)}</td>
+                        <td style="text-align:right;">${fmtNum(it.preuni, 6)}</td>
+                        <td style="text-align:right;font-weight:600;color:var(--primary);">${fmtNum(it.impcto, 6)}</td>
+                    </tr>`;
+                });
+            }
+            html += '</tbody></table>';
+
+            // ── Totals ──
+            html += `
+            <div class="report-totals-box">
+                <table>
+                    <tr>
+                        <td style="text-align:right;font-weight:700;font-size:0.875rem;padding:0.5rem 1rem;">TOTAL :</td>
+                        <td style="text-align:right;min-width:90px;font-weight:600;">${fmtNum(h.total_cantidad, 6)}</td>
+                        <td style="text-align:right;min-width:90px;font-weight:600;">${fmtNum(h.total_precio, 6)}</td>
+                        <td style="text-align:right;min-width:100px;font-weight:700;color:var(--primary);font-size:0.9rem;">${fmtNum(h.total_importe, 6)}</td>
+                    </tr>
+                </table>
+            </div>`;
+
+            html += '</div>'; // close voucher div
+        });
+
+        modalBody.innerHTML = html;
+
+    } catch (err) {
+        modalBody.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger);">${err.message}</div>`;
+    }
+}
+
+function closeWarehouseModal() { document.getElementById('warehouseModal').classList.remove('active'); }
+
+function printWarehouseVoucher() {
+    const modal = document.getElementById('warehouseModal');
+    const content = modal.querySelector('.modal-body');
+    if (!content) return;
+    const printWin = window.open('', '_blank');
+    printWin.document.write(`<!DOCTYPE html><html><head><title>Voucher de Almacén</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 11pt; color: #1a1a1a; margin: 12mm; }
+            .report-header-band { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:1rem; margin-bottom:1rem; border-bottom:3px solid #1e3a5f; }
+            .report-company-info h2 { font-size:1.1rem; font-weight:700; color:#1e3a5f; margin:0 0 0.1rem; }
+            .report-company-info p { font-size:0.75rem; color:#6b7280; margin:0; }
+            .report-oc-badge { text-align:right; background:#1e3a5f; color:#fff; padding:0.6rem 1rem; border-radius:6px; min-width:160px; }
+            .report-oc-badge .oc-label { font-size:0.6rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8; }
+            .report-oc-badge .oc-number { font-size:1.4rem; font-weight:700; }
+            .report-oc-badge .oc-date { font-size:0.8rem; opacity:0.9; }
+            .report-supplier-box { display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0.2rem 0.4rem; font-size:0.75rem; padding:0.7rem 0.8rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:0.75rem; }
+            .report-supplier-box .lbl { font-weight:600; color:#64748b; }
+            .report-supplier-box .val { color:#0f172a; }
+            .report-table { width:100%; border-collapse:collapse; margin-top:0.25rem; }
+            .report-table th { background:#e2e8f0; font-weight:700; font-size:0.65rem; text-transform:uppercase; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; text-align:left; }
+            .report-table td { border:1px solid #e2e8f0; padding:0.35rem 0.4rem; font-size:0.75rem; }
+            .report-totals-box { display:flex; justify-content:flex-end; margin-top:0.5rem; }
+            .report-totals-box td { padding:0.3rem 0.5rem; font-size:0.8rem; }
+            @media print { body { margin: 8mm; } }
+        </style>
+    </head><body>${content.innerHTML}</body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 300);
+}
+
+function printWarehouseVoucher() {
+    const modal = document.getElementById('warehouseModal');
+    const content = modal.querySelector('.modal-body');
+    if (!content) return;
+    const printWin = window.open('', '_blank');
+    printWin.document.write(`<!DOCTYPE html><html><head><title>Voucher de Almacén</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 11pt; color: #1a1a1a; margin: 12mm; }
+            .report-header-band { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:1rem; margin-bottom:1rem; border-bottom:3px solid #1e3a5f; }
+            .report-company-info h2 { font-size:1.1rem; font-weight:700; color:#1e3a5f; margin:0 0 0.1rem; }
+            .report-company-info p { font-size:0.75rem; color:#6b7280; margin:0; }
+            .report-oc-badge { text-align:right; background:#1e3a5f; color:#fff; padding:0.6rem 1rem; border-radius:6px; min-width:160px; }
+            .report-oc-badge .oc-label { font-size:0.6rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8; }
+            .report-oc-badge .oc-number { font-size:1.4rem; font-weight:700; }
+            .report-oc-badge .oc-date { font-size:0.8rem; opacity:0.9; }
+            .report-supplier-box { display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0.2rem 0.4rem; font-size:0.75rem; padding:0.7rem 0.8rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:0.75rem; }
+            .report-supplier-box .lbl { font-weight:600; color:#64748b; }
+            .report-supplier-box .val { color:#0f172a; }
+            .report-table { width:100%; border-collapse:collapse; margin-top:0.25rem; }
+            .report-table th { background:#e2e8f0; font-weight:700; font-size:0.65rem; text-transform:uppercase; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; text-align:left; }
+            .report-table td { border:1px solid #e2e8f0; padding:0.35rem 0.4rem; font-size:0.75rem; }
+            .report-totals-box { display:flex; justify-content:flex-end; margin-top:0.5rem; }
+            .report-totals-box td { padding:0.3rem 0.5rem; font-size:0.8rem; }
+            @media print { body { margin: 8mm; } }
+        </style>
+    </head><body>${content.innerHTML}</body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 300);
+}
+
+async function openAttachmentModal(codcia, tipooc, nrodoc, docType) {
+    currentAttachmentContext = { codcia, tipooc, nrodoc, docType };
+    
+    const title = (docType === 'signed_order') ? 'Orden Firmada' : 'Vouchers de Pago';
+    document.getElementById('attachmentModalTitle').textContent = title;
+    document.getElementById('attachmentOcNro').textContent = nrodoc;
+    document.getElementById('attachmentModal').classList.add('active');
+    
+    loadAttachmentList();
+}
+
+function closeAttachmentModal() {
+    document.getElementById('attachmentModal').classList.remove('active');
+    currentAttachmentContext = null;
+    document.getElementById('attachmentFileInput').value = '';
+}
+
+async function loadAttachmentList() {
+    const listEl = document.getElementById('attachmentList');
+    listEl.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando archivos...</div>';
+    
+    if (!currentAttachmentContext) return;
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    
+    try {
+        const url = `/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=${docType}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Error al listar adjuntos');
+        const files = await res.json();
+        
+        if (files.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">No hay archivos adjuntos para este tipo.</div>';
+            return;
+        }
+        
+        let html = '';
+        files.forEach(f => {
+            const isImg = f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+            const icon = isImg ? `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:#10b981;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>` : `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:#ef4444;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>`;
+
+            html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:white; border:1px solid var(--border); border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:0.75rem; overflow:hidden;">
+                    ${icon}
+                    <span style="font-size:0.8125rem; font-weight:500; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.filename}">${f.filename}</span>
+                </div>
+                <button onclick="openPreviewModal('${f.url}', '${f.filename}')" class="btn btn-outline" style="padding:0.35rem 0.6rem; font-size:0.75rem; display:flex; align-items:center; gap:0.3rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+                    </svg>Ver
+                </button>
+            </div>`;
+        });
+        listEl.innerHTML = html;
+        
+    } catch (err) {
+        listEl.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--danger); font-size:0.875rem;">${err.message}</div>`;
+    }
+}
+
+async function handleAttachmentUpload() {
+    const fileInput = document.getElementById('attachmentFileInput');
+    if (!fileInput.files.length || !currentAttachmentContext) return;
+    
+    const file = fileInput.files[0];
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    
+    const formData = new FormData();
+    formData.append('codcia', codcia);
+    formData.append('tipooc', tipooc);
+    formData.append('nrodoc', nrodoc);
+    formData.append('doc_type', docType);
+    formData.append('file', file);
+    
+    try {
+        Swal.fire({ title: 'Subiendo archivo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
+        const res = await fetch('/api/logistics/attachments/upload', { 
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Error al subir');
+        }
+        
+        Swal.fire({ icon: 'success', title: '¡Subido!', text: 'El archivo se guardó correctamente.', timer: 1500, showConfirmButton: false });
+        fileInput.value = '';
+        loadAttachmentList();
+        
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    }
+}
+
+function openPreviewModal(url, filename) {
+    document.getElementById('previewModal').classList.add('active');
+    document.getElementById('previewModalTitle').textContent = filename || 'Visualización de Archivo';
+    
+    const downloadBtn = document.getElementById('previewModalDownloadBtn');
+    downloadBtn.href = url;
+    downloadBtn.setAttribute('download', filename || 'documento');
+    
+    const body = document.getElementById('previewModalBody');
+    const isImage = url.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) != null;
+    const cacheUrl = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+    
+    if (isImage) {
+        body.innerHTML = `<img src="${cacheUrl}" alt="${filename}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:8px;">`;
+    } else {
+        // Assume PDF or other browser-supported document
+        body.innerHTML = `<iframe src="${cacheUrl}#toolbar=0&navpanes=0&view=FitH" frameborder="0" style="width:100%; height:100%; border:none;"></iframe>`;
+    }
+}
+
+function closePreviewModal() {
+    document.getElementById('previewModal').classList.remove('active');
+    document.getElementById('previewModalBody').innerHTML = '<div style="color:var(--text-muted);">Cargando previsualización...</div>';
+}
+
+function closeTrazaModal() {
+    document.getElementById('trazaModal').classList.remove('active');
+}
+
+async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
+    document.getElementById('trazaModal').classList.add('active');
+    document.getElementById('trazaOcNro').textContent = nrodoc;
+    const content = document.getElementById('trazaContent');
+    content.innerHTML = '<div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando trazabilidad...</div>';
+
+    try {
+        let url = `/api/contabilidad/trazabilidad/${encodeURIComponent(nrodoc)}?codcia=${encodeURIComponent(codcia)}`;
+        if (tipooc) url += `&tipo_oc=${encodeURIComponent(tipooc)}`;
+        if (anos) url += `&year=${encodeURIComponent(anos)}`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Error cargando trazabilidad');
+        const data = await res.json();
+
+        const r = data.resumen;
+        const fmtN = (v) => v != null ? parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0.00';
+
+        let html = `
+        <div class="traza-summary">
+            <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_items_oc}</div><div class="tlabel">Items OC</div></div>
+            <div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>
+            ${tipooc === 'M' ? `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#22c55e;">${fmtN(r.total_almacen)}</div><div class="tlabel">Cant. Almacén</div></div>` : ''}
+            <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>
+            <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_facturas}</div><div class="tlabel">Facturas</div></div>
+        </div>`;
+
+        // ─── Validaciones / Alertas ───
+        if (data.validaciones && data.validaciones.length > 0) {
+            html += `<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+                <h5 style="margin:0 0 0.5rem 0; color:#b45309; font-size:0.85rem; font-weight:700;">⚠️ Advertencias y Discrepancias</h5>
+                <ul style="margin:0; padding-left:1.5rem; color:#92400e; font-size:0.75rem; font-weight:500;">`;
+            data.validaciones.forEach(val => {
+                html += `<li style="margin-bottom:0.25rem;">${val}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+
+        // ─── Timeline Information Prep ───
+        const dateOC = data.fch_oc ? new Date(data.fch_oc) : null;
+        const diffDays = (dStr) => {
+            if (!dateOC || !dStr) return null;
+            const d = new Date(dStr);
+            const diffTime = d.getTime() - dateOC.getTime();
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        let events = [];
+        if (data.fch_oc) {
+            events.push({ type: 'oc', fchdoc: data.fch_oc, label: 'Orden Emitida', desc: '', icon: '📝', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' });
+        }
+        if (data.movimientos_almacen) {
+            data.movimientos_almacen.forEach(m => {
+                if (m.fchdoc) events.push({ type: 'alm', fchdoc: m.fchdoc, label: `Ingreso a Almacén`, desc: `Inv: ${m.nrodoc}`, icon: '📦', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' });
+            });
+        }
+        if (data.facturas) {
+            data.facturas.forEach(f => {
+                if (f.FecEmision) events.push({ type: 'fac', fchdoc: f.FecEmision, label: `Facturación`, desc: `Serie/Núm: ${f.Serie}-${f.Numero}`, icon: '🧾', color: '#9333ea', bg: '#faf5ff', border: '#e9d5ff' });
+            });
+        }
+        events.sort((a,b) => new Date(a.fchdoc) - new Date(b.fchdoc));
+
+        // Items Table
+        html += `<div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1rem;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+                <tr style="background:#f1f5f9;">
+                    <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">#</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Código</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Descripción</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Cant. OC</th>
+                    ${tipooc === 'M' ? `<th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#22c55e; border-bottom:2px solid #cbd5e1;">Almacén</th>` : ''}
+                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">Facturado</th>
+                </tr>
+            </thead><tbody>`;
+
+        if (data.items.length === 0) {
+            html += `<tr><td colspan="${tipooc === 'M' ? '6' : '5'}" style="text-align:center; padding:2rem; color:#94a3b8;">Sin ítems encontrados en la OC</td></tr>`;
+        } else {
+            data.items.forEach((it, idx) => {
+                const almClass = it.pct_almacen >= 100 ? 'complete' : (it.pct_almacen > 0 ? 'partial' : 'pending');
+                const facClass = it.pct_facturado >= 100 ? 'complete' : (it.pct_facturado > 0 ? 'partial' : 'pending');
+
+                let trWarning = '';
+                if (it.warnings && it.warnings.length > 0) {
+                    const warnsInfo = it.warnings.map(w => `<span style="display:inline-block; margin-right:12px;">⚠️ ${w}</span>`).join('');
+                    trWarning = `<tr style="background:#fffbeb; border-bottom:1px solid #f1f5f9;">
+                         <td colspan="${tipooc === 'M' ? '6' : '5'}" style="padding:0.35rem 0.6rem; font-size:0.68rem; font-weight:500; color:#b45309;">
+                             ${warnsInfo}
+                         </td>
+                    </tr>`;
+                }
+
+                html += `<tr style="border-bottom:${it.warnings && it.warnings.length ? 'none' : '1px solid #f1f5f9'};">
+                    <td style="padding:0.5rem; text-align:center; color:#64748b;">${it.nroitm}</td>
+                    <td style="padding:0.5rem; font-family:monospace; font-size:0.725rem;">${it.codmat}</td>
+                    <td style="padding:0.5rem;">${(it.desmat || '').substring(0, 50)}</td>
+                    <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(it.candes)}</td>
+                    ${tipooc === 'M' ? `<td style="padding:0.5rem; text-align:center;">
+                        <div style="font-weight:600; ${almClass === 'complete' ? 'color:#22c55e;' : almClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_almacen)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_almacen}%)</span></div>
+                        <div class="traza-bar"><div class="traza-bar-fill ${almClass}" style="width:${Math.min(it.pct_almacen, 100)}%;"></div></div>
+                    </td>` : ''}
+                    <td style="padding:0.5rem; text-align:center;">
+                        <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_facturada)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
+                        <div class="traza-bar"><div class="traza-bar-fill ${facClass}" style="width:${Math.min(it.pct_facturado, 100)}%;"></div></div>
+                    </td>
+                </tr>${trWarning}`;
+            });
+        }
+        html += '</tbody></table></div>';
+
+        // Section: Documentos Agrupados (Vertically stacked for full width)
+        html += `<div style="display:flex; flex-direction:column; gap:1.5rem; margin-bottom:1.5rem;">`;
+
+        if (tipooc === 'M') {
+            html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem;">
+                <h5 style="font-size:0.85rem; font-weight:700; margin-top:0; margin-bottom:1rem; color:#1e293b; border-bottom:2px solid #22c55e; padding-bottom:0.5rem;"><span style="color:#22c55e;">📦</span> Detalle de Movimientos Almacén</h5>
+                <div style="overflow-x:auto;">`;
+
+            if (data.movimientos_almacen && data.movimientos_almacen.length > 0) {
+                html += `<table style="width:100%; border-collapse:collapse; font-size:0.75rem; background:#fff; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
+                    <thead>
+                        <tr style="color:#334155; background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Almacén</th>
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Doc. Referencia</th>
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Fecha</th>
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Material</th>
+                            <th style="padding:0.5rem; text-align:right; font-weight:600;">Cantidad</th>
+                            <th style="padding:0.5rem; text-align:right; font-weight:600;">Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                data.movimientos_almacen.forEach((m, idx) => {
+                    const isLast = idx === data.movimientos_almacen.length - 1;
+                    html += `
+                        <tr style="${!isLast ? 'border-bottom:1px solid #e2e8f0;' : ''}">
+                            <td style="padding:0.5rem; color:#64748b;">${m.almcen}</td>
+                            <td style="padding:0.5rem; color:#1d4ed8; font-weight:600;">${m.tipmov}-${m.codmov}-${m.nrodoc}</td>
+                            <td style="padding:0.5rem; color:#475569;">${m.fchdoc}</td>
+                            <td style="padding:0.5rem; font-family:monospace; font-weight:600; color:#475569;">${m.codmat}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600; color:#16a34a;">${fmtN(m.candes)}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(m.preuni)} <span style="font-size:0.65rem; color:#64748b; font-weight:400;">${m.codmon_desc || ''}</span></td>
+                        </tr>`;
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += '<div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.8rem; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px;">No hay movimientos.</div></div>';
+            }
+            html += `</div>`; // End top card (Movimientos)
+        }
+
+        html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem;">
+                 <h5 style="font-size:0.85rem; font-weight:700; margin-top:0; margin-bottom:1rem; color:#1e293b; border-bottom:2px solid #8b5cf6; padding-bottom:0.5rem;"><span style="color:#8b5cf6;">🧾</span> Facturas Vinculadas</h5>
+                 <div class="traza-factura-list">`;
+        
+        // Linked invoices
+        if (data.facturas && data.facturas.length > 0) {
+            data.facturas.forEach(f => {
+                const facturaUrl = f.Uuid ? `factura_visor.html?uid=${f.Uuid}` : '#';
+                html += `
+                <div style="margin-bottom:1rem; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem 1rem; background:#f8fafc; border-bottom:${f.detalles && f.detalles.length ? '1px solid #cbd5e1' : 'none'};">
+                        <div style="display:flex; align-items:center; gap:0.85rem;">
+                            <div style="background:#f0f7ff; color:#2563eb; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            </div>
+                            <div>
+                                <div style="font-weight:700; color:#1e293b;">${f.Serie || ''}-${f.Numero || ''}</div>
+                                <div style="font-size:0.7rem; color:#64748b;">${f.NomProveedor || '-'}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-weight:700; color:#1e293b;">${fmtN(f.Total)} ${f.codmon_desc || f.CodMoneda}</div>
+                            <div style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem; margin-top:0.25rem;">
+                                <span style="font-size:0.7rem; color:#64748b;">${f.FecEmision || '-'}</span>
+                                ${f.Uuid ? `<a href="${facturaUrl}" target="_blank" class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.65rem; height:auto; text-decoration:none;">Ver PDF</a>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+
+                if (f.detalles && f.detalles.length > 0) {
+                    html += `<div style="padding:0 0.75rem 0.75rem 0.75rem;"><table style="width:100%; font-size:0.72rem; border-collapse:collapse; margin-top:0.5rem; background:#fff; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
+                        <thead>
+                           <tr style="color:#334155; background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
+                             <th style="padding:0.5rem; text-align:left; font-weight:600;">Cod. Material</th>
+                             <th style="padding:0.5rem; text-align:left; font-weight:600;">Descripción</th>
+                             <th style="padding:0.5rem; text-align:right; font-weight:600;">Cantidad</th>
+                             <th style="padding:0.5rem; text-align:right; font-weight:600;">Precio Unitario</th>
+                           </tr>
+                        </thead><tbody>`;
+                    f.detalles.forEach((d, idx) => {
+                        const isLast = idx === f.detalles.length - 1;
+                        html += `<tr style="${!isLast ? 'border-bottom:1px solid #e2e8f0;' : ''}">
+                            <td style="padding:0.5rem; font-family:monospace; font-weight:600; color:#475569;">${d.codmat}</td>
+                            <td style="padding:0.5rem; font-weight:500;">${(d.desmat || '')}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600; color:#8b5cf6;">${fmtN(d.cant)}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(d.preuni)} <span style="font-size:0.65rem; color:#64748b; font-weight:400;">${f.codmon_desc || ''}</span></td>
+                        </tr>`;
+                    });
+                    html += `</tbody></table></div>`;
+                }
+                html += `</div>`;
+            });
+            html += '</div>';
+        } else {
+            html += '<div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.8rem; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px;">No hay facturas vinculadas aún.</div></div>';
+        }
+        
+        html += `</div>`; // End right card
+        html += `</div>`; // End grouped flex
+
+        // ─── Vertical Timeline Render ───
+        html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem;">
+            <h5 style="font-size:0.85rem; font-weight:700; color:#1e293b; margin-top:0; margin-bottom:1.2rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem;"><span style="color:#f59e0b; margin-right:6px;">⏱️</span> Línea de Tiempo (Cronograma)</h5>`;
+        
+        html += `<div style="border-left:2px solid #cbd5e1; margin-left:1rem; padding-left:1.5rem; position:relative; display:flex; flex-direction:column; gap:1.2rem;">`;
+
+        events.forEach(ev => {
+             const dd = diffDays(ev.fchdoc);
+             const daysText = dd === 0 ? "Mismo Día" : (dd > 0 ? `+${dd} Días` : `${dd} Días`);
+             html += `
+             <div style="position:relative;">
+                 <div style="position:absolute; left:-1.9rem; top:0.25rem; width:14px; height:14px; background:#fff; border:3px solid ${ev.color}; border-radius:50%;"></div>
+                 <div style="background:${ev.bg}; border:1px solid ${ev.border}; padding:0.6rem 1rem; border-radius:8px;">
+                     <div style="display:flex; justify-content:space-between; align-items:center;">
+                         <div style="font-weight:700; color:${ev.color}; font-size:0.75rem;"><span style="font-size:0.85rem; margin-right:4px;">${ev.icon}</span> ${ev.label}</div>
+                         <div style="font-size:0.7rem; color:#475569; font-weight:600; padding:2px 8px; background:#fff; border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">${daysText}</div>
+                     </div>
+                     <div style="color:#64748b; font-size:0.72rem; margin-top:0.4rem;">Fecha doc: <strong style="color:#334155;">${ev.fchdoc}</strong> ${ev.desc ? `<span style="margin-left:0.5rem; padding-left:0.5rem; border-left:1px solid #cbd5e1; color:#64748b;">${ev.desc}</span>` : ''}</div>
+                 </div>
+             </div>
+             `;
+        });
+        
+        if (events.length === 0) {
+             html += `<div style="color:#64748b; font-size:0.8rem; font-style:italic;">Sin eventos registrados</div>`;
+        }
+        html += `</div></div>`;
+
+        // ─── Botón Cerrar Proceso Completo ───
+        const hasWarnings = data.validaciones && data.validaciones.length > 0;
+        const isClosed = String(data.resumen.estado_oc || '').trim().toUpperCase() === 'C';
+        
+        html += `<div style="margin-top:2rem; text-align:right; border-top:1px solid #e2e8f0; padding-top:1.5rem;">`;
+        if (!isClosed) {
+            if (hasWarnings) {
+                html += `<button class="btn" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;" title="Hay discrepancias en la trazabilidad. Resuélvalas antes de cerrar.">
+                    🔒 Cerrar Proceso Completo
+                </button>`;
+            } else {
+                html += `<button class="btn btn-primary" style="background:#8b5cf6;" onclick="cerrarOcIntegral('${codcia}','${nrodoc}','${tipooc}','${anos}')">
+                    🔒 Cerrar Proceso Completo
+                </button>`;
+            }
+        } else {
+            html += `<span style="display:inline-block; padding:0.6rem 1.25rem; font-size:0.85rem; font-weight:700; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">✅ PROCESO CERRADO</span>`;
+        }
+        html += `</div>`;
+
+        content.innerHTML = html;
+    } catch(err) {
+        content.innerHTML = `<div style="text-align:center; padding:3rem; color:#ef4444; font-weight:500;">❌ Error: ${err.message}</div>`;
+    }
+}

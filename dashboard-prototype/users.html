@@ -251,15 +251,62 @@
                                     <th>Nombre</th>
                                     <th>Descripción</th>
                                     <th>Estado</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="roles-tbody">
-                                <tr><td colspan="4" class="loading-state">Cargando roles...</td></tr>
+                                <tr><td colspan="5" class="loading-state">Cargando roles...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </section>
+
+    <!-- Modal: Crear / Editar Rol -->
+    <div class="modal-overlay" id="roleModal">
+        <div class="modal glass-modal" style="max-width:500px; width:95%;">
+            <div class="modal-header">
+                <h3 id="roleModalTitle">Nuevo Rol</h3>
+                <button class="close-btn" onclick="closeRoleModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm" onsubmit="return false;">
+                    <div class="form-group row">
+                        <div class="col">
+                            <label for="roleCodigo">Código del Rol</label>
+                            <input type="text" id="roleCodigo" maxlength="50" placeholder="Ej: SUPERVISOR" 
+                                   style="text-transform:uppercase; font-family:monospace; font-weight:600;">
+                            <small style="color:var(--text-muted); font-size:0.7rem;">Máximo 50 caracteres. Sin espacios. Se guardará en mayúsculas.</small>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col">
+                            <label for="roleNombre">Nombre</label>
+                            <input type="text" id="roleNombre" maxlength="100" placeholder="Ej: Supervisor de Área">
+                            <small style="color:var(--text-muted); font-size:0.7rem;">Máximo 100 caracteres.</small>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col">
+                            <label for="roleDescripcion">Descripción</label>
+                            <textarea id="roleDescripcion" maxlength="255" rows="3" placeholder="Descripción del rol (opcional)"
+                                      style="width:100%; padding:0.5rem 0.75rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.85rem; resize:vertical;"></textarea>
+                            <small style="color:var(--text-muted); font-size:0.7rem;"><span id="roleDescCount">0</span> / 255 caracteres.</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeRoleModal()">Cancelar</button>
+                <button class="btn btn-primary" id="roleSubmitBtn" onclick="submitRoleForm()">Crear Rol</button>
+            </div>
+        </div>
+    </div>
 
             <!-- TAB: Empresas por Usuario -->
             <section class="content fade-in tab-panel" id="tab-empresas" style="display:none;">
@@ -385,10 +432,45 @@
 
                                 Cuenta Web Activa
 
-                            </label>
-
                         </div>
 
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;" />
+                    <h5 style="margin-top: 0; margin-bottom: 1rem; color: #334155;">Permisos de Visibilidad y Tipos de OC</h5>
+                    
+                    <div class="form-group row">
+                        <div class="col" style="display:flex; align-items:center;">
+                            <label class="checkbox-label" style="margin-bottom:0;">
+                                <input type="checkbox" id="editPuedeVerTodo">
+                                <span class="checkmark"></span>
+                                <span style="color:#b91c1c; font-weight:600;">Puede Ver Todos los Registros</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group row">
+                        <div class="col">
+                            <label style="margin-bottom:0.8rem; display:block;">Tipos de OC Permitidos:</label>
+                            <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="editTipoM" value="M">
+                                    <span class="checkmark"></span>
+                                    Compras (M)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="editTipoS" value="S">
+                                    <span class="checkmark"></span>
+                                    Servicios (S)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="editTipoT" value="T">
+                                    <span class="checkmark"></span>
+                                    Contable (T)
+                                </label>
+                            </div>
+                            <small style="color:var(--text-muted); font-size:0.75rem; display:block; margin-top:8px;">Si un usuario cambia de rol o pierde acceso global, solo verá lo configurado aquí.</small>
+                        </div>
                     </div>
 
                 </form>
@@ -486,7 +568,7 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
-    <script src="users.js?v=20260414190349"></script>
+    <script src="users.js?v=20260416160000"></script>
 
     <script src="sidebar.js"></script>
 </body>

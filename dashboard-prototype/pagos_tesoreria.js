@@ -63,8 +63,92 @@ function onCiaChange() {
     const val = document.getElementById('filterCia').value;
     if (val) {
         localStorage.setItem('yelave_codcia', val);
+        loadParametros();
         loadPendientes();
         loadHistorialPagos();
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+//  CARGA DE PARAMETROS (Monedas, Bancos, Tipos de Pago)
+// ════════════════════════════════════════════════════════════
+
+let paramMonedas = [{Codigo: 'PEN', Descripcion: 'Soles'}, {Codigo: 'USD', Descripcion: 'Dólares'}];
+let paramBancos = [];
+let paramTiposPago = [];
+
+async function loadParametros() {
+    const codcia = document.getElementById('filterCia').value;
+    if (!codcia) return;
+
+    try {
+        const [resMonedas, resBancos, resTipos] = await Promise.all([
+            axios.get(`/api/cargos/parametros/monedas?codcia=${codcia}`).catch(() => ({data: paramMonedas})),
+            axios.get(`/api/cargos/parametros/bancos?codcia=${codcia}`).catch(() => ({data: []})),
+            axios.get(`/api/cargos/parametros/tipos-pago?codcia=${codcia}`).catch(() => ({data: []}))
+        ]);
+
+        paramMonedas = resMonedas.data;
+        paramBancos = resBancos.data;
+        paramTiposPago = resTipos.data;
+
+        // Actualizar selects del modal de pago
+        updateSelectMonedas();
+        updateSelectBancos();
+        updateSelectTiposPago();
+    } catch (err) {
+        console.error('Error cargando parámetros:', err);
+    }
+}
+
+function updateSelectMonedas() {
+    const select = document.getElementById('pago_moneda');
+    if (!select || paramMonedas.length === 0) return;
+
+    select.innerHTML = paramMonedas.map(m => {
+        const codigo = m.Simbolo || m.Codigo;
+        const desc = m.Descripcion;
+        return `<option value="${codigo}">${desc} (${codigo})</option>`;
+    }).join('');
+}
+
+function updateSelectBancos() {
+    const select = document.getElementById('pago_banco');
+    if (!select) return;
+
+    if (paramBancos.length > 0) {
+        select.innerHTML = paramBancos.map(b =>
+            `<option value="${b.Codigo}">${b.Descripcion}</option>`
+        ).join('');
+    } else {
+        // Fallback
+        select.innerHTML = `
+            <option value="BCP">BANCO DE CREDITO DEL PERU</option>
+            <option value="BBVA">BBVA PERU</option>
+            <option value="SCOTIABANK">SCOTIABANK PERU</option>
+            <option value="INTERBANK">INTERBANK</option>
+            <option value="BANBIF">BANBIF</option>
+            <option value="EFECTIVO">CAJA / EFECTIVO</option>
+        `;
+    }
+}
+
+function updateSelectTiposPago() {
+    const select = document.getElementById('pago_tipo');
+    if (!select) return;
+
+    if (paramTiposPago.length > 0) {
+        select.innerHTML = paramTiposPago.map(t =>
+            `<option value="${t.Codigo}">${t.Descripcion}</option>`
+        ).join('');
+    } else {
+        // Fallback
+        select.innerHTML = `
+            <option value="TRANSFERENCIA">Transferencia</option>
+            <option value="CHEQUE">Cheque</option>
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="TARJETA">Tarjeta</option>
+        `;
     }
 }
 
@@ -86,57 +170,110 @@ async function loadPendientes() {
 
     if (pendientesDT) { pendientesDT.destroy(); pendientesDT = null; }
     const tbody = document.getElementById('pendientesTbody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#94a3b8;">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" style="text-align:center; padding:2rem; color:#94a3b8;">Cargando...</td></tr>';
 
     try {
         const res = await axios.get(`/api/cargos/pagos/pendientes?codcia=${encodeURIComponent(codcia)}`);
         const items = res.data;
 
-        // Stats
+        // Stats - Calcular totales por moneda
+        let totalPEN = 0, totalUSD = 0;
+        items.forEach(i => {
+            const monto = parseFloat(i.ImportePrincipal || 0);
+            if (i.Moneda === 'USD') {
+                totalUSD += monto;
+            } else {
+                totalPEN += monto;
+            }
+        });
+
         document.getElementById('statPendientes').textContent = items.length;
-        const montoTotal = items.reduce((s, i) => s + parseFloat(i.MontoFactura || 0), 0);
-        document.getElementById('statMontoPend').textContent = `S/ ${montoTotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+        let montoTexto = '';
+        if (totalPEN > 0) montoTexto += `S/ ${totalPEN.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+        if (totalUSD > 0) {
+            if (montoTexto) montoTexto += ' + ';
+            montoTexto += `$ ${totalUSD.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+        }
+        if (!montoTexto) montoTexto = 'S/ 0.00';
+        document.getElementById('statMontoPend').textContent = montoTexto;
 
         if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#94a3b8;">No hay OCs pendientes de pago.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="16" style="text-align:center; padding:2rem; color:#94a3b8;">No hay documentos pendientes de pago.</td></tr>';
             return;
         }
 
         const dtData = items.map(c => {
-            let facturaCell = c.NroFactura || '-';
-            if (c.FacturaUuid && c.NroFactura) {
-                facturaCell = `<a href="/factura_visor.html?uid=${c.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline;">${c.NroFactura}</a>`;
+            // Datos del backend
+            const tipoDoc = c.TipoDocDesc || 'OC';
+            const moneda = c.Moneda || 'PEN';
+            const simbolo = moneda === 'USD' ? '$' : 'S/';
+
+            // Fechas formateadas
+            const fechaOC = c.FechaOC || '-';
+            const fechaEmision = c.FechaEmision || '-';
+            const fechaVencimiento = c.FechaVencimiento || '-';
+            const fechaRendicion = c.FechaRendicion || '-';
+
+            // Importes
+            const importeOC = parseFloat(c.MontoOC || 0);
+            const importeFactura = parseFloat(c.MontoFactura || 0);
+            const importeRendicion = parseFloat(c.MontoRendicion || c.TotalReembolso || 0);
+
+            // Badge color según tipo
+            let tipoClass = 'badge pending';
+            if (tipoDoc === 'Factura') tipoClass = 'badge success';
+            if (tipoDoc === 'Rendición') tipoClass = 'badge success';
+
+            // Enlaces a documentos
+            let linksHtml = '';
+            if (c.FacturaUuid) {
+                linksHtml += ` <a href="/factura_visor.html?uid=${c.FacturaUuid}" target="_blank" title="Ver Factura" style="color:#2563eb; font-size:0.7rem;">📄</a>`;
+            }
+            if (c.RendicionUuid) {
+                linksHtml += ` <a href="/rendicion_visor.html?uid=${c.RendicionUuid}" target="_blank" title="Ver Rendición" style="color:#059669; font-size:0.7rem;">📋</a>`;
             }
 
-            const btnPagar = `<button class="btn-action primary" style="padding:0.3rem 0.75rem; font-size:0.75rem; display:inline-flex; align-items:center; gap:0.3rem;" onclick="openModalPago(${c.DetalleId}, '${c.CodCiaOc||''}', '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${(c.Proveedor||'').replace(/'/g,"\\'")}', '${c.NroFactura||''}', ${c.MontoFactura||0}, '${c.Moneda||'PEN'}')">
-                💸 Registrar Pago
-            </button>`;
+            // Botón de pago
+            const btnPagar = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible(${c.DetalleId}, '${c.TipoDocumento||'OC'}', '${c.CodCiaOc||''}', '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${(c.Proveedor||'').replace(/'/g,"\\'")}', '${c.NroFactura||''}', ${importeOC}, ${importeFactura}, ${importeRendicion}, '${moneda||'PEN'}')">💸 Pagar</button>`;
 
+            // Formatear importes
+            const fmt = (val) => val > 0 ? `${simbolo} ${val.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-';
+
+            // 16 columnas según headers
             return [
-                `<strong>${c.NroOrdenCompra || '-'}</strong>`,
-                c.TipoOc || '-',
-                `${c.Proveedor || '-'}<br><small style="color:#64748b;">${c.RucProveedor || '-'}</small>`,
-                facturaCell,
-                c.FechaOC || '-',
-                `<span class="badge pending">${c.NroCargo || '-'}</span>`,
-                `S/ ${parseFloat(c.MontoFactura || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`,
-                btnPagar
+                `<span class="${tipoClass}">${tipoDoc}</span>`,                          // 0: Tipo
+                `<strong>${c.NroOrdenCompra || '-'}</strong>`,                              // 1: N° OC
+                c.TipoOc || '-',                                                          // 2: Tipo OC
+                c.NroFactura || '-',                                                      // 3: N° Comprobante
+                c.TipoComprobante || '-',                                                 // 4: Tipo Comp
+                fechaOC,                                                                  // 5: Fecha OC
+                fechaEmision,                                                             // 6: Fecha Emisión
+                fechaVencimiento,                                                         // 7: Fecha Venc.
+                `${c.Proveedor || '-'}${linksHtml}<br><small style="color:#64748b;">${c.RucProveedor || '-'}</small>`, // 8: Proveedor
+                `<span style="font-weight:600; color:${moneda === 'USD' ? '#d97706' : '#1e40af'}">${moneda}</span>`, // 9: Mon
+                fmt(importeOC),                                                           // 10: Importe OC
+                fmt(importeFactura),                                                      // 11: Importe Factura
+                c.NroRendicion || (c.TipoDocumento === 'RENDICION' ? c.NroOrdenCompra : '-'), // 12: N° Rendición
+                fmt(importeRendicion),                                                    // 13: Importe Rendición
+                `<span class="badge pending">${c.NroCargo || '-'}</span>`,               // 14: N° Cargo
+                btnPagar                                                                  // 15: Acción
             ];
         });
 
         pendientesDT = $('#pendientesTable').DataTable({
-            data: dtData, destroy: true, order: [[4, 'desc']], pageLength: 15,
+            data: dtData, destroy: true,
+            deferRender: true, order: [[5, 'desc']], pageLength: 15,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
             dom: 'Bfrtip',
-            buttons: [{ extend: 'excelHtml5', text: '📊 Exportar', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6] } }],
+            buttons: [{ extend: 'excelHtml5', text: '📊 Exportar', className: 'dt-button', exportOptions: { columns: ':visible' } }],
             columnDefs: [
-                { targets: [7], orderable: false },
-                { targets: [6], className: 'dt-right font-semibold text-slate-800' }
+                { targets: [15], orderable: false, width: '80px' },
+                { targets: [10, 11, 13], className: 'dt-right font-semibold' }
             ]
         });
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="16" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
     }
 }
 
@@ -186,7 +323,8 @@ async function loadHistorialPagos() {
         });
 
         historialPagosDT = $('#historialPagosTable').DataTable({
-            data: dtData, destroy: true, order: [[6, 'desc']], pageLength: 15,
+            data: dtData, destroy: true,
+            deferRender: true, order: [[6, 'desc']], pageLength: 15,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
             dom: 'Bfrtip',
             buttons: [{ extend: 'excelHtml5', text: '📊 Exportar Pagos', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8] } }],
@@ -274,6 +412,114 @@ async function submitPago() {
         loadPendientes();
         loadHistorialPagos();
     } catch (err) {
-        Swal.fire('Error', String(err), 'error');
+        Swal.fire('Error', err, 'error');
     }
+}
+
+async function openModalPagoFlexible(detalleId, tipoDocumento, codcia, nrodoc, tipooc, proveedor, factura, importeOC, importeFactura, importeRendicion, moneda) {
+    document.getElementById('pago_idDetalle').value = detalleId;
+    document.getElementById('pago_codcia').value = codcia;
+    document.getElementById('pago_nrodoc').value = nrodoc;
+    document.getElementById('pago_tipooc').value = tipooc || 'O';
+
+    // Cargar parámetros dinámicos si no están cargados
+    if (paramBancos.length === 0 || paramTiposPago.length === 0) {
+        await loadParametros();
+    }
+
+    // Fill form defaults
+    document.getElementById('pago_fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('pago_nro_operacion').value = '';
+    document.getElementById('pago_adjuntos').value = '';
+    document.getElementById('pago_notas').value = '';
+
+    // Set moneda (después de cargar parámetros)
+    const monedaSelect = document.getElementById('pago_moneda');
+    if (monedaSelect && moneda) {
+        // Buscar la opción que corresponda a la moneda
+        const options = Array.from(monedaSelect.options);
+        const matchingOption = options.find(opt => opt.value === moneda);
+        if (matchingOption) {
+            monedaSelect.value = moneda;
+        } else if (options.length > 0) {
+            monedaSelect.value = options[0].value;
+        }
+    }
+
+    // Set default banco y tipo (primeras opciones disponibles)
+    const bancoSelect = document.getElementById('pago_banco');
+    if (bancoSelect && bancoSelect.options.length > 0) {
+        bancoSelect.value = bancoSelect.options[0].value;
+    }
+
+    const tipoSelect = document.getElementById('pago_tipo');
+    if (tipoSelect && tipoSelect.options.length > 0) {
+        tipoSelect.value = tipoSelect.options[0].value;
+    }
+
+    // Determinar monto a pagar según tipo de documento
+    let montoPagar = 0;
+    let docLabel = '';
+    let docNro = '';
+
+    if (tipoDocumento === 'OC') {
+        montoPagar = importeFactura || importeOC;
+        docLabel = 'OC';
+        docNro = nrodoc;
+    } else if (tipoDocumento === 'FACTURA_SIN_OC') {
+        montoPagar = importeFactura;
+        docLabel = 'Factura';
+        docNro = factura;
+    } else if (tipoDocumento === 'RENDICION') {
+        montoPagar = importeRendicion;
+        docLabel = 'Rendición';
+        docNro = nrodoc;
+    }
+
+    document.getElementById('pago_monto').value = montoPagar || '';
+
+    // Show summary con selección de documento a pagar
+    let resumenHtml = `<div style="display:grid; grid-template-columns: 80px 1fr; gap:0.2rem 0.75rem;">`;
+    
+    if (tipoDocumento === 'OC') {
+        resumenHtml += `
+            <span style="font-weight:600; color:#64748b;">Tipo:</span><span style="font-weight:700;">${docLabel}</span>
+            <span style="font-weight:600; color:#64748b;">OC:</span><span style="font-weight:700;">${nrodoc}</span>
+            <span style="font-weight:600; color:#64748b;">Proveedor:</span><span>${proveedor}</span>
+            <span style="font-weight:600; color:#64748b;">Factura:</span><span>${factura || '-'}</span>
+            <span style="font-weight:600; color:#64748b;">Importe OC:</span><span style="font-weight:700;">S/ ${importeOC.toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+            <span style="font-weight:600; color:#64748b;">Importe Factura:</span><span style="font-weight:700; color:var(--primary);">S/ ${importeFactura.toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+        `;
+    } else if (tipoDocumento === 'FACTURA_SIN_OC') {
+        resumenHtml += `
+            <span style="font-weight:600; color:#64748b;">Tipo:</span><span style="font-weight:700;">${docLabel}</span>
+            <span style="font-weight:600; color:#64748b;">Factura:</span><span style="font-weight:700;">${factura}</span>
+            <span style="font-weight:600; color:#64748b;">Proveedor:</span><span>${proveedor}</span>
+            <span style="font-weight:600; color:#64748b;">Importe:</span><span style="font-weight:700; color:var(--primary);">S/ ${importeFactura.toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+        `;
+    } else if (tipoDocumento === 'RENDICION') {
+        resumenHtml += `
+            <span style="font-weight:600; color:#64748b;">Tipo:</span><span style="font-weight:700;">${docLabel}</span>
+            <span style="font-weight:600; color:#64748b;">N° Rendición:</span><span style="font-weight:700;">${nrodoc}</span>
+            <span style="font-weight:600; color:#64748b;">Proveedor:</span><span>${proveedor}</span>
+            <span style="font-weight:600; color:#64748b;">Importe:</span><span style="font-weight:700; color:var(--primary);">S/ ${importeRendicion.toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+        `;
+    }
+    
+    resumenHtml += `</div>`;
+
+    document.getElementById('modalPagoTitle').textContent = `Pago — ${docLabel} ${docNro}`;
+    document.getElementById('pagoResumen').innerHTML = resumenHtml;
+
+    // Agregar campo oculto para tipo de documento
+    if (!document.getElementById('pago_tipo_documento')) {
+        const inputHidden = document.createElement('input');
+        inputHidden.type = 'hidden';
+        inputHidden.id = 'pago_tipo_documento';
+        inputHidden.name = 'tipo_documento';
+        document.getElementById('formPago').appendChild(inputHidden);
+    }
+    document.getElementById('pago_tipo_documento').value = tipoDocumento;
+
+    document.getElementById('modalPago').classList.add('active');
 }

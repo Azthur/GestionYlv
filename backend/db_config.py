@@ -19,6 +19,9 @@ class DBConfigUpdate(BaseModel):
     db_name: Optional[str] = None
     db_user: Optional[str] = None
     db_password: Optional[str] = None
+    file_server: Optional[str] = None
+    file_user: Optional[str] = None
+    file_password: Optional[str] = None
 
 
 class DBTestRequest(BaseModel):
@@ -28,24 +31,43 @@ class DBTestRequest(BaseModel):
     db_password: str
 
 
+class FileConfigUpdate(BaseModel):
+    file_server: Optional[str] = None
+    file_user: Optional[str] = None
+    file_password: Optional[str] = None
+
+
+class FileTestRequest(BaseModel):
+    file_server: str
+    file_user: str
+    file_password: str
+
+
 @router.get("/db")
 def get_db_config():
     """Retorna la configuración actual de la base de datos (sin la contraseña completa)."""
     load_dotenv(override=True)
     password = os.getenv("DB_PASSWORD", "")
     masked = password[:2] + "*" * max(0, len(password) - 4) + password[-2:] if len(password) > 4 else "****"
+
+    file_password = os.getenv("FILE_PASSWORD", "")
+    file_masked = file_password[:2] + "*" * max(0, len(file_password) - 4) + file_password[-2:] if len(file_password) > 4 else "****"
+
     return {
         "db_server": os.getenv("DB_SERVER", ""),
         "db_name": os.getenv("DB_NAME", ""),
         "db_user": os.getenv("DB_USER", ""),
         "db_password_masked": masked,
-        "db_port": os.getenv("DB_PORT", "1433")
+        "db_port": os.getenv("DB_PORT", "1433"),
+        "file_server": os.getenv("FILE_SERVER", ""),
+        "file_user": os.getenv("FILE_USER", ""),
+        "file_password_masked": file_masked
     }
 
 
 @router.post("/db")
 def update_db_config(config: DBConfigUpdate):
-    """Actualiza la configuración de la base de datos en el archivo .env."""
+    """Actualiza la configuración de la base de datos y archivos en el archivo .env."""
     try:
         env_path = find_dotenv()
         if not env_path:
@@ -59,6 +81,12 @@ def update_db_config(config: DBConfigUpdate):
             set_key(env_path, "DB_USER", config.db_user)
         if config.db_password is not None:
             set_key(env_path, "DB_PASSWORD", config.db_password)
+        if config.file_server is not None:
+            set_key(env_path, "FILE_SERVER", config.file_server)
+        if config.file_user is not None:
+            set_key(env_path, "FILE_USER", config.file_user)
+        if config.file_password is not None:
+            set_key(env_path, "FILE_PASSWORD", config.file_password)
 
         # Reload env vars in memory
         load_dotenv(override=True)
@@ -158,3 +186,76 @@ def db_status():
             return {"connected": False, "message": "Credenciales inválidas", "error_type": "auth_failed"}
         else:
             return {"connected": False, "message": "Sin conexión", "error_type": "connection_failed", "detail": error_msg}
+
+
+@router.post("/files/test")
+def test_file_connection(config: FileTestRequest):
+    """Prueba la conexión al servidor de archivos con las credenciales proporcionadas."""
+    try:
+        import subprocess
+        import tempfile
+
+        # Convertir ruta Windows SMB a formato Linux
+        # \\192.168.1.200\gestion-ylv -> //192.168.1.200/gestion-ylv
+        smb_path = config.file_server.replace("\\", "//")
+
+        # Crear archivo de credenciales temporal
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.credentials') as cred_file:
+            cred_file.write(f"username={config.file_user}\n")
+            cred_file.write(f"password={config.file_password}\n")
+            cred_file.write(f"domain=WORKGROUP\n")
+            cred_path = cred_file.name
+
+        try:
+            # Intentar montar el recurso SMB temporalmente
+            mount_point = tempfile.mkdtemp()
+            mount_cmd = [
+                'mount',
+                '-t', 'cifs',
+                smb_path,
+                mount_point,
+                '-o', f'credentials={cred_path},uid=1000,gid=1000,iocharset=utf8,vers=3.0'
+            ]
+
+            result = subprocess.run(mount_cmd, capture_output=True, text=True, timeout=10)
+
+            if result.returncode == 0:
+                # Montaje exitoso, desmontar
+                subprocess.run(['umount', mount_point], timeout=5)
+                return {
+                    "status": "success",
+                    "message": "Conexión al servidor de archivos exitosa",
+                    "details": {
+                        "server": smb_path,
+                        "user": config.file_user,
+                        "mount_point": mount_point
+                    }
+                }
+            else:
+                error_msg = result.stderr or result.stdout
+                return {
+                    "status": "error",
+                    "message": "Error al conectar al servidor de archivos",
+                    "detail": error_msg
+                }
+        finally:
+            # Limpiar archivos temporales
+            import os
+            try:
+                os.unlink(cred_path)
+                os.rmdir(mount_point)
+            except:
+                pass
+
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "error",
+            "message": "Timeout al intentar conectar al servidor de archivos",
+            "detail": "La conexión tardó demasiado tiempo"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": "Error inesperado al probar conexión",
+            "detail": str(e)
+        }

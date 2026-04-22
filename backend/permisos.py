@@ -95,7 +95,28 @@ def setup_permisos_tables():
         """)
         conn.commit()
 
-        print("[OK] Tablas de permisos verificadas/creadas")
+        # Tabla de tipos de OC por usuario
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='WebUsuarioTipoOc' AND xtype='U')
+            CREATE TABLE WebUsuarioTipoOc (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                Login VARCHAR(50) NOT NULL,
+                TipoOc VARCHAR(5) NOT NULL,
+                CONSTRAINT UQ_User_TipoOc UNIQUE (Login, TipoOc)
+            )
+        """)
+        conn.commit()
+
+        # Modificar WebUsers si no tiene PuedeVerTodo
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('WebUsers') AND name = 'PuedeVerTodo')
+            BEGIN
+                ALTER TABLE WebUsers ADD PuedeVerTodo BIT DEFAULT 0;
+            END
+        """)
+        conn.commit()
+
+        print("[OK] Tablas de permisos y configuraciones verificadas/creadas")
         _seed_initial_data(cursor, conn)
 
     except Exception as e:
@@ -265,7 +286,28 @@ def get_my_permissions(current_user: dict = Depends(get_current_user)):
         cols = [c[0] for c in cursor.description]
         modulos = [dict(zip(cols, row)) for row in cursor.fetchall()]
         
-        return {"login": login, "rol": rol, "isAdmin": is_super or rol == "ADMIN", "modulos": modulos}
+        # Obtenemos configuraciones extras del usuario (PuedeVerTodo y Tipos de OC)
+        puede_ver_todo = False
+        tipos_oc_permitidos = []
+        if is_super or rol == "ADMIN":
+            puede_ver_todo = True
+            tipos_oc_permitidos = ["M", "S", "T"]
+        else:
+            cursor.execute("SELECT ISNULL(PuedeVerTodo, 0) FROM WebUsers WHERE login = ?", (login,))
+            r = cursor.fetchone()
+            if r: puede_ver_todo = bool(r[0])
+            
+            cursor.execute("SELECT TipoOc FROM WebUsuarioTipoOc WHERE Login = ?", (login,))
+            tipos_oc_permitidos = [row[0].strip() for row in cursor.fetchall()]
+
+        return {
+            "login": login, 
+            "rol": rol, 
+            "isAdmin": is_super or rol == "ADMIN", 
+            "puede_ver_todo": puede_ver_todo,
+            "tipos_oc_permitidos": tipos_oc_permitidos,
+            "modulos": modulos
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -344,6 +386,33 @@ def create_role(params: RolCreate, admin: dict = Depends(get_current_active_admi
         """, (params.codigo.upper(), params.nombre, params.descripcion))
         conn.commit()
         return {"status": "success", "message": f"Rol '{params.codigo}' creado"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, str(e))
+    finally:
+        conn.close()
+
+class RolUpdate(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = ""
+
+@router.put("/admin/roles/{codigo}")
+def update_role(codigo: str, params: RolUpdate, admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT Id FROM WebRoles WHERE Codigo = ?", (codigo.upper(),))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Rol no encontrado")
+            
+        cursor.execute("""
+            UPDATE WebRoles
+            SET Nombre = ?, Descripcion = ?
+            WHERE Codigo = ?
+        """, (params.nombre, params.descripcion, codigo.upper()))
+        conn.commit()
+        return {"status": "success", "message": f"Rol '{codigo}' actualizado"}
     except Exception as e:
         conn.rollback()
         raise HTTPException(500, str(e))
@@ -472,7 +541,39 @@ def save_user_empresas(login: str, params: EmpresasUsuarioSave, admin: dict = De
 
 
 # ══════════════════════════════════════════════════════
-#  AUTH: Verificar token
+#  ADMIN: Tipos de OC por Usuario
+# ══════════════════════════════════════════════════════
+
+class TiposOcUsuarioSave(BaseModel):
+    tipos_oc: List[str]  # Lista de M, S, T
+
+@router.get("/admin/usuario-tipooc/{login}")
+def get_user_tipooc(login: str, admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT TipoOc FROM WebUsuarioTipoOc WHERE Login = ?", (login,))
+        return [row[0].strip() for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@router.post("/admin/usuario-tipooc/{login}")
+def save_user_tipooc(login: str, params: TiposOcUsuarioSave, admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM WebUsuarioTipoOc WHERE Login = ?", (login,))
+        for tipo in params.tipos_oc:
+            cursor.execute("INSERT INTO WebUsuarioTipoOc (Login, TipoOc) VALUES (?, ?)", (login, tipo))
+        conn.commit()
+        return {"status": "success", "message": f"Tipos de OC de '{login}' actualizados"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, str(e))
+    finally:
+        conn.close()
 # ══════════════════════════════════════════════════════
 
 @router.get("/auth/verify")

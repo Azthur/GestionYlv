@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YELAVE - Plataforma Corporativa</title>
     <meta name="description"
-        content="YELAVE Skincare - Plataforma de Gestión Corporativa. Belleza, innovación y excelencia en productos de cuidado de la piel.">
+        content="YELAVE - Plataforma de Gestión Corporativa. Belleza, innovación y excelencia en productos de cuidado de la piel.">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
@@ -20,6 +20,7 @@
         [data-theme="dark"] .main-content {
             background: linear-gradient(135deg, #0a0a0f 0%, #0d0f1a 30%, #131528 60%, #0f1020 100%);
         }
+
         .main-content {
             overflow-y: auto;
         }
@@ -135,6 +136,7 @@
             font-family: 'Outfit', sans-serif !important;
             font-weight: 600 !important;
         }
+
         [data-theme="dark"] .top-bar h2 {
             color: rgba(255, 255, 255, 0.9) !important;
         }
@@ -150,6 +152,7 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
         }
+
         [data-theme="dark"] .hero-section {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.06) 40%, rgba(236, 72, 153, 0.05) 100%);
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -213,6 +216,7 @@
             margin-bottom: 0.75rem;
             color: var(--primary);
         }
+
         [data-theme="dark"] .hero-title {
             color: #ffffff;
             background: linear-gradient(135deg, #ffffff 0%, rgba(192, 132, 252, 0.9) 50%, rgba(244, 114, 182, 0.85) 100%);
@@ -229,6 +233,7 @@
             line-height: 1.6;
             max-width: 550px;
         }
+
         [data-theme="dark"] .hero-subtitle {
             color: rgba(255, 255, 255, 0.5);
         }
@@ -247,6 +252,7 @@
             font-size: 0.8rem;
             color: var(--text-muted);
         }
+
         [data-theme="dark"] .hero-meta-item {
             color: rgba(255, 255, 255, 0.4);
         }
@@ -304,6 +310,7 @@
             margin-bottom: 1rem;
             padding-left: 4px;
         }
+
         [data-theme="dark"] .section-label {
             color: rgba(255, 255, 255, 0.25);
         }
@@ -329,6 +336,7 @@
             animation: cardSlideIn 0.6s ease-out both;
             box-shadow: var(--shadow-sm);
         }
+
         [data-theme="dark"] .portal-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -381,6 +389,7 @@
             box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.15),
                 0 0 40px -20px var(--card-accent);
         }
+
         [data-theme="dark"] .portal-card:hover {
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.1);
@@ -422,6 +431,7 @@
             color: var(--text-primary);
             margin-bottom: 0.5rem;
         }
+
         [data-theme="dark"] .portal-card-title {
             color: #ffffff;
         }
@@ -432,6 +442,7 @@
             line-height: 1.5;
             margin-bottom: 1rem;
         }
+
         [data-theme="dark"] .portal-card-desc {
             color: rgba(255, 255, 255, 0.4);
         }
@@ -497,6 +508,7 @@
             text-align: center;
             animation: cardSlideIn 0.6s ease-out both;
         }
+
         [data-theme="dark"] .vision-card {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -534,6 +546,7 @@
             color: var(--text-muted);
             font-weight: 500;
         }
+
         [data-theme="dark"] .vision-label {
             color: rgba(255, 255, 255, 0.35);
         }
@@ -555,6 +568,7 @@
             margin: 0 auto 0.75rem;
             line-height: 1.6;
         }
+
         [data-theme="dark"] .footer-quote {
             color: rgba(255, 255, 255, 0.2);
         }
@@ -567,18 +581,36 @@
             letter-spacing: 4px;
             color: var(--text-muted);
         }
+
         [data-theme="dark"] .footer-brand {
             color: rgba(255, 255, 255, 0.12);
         }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .landing-bg { left: 0; }
-            .landing-wrapper { padding: 1rem; }
-            .hero-section { padding: 2rem 1.5rem; }
-            .hero-title { font-size: 1.6rem; }
-            .portal-grid { grid-template-columns: 1fr; }
-            .vision-grid { grid-template-columns: repeat(2, 1fr); }
+            .landing-bg {
+                left: 0;
+            }
+
+            .landing-wrapper {
+                padding: 1rem;
+            }
+
+            .hero-section {
+                padding: 2rem 1.5rem;
+            }
+
+            .hero-title {
+                font-size: 1.6rem;
+            }
+
+            .portal-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .vision-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
     </style>
     <script src="auth-guard.js"></script>
@@ -603,7 +635,7 @@
                 <!-- â”€â”€ Hero Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
                 <section class="hero-section">
                     <div class="hero-greeting" id="heroGreeting">Bienvenido de nuevo</div>
-                    <h1 class="hero-title" id="heroTitle">Plataforma de Gestión<br>YELAVE Skincare</h1>
+                    <h1 class="hero-title" id="heroTitle">Plataforma de Gestión<br>YELAVE</h1>
                     <p class="hero-subtitle">Centro de operaciones integral para la gestión corporativa, logística,
                         financiera y productiva de nuestra línea de cuidado de la piel.</p>
                     <div class="hero-meta">
@@ -666,7 +698,7 @@
                 <div class="landing-footer">
                     <p class="footer-quote">"La belleza es la promesa de felicidad. Cada producto que creamos es una
                         promesa cumplida."</p>
-                    <div class="footer-brand">YELAVE SKINCARE Â© 2026</div>
+                    <div class="footer-brand">YELAVE © 2026</div>
                 </div>
 
             </div>

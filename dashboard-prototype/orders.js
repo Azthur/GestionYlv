@@ -33,16 +33,18 @@ function formatStatus(status) {
     let watermark = '';
     let badge = '';
 
-    if (s === 'X' || s === 'E' || s === 'ELIMINADO' || s === 'ANULADO') {
+    if (s === 'X' || s === 'E*' || s === 'ANULADO') {
         watermark = '<div class="watermark-text wm-anulado">ANULADO</div>';
         badge = '<span class="badge canceled"><i class="fas fa-times-circle"></i> ANULADO</span>';
-    } else if (s === '1' || s === 'C' || s === 'CERRADA' || s === 'COMPLETO') {
-        watermark = '<div class="watermark-text wm-completo">COMPLETO</div>';
-        badge = '<span class="badge approved"><i class="fas fa-check-double"></i> CERRADA</span>';
-    } else if (s === 'A' || s === 'APROBADA') {
-        badge = '<span class="badge approved"><i class="fas fa-check-circle"></i> APROBADA</span>';
+    } else if (s === 'C' || s === 'CERRADO') {
+        watermark = '<div class="watermark-text wm-completo">CERRADO</div>';
+        badge = '<span class="badge approved" style="background:#f0fdf4; color:#16a34a;"><i class="fas fa-check-double"></i> CERRADO</span>';
+    } else if (s === 'P') {
+        badge = '<span class="badge" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-clock"></i> PENDIENTE</span>';
+    } else if (s === 'E') {
+        badge = '<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fas fa-file-signature"></i> EMITIDO</span>';
     } else {
-        badge = '<span class="badge pending"><i class="fas fa-clock"></i> PENDIENTE</span>';
+        badge = '<span class="badge pending"><i class="fas fa-clock"></i> SIN ESTADO</span>';
     }
     
     return { watermark, badge };
@@ -85,17 +87,29 @@ async function loadOrders() {
         const year = document.getElementById('filterYear').value;
         const period = document.getElementById('filterPeriod').value;
         const type = document.getElementById('filterType').value;
+        const ocSearch = (document.getElementById('filterOcSearch') || {}).value || '';
+        const chkMyRecords = document.getElementById('filterMyRecords');
+        const onlyMyRecords = chkMyRecords ? chkMyRecords.checked : true;
 
         // Show loading state
         $('#tableWrapper').show();
         $('#initialMessage').hide();
         
-        const params = new URLSearchParams({ codcia: cia });
-        if (year) params.append('year', year);
-        if (period) params.append('period', period);
+        const params = new URLSearchParams({ codcia: cia, only_my_records: onlyMyRecords });
+        
+        if (ocSearch.trim()) {
+            // Búsqueda global: ignora año y periodo, busca todo el historial
+            params.append('search', ocSearch.trim());
+        } else {
+            if (year) params.append('year', year);
+            if (period) params.append('period', period);
+        }
         if (type) params.append('tipo_oc', type);
 
-        const res = await fetch(`/api/logistics/orders?${params.toString()}`);
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`/api/logistics/orders?${params.toString()}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Error al cargar órdenes');
         const orders = await res.json();
 
@@ -132,6 +146,12 @@ async function loadOrders() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                         Trazabilidad OC
                     </button>
+                    ${((o.estado || '').trim() === 'E' || (o.estado || '').trim() === '') ? `
+                    <div class="action-dropdown-divider"></div>
+                    <button class="action-dropdown-item" onclick="aprobarOc('${cia}','${o.nrodoc}','${o.tipooc}','${o.anos}')" style="color:var(--success);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        Aprobar OC
+                    </button>` : ''}
                     <div class="action-dropdown-divider"></div>
                     ${isLogistics ? `
                     <button class="action-dropdown-item" onclick="openAttachmentModal('${cia}','${o.tipooc}','${o.nrodoc}','signed_order')">
@@ -172,6 +192,7 @@ async function loadOrders() {
         dtInstance = $('#ordersTable').DataTable({
             data: dtData,
             destroy: true,
+            deferRender: true,
             order: [[1, 'desc']],
             pageLength: 25,
             scrollX: true,
@@ -200,6 +221,59 @@ async function loadOrders() {
     }
 }
 
+// ─── Aprobar OC ─────────────────────────
+async function aprobarOc(codcia, nrodoc, tipooc, year) {
+    const result = await Swal.fire({
+        title: '¿Aprobar Orden de Compra?',
+        html: `Esta acción aprobará la OC <strong>${nrodoc}</strong>.<br>Una vez aprobada, pasará al estado Autorizado.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#22c55e',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Sí, Aprobar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`/api/logistics/orders/${encodeURIComponent(nrodoc)}/aprobar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                codcia: codcia,
+                year: year,
+                tipo_oc: tipooc
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Error al aprobar la OC');
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: '¡Aprobada!',
+            text: `La OC ${nrodoc} ha sido aprobada exitosamente.`,
+            timer: 2000,
+            showConfirmButton: false
+        });
+        
+        loadOrders(); // Recargar tabla
+    } catch (err) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de Aprobación',
+            text: err.message
+        });
+    }
+}
+
 // ─── Report Modal ─────────────────────────
 async function openReportModal(codcia, nrodoc, tipooc, year) {
     document.getElementById('reportOcNro').textContent = `N° ${nrodoc}`;
@@ -218,13 +292,45 @@ async function openReportModal(codcia, nrodoc, tipooc, year) {
             throw new Error(err.detail || 'Error al cargar reporte');
         }
         const data = await res.json();
-        renderReport(data);
+        
+        // Cargar Firmas (Acciones)
+        let acciones = [];
+        try {
+            const urlAcc = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/acciones?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}&year=${encodeURIComponent(year || '')}`;
+            const resAcc = await fetch(urlAcc, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (resAcc.ok) {
+                const accData = await resAcc.json();
+                acciones = accData.acciones || [];
+            }
+        } catch(e) { console.warn("Error cargando firmas", e); }
+
+        // Cargar Adjuntos
+        let attachedDocs = { signed: [], voucher: [] };
+        try {
+            const getDocs = async (type) => {
+                const resApp = await fetch(`/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=${type}`);
+                return resApp.ok ? await resApp.json() : [];
+            };
+            attachedDocs.signed = await getDocs('signed_order');
+            attachedDocs.voucher = await getDocs('voucher');
+        } catch(e) { console.warn("Error cargando archivos adjuntos en reporte", e); }
+
+        // Cargar Vouchers de Pago desde FinPagos
+        let pagosFin = [];
+        try {
+            const resPagos = await fetch(`/api/cargos/pagos/oc/${encodeURIComponent(nrodoc)}?codcia=${encodeURIComponent(codcia)}`);
+            if (resPagos.ok) {
+                pagosFin = await resPagos.json();
+            }
+        } catch(e) { console.warn("Error cargando pagos FinPagos", e); }
+
+        renderReport(data, acciones, attachedDocs, pagosFin);
     } catch (err) {
         container.innerHTML = `<div style="text-align:center;padding:3rem;color:#ef4444;font-weight:500;">❌ ${err.message}</div>`;
     }
 }
 
-function renderReport(data) {
+function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher: [] }, pagosFin = []) {
     const { company, header, items } = data;
     const sym = header.codmon || 'S/';
     let html = '';
@@ -291,18 +397,18 @@ function renderReport(data) {
             <th>Producto / Servicio</th>
             <th style="width:35px;text-align:center;">Und</th>
             <th style="width:65px;text-align:right;">${colCantLabel}</th>
-            <th style="width:65px;text-align:right;">${statusColLabel}</th>
+            ${isGoods ? '<th style="width:65px;text-align:right;">Recibido</th>' : ''}
+            <th style="width:65px;text-align:right;">Facturado</th>
             <th style="width:65px;text-align:center;">Estado</th>
             <th style="width:70px;text-align:right;">Precio</th>
             <th style="width:80px;text-align:right;">Total</th>
         </tr></thead><tbody>`;
 
     if (items.length === 0) {
-        html += '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:2rem;">Sin ítems</td></tr>';
+        html += `<tr><td colspan="${isGoods ? '10' : '9'}" style="text-align:center;color:#94a3b8;padding:2rem;">Sin ítems</td></tr>`;
     } else {
         items.forEach(it => {
             const rowColor = (it.estado_ingreso === 'Completo') ? 'color: var(--success); font-weight:600;' : (it.estado_ingreso === 'Parcial' ? 'color: var(--warning); font-weight:600;' : 'color:#64748b;');
-            const compareQty = isGoods ? it.cant_ingresada : it.cant_facturada;
 
             html += `<tr>
                 <td style="text-align:center;color:#64748b;font-weight:600;">${it.item_display}</td>
@@ -310,14 +416,15 @@ function renderReport(data) {
                 <td style="font-weight:500;">${it.desmat}</td>
                 <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
                 <td style="text-align:right;">${fmtNum(it.candes)}</td>
-                <td style="text-align:right;font-weight:600;">${fmtNum(compareQty)}</td>
+                ${isGoods ? `<td style="text-align:right;font-weight:600;color:#22c55e;">${fmtNum(it.cant_ingresada)}</td>` : ''}
+                <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(it.cant_facturada)}</td>
                 <td style="text-align:center;font-size:0.7rem;${rowColor}">${it.estado_ingreso}</td>
                 <td style="text-align:right;">${fmtNum(it.preuni)}</td>
                 <td style="text-align:right;font-weight:600;color:var(--primary);">${sym} ${fmtNum(it.imptot)}</td>
             </tr>`;
             if (it.notas && it.notas.length) {
                 it.notas.forEach(n => {
-                    html += `<tr class="note-row"><td></td><td></td><td colspan="7" style="padding-left:1.5rem;"><span style="color:#94a3b8;">↳</span> ${n}</td></tr>`;
+                    html += `<tr class="note-row"><td></td><td></td><td colspan="${isGoods ? '8' : '7'}" style="padding-left:1.5rem;"><span style="color:#94a3b8;">↳</span> ${n}</td></tr>`;
                 });
             }
         });
@@ -356,17 +463,196 @@ function renderReport(data) {
     </div>`;
 
     // ── Signatures ──
-    html += `<div class="report-signatures">
-        <div class="sig-block"><div class="sig-line">Gerente de Logística</div></div>
-        <div class="sig-block"><div class="sig-line">Sub. Ger. Logística</div></div>
-        <div class="sig-block"><div class="sig-line">Comprador</div></div>
-    </div>`;
+    html += `<style>
+        .report-signatures { display:flex; justify-content:space-between; margin-top:2.5rem; gap:1.5rem; }
+        .sig-block { flex:1; padding:0.75rem; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; font-size:0.75rem; text-align:center; }
+        .sig-pending { background:#fff; border-style:dashed; color:#94a3b8; }
+        .sig-approved { border-color:#22c55e; background:#f0fdf4; }
+        .sig-registered { border-color:#3b82f6; background:#eff6ff; }
+        .sig-closed { border-color:#8b5cf6; background:#faf5ff; }
+        .sig-title { font-weight:700; margin-bottom:0.5rem; display:flex; align-items:center; justify-content:center; gap:0.5rem; font-size:0.8rem; }
+        .sig-user { font-weight:600; color:#1e293b; margin-bottom:0.25rem; font-size:0.85rem;}
+        .sig-date { color:#64748b; font-size:0.7rem; }
+    </style>`;
+
+    html += `<div class="report-signatures">`;
+    
+    const getActionDate = (fch) => {
+        if(!fch) return '';
+        const d = new Date(fch);
+        return `${d.toLocaleDateString('es-PE')} ${d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'})}`;
+    }
+
+    const reg = acciones.find(a => a.accion === 'REGISTRO');
+    if (reg) {
+        html += `<div class="sig-block sig-registered">
+            <div class="sig-title"><span style="color:#3b82f6;">📝</span> REGISTRADO POR</div>
+            <div class="sig-user">${reg.usuario_nombre || reg.usuario_login || 'Usuario'}</div>
+            <div class="sig-date">${getActionDate(reg.fecha_hora)}</div>
+        </div>`;
+    } else {
+        html += `<div class="sig-block sig-pending"><div class="sig-title">REGISTRO PENDIENTE</div></div>`;
+    }
+
+    const apr = acciones.find(a => a.accion === 'APROBACION');
+    if (apr) {
+        html += `<div class="sig-block sig-approved">
+            <div class="sig-title"><span style="color:#22c55e;">✅</span> APROBADO POR</div>
+            <div class="sig-user">${apr.usuario_nombre || apr.usuario_login || 'Usuario'}</div>
+            <div class="sig-date">${getActionDate(apr.fecha_hora)}</div>
+        </div>`;
+    } else {
+        html += `<div class="sig-block sig-pending"><div class="sig-title">APROBACIÓN PENDIENTE</div><div class="sig-date">En espera</div></div>`;
+    }
+
+    const cie = acciones.find(a => a.accion === 'CIERRE');
+    if (cie) {
+        html += `<div class="sig-block sig-closed">
+            <div class="sig-title"><span style="color:#8b5cf6;">🔒</span> CERRADO POR</div>
+            <div class="sig-user">${cie.usuario_nombre || cie.usuario_login || 'Usuario'}</div>
+            <div class="sig-date">${getActionDate(cie.fecha_hora)}</div>
+        </div>`;
+    } else {
+        html += `<div class="sig-block sig-pending"><div class="sig-title">CIERRE PENDIENTE</div><div class="sig-date">En proceso</div></div>`;
+    }
+
+    html += `</div>`;
+
+    html += `</div>`;
+
+    html += `</div>`;
+
+    // ─── Vouchers de Pago desde FinPagos ─────────────────────
+    if(pagosFin && pagosFin.length > 0) {
+        html += `
+            <div style="margin-top: 2rem; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-family: 'Inter', sans-serif;">
+                <div style="background: #fef3c7; padding: 0.75rem 1.25rem; font-weight: 700; color: #92400e; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-size:1.2rem;">💰</span>
+                    Vouchers de Pago - Tesorería (${pagosFin.length} pago${pagosFin.length > 1 ? 's' : ''})
+                </div>
+                <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        `;
+
+        pagosFin.forEach(p => {
+            const simbolo = p.Moneda === 'USD' ? '$' : 'S/';
+            html += `
+                <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; background: #fff;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 0.75rem;">
+                        <div><strong style="color: #64748b;">Monto:</strong> <span style="font-weight: 700; color: #059669;">${simbolo} ${p.MontoPago.toLocaleString('es-PE', {minimumFractionDigits: 2})}</span></div>
+                        <div><strong style="color: #64748b;">Fecha:</strong> ${p.FechaPago}</div>
+                        <div><strong style="color: #64748b;">Banco:</strong> ${p.BancoPago || '-'}</div>
+                        <div><strong style="color: #64748b;">Tipo:</strong> ${p.TipoPago || '-'}</div>
+                        <div><strong style="color: #64748b;">N° Operación:</strong> ${p.NroOperacion || '-'}</div>
+                        <div><strong style="color: #64748b;">Registrado por:</strong> ${p.UsuarioRegistro || '-'}</div>
+                    </div>
+                    ${p.Notas ? `<div style="font-size: 0.8rem; color: #475569; background: #f8fafc; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;"><strong>Notas:</strong> ${p.Notas}</div>` : ''}
+                    ${p.Adjuntos && p.Adjuntos.length > 0 ? `
+                        <div style="margin-top: 0.5rem;">
+                            <strong style="font-size: 0.8rem; color: #64748b;">Adjuntos:</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem;">
+                                ${p.Adjuntos.map(a => `
+                                    <a href="/uploads/pagos/${a.ArchivoNombre}" target="_blank" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: #e0e7ff; color: #4338ca; border-radius: 4px; font-size: 0.75rem; text-decoration: none;">
+                                        📎 ${a.ArchivoNombre}
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        html += `</div></div>`;
+    }
+
+    // ─── Attachments List in Report ──────────────────────────
+    const signedFiles = attachedDocs.signed || [];
+    const voucherFiles = attachedDocs.voucher || [];
+
+    if(signedFiles.length > 0 || voucherFiles.length > 0) {
+        html += `
+            <div style="margin-top: 2rem; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-family: 'Inter', sans-serif;">
+                <div style="background: #f8fafc; padding: 0.75rem 1.25rem; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center; gap:0.5rem;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Documentos Adjuntos
+                </div>
+                <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        `;
+
+        const renderFiles = (files, title, color) => {
+            if(!files.length) return '';
+            let filesHtml = files.map(f => {
+                const isImg = f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 0.6rem 0.8rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; margin-top:0.4rem;">
+                        <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; color:#475569; overflow:hidden;">
+                            ${isImg ? '🖼️' : '📄'}
+                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.filename}">${f.filename}</span>
+                        </div>
+                        <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;" onclick="viewReportAttachment('${f.url}', '${f.filename}')">Virtualizar 👁</button>
+                    </div>
+                `;
+            }).join('');
+            return `
+                <div>
+                    <h5 style="margin: 0 0 0.2rem 0; font-size: 0.85rem; font-weight: 600; color: ${color};">${title}</h5>
+                    ${filesHtml}
+                </div>
+            `;
+        };
+
+        html += renderFiles(signedFiles, 'Orden Firmada - OC', '#2563eb');
+        html += renderFiles(voucherFiles, 'Vouchers de Pago (Adjuntos)', '#f59e0b');
+
+        html += `</div></div>`;
+    }
 
     document.getElementById('reportContent').innerHTML = html;
 }
 
-function closeReportModal() { document.getElementById('reportModal').classList.remove('active'); }
+function closeReportModal() { 
+    document.getElementById('reportModal').classList.remove('active'); 
+    closeReportViewer();
+}
+
 function printReport() { window.print(); }
+
+// ─── Attachments Split View ─────────────────────────
+function viewReportAttachment(url, filename) {
+    const viewer = document.getElementById('reportAttachmentViewer');
+    const iframe = document.getElementById('reportAttachmentIframe');
+    const loader = document.getElementById('reportViewerLoader');
+    const title = document.getElementById('reportViewerTitle');
+    
+    const modal = document.querySelector('#reportModal .modal');
+    modal.style.transition = 'max-width 0.3s ease-out';
+    modal.style.maxWidth = '1400px';
+
+    viewer.style.display = 'flex';
+    loader.style.display = 'flex';
+    iframe.style.display = 'none'; // hide until loaded
+    iframe.onload = () => {
+        loader.style.display = 'none';
+        iframe.style.display = 'block';
+    };
+    iframe.src = url;
+    
+    title.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <span style="white-space:nowrap; max-width:250px; overflow:hidden; text-overflow:ellipsis;" title="${filename}">${filename}</span>
+    `;
+}
+
+function closeReportViewer() {
+    const viewer = document.getElementById('reportAttachmentViewer');
+    const iframe = document.getElementById('reportAttachmentIframe');
+    
+    if(viewer) viewer.style.display = 'none';
+    if(iframe) iframe.src = '';
+    
+    const modal = document.querySelector('#reportModal .modal');
+    if(modal) modal.style.maxWidth = '920px';
+}
 
 // ─── Warehouse Modal (Voucher estilo Crystal Report) ─────────────────────────
 async function openWarehouseModal(codcia, nrodoc) {
@@ -821,6 +1107,87 @@ async function submitSolicitudRecojo() {
 }
 
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  BÚSQUEDA GLOBAL DE OC (por NroDoc, RUC, Proveedor)
+// ════════════════════════════════════════════════════════════
+
+function openOcSearchModal() {
+    document.getElementById('ocSearchModal').classList.add('active');
+    const input = document.getElementById('ocSearchInput');
+    input.value = '';
+    document.getElementById('ocSearchTbody').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:#94a3b8;">Escriba para buscar OC</td></tr>';
+    setTimeout(() => input.focus(), 100);
+}
+
+function closeOcSearchModal() {
+    document.getElementById('ocSearchModal').classList.remove('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const ocInput = document.getElementById('ocSearchInput');
+    if (ocInput) ocInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') triggerOcSearch(); });
+});
+
+async function triggerOcSearch() {
+    const q = document.getElementById('ocSearchInput').value.trim();
+    if (q.length < 2) return;
+    const codcia = document.getElementById('filterCia').value;
+    if (!codcia) { Swal.fire('Atención', 'Seleccione una empresa primero', 'warning'); return; }
+    
+    const tbody = document.getElementById('ocSearchTbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:#64748b;">Buscando...</td></tr>';
+    
+    try {
+        const res = await fetch(`/api/logistics/orders?codcia=${encodeURIComponent(codcia)}&search=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error('Error buscando');
+        const orders = await res.json();
+        
+        if (orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:#64748b;">No se encontraron órdenes.</td></tr>';
+            return;
+        }
+        
+        const TIPO_COLORS = { 'M': '#2563eb', 'S': '#16a34a', 'T': '#9333ea' };
+        const TIPO_LABELS = { 'M': 'Mercadería', 'S': 'Servicios', 'T': 'Contable' };
+        
+        let html = '';
+        orders.forEach(o => {
+            const mon = String(o.moneda || '1').trim();
+            const sym = (mon === '2') ? 'USD' : 'S/';
+            const total = parseFloat(o.total) || 0;
+            const tipoColor = TIPO_COLORS[o.tipooc] || '#64748b';
+            const tipoLabel = TIPO_LABELS[o.tipooc] || o.tipooc || '-';
+            const statusInfo = formatStatus(o.estado);
+            
+            html += `<tr style="cursor:pointer; border-bottom:1px solid #e2e8f0;" 
+                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" 
+                        onclick="selectOcFromSearch('${o.nrodoc}', '${o.tipooc || ''}', '${o.anos || ''}')">
+                <td style="padding:0.6rem; font-family:monospace; color:#2563eb; font-weight:700;">${o.nrodoc}</td>
+                <td style="padding:0.6rem; color:#475569;">${o.fchdoc || '-'}</td>
+                <td style="padding:0.6rem; text-align:center;">
+                    <span style="font-size:0.7rem; background:${tipoColor}15; color:${tipoColor}; padding:0.2rem 0.5rem; border-radius:4px; font-weight:700; border:1px solid ${tipoColor}30;">${o.tipooc} - ${tipoLabel}</span>
+                </td>
+                <td style="padding:0.6rem; font-weight:500;">${(o.proveedor || '').substring(0, 30)}</td>
+                <td style="padding:0.6rem; font-family:monospace; font-size:0.75rem; color:#475569;">${o.ruc || '-'}</td>
+                <td style="padding:0.6rem; text-align:right; font-weight:600;">${sym} ${fmtNum(total)}</td>
+                <td style="padding:0.6rem; text-align:center;">${statusInfo.badge}</td>
+            </tr>`;
+        });
+        
+        tbody.innerHTML = html;
+    } catch(err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:#ef4444;">Error: ${err.message}</td></tr>`;
+    }
+}
+
+function selectOcFromSearch(nrodoc, tipooc, anos) {
+    closeOcSearchModal();
+    // Open traza modal directly for the selected OC
+    const codcia = document.getElementById('filterCia').value;
+    openTrazaModal(codcia, nrodoc, tipooc, anos);
+}
+
+// ════════════════════════════════════════════════════════════
 //  TRAZABILIDAD OC → ALMACÉN → FACTURA
 // ════════════════════════════════════════════════════════════
 
@@ -850,10 +1217,46 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
         <div class="traza-summary">
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_items_oc}</div><div class="tlabel">Items OC</div></div>
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>
-            <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#22c55e;">${fmtN(r.total_almacen)}</div><div class="tlabel">Cant. Almacén</div></div>
+            ${tipooc === 'M' ? `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#22c55e;">${fmtN(r.total_almacen)}</div><div class="tlabel">Cant. Almacén</div></div>` : ''}
             <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_facturas}</div><div class="tlabel">Facturas</div></div>
         </div>`;
+
+        // ─── Validaciones / Alertas ───
+        if (data.validaciones && data.validaciones.length > 0) {
+            html += `<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+                <h5 style="margin:0 0 0.5rem 0; color:#b45309; font-size:0.85rem; font-weight:700;">⚠️ Advertencias y Discrepancias</h5>
+                <ul style="margin:0; padding-left:1.5rem; color:#92400e; font-size:0.75rem; font-weight:500;">`;
+            data.validaciones.forEach(val => {
+                html += `<li style="margin-bottom:0.25rem;">${val}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+
+        // ─── Timeline Information Prep ───
+        const dateOC = data.fch_oc ? new Date(data.fch_oc) : null;
+        const diffDays = (dStr) => {
+            if (!dateOC || !dStr) return null;
+            const d = new Date(dStr);
+            const diffTime = d.getTime() - dateOC.getTime();
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        let events = [];
+        if (data.fch_oc) {
+            events.push({ type: 'oc', fchdoc: data.fch_oc, label: 'Orden Emitida', desc: '', icon: '📝', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' });
+        }
+        if (data.movimientos_almacen) {
+            data.movimientos_almacen.forEach(m => {
+                if (m.fchdoc) events.push({ type: 'alm', fchdoc: m.fchdoc, label: `Ingreso a Almacén`, desc: `Inv: ${m.nrodoc}`, icon: '📦', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' });
+            });
+        }
+        if (data.facturas) {
+            data.facturas.forEach(f => {
+                if (f.FecEmision) events.push({ type: 'fac', fchdoc: f.FecEmision, label: `Facturación`, desc: `Serie/Núm: ${f.Serie}-${f.Numero}`, icon: '🧾', color: '#9333ea', bg: '#faf5ff', border: '#e9d5ff' });
+            });
+        }
+        events.sort((a,b) => new Date(a.fchdoc) - new Date(b.fchdoc));
 
         // Items Table
         html += `<div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1rem;">
@@ -864,98 +1267,251 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Código</th>
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Descripción</th>
                     <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Cant. OC</th>
-                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#22c55e; border-bottom:2px solid #cbd5e1;">Almacén</th>
+                    ${tipooc === 'M' ? `<th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#22c55e; border-bottom:2px solid #cbd5e1;">Almacén</th>` : ''}
                     <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">Facturado</th>
                 </tr>
             </thead><tbody>`;
 
         if (data.items.length === 0) {
-            html += '<tr><td colspan="6" style="text-align:center; padding:2rem; color:#94a3b8;">Sin ítems encontrados en la OC</td></tr>';
+            html += `<tr><td colspan="${tipooc === 'M' ? '6' : '5'}" style="text-align:center; padding:2rem; color:#94a3b8;">Sin ítems encontrados en la OC</td></tr>`;
         } else {
             data.items.forEach((it, idx) => {
                 const almClass = it.pct_almacen >= 100 ? 'complete' : (it.pct_almacen > 0 ? 'partial' : 'pending');
                 const facClass = it.pct_facturado >= 100 ? 'complete' : (it.pct_facturado > 0 ? 'partial' : 'pending');
 
-                html += `<tr style="border-bottom:1px solid #f1f5f9;">
+                let trWarning = '';
+                if (it.warnings && it.warnings.length > 0) {
+                    const warnsInfo = it.warnings.map(w => `<span style="display:inline-block; margin-right:12px;">⚠️ ${w}</span>`).join('');
+                    trWarning = `<tr style="background:#fffbeb; border-bottom:1px solid #f1f5f9;">
+                         <td colspan="${tipooc === 'M' ? '6' : '5'}" style="padding:0.35rem 0.6rem; font-size:0.68rem; font-weight:500; color:#b45309;">
+                             ${warnsInfo}
+                         </td>
+                    </tr>`;
+                }
+
+                html += `<tr style="border-bottom:${it.warnings && it.warnings.length ? 'none' : '1px solid #f1f5f9'};">
                     <td style="padding:0.5rem; text-align:center; color:#64748b;">${it.nroitm}</td>
                     <td style="padding:0.5rem; font-family:monospace; font-size:0.725rem;">${it.codmat}</td>
                     <td style="padding:0.5rem;">${(it.desmat || '').substring(0, 50)}</td>
                     <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(it.candes)}</td>
-                    <td style="padding:0.5rem; text-align:center;">
+                    ${tipooc === 'M' ? `<td style="padding:0.5rem; text-align:center;">
                         <div style="font-weight:600; ${almClass === 'complete' ? 'color:#22c55e;' : almClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_almacen)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_almacen}%)</span></div>
                         <div class="traza-bar"><div class="traza-bar-fill ${almClass}" style="width:${Math.min(it.pct_almacen, 100)}%;"></div></div>
-                    </td>
+                    </td>` : ''}
                     <td style="padding:0.5rem; text-align:center;">
                         <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_facturada)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
                         <div class="traza-bar"><div class="traza-bar-fill ${facClass}" style="width:${Math.min(it.pct_facturado, 100)}%;"></div></div>
                     </td>
-                </tr>`;
+                </tr>${trWarning}`;
             });
         }
         html += '</tbody></table></div>';
 
-        // Detailed warehouse movements
-        if (data.movimientos_almacen && data.movimientos_almacen.length > 0) {
-            html += `
-            <h5 style="font-size:0.8rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.75rem; color:#334155;">Detalle de Movimientos Almacén</h5>
-            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1.5rem;">
-            <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
-                <thead>
-                    <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
-                        <th style="padding:0.5rem; text-align:left;">Almacén</th>
-                        <th style="padding:0.5rem; text-align:left;">Doc. Referencia</th>
-                        <th style="padding:0.5rem; text-align:left;">Fecha</th>
-                        <th style="padding:0.5rem; text-align:left;">Material</th>
-                        <th style="padding:0.5rem; text-align:right;">Cantidad</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            data.movimientos_almacen.forEach(m => {
-                html += `
-                    <tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:0.4rem 0.5rem;">${m.almcen}</td>
-                        <td style="padding:0.4rem 0.5rem;"><strong>${m.tipmov}-${m.codmov}-${m.nrodoc}</strong></td>
-                        <td style="padding:0.4rem 0.5rem; color:#64748b;">${m.fchdoc}</td>
-                        <td style="padding:0.4rem 0.5rem; font-size:0.7rem;">${m.codmat}</td>
-                        <td style="padding:0.4rem 0.5rem; text-align:right; font-weight:600;">${fmtN(m.candes)}</td>
-                    </tr>`;
-            });
-            html += '</tbody></table></div>';
+        // Section: Documentos Agrupados (Vertically stacked for full width)
+        html += `<div style="display:flex; flex-direction:column; gap:1.5rem; margin-bottom:1.5rem;">`;
+
+        if (tipooc === 'M') {
+            html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem;">
+                <h5 style="font-size:0.85rem; font-weight:700; margin-top:0; margin-bottom:1rem; color:#1e293b; border-bottom:2px solid #22c55e; padding-bottom:0.5rem;"><span style="color:#22c55e;">📦</span> Detalle de Movimientos Almacén</h5>
+                <div style="overflow-x:auto;">`;
+
+            if (data.movimientos_almacen && data.movimientos_almacen.length > 0) {
+                html += `<table style="width:100%; border-collapse:collapse; font-size:0.75rem; background:#fff; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
+                    <thead>
+                        <tr style="color:#334155; background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Almacén</th>
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Doc. Referencia</th>
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Fecha</th>
+                            <th style="padding:0.5rem; text-align:left; font-weight:600;">Material</th>
+                            <th style="padding:0.5rem; text-align:right; font-weight:600;">Cantidad</th>
+                            <th style="padding:0.5rem; text-align:right; font-weight:600;">Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                data.movimientos_almacen.forEach((m, idx) => {
+                    const isLast = idx === data.movimientos_almacen.length - 1;
+                    html += `
+                        <tr style="${!isLast ? 'border-bottom:1px solid #e2e8f0;' : ''}">
+                            <td style="padding:0.5rem; color:#64748b;">${m.almcen}</td>
+                            <td style="padding:0.5rem; color:#1d4ed8; font-weight:600;">${m.tipmov}-${m.codmov}-${m.nrodoc}</td>
+                            <td style="padding:0.5rem; color:#475569;">${m.fchdoc}</td>
+                            <td style="padding:0.5rem; font-family:monospace; font-weight:600; color:#475569;">${m.codmat}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600; color:#16a34a;">${fmtN(m.candes)}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(m.preuni)} <span style="font-size:0.65rem; color:#64748b; font-weight:400;">${m.codmon_desc || ''}</span></td>
+                        </tr>`;
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += '<div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.8rem; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px;">No hay movimientos.</div></div>';
+            }
+            html += `</div>`; // End top card (Movimientos)
         }
 
+        html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem;">
+                 <h5 style="font-size:0.85rem; font-weight:700; margin-top:0; margin-bottom:1rem; color:#1e293b; border-bottom:2px solid #8b5cf6; padding-bottom:0.5rem;"><span style="color:#8b5cf6;">🧾</span> Facturas Vinculadas</h5>
+                 <div class="traza-factura-list">`;
+        
         // Linked invoices
         if (data.facturas && data.facturas.length > 0) {
-            html += '<h5 style="font-size:0.8rem; font-weight:700; margin-bottom:1rem; color:#334155;">Facturas Vinculadas</h5><div class="traza-factura-list">';
             data.facturas.forEach(f => {
                 const facturaUrl = f.Uuid ? `factura_visor.html?uid=${f.Uuid}` : '#';
                 html += `
-                <div class="traza-factura-card" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:0.75rem;">
-                        <div style="background:#f0f7ff; color:#2563eb; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <div style="margin-bottom:1rem; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem 1rem; background:#f8fafc; border-bottom:${f.detalles && f.detalles.length ? '1px solid #cbd5e1' : 'none'};">
+                        <div style="display:flex; align-items:center; gap:0.85rem;">
+                            <div style="background:#f0f7ff; color:#2563eb; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            </div>
+                            <div>
+                                <div style="font-weight:700; color:#1e293b;">${f.Serie || ''}-${f.Numero || ''}</div>
+                                <div style="font-size:0.7rem; color:#64748b;">${f.NomProveedor || '-'}</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style="font-weight:700; color:#1e293b;">${f.Serie || ''}-${f.Numero || ''}</div>
-                            <div style="font-size:0.7rem; color:#64748b;">${f.NomProveedor || '-'}</div>
+                        <div style="text-align:right;">
+                            <div style="font-weight:700; color:#1e293b;">${fmtN(f.Total)} ${f.codmon_desc || f.CodMoneda}</div>
+                            <div style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem; margin-top:0.25rem;">
+                                <span style="font-size:0.7rem; color:#64748b;">${f.FecEmision || '-'}</span>
+                                ${f.Uuid ? `<a href="${facturaUrl}" target="_blank" class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.65rem; height:auto; text-decoration:none;">Ver PDF</a>` : ''}
+                            </div>
                         </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-weight:700; color:#1e293b;">${fmtN(f.Total)} ${f.CodMoneda === '1' ? 'S/' : 'USD'}</div>
-                        <div style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem;">
-                            <span style="font-size:0.7rem; color:#64748b;">${f.FecEmision || '-'}</span>
-                            ${f.Uuid ? `<a href="${facturaUrl}" target="_blank" class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.65rem; height:auto; text-decoration:none;">Ver PDF</a>` : ''}
-                        </div>
-                    </div>
-                </div>`;
+                    </div>`;
+
+                if (f.detalles && f.detalles.length > 0) {
+                    html += `<div style="padding:0 0.75rem 0.75rem 0.75rem;"><table style="width:100%; font-size:0.72rem; border-collapse:collapse; margin-top:0.5rem; background:#fff; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
+                        <thead>
+                           <tr style="color:#334155; background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
+                             <th style="padding:0.5rem; text-align:left; font-weight:600;">Cod. Material</th>
+                             <th style="padding:0.5rem; text-align:left; font-weight:600;">Descripción</th>
+                             <th style="padding:0.5rem; text-align:right; font-weight:600;">Cantidad</th>
+                             <th style="padding:0.5rem; text-align:right; font-weight:600;">Precio Unitario</th>
+                           </tr>
+                        </thead><tbody>`;
+                    f.detalles.forEach((d, idx) => {
+                        const isLast = idx === f.detalles.length - 1;
+                        html += `<tr style="${!isLast ? 'border-bottom:1px solid #e2e8f0;' : ''}">
+                            <td style="padding:0.5rem; font-family:monospace; font-weight:600; color:#475569;">${d.codmat}</td>
+                            <td style="padding:0.5rem; font-weight:500;">${(d.desmat || '')}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600; color:#8b5cf6;">${fmtN(d.cant)}</td>
+                            <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(d.preuni)} <span style="font-size:0.65rem; color:#64748b; font-weight:400;">${f.codmon_desc || ''}</span></td>
+                        </tr>`;
+                    });
+                    html += `</tbody></table></div>`;
+                }
+                html += `</div>`;
             });
             html += '</div>';
         } else {
-            html += '<div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.8rem; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px;">No hay facturas vinculadas aún.</div>';
+            html += '<div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.8rem; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px;">No hay facturas vinculadas aún.</div></div>';
         }
+        
+        html += `</div>`; // End right card
+        html += `</div>`; // End grouped flex
+
+        // ─── Vertical Timeline Render ───
+        html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem;">
+            <h5 style="font-size:0.85rem; font-weight:700; color:#1e293b; margin-top:0; margin-bottom:1.2rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem;"><span style="color:#f59e0b; margin-right:6px;">⏱️</span> Línea de Tiempo (Cronograma)</h5>`;
+        
+        html += `<div style="border-left:2px solid #cbd5e1; margin-left:1rem; padding-left:1.5rem; position:relative; display:flex; flex-direction:column; gap:1.2rem;">`;
+
+        events.forEach(ev => {
+             const dd = diffDays(ev.fchdoc);
+             const daysText = dd === 0 ? "Mismo Día" : (dd > 0 ? `+${dd} Días` : `${dd} Días`);
+             html += `
+             <div style="position:relative;">
+                 <div style="position:absolute; left:-1.9rem; top:0.25rem; width:14px; height:14px; background:#fff; border:3px solid ${ev.color}; border-radius:50%;"></div>
+                 <div style="background:${ev.bg}; border:1px solid ${ev.border}; padding:0.6rem 1rem; border-radius:8px;">
+                     <div style="display:flex; justify-content:space-between; align-items:center;">
+                         <div style="font-weight:700; color:${ev.color}; font-size:0.75rem;"><span style="font-size:0.85rem; margin-right:4px;">${ev.icon}</span> ${ev.label}</div>
+                         <div style="font-size:0.7rem; color:#475569; font-weight:600; padding:2px 8px; background:#fff; border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">${daysText}</div>
+                     </div>
+                     <div style="color:#64748b; font-size:0.72rem; margin-top:0.4rem;">Fecha doc: <strong style="color:#334155;">${ev.fchdoc}</strong> ${ev.desc ? `<span style="margin-left:0.5rem; padding-left:0.5rem; border-left:1px solid #cbd5e1; color:#64748b;">${ev.desc}</span>` : ''}</div>
+                 </div>
+             </div>
+             `;
+        });
+        
+        if (events.length === 0) {
+             html += `<div style="color:#64748b; font-size:0.8rem; font-style:italic;">Sin eventos registrados</div>`;
+        }
+        html += `</div></div>`;
+
+        // ─── Botón Cerrar Proceso Completo ───
+        const hasWarnings = data.validaciones && data.validaciones.length > 0;
+        const isClosed = String(data.resumen.estado_oc || '').trim().toUpperCase() === 'C';
+        
+        html += `<div style="margin-top:2rem; text-align:right; border-top:1px solid #e2e8f0; padding-top:1.5rem;">`;
+        if (!isClosed) {
+            if (hasWarnings) {
+                html += `<button class="btn" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;" title="Hay discrepancias en la trazabilidad. Resuélvalas antes de cerrar.">
+                    🔒 Cerrar Proceso Completo
+                </button>`;
+            } else {
+                html += `<button class="btn btn-primary" style="background:#8b5cf6;" onclick="cerrarOcIntegral('${codcia}','${nrodoc}','${tipooc}','${anos}')">
+                    🔒 Cerrar Proceso Completo
+                </button>`;
+            }
+        } else {
+            html += `<span style="display:inline-block; padding:0.6rem 1.25rem; font-size:0.85rem; font-weight:700; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">✅ PROCESO CERRADO</span>`;
+        }
+        html += `</div>`;
 
         content.innerHTML = html;
     } catch(err) {
         content.innerHTML = `<div style="text-align:center; padding:3rem; color:#ef4444; font-weight:500;">❌ Error: ${err.message}</div>`;
+    }
+}
+
+// ─── Cerrar OC Integral ─────────────────────────
+async function cerrarOcIntegral(codcia, nrodoc, tipooc, year) {
+    const result = await Swal.fire({
+        title: 'Cerrar Proceso Completo',
+        html: `Esta acción cerrará la <strong>OC ${nrodoc}</strong>, y bloqueará permanentemente todos sus movimientos de almacén y facturas vinculadas.<br><br><span style="color:#ef4444; font-weight:bold;">Esta acción es irreversible.</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#8b5cf6',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Sí, Cerrar Proceso',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`/api/logistics/orders/${encodeURIComponent(nrodoc)}/cerrar-integral`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                codcia: codcia,
+                year: year,
+                tipo_oc: tipooc
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Error al cerrar el proceso integral');
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: '¡Cerrado exitosamente!',
+            text: `Toda la trazabilidad de la OC ${nrodoc} ha sido cerrada y bloqueada.`,
+            timer: 2500,
+            showConfirmButton: false
+        });
+        
+        closeTrazaModal();
+        loadOrders(); // Recargar tabla
+    } catch (err) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de cierre',
+            text: err.message
+        });
     }
 }
 
@@ -1020,19 +1576,65 @@ document.addEventListener('scroll', function() {
     _closeActiveDropdown();
 }, true);
 
+// ─── Security Permissions (RLS) ────────────
+async function enforceUserPermissions() {
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/permisos/me', { headers: { 'Authorization': `Bearer ${token}` }});
+        if(res.ok) {
+            const data = await res.json();
+            
+            // 1. Visibilidad Global
+            const myRsContainer = document.getElementById('filterMyRecordsContainer');
+            if(data.puede_ver_todo) {
+                if(myRsContainer) myRsContainer.style.display = 'flex';
+            } else {
+                if(myRsContainer) myRsContainer.style.display = 'none';
+                const chk = document.getElementById('filterMyRecords');
+                if(chk) chk.checked = true; // Forzar
+            }
+
+            // 2. Tipos de OC Permitidos
+            if (!data.isAdmin && data.tipos_oc_permitidos) {
+                const selTipos = document.getElementById('filterType');
+                if(selTipos) {
+                    Array.from(selTipos.options).forEach(opt => {
+                        if(opt.value && !data.tipos_oc_permitidos.includes(opt.value)) {
+                            opt.style.display = 'none'; // Ocultar visualmente
+                            opt.disabled = true; // Desactivar seleccionable
+                        }
+                    });
+                    
+                    // Si el usuario no tiene ninguna selección válida, seleccionar (Todos) o limpiar
+                    if(selTipos.options[selTipos.selectedIndex] && selTipos.options[selTipos.selectedIndex].disabled) {
+                        selTipos.value = "";
+                    }
+                }
+            }
+        }
+    } catch(err) { console.error("Error cargando RLS", err); }
+}
+
 // ─── Auto-Open Modals via URL Params ────────────
 document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const seek_oc = urlParams.get('seek_oc');
-    const seek_oc_report = urlParams.get('seek_oc_report');
-    const seek_wh = urlParams.get('seek_warehouse');
-    const cia = urlParams.get('cia');
+    enforceUserPermissions().then(() => {
+        loadCompanies().then(() => {
+            loadOrders();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const seek_oc = urlParams.get('seek_oc');
+            const seek_oc_report = urlParams.get('seek_oc_report');
+            const seek_wh = urlParams.get('seek_warehouse');
+            const cia = urlParams.get('cia');
 
-    if (seek_oc_report && cia) {
-        setTimeout(() => openReportModal(cia, seek_oc_report, 'O', new Date().getFullYear().toString()), 600);
-    } else if (seek_oc && cia) {
-        setTimeout(() => openAttachmentModal(cia, 'O', seek_oc, 'signed_order'), 600);
-    } else if (seek_wh && cia) {
-        setTimeout(() => openWarehouseModal(cia, seek_wh), 600);
-    }
+            if (seek_oc_report && cia) {
+                setTimeout(() => openReportModal(cia, seek_oc_report, 'O', new Date().getFullYear().toString()), 600);
+            } else if (seek_oc && cia) {
+                setTimeout(() => openAttachmentModal(cia, 'O', seek_oc, 'signed_order'), 600);
+            } else if (seek_wh && cia) {
+                setTimeout(() => openWarehouseModal(cia, seek_wh), 600);
+            }
+        });
+    });
 });
+

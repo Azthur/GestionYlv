@@ -157,8 +157,10 @@ async function searchSunatInvoices() {
         const tb = document.getElementById('sunatResultsTbody');
         let html = '';
         docs.forEach(c => {
-            // Check if already registered (optional visual cue, wait API doesn't tell us, but we can just list them)
             const jsonStr = escapeHtml(JSON.stringify(c));
+            // Usar NroOrdenCompra/TipoOc del LEFT JOIN
+            const ocInfo = c.NroOrdenCompra ? `${c.TipoOc||''}${c.NroOrdenCompra}` : '<span style="color:#94a3b8;">-</span>';
+            const estadoInfo = c.FacturaId ? `<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;">${c.FacturaEstado||'Registrada'}</span>` : '<span style="color:#94a3b8;font-size:0.75rem;">Sin registrar</span>';
             html += `<tr>
                 <td style="white-space:nowrap;">
                     <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; background:var(--primary); color:white; border:none;" onclick="loadSunatInvoice(this)" data-doc="${jsonStr}">Seleccionar</button>
@@ -168,11 +170,37 @@ async function searchSunatInvoices() {
                 <td>${c.FecEmision || '-'}</td>
                 <td>${(c.NomRazonSocialProveedor || '').substring(0, 30)}</td>
                 <td style="text-align:right;">${c.CodMoneda} ${fmtNum(c.MtoTotalCp)}</td>
+                <td>${ocInfo || '<span style="color:#94a3b8;">-</span>'}</td>
+                <td>${estadoInfo}</td>
             </tr>`;
         });
         
         tb.innerHTML = html;
         document.getElementById('sunatSearchResults').style.display = 'block';
+
+        // Inicializar DataTable si no está inicializado
+        const table = $('#sunatSearchResults table');
+        if ($.fn.DataTable.isDataTable(table)) {
+            table.DataTable().destroy();
+        }
+        table.DataTable({
+            pageLength: 10,
+            lengthMenu: [5, 10, 25, 50],
+            language: {
+                search: "Buscar:",
+                lengthMenu: "Mostrar _MENU_ registros",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+            },
+            order: [[1, 'desc'], [2, 'desc']],
+            dom: 'Bfrtip',
+            buttons: [
+                { extend: 'copy', text: 'Copiar', className: 'btn btn-sm btn-outline-secondary' },
+                { extend: 'excel', text: 'Excel', className: 'btn btn-sm btn-outline-success' },
+                { extend: 'pdf', text: 'PDF', className: 'btn btn-sm btn-outline-danger' },
+                { extend: 'print', text: 'Imprimir', className: 'btn btn-sm btn-outline-primary' }
+            ]
+        });
 
     } catch(err) {
         Swal.fire({icon:'error', title:'Error', text: err.message});
@@ -182,7 +210,32 @@ async function searchSunatInvoices() {
 async function loadSunatInvoice(btn) {
     try {
         const c = JSON.parse(btn.getAttribute('data-doc').replace(/&quot;/g, '"'));
-        
+
+        // Alerta si la factura ya está vinculada a una OC
+        if (c.FacturaId && c.NroOrdenCompra) {
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Factura ya vinculada',
+                html: `Esta factura ya se encuentra vinculada a la OC N° <strong>${c.TipoOc||''}${c.NroOrdenCompra}</strong> con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>¿Desea continuar?`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2563eb'
+            });
+            if (!result.isConfirmed) return;
+        } else if (c.FacturaId) {
+            const result = await Swal.fire({
+                icon: 'info',
+                title: 'Factura ya registrada',
+                html: `Esta factura ya está registrada con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>¿Desea continuar de todas formas?`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2563eb'
+            });
+            if (!result.isConfirmed) return;
+        }
+
         const fEmi = c.FecEmision ? c.FecEmision.substring(0,10) : '';
 
         document.getElementById('invRucProv').value = c.NumDocIdProveedor || '';
@@ -409,19 +462,25 @@ async function searchPendingOC() {
     const proveedor = document.getElementById('searchOCProv').value.trim();
     const tipo = document.getElementById('buscarTipoOC') ? document.getElementById('buscarTipoOC').value : '';
 
+    console.log('searchPendingOC - codcia:', codcia, 'proveedor:', proveedor, 'tipo:', tipo);
+
     if (!proveedor) {
         Swal.fire({icon:'warning', title:'Atención', text:'Ingrese RUC del proveedor para buscar OC. Si la factura ya tiene RUC, se usará ese.'});
         return;
     }
 
     try {
-        let url = `/api/logistics/orders?codcia=${codcia}&proveedor=${encodeURIComponent(proveedor)}`;
+        const token = localStorage.getItem('yelave_token');
+        let url = `/api/logistics/orders?codcia=${codcia}&proveedor=${encodeURIComponent(proveedor)}&only_my_records=false`;
         if (tipo) url += `&tipo_oc=${tipo}`;
 
+        console.log('searchPendingOC - URL:', url);
+
         Swal.fire({ title: 'Buscando OC Pendientes...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         if (!res.ok) throw new Error('Error al buscar OCs');
         const ocs = await res.json();
+        console.log('searchPendingOC - ocs result:', ocs);
         Swal.close();
 
         if (ocs.length === 0) {
@@ -436,10 +495,21 @@ async function searchPendingOC() {
             let monStr = (o.moneda||'').toString().trim();
             if (monStr === '1' || monStr === '1.0' || monStr === 'S/') monStr = 'S/';
             else if (monStr === '2' || monStr === '2.0' || monStr === 'USD') monStr = 'USD';
+            // Parsear facturas vinculadas en formato: "CodTipoDoc-Serie-Numero|Id, ..."
+            const factVincStr = o.facturas_vinculadas || '';
+            let factVincHTML = '<span style="color:#94a3b8;font-size:0.75rem;">Ninguna</span>';
+            if (factVincStr) {
+                const facturas = factVincStr.split(',').map(f => f.trim());
+                const factLinks = facturas.map(f => {
+                    const [num, id] = f.split('|');
+                    return `<a href="javascript:void(0)" onclick="viewFacturaDetail(${id})" style="color:#2563eb;text-decoration:none;font-size:0.75rem;margin-right:4px;" title="Ver detalle">${num}</a>`;
+                });
+                factVincHTML = factLinks.join(', ');
+            }
 
             html += `<tr>
                 <td style="white-space:nowrap;">
-                    <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; background:#f59e0b; color:white; border:none;" onclick="loadOCDetails('${o.nrodoc}', '${o.tipooc}', '${o.anos}', '${o.ruc}', '${escapeHtml(o.proveedor)}', '${monStr}')">Vincular</button>
+                    <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; background:#f59e0b; color:white; border:none;" onclick="loadOCDetails('${o.nrodoc}', '${o.tipooc}', '${o.anos}', '${o.ruc}', '${escapeHtml(o.proveedor)}', '${monStr}', '${escapeHtml(factVincStr)}')">Vincular</button>
                     <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; color:#f59e0b; border:1px solid #f59e0b; margin-left:4px;" onclick="previewOCDetails('${o.nrodoc}', '${o.tipooc}', '${o.anos}')" title="Ver Contenido OC">Ver Info</button>
                 </td>
                 <td><span style="font-weight:600;">${o.tipooc}</span> ${o.nrodoc}</td>
@@ -447,20 +517,64 @@ async function searchPendingOC() {
                 <td>${(o.proveedor || '').substring(0,30)}</td>
                 <td style="font-family:monospace; font-size:0.8rem;">${o.ruc}</td>
                 <td style="text-align:right; font-weight:600;"><span style="color:var(--text-muted); font-size:0.75rem; margin-right:4px;">${monStr}</span>${fmtNum(o.total)}</td>
+                <td>${factVincHTML}</td>
             </tr>`;
         });
         
         tb.innerHTML = html;
         document.getElementById('ocSearchResults').style.display = 'block';
 
+        // Inicializar DataTable si no está inicializado
+        const table = $('#ocSearchResults table');
+        if ($.fn.DataTable.isDataTable(table)) {
+            table.DataTable().destroy();
+        }
+        table.DataTable({
+            pageLength: 10,
+            lengthMenu: [5, 10, 25, 50],
+            language: {
+                search: "Buscar:",
+                lengthMenu: "Mostrar _MENU_ registros",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+            },
+            order: [[1, 'desc'], [2, 'desc']],
+            dom: 'Bfrtip',
+            buttons: [
+                { extend: 'copy', text: 'Copiar', className: 'btn btn-sm btn-outline-secondary' },
+                { extend: 'excel', text: 'Excel', className: 'btn btn-sm btn-outline-success' },
+                { extend: 'pdf', text: 'PDF', className: 'btn btn-sm btn-outline-danger' },
+                { extend: 'print', text: 'Imprimir', className: 'btn btn-sm btn-outline-primary' }
+            ]
+        });
+
     } catch(err) {
         Swal.fire({icon:'error', title:'Error', text: err.message});
     }
 }
 
-async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda) {
+async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincStr) {
     const codcia = getSelectedCia();
     if (!codcia) return;
+
+    // Alerta si la OC ya tiene facturas vinculadas
+    if (factVincStr && factVincStr.trim()) {
+        const facturas = factVincStr.split(',').map(f => f.trim());
+        const factLinks = facturas.map(f => {
+            const [num] = f.split('|');
+            return `<strong>${num}</strong>`;
+        }).join(', ');
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: 'OC ya vinculada',
+            html: `Esta OC ya se encuentra vinculada a las facturas: ${factLinks}.<br>¿Desea continuar?`,
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#f59e0b'
+        });
+        if (!result.isConfirmed) return;
+    }
 
     try {
         Swal.fire({ title: 'Obteniendo OC...', text: 'Descargando líneas pendientes', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -841,7 +955,7 @@ function clearOC() {
 function renderInvoiceItems() {
     const tb = document.getElementById('invItemsTbody');
     if (invoiceItems.length === 0) {
-        tb.innerHTML = '<tr id="invNoItems"><td colspan="11" style="text-align:center; padding:2rem; color:var(--text-muted);">Sin ítems. Busque un comprobante SUNAT, cargue una OC o agregue ítems manualmente.</td></tr>';
+        tb.innerHTML = '<tr id="invNoItems"><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-muted);">Sin ítems. Busque un comprobante SUNAT, cargue una OC o agregue ítems manualmente.</td></tr>';
         updateTotals(0,0,0);
         return;
     }
@@ -871,6 +985,9 @@ function renderInvoiceItems() {
         html += `
             <tr>
                 <td>${i+1}</td>
+                <td style="text-align:center;">
+                    <input type="checkbox" id="itemExtraCheck_${i}" ${it.extraData && (it.extraData.inci || it.extraData.fabricante || it.extraData.obs1 || it.extraData.obs2 || it.extraData.obs3 || it.extraData.obs4) ? 'checked' : ''} onchange="toggleItemExtraData(${i})" title="Agregar más datos">
+                </td>
                 <td>
                     <div style="display:flex; gap:0.2rem;">
                         <input type="text" class="item-input-cell" style="width:70%; font-weight:600; color:var(--primary);" value="${it.codigo}" onchange="updateItem(${i}, 'codigo', this.value)" readonly>
@@ -905,8 +1022,7 @@ function renderInvoiceItems() {
                 </td>
             </tr>
         `;
-    });
-    
+    });    
     tb.innerHTML = html;
     updateTotals(subT, igvT, totT, totG, totE, totI);
     runValidationInsights();
@@ -1160,6 +1276,318 @@ function removeInvoiceItem(index) {
     renderInvoiceItems();
 }
 
+function toggleItemExtraData(index) {
+    console.log('toggleItemExtraData called with index:', index);
+    // Abrir modal en lugar de expandir fila
+    openItemExtraModal(index);
+}
+
+function openItemExtraModal(index) {
+    // Crear modal dinámicamente si no existe
+    let modal = document.getElementById('modalItemExtraData');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modalItemExtraData';
+        modal.className = 'fluent-overlay';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;backdrop-filter:blur(4px);background:rgba(15,23,42,0.4);z-index:1000;display:none;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+            <div class="fluent-dialog" style="max-width:700px;background:white;border-radius:12px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);display:flex;flex-direction:column;max-height:85vh;border:1px solid rgba(255,255,255,0.1);">
+                <div class="fluent-dialog-header" style="padding:1.5rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;">
+                    <div>
+                        <h3 class="fluent-dialog-title" style="margin:0;font-size:1.2rem;font-weight:700;">Datos Adicionales del Ítem</h3>
+                        <div style="font-size:0.85rem;color:#64748b;margin-top:0.25rem;">INCI, Fabricante y Observaciones</div>
+                    </div>
+                    <button class="fluent-dialog-close" onclick="closeItemExtraModal()" style="background:#f1f5f9;border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="fluent-dialog-body" style="padding:1.5rem;overflow-y:auto;background:white;display:flex;flex-direction:column;gap:1.25rem;">
+                    <input type="hidden" id="itemExtraIndex">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                        <div class="input-group"><label>INCI</label><input type="text" id="itemExtraINCI" class="modern-input" placeholder="Código INCI"></div>
+                        <div class="input-group"><label>Nombre del Fabricante</label><input type="text" id="itemExtraFabricante" class="modern-input" placeholder="Nombre del fabricante"></div>
+                    </div>
+                    <div style="border-top:1px solid #e2e8f0;padding-top:1rem;">
+                        <div style="font-weight:600;font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;">Fecha de Vencimiento del Ítem</div>
+                        <div class="input-group" style="margin-bottom:1rem;">
+                            <label>Fecha de Vencimiento</label>
+                            <input type="date" id="itemExtraFechaVencimiento" class="modern-input">
+                        </div>
+                        <div style="font-weight:600;font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;">Observaciones y Archivos</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
+                            <div class="input-group"><label>Observación 1</label><input type="text" id="itemExtraObs1" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles1" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
+                            <div class="input-group"><label>Observación 2</label><input type="text" id="itemExtraObs2" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles2" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
+                            <div class="input-group"><label>Observación 3</label><input type="text" id="itemExtraObs3" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles3" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                            <div class="input-group"><label>Observación 4</label><input type="text" id="itemExtraObs4" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles4" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:1rem 1.5rem;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:0.75rem;">
+                    <button class="btn-sec" onclick="closeItemExtraModal()" style="padding:0.6rem 1rem;border-radius:6px;border:1px solid #e2e8f0;background:white;font-weight:500;cursor:pointer;">Cancelar</button>
+                    <button class="btn-sec" onclick="saveItemExtraData()" style="padding:0.6rem 1rem;border-radius:6px;border:1px solid #2563eb;background:#2563eb;color:white;font-weight:500;cursor:pointer;">Guardar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    document.getElementById('itemExtraIndex').value = index;
+    
+    // Cargar datos existentes si los hay
+    const item = invoiceItems[index];
+    const extraData = item.extraData || {
+        inci: '',
+        fabricante: '',
+        fecha_vencimiento: '',
+        obs1: '',
+        obs2: '',
+        obs3: '',
+        obs4: '',
+        files: {}
+    };
+    
+    document.getElementById('itemExtraINCI').value = extraData.inci || '';
+    document.getElementById('itemExtraFabricante').value = extraData.fabricante || '';
+    document.getElementById('itemExtraFechaVencimiento').value = extraData.fecha_vencimiento || '';
+    document.getElementById('itemExtraObs1').value = extraData.obs1 || '';
+    document.getElementById('itemExtraObs2').value = extraData.obs2 || '';
+    document.getElementById('itemExtraObs3').value = extraData.obs3 || '';
+    document.getElementById('itemExtraObs4').value = extraData.obs4 || '';
+    
+    // Limpiar inputs de archivos
+    document.getElementById('itemExtraFiles1').value = '';
+    document.getElementById('itemExtraFiles2').value = '';
+    document.getElementById('itemExtraFiles3').value = '';
+    document.getElementById('itemExtraFiles4').value = '';
+    
+    // Mostrar archivos existentes si los hay
+    const itemArchivos = extraData.files || {};
+    console.log(`openItemExtraModal - Item ${index}, extraData:`, extraData);
+    console.log(`openItemExtraModal - Item ${index}, files:`, itemArchivos);
+    
+    for (let i = 1; i <= 4; i++) {
+        const obsField = `obs${i}`;
+        const archivosObs = itemArchivos[obsField] || [];
+        console.log(`openItemExtraModal - obs${i}:`, archivosObs);
+        const filesDiv = document.getElementById(`itemExtraFiles${i}Preview`);
+        if (filesDiv) {
+            filesDiv.remove();
+        }
+        
+        if (archivosObs.length > 0) {
+            const previewDiv = document.createElement('div');
+            previewDiv.id = `itemExtraFiles${i}Preview`;
+            previewDiv.style.cssText = 'margin-top:0.5rem;font-size:0.8rem;color:#64748b;';
+            let html = '<div style="font-weight:600;margin-bottom:0.25rem;">Archivos existentes:</div>';
+            archivosObs.forEach((a, idx) => {
+                const ext = (a.name||a.NombreArchivo||'').split('.').pop().toUpperCase();
+                const color = ext === 'PDF' ? '#ef4444' : ext === 'XML' ? '#10b981' : '#6366f1';
+                const fileId = a.id || a.Id;
+                const fileName = a.name || a.NombreArchivo || 'Archivo sin nombre';
+                html += `<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+                    <span style="background:${color};color:white;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;">${ext}</span>
+                    <span style="flex:1;">${fileName}</span>
+                    ${fileId ? `<button onclick="deleteItemFile(${fileId}, '${obsField}', ${index})" style="padding:0.15rem 0.4rem;font-size:0.65rem;background:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️</button>` : ''}
+                </div>`;
+            });
+            previewDiv.innerHTML = html;
+            document.getElementById(`itemExtraFiles${i}`).parentNode.appendChild(previewDiv);
+        }
+    }
+    
+    // Mostrar modal
+    modal.style.display = 'flex';
+}
+
+async function deleteItemFile(archivoId, obsField, itemIndex) {
+    if (!confirm('¿Está seguro de eliminar este archivo?')) return;
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`/api/contabilidad/facturas/items/archivos/${archivoId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+            // Eliminar archivo de la memoria local
+            if (invoiceItems[itemIndex].extraData.files && invoiceItems[itemIndex].extraData.files[obsField]) {
+                invoiceItems[itemIndex].extraData.files[obsField] = invoiceItems[itemIndex].extraData.files[obsField].filter(f => f.id !== archivoId);
+            }
+            
+            // Recargar el modal para actualizar la vista
+            openItemExtraModal(itemIndex);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Eliminado',
+                text: 'Archivo eliminado correctamente',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        } else {
+            throw new Error('Error al eliminar archivo');
+        }
+    } catch (err) {
+        console.error('Error al eliminar archivo:', err);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudo eliminar el archivo'
+        });
+    }
+}
+
+function closeItemExtraModal() {
+    document.getElementById('modalItemExtraData').style.display = 'none';
+}
+
+async function saveItemExtraData() {
+    const index = parseInt(document.getElementById('itemExtraIndex').value);
+    
+    // Inicializar extraData si no existe
+    if (!invoiceItems[index].extraData) {
+        invoiceItems[index].extraData = {
+            inci: '',
+            fabricante: '',
+            obs1: '',
+            obs2: '',
+            obs3: '',
+            obs4: '',
+            files: {}
+        };
+    }
+    
+    // Preservar archivos existentes
+    const existingFiles = invoiceItems[index].extraData.files || {};
+    
+    // Guardar datos de texto
+    invoiceItems[index].extraData.inci = document.getElementById('itemExtraINCI').value;
+    invoiceItems[index].extraData.fabricante = document.getElementById('itemExtraFabricante').value;
+    invoiceItems[index].extraData.fecha_vencimiento = document.getElementById('itemExtraFechaVencimiento').value;
+    invoiceItems[index].extraData.obs1 = document.getElementById('itemExtraObs1').value;
+    invoiceItems[index].extraData.obs2 = document.getElementById('itemExtraObs2').value;
+    invoiceItems[index].extraData.obs3 = document.getElementById('itemExtraObs3').value;
+    invoiceItems[index].extraData.obs4 = document.getElementById('itemExtraObs4').value;
+    
+    // Guardar archivos (múltiples por observación)
+    const fileInputs = [
+        { field: 'obs1', input: 'itemExtraFiles1' },
+        { field: 'obs2', input: 'itemExtraFiles2' },
+        { field: 'obs3', input: 'itemExtraFiles3' },
+        { field: 'obs4', input: 'itemExtraFiles4' }
+    ];
+    
+    for (const { field, input } of fileInputs) {
+        const fileInput = document.getElementById(input);
+        if (fileInput.files.length > 0) {
+            console.log(`saveItemExtraData - Procesando ${field}: ${fileInput.files.length} archivos`);
+            // Guardar archivos directamente en memoria sin clonar
+            if (!invoiceItems[index].extraData.files[field]) {
+                invoiceItems[index].extraData.files[field] = [];
+            }
+            for (const file of fileInput.files) {
+                // Mantener el archivo original sin clonar
+                invoiceItems[index].extraData.files[field].push(file);
+                console.log(`Archivo guardado en memoria: ${field}, ${file.name}, size: ${file.size}`);
+            }
+            // No limpiar el input para que el usuario pueda ver qué archivos seleccionó
+        }
+    }
+    
+    console.log(`saveItemExtraData - Archivos en memoria después de guardar:`, invoiceItems[index].extraData.files);
+    
+    // Marcar checkbox como seleccionado
+    const checkbox = document.getElementById(`itemExtraCheck_${index}`);
+    if (checkbox) checkbox.checked = true;
+    
+    closeItemExtraModal();
+    Swal.fire({
+        icon: 'success',
+        title: 'Guardado',
+        text: 'Datos adicionales guardados correctamente',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000
+    });
+}
+
+function updateItemExtra(index, field, value) {
+    if (!invoiceItems[index].extraData) {
+        invoiceItems[index].extraData = {};
+    }
+    invoiceItems[index].extraData[field] = value;
+}
+
+async function handleItemFileUpload(index, obsField, input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    if (!invoiceItems[index].extraData) {
+        invoiceItems[index].extraData = {};
+    }
+    if (!invoiceItems[index].extraData.files) {
+        invoiceItems[index].extraData.files = {};
+    }
+    
+    // Guardar archivo en memoria para subir después de guardar la factura
+    if (!invoiceItems[index].extraData.files[obsField]) {
+        invoiceItems[index].extraData.files[obsField] = [];
+    }
+    invoiceItems[index].extraData.files[obsField].push(file);
+    
+    console.log(`Archivo guardado en memoria: item ${index}, obs ${obsField}, archivo ${file.name}`);
+    
+    // Solo subir inmediatamente si estamos editando (ya tenemos factura_id)
+    if (window.editingFacturaId) {
+        const formData = new FormData();
+        formData.append('item_index', index);
+        formData.append('obs_field', obsField);
+        formData.append('archivo', file);
+        formData.append('created_by', JSON.parse(localStorage.getItem('yelave_user') || '{}').login || 'SISTEMA');
+        
+        try {
+            const res = await fetch(`/api/contabilidad/facturas/${window.editingFacturaId}/items/archivos/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (res.ok) {
+                const result = await res.json();
+                invoiceItems[index].extraData.files[obsField] = {
+                    name: result.filename,
+                    path: result.path,
+                    size: result.size
+                };
+                
+                // Mostrar indicador de archivo subido
+                const inputLabel = input.previousElementSibling;
+                if (inputLabel) {
+                    inputLabel.style.borderColor = '#10b981';
+                    inputLabel.title = `Archivo subido: ${result.filename}`;
+                }
+            } else {
+                console.error('Error al subir archivo de item');
+            }
+        } catch (err) {
+            console.error('Error al subir archivo:', err);
+        }
+    }
+}
+
 function updateTotals(subt, igv, tot, totG=0, totE=0, totI=0) {
     document.getElementById('invSubTotalDisplay').textContent = fmtNum(subt);
     document.getElementById('invIGVDisplay').textContent = fmtNum(igv);
@@ -1182,18 +1610,19 @@ function updateTotals(subt, igv, tot, totG=0, totE=0, totI=0) {
 
 function setSummaryFromSUNAT(data) {
     // Called when extracting CPE from SUNAT API — fills all breakdown fields
-    const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = fmtNum(v || 0); };
-    setVal('invGravadoDisplay', data.mtoBIGravadaDG || data.mtoOperGravada);
-    setVal('invExoneradoDisplay', data.mtoOperExonerada);
-    setVal('invInafectoDisplay', data.mtoValorAdqNG || data.mtoOperInafecta);
-    setVal('invAnticiposDisplay', data.mtoAnticipos);
-    setVal('invISCDisplay', data.mtoISC);
-    setVal('invICBPERDisplay', data.mtoICBPER);
-    setVal('invOtrosCargosDisplay', data.mtoOtrosCargos);
-    setVal('invOtrosTribDisplay', data.mtoOtrosTrib);
-    setVal('invSubTotalDisplay', data.mtoBIGravadaDG || data.mtoOperGravada);
-    setVal('invIGVDisplay', data.mtoIgvIpmDG || data.mtoIGV);
-    setVal('invTotalDisplay', data.mtoTotalCp || data.mtoImporteTotal);
+    console.log('setSummaryFromSUNAT called with data:', data);
+    const setVal = (id, v) => { const el = document.getElementById(id); if(el) { el.textContent = fmtNum(v || 0); console.log(`Set ${id} to ${fmtNum(v || 0)}`); } else { console.warn(`Element ${id} not found`); }};
+    setVal('invGravadoDisplay', data.MtoBIGravadaDG || data.mtoBIGravadaDG || data.mtoOperGravada);
+    setVal('invExoneradoDisplay', data.mtoOperExonerada || data.MtoOperExonerada);
+    setVal('invInafectoDisplay', data.MtoValorAdqNG || data.mtoValorAdqNG || data.mtoOperInafecta);
+    setVal('invAnticiposDisplay', data.mtoAnticipos || data.MtoAnticipos);
+    setVal('invISCDisplay', data.mtoISC || data.MtoISC);
+    setVal('invICBPERDisplay', data.mtoICBPER || data.MtoICBPER);
+    setVal('invOtrosCargosDisplay', data.mtoOtrosCargos || data.MtoOtrosCargos);
+    setVal('invOtrosTribDisplay', data.mtoOtrosTrib || data.MtoOtrosTrib);
+    setVal('invSubTotalDisplay', data.MtoBIGravadaDG || data.mtoBIGravadaDG || data.mtoOperGravada);
+    setVal('invIGVDisplay', data.MtoIgvIpmDG || data.mtoIgvIpmDG || data.mtoIGV);
+    setVal('invTotalDisplay', data.MtoTotalCp || data.mtoTotalCp || data.mtoImporteTotal);
     // Detracción
     if (data.informacionDetraccion && data.informacionDetraccion.length > 0) {
         const det = data.informacionDetraccion[0];
@@ -1204,16 +1633,66 @@ function setSummaryFromSUNAT(data) {
         setInput('invDetPorcentaje', det.porDetraccion);
         setInput('invDetMonto', det.mtoDetraccion);
     }
+    
+    // Información de crédito - fallback si no trae datos
+    const setInput = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
+    const total = data.MtoTotalCp || data.mtoTotalCp || data.mtoImporteTotal || 0;
+    const fecEmision = data.FecEmision || '';
+    
+    if (!data.informacionCreditos || data.informacionCreditos.length === 0) {
+        // Si no trae información de crédito, poner 1 cuota con fecha de vencimiento (o emisión) y monto total
+        setInput('invCreditoNumCuota', '1');
+        setInput('invCreditoMontoCuota', fmtNum(total));
+        // Usar fecha de vencimiento si existe, si no usar fecha de emisión
+        const fecPlazo = sunatRow.FecVencPag ? sunatRow.FecVencPag.substring(0,10) : fecEmision;
+        setInput('invCreditoFecPlazo', fecPlazo);
+        setInput('invCreditoMtoPendiente', fmtNum(total));
+    }
+}
+
+function agregarGuiaManual() {
+    const guiaInput = document.getElementById('invGuiaManual');
+    const guia = guiaInput.value.trim();
+    if (!guia) return;
+    
+    const listDiv = document.getElementById('docsRelacionadosList');
+    const currentText = listDiv.textContent;
+    
+    if (currentText === 'Sin documentos relacionados') {
+        listDiv.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid #e2e8f0;">
+            <span>${guia}</span>
+            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">×</button>
+        </div>`;
+    } else {
+        listDiv.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid #e2e8f0;">
+            <span>${guia}</span>
+            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">×</button>
+        </div>`;
+    }
+    
+    guiaInput.value = '';
+    
+    const badge = document.getElementById('badgeGuias');
+    if (badge) {
+        badge.style.display = 'inline-flex';
+        badge.textContent = 'docs';
+    }
 }
 
 function setSummaryFromCPE(cpeData, sunatRow) {
     // Función enriquecida que lee TODA la data del XML (datoscperecibido)
+    console.log('setSummaryFromCPE called with cpeData:', cpeData);
+    console.log('setSummaryFromCPE called with sunatRow:', sunatRow);
+    
     const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = fmtNum(v || 0); };
     const setInput = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
     
     // Decidir de donde leer los montos: procedenciaMasiva o procedenciaIndivual
     const pm = cpeData.procedenciaMasiva || {};
     const pi = cpeData.procedenciaIndivual || cpeData.procedenciaIndividual || {};
+    
+    console.log('pm (procedenciaMasiva):', pm);
+    console.log('pi (procedenciaIndivual):', pi);
     
     // Montos principales (priorizar XML sobre SUNAT row)
     const gravado = pm.mtoTotalValVentaGrabado || pi.mtoOpGravado || sunatRow.MtoBIGravadaDG || 0;
@@ -1226,6 +1705,8 @@ function setSummaryFromCPE(cpeData, sunatRow) {
     const otrosCargos = pm.mtoSumOtrosCargos || pi.mtoOtrosCargos || 0;
     const otrosTrib = pm.mtoSumOtrosTributos || pi.mtoOtrosTributos || 0;
     const total = pm.mtoImporteTotal || pi.mtoImporteTotal || sunatRow.MtoTotalCp || 0;
+    
+    console.log('Calculated values - gravado:', gravado, 'exonerado:', exonerado, 'inafecto:', inafecto, 'igv:', igv, 'total:', total);
     
     setVal('invGravadoDisplay', gravado);
     setVal('invExoneradoDisplay', exonerado);
@@ -1286,7 +1767,16 @@ function setSummaryFromCPE(cpeData, sunatRow) {
     if (cpeData.informacionCreditos && cpeData.informacionCreditos.length > 0) {
         const cred = cpeData.informacionCreditos[0];
         setInput('invCreditoMtoPendiente', fmtNum(cred.mtoPagoPendiente || 0));
-        setInput('invCreditoFecPlazo', cred.fecPlazoPago || '');
+        
+        // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para input type="date"
+        let fecPlazo = '';
+        if (cred.fecPlazoPago) {
+            const parts = cred.fecPlazoPago.split('/');
+            if (parts.length === 3) {
+                fecPlazo = parts[2] + '-' + parts[1] + '-' + parts[0];
+            }
+        }
+        setInput('invCreditoFecPlazo', fecPlazo);
         setInput('invCreditoNumCuotas', cred.numCuotas || '0');
         
         // Detalle de cuotas
@@ -1307,6 +1797,30 @@ function setSummaryFromCPE(cpeData, sunatRow) {
         if (secCred) secCred.open = true;
         const badge = document.getElementById('badgeCreditos');
         if (badge) { badge.style.display = 'inline-flex'; badge.textContent = (cred.numCuotas || 1) + ' cuota(s)'; }
+    } else {
+        // Si no hay créditos, asumir contado y llenar con valores por defecto
+        const totalFactura = pm.mtoImporteTotal || pi.mtoImporteTotal || sunatRow.MtoTotalCp || 0;
+        if (totalFactura > 0) {
+            setInput('invCreditoMtoPendiente', fmtNum(totalFactura));
+            
+            // Convertir fecha de emisión a formato YYYY-MM-DD
+            let fecEmision = '';
+            const fecEmisionRaw = cpeData.fecEmision || sunatRow.FecEmision || '';
+            if (fecEmisionRaw) {
+                const parts = fecEmisionRaw.split('/');
+                if (parts.length === 3) {
+                    fecEmision = parts[2] + '-' + parts[1] + '-' + parts[0];
+                }
+            }
+            setInput('invCreditoFecPlazo', fecEmision);
+            setInput('invCreditoNumCuotas', '1');
+            
+            // Mostrar detalle de cuota única
+            const cuotasDiv = document.getElementById('creditoCuotasDetail');
+            if (cuotasDiv) {
+                cuotasDiv.innerHTML = '<div style="font-size:0.78rem; color:var(--text-muted);">Pago al contado: 1 cuota de ' + fmtNum(totalFactura) + '</div>';
+            }
+        }
     }
     
     // GUIAS DE REMISION / DOCS RELACIONADOS
@@ -1399,6 +1913,14 @@ async function registrarFactura() {
         return;
     }
 
+    // Validar Información de Pago/Créditos
+    const creditoFecPlazo = document.getElementById('invCreditoFecPlazo')?.value;
+    const creditoNumCuotas = document.getElementById('invCreditoNumCuota')?.value;
+    if (!creditoFecPlazo && !creditoNumCuotas) {
+        Swal.fire({icon:'warning', title:'Atención', text:'Información de Pago/Créditos es obligatoria. Por favor complete la fecha de plazo o el número de cuotas.'});
+        return;
+    }
+
     if (invoiceItems.length === 0) {
         const conf = await Swal.fire({
             icon:'warning', title:'Sin ítems',
@@ -1447,6 +1969,8 @@ async function registrarFactura() {
     // Compute totals from items
     let subTotalCalc = 0, igvCalc = 0, totalCalc = 0;
     invoiceItems.forEach(i => { subTotalCalc += i.vv; igvCalc += i.igv; totalCalc += i.total; });
+    console.log('registrarFactura - Calculated totals:', { subTotalCalc, igvCalc, totalCalc });
+    console.log('registrarFactura - invoiceItems:', invoiceItems);
 
     const payload = {
         id: window.editingFacturaId,
@@ -1477,7 +2001,7 @@ async function registrarFactura() {
         det_medio_pago: document.getElementById('invDetMedioPago')?.value.trim() || null,
         det_nro_cuenta: document.getElementById('invDetNroCuenta')?.value.trim() || null,
         det_porcentaje: parseFloat(document.getElementById('invDetPorcentaje')?.value) || null,
-        det_monto: parseFloat(document.getElementById('invDetMonto')?.value) || null,
+        det_monto: parseFloat((document.getElementById('invDetMonto')?.value || '0').replace(/,/g, '')) || null,
         // General
         dir_emisor: dirEmisorEl ? dirEmisorEl.value.trim() : '',
         observaciones: document.getElementById('invObservaciones') ? document.getElementById('invObservaciones').value.trim() : '',
@@ -1505,10 +2029,10 @@ async function registrarFactura() {
         doc_modifica_numero: document.getElementById('invDocModificaNumero')?.value || null,
         doc_modifica_tipo: document.getElementById('invDocModificaTipo')?.value || null,
         doc_modifica_fecha: document.getElementById('invDocModificaFecha')?.value || null,
-        // Créditos
-        credito_mto_pendiente: window.currentCpeData?.informacionCreditos?.[0]?.mtoPagoPendiente || null,
-        credito_fec_plazo: window.currentCpeData?.informacionCreditos?.[0]?.fecPlazoPago || null,
-        credito_num_cuotas: window.currentCpeData?.informacionCreditos?.[0]?.numCuotas || null,
+        // Créditos - leer del formulario o de CPE data
+        credito_mto_pendiente: parseFloat((document.getElementById('invCreditoMtoPendiente')?.value || '0').replace(/,/g, '')) || parseFloat(window.currentCpeData?.informacionCreditos?.[0]?.mtoPagoPendiente) || 0,
+        credito_fec_plazo: document.getElementById('invCreditoFecPlazo')?.value || window.currentCpeData?.informacionCreditos?.[0]?.fecPlazoPago || null,
+        credito_num_cuotas: parseInt(document.getElementById('invCreditoNumCuota')?.value) || parseInt(window.currentCpeData?.informacionCreditos?.[0]?.numCuotas) || 1,
         credito_cuotas_json: window.currentCpeData?.informacionCreditos?.[0]?.numCuotasList ? JSON.stringify(window.currentCpeData.informacionCreditos[0].numCuotasList) : null,
         // Docs relacionados
         docs_relacionados_json: window.currentCpeData?.informacionDocumentosRelacionados ? JSON.stringify(window.currentCpeData.informacionDocumentosRelacionados) : null,
@@ -1530,9 +2054,15 @@ async function registrarFactura() {
             total: i.total,
             mto_icbper_item: i.icbperItem || 0,
             mto_descuento: i.descItem || 0,
-            cantidad_oc: i.fromOC && window.currentOCDetalle ? (window.currentOCDetalle.find(o=>o.codigo===i.codigo)||{}).canpend || null : null
+            cantidad_oc: i.fromOC && window.currentOCDetalle ? (window.currentOCDetalle.find(o=>o.codigo===i.codigo)||{}).canpend || null : null,
+            extra_data: (() => {
+                if (!i.extraData) return null;
+                const { files, ...rest } = i.extraData;
+                return rest;
+            })()
         }))
     };
+    console.log('registrarFactura - payload.created_by:', payload.created_by);
 
     try {
         Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -1566,6 +2096,50 @@ async function registrarFactura() {
             }
         }
 
+        // Upload item files from memory
+        const createdBy = JSON.parse(localStorage.getItem('yelave_user') || '{}').login || 'SISTEMA';
+        console.log('registrarFactura - Iniciando subida de archivos de items');
+        let archivosSubidos = 0;
+        for (let i = 0; i < invoiceItems.length; i++) {
+            const item = invoiceItems[i];
+            console.log(`registrarFactura - Item ${i}:`, item.extraData);
+            if (item.extraData && item.extraData.files) {
+                console.log(`registrarFactura - Item ${i} tiene archivos:`, item.extraData.files);
+                for (const obsField in item.extraData.files) {
+                    const files = item.extraData.files[obsField];
+                    console.log(`registrarFactura - Item ${i}, obs ${obsField}:`, files);
+                    if (Array.isArray(files)) {
+                        for (const file of files) {
+                            // Verificar que sea un archivo válido (File object) - saltar archivos existentes (con id)
+                            console.log(`registrarFactura - Verificando archivo: item ${i}, obs ${obsField}, file:`, file);
+                            console.log(`registrarFactura - file.name: ${file.name}, file.size: ${file.size}, file.id: ${file.id}`);
+                            if (!file || !file.name || file.size === 0 || file.id) {
+                                console.log(`Skipping file (existing or invalid): item ${i}, obs ${obsField}`, file);
+                                continue;
+                            }
+                            const fd = new FormData();
+                            fd.append('item_index', i);
+                            fd.append('obs_field', obsField);
+                            fd.append('archivo', file);
+                            fd.append('created_by', createdBy);
+                            try {
+                                const res = await fetch(`/api/contabilidad/facturas/${data.id}/items/archivos/upload`, { method: 'POST', body: fd });
+                                if (res.ok) {
+                                    archivosSubidos++;
+                                    console.log(`Archivo de item subido: item ${i}, obs ${obsField}, archivo ${file.name}`);
+                                } else {
+                                    console.error(`Error al subir archivo de item: item ${i}, obs ${obsField}, status ${res.status}`);
+                                }
+                            } catch (err) {
+                                console.error(`Error al subir archivo de item: item ${i}, obs ${obsField}`, err);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        console.log(`registrarFactura - Total archivos de items subidos: ${archivosSubidos}`);
+
         await Swal.fire({
             icon: 'success', 
             title: '¡Guardado!', 
@@ -1592,38 +2166,60 @@ async function loadFacturas() {
     try {
         const user = JSON.parse(localStorage.getItem('yelave_user') || '{}');
         const login = user.login || 'SISTEMA';
+        console.log('loadFacturas - user:', user, 'login:', login);
         
         const res = await fetch(`/api/contabilidad/facturas?codcia=${codcia}&created_by=${encodeURIComponent(login)}`);
         if (!res.ok) throw new Error('Error al cargar');
         const list = await res.json();
 
-        const data = list.map(f => [
-            `${f.Serie||''}-${f.Numero||''}`,
-            f.FecEmision ? f.FecEmision.substring(0,10) : '-',
-            (f.NomProveedor||'').substring(0,35),
-            f.NumRucProveedor || '-',
-            f.CodMoneda || '-',
-            fmtNum(f.Total),
-            f.NroOrdenCompra ? `${f.TipoOc||''}${f.NroOrdenCompra}` : '-',
-            f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
-            f.CreatedBy || 'SISTEMA',
-            f.Estado === 'Anulada' ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADO</span>',
-            `<div style="display:flex; justify-content:center; gap:4px; white-space:nowrap;">
-                <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="viewFacturaDetail(${f.Id})" title="Ver Detalle"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                <button class="btn-flat" style="padding:4px; color:#f59e0b;" onclick="openEditRegistro(${f.Id})" title="Editar / Adjuntar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
-                <button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="eliminarFactura(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Eliminar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
-            </div>`
-        ]);
+        const data = list.map(f => {
+            const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota Crédito', '08': '08-Nota Débito' };
+            const tipoComprobante = tipoMap[f.CodTipoDoc] || `${f.CodTipoDoc}-Otro`;
+            const fechaRegistro = f.CreatedAt ? f.CreatedAt.substring(0,10) : '-';
+            // Debug fecha de vencimiento
+            console.log('loadFacturas - factura:', f.Serie + '-' + f.Numero, 'CreditoFecPlazo:', f.CreditoFecPlazo, 'FecVencimiento:', f.FecVencimiento);
+            const fechaVencimiento = f.CreditoFecPlazo ? f.CreditoFecPlazo.substring(0,10) : (f.FecVencimiento ? f.FecVencimiento.substring(0,10) : '-');
+            
+            return [
+                f.Id,
+                `${f.Serie||''}-${f.Numero||''}`,
+                tipoComprobante,
+                f.FecEmision ? f.FecEmision.substring(0,10) : '-',
+                fechaRegistro,
+                fechaVencimiento,
+                (f.NomProveedor||'').substring(0,35),
+                f.NumRucProveedor || '-',
+                f.CodMoneda || '-',
+                fmtNum(f.Total),
+                f.NroOrdenCompra ? `${f.TipoOc||''}${f.NroOrdenCompra}` : '-',
+                f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
+                f.CreatedBy || 'SISTEMA',
+                f.Estado === 'Anulada' ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : 
+                f.Estado === 'Cerrado' ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">🔒 CERRADO</span>' :
+                f.Estado === 'Contabilizado' ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">📘 CONTABILIZADO</span>' :
+                '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADO</span>',
+                `<div style="display:flex; justify-content:center; gap:4px; white-space:nowrap;">
+                    <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="viewFacturaDetail(${f.Id})" title="Ver Detalle"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                    ${(f.Estado === 'Cerrado' || f.Estado === 'Contabilizado') 
+                        ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Editar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
+                          `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
+                        : `<button class="btn-flat" style="padding:4px; color:#f59e0b;" onclick="openEditRegistro(${f.Id})" title="Editar / Adjuntar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
+                          `<button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="eliminarFactura(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Eliminar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
+                    }
+                </div>`
+            ];
+        });
 
         dtFacturas = $('#facturasTable').DataTable({
-            data: data, destroy: true, order: [[1, 'desc']], pageLength: 15, scrollX: true,
+            data: data, destroy: true,
+            deferRender: true, order: [[0, 'desc']], pageLength: 15, scrollX: true,
             autoWidth: false,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
             dom: '<"dt-top"lfB>rt<"dt-bottom"ip>',
             buttons: [
-                { extend: 'excelHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Excel', className: 'btn-export', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10] } },
-                { extend: 'pdfHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF', className: 'btn-export', orientation: 'landscape', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10] } },
-                { extend: 'print', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Imprimir', className: 'btn-export', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10] } }
+                { extend: 'excelHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Excel', className: 'btn-export', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12] } },
+                { extend: 'pdfHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF', className: 'btn-export', orientation: 'landscape', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12] } },
+                { extend: 'print', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Imprimir', className: 'btn-export', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12] } }
             ],
             columnDefs: [
                 { targets: 10, width: '80px', orderable: false, className: 'dt-body-center' },
@@ -1969,6 +2565,7 @@ async function openEditRegistro(id) {
         const cab = data.cabecera || data;
         const items = data.items || [];
         const archivos = data.archivos || [];
+        console.log('openEditRegistro - archivos:', archivos);
         Swal.close();
 
         // Switch to registro tab
@@ -1987,7 +2584,7 @@ async function openEditRegistro(id) {
                     const color = ext === 'PDF' ? '#ef4444' : ext === 'XML' ? '#10b981' : '#6366f1';
                     html += `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0;">
                         <span style="background:${color}; color:white; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600;">${ext}</span>
-                        <a href="${a.RutaArchivo}" target="_blank" style="font-size:0.8rem; color:#2563eb; text-decoration:none;">${a.NombreArchivo}</a>
+                        <a href="/api/contabilidad/archivos/${a.Id}/descargar" target="_blank" style="font-size:0.8rem; color:#2563eb; text-decoration:none;">${a.NombreArchivo}</a>
                     </div>`;
                 });
                 existingFilesDiv.innerHTML = html;
@@ -2006,6 +2603,8 @@ async function openEditRegistro(id) {
         setVal('invFecEmision', cab.FecEmision);
         setVal('invFecVenc', cab.FecVencimiento);
         setVal('invMoneda', cab.CodMoneda);
+        // Sincronizar Fecha Plazo Pago con Fecha de Vencimiento
+        setVal('invCreditoFecPlazo', cab.FecVencimiento || cab.CreditoFecPlazo);
         setVal('invTipoCambio', cab.TipoCambio || 1);
         setVal('invDirEmisor', cab.DirEmisor);
         setVal('invObservaciones', cab.Observaciones);
@@ -2020,20 +2619,95 @@ async function openEditRegistro(id) {
         setVal('invDocModificaNumero', cab.DocModificaNumero);
         setVal('invDocModificaTipo', cab.DocModificaTipo);
         setVal('invDocModificaFecha', cab.DocModificaFecha);
+        // Detracción
+        setVal('invDetBienServicio', cab.DetBienServicio);
+        setVal('invDetMedioPago', cab.DetMedioPago);
+        setVal('invDetNroCuenta', cab.DetNroCuenta);
+        setVal('invDetPorcentaje', cab.DetPorcentaje);
+        setVal('invDetMonto', cab.DetMonto);
+        setVal('invDetLeyenda', cab.DetLeyenda);
+
+        // Load docs relacionados
+        window.currentCpeData = window.currentCpeData || {};
+        if (cab.DocsRelacionadosJson) {
+            try {
+                window.currentCpeData.informacionDocumentosRelacionados = JSON.parse(cab.DocsRelacionadosJson);
+                const docsDiv = document.getElementById('docsRelacionadosList');
+                if (docsDiv) {
+                    let html = '<div style="display:flex; flex-direction:column; gap:0.5rem;">';
+                    window.currentCpeData.informacionDocumentosRelacionados.forEach(doc => {
+                        html += '<div style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; background:#fffbeb; border:1px solid #fde68a; border-radius:6px;">';
+                        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+                        html += '<div><span style="font-weight:600; color:#92400e;">' + (doc.desCpeRel || doc.codCpeRel || 'Doc') + '</span>';
+                        html += '<span style="margin-left:0.5rem; font-weight:500;">' + (doc.numSerieDocRel || '') + '-' + (doc.numDocRel || '') + '</span></div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    docsDiv.innerHTML = html;
+                }
+            } catch(e) {
+                console.error('Error parsing DocsRelacionadosJson:', e);
+            }
+        }
+
+        // Fill credit data
+        setVal('invCreditoNumCuota', cab.CreditoNumCuotas);
+        setVal('invCreditoMontoCuota', cab.CreditoMontoCuota);
+        setVal('invCreditoFecPlazo', cab.CreditoFecPlazo);
+        setVal('invCreditoMtoPendiente', cab.CreditoMtoPendiente);
 
         // Fill items
-        invoiceItems = items.map(it => ({
-            codigo: it.CodMaterial || '',
-            codProv: '',
-            desc: it.Descripcion || '',
-            und: it.UnidadMedida || 'NIU',
-            cant: it.Cantidad || 0,
-            pu: it.PrecioUnitario || 0,
-            vv: it.SubTotal || 0,
-            igv: it.IGV || 0,
-            total: it.Total || 0,
-            tipoOp: (it.IGV > 0) ? 'gravada' : 'inafecta'
-        }));
+        invoiceItems = items.map(it => {
+            console.log(`editFactura - Item ${it.CodMaterial}, archivos del backend:`, it.archivos);
+            // Limpiar files corruptos del extraData (objetos vacíos serializados de File objects)
+            let extraData = it.extraData || {};
+            // Eliminar la propiedad files del extraData del backend (siempre se reconstruye desde la tabla de archivos)
+            delete extraData.files;
+            // Rellenar campos desde columnas individuales si no están en extraData
+            extraData = {
+                inci: extraData.inci || it.Inci || '',
+                fabricante: extraData.fabricante || it.Fabricante || '',
+                fecha_vencimiento: extraData.fecha_vencimiento || it.FechaVencimientoItem || '',
+                obs1: extraData.obs1 || it.Obs1 || '',
+                obs2: extraData.obs2 || it.Obs2 || '',
+                obs3: extraData.obs3 || it.Obs3 || '',
+                obs4: extraData.obs4 || it.Obs4 || '',
+                files: {}
+            };
+            
+            // Agrupar archivos por obsField desde la tabla CntFacturaDetArchivos
+            if (it.archivos && it.archivos.length > 0) {
+                extraData.files = {};
+                for (const archivo of it.archivos) {
+                    const obsField = archivo.ObsField;
+                    if (!extraData.files[obsField]) {
+                        extraData.files[obsField] = [];
+                    }
+                    extraData.files[obsField].push({
+                        id: archivo.Id,
+                        name: archivo.NombreArchivo,
+                        path: archivo.RutaArchivo,
+                        size: archivo.TamanioBytes,
+                        createdAt: archivo.CreatedAt
+                    });
+                }
+                console.log(`editFactura - Item ${it.CodMaterial}, archivos agrupados:`, extraData.files);
+            }
+            
+            return {
+                codigo: it.CodMaterial || '',
+                codProv: '',
+                desc: it.Descripcion || '',
+                und: it.UnidadMedida || 'NIU',
+                cant: it.Cantidad || 0,
+                pu: it.PrecioUnitario || 0,
+                vv: it.SubTotal || 0,
+                igv: it.IGV || 0,
+                total: it.Total || 0,
+                tipoOp: (it.IGV > 0) ? 'gravada' : 'inafecta',
+                extraData: extraData
+            };
+        });
         renderInvoiceItems();
 
         // Set mode to manual since we're editing

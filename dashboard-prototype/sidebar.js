@@ -31,6 +31,7 @@
         users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         db_config: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
         profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        manual: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
     };
 
     // ── Secciones con label para agrupar ──
@@ -194,11 +195,23 @@
             console.warn('Sidebar: Could not fetch permisos, using fallback');
         }
 
+        // Inject manual module if not present
+        if (!modulos.some(m => m.Codigo === 'manual')) {
+            modulos.push({ 
+                Codigo: 'manual', 
+                Nombre: 'Manual de Procesos', 
+                RutaHtml: '/manual.html', 
+                Seccion: 'Sistema', 
+                Orden: 100 
+            });
+        }
+
         // If no modules returned (endpoint failed or no permisos), show at minimum dashboard+profile
         if (modulos.length === 0) {
             modulos = [
                 { Codigo: 'dashboard', Nombre: 'Dashboard', RutaHtml: '/index.html', Seccion: 'Principal', Orden: 1 },
                 { Codigo: 'profile', Nombre: 'Mi Perfil', RutaHtml: '/profile.html', Seccion: 'Sistema', Orden: 92 },
+                { Codigo: 'manual', Nombre: 'Manual de Procesos', RutaHtml: '/manual.html', Seccion: 'Sistema', Orden: 100 }
             ];
         }
 
@@ -234,6 +247,14 @@
         if (localStorage.getItem('yelave_sidebar_collapsed') === '1') {
             const sidebar = document.getElementById('sidebar');
             if (sidebar) sidebar.classList.add('collapsed');
+        }
+
+        // Inject chat module globally
+        if (!document.getElementById('chat-js-script')) {
+            const chatScript = document.createElement('script');
+            chatScript.id = 'chat-js-script';
+            chatScript.src = '/chat.js';
+            document.body.appendChild(chatScript);
         }
     }
 

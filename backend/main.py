@@ -1,10 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pyodbc
+import anyio
 
 from database import get_db_connection
 
 app = FastAPI(title="YELAVE ERP API")
+
+@app.on_event("startup")
+async def increase_threadpool():
+    """Aumentar threadpool para endpoints sincronos.
+    FastAPI despacha funciones 'def' al threadpool default de AnyIO.
+    Si el pool default (40) se satura con polls de chat, TODO se ralentiza."""
+    limiter = anyio.to_thread.current_default_thread_limiter()
+    limiter.total_tokens = 200
 
 # Register routers
 from conciliacion import router as conciliacion_router
@@ -43,14 +52,29 @@ app.include_router(contabilidad_router)
 from cargos_documentales import router as cargos_router
 app.include_router(cargos_router)
 
+# Router separado para generar cargo con prefijo diferente para evitar conflictos
+from fastapi import APIRouter
+from cargos_documentales import generar_cargo, CargoCreate
+generar_router = APIRouter(prefix="/api/cargos-crear", tags=["Generar Cargo"])
+
+@generar_router.post("/generar")
+def generar_cargo_endpoint(payload: CargoCreate):
+    return generar_cargo(payload)
+
+app.include_router(generar_router)
+
 from gastos_rendiciones import router as finanzas_router
 app.include_router(finanzas_router)
 
 from permisos import router as permisos_router, setup_permisos_tables
 app.include_router(permisos_router)
 
-# Crear tablas de permisos al iniciar
+from chat import router as chat_router, setup_chat_tables
+app.include_router(chat_router)
+
+# Crear tablas al iniciar
 setup_permisos_tables()
+setup_chat_tables()
 
 # Configure CORS
 app.add_middleware(
@@ -64,7 +88,9 @@ app.add_middleware(
 @app.middleware("http")
 async def add_no_cache_headers(request, call_next):
     response = await call_next(request)
-    if request.method == "GET" and any(request.url.path.endswith(ext) for ext in [".html", ".js", ".css"]):
+    # Solo aplicar no-cache a archivos estáticos del frontend
+    path = request.url.path
+    if request.method == "GET" and not path.startswith("/api/") and any(path.endswith(ext) for ext in [".html", ".js", ".css"]):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"

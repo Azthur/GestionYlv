@@ -12,6 +12,7 @@ class UserUpdateParams(BaseModel):
     celular: Optional[str] = None
     rol: Optional[str] = None
     activo: Optional[bool] = None
+    puede_ver_todo: Optional[bool] = None
 
 class PasswordResetParams(BaseModel):
     new_password: str
@@ -54,7 +55,8 @@ def get_all_users(admin_user: dict = Depends(get_current_active_admin)):
                 w.correo,
                 w.celular,
                 w.rol,
-                w.activo
+                w.activo,
+                ISNULL(w.PuedeVerTodo, 0) as puede_ver_todo
             FROM AdmMUser a
             LEFT JOIN WebUsers w ON RTRIM(a.login) = w.login
             ORDER BY a.login
@@ -106,6 +108,9 @@ def update_user_info(login: str, params: UserUpdateParams, admin_user: dict = De
             update_fields.append("activo = ?")
             # Convert bool to 1/0 for SQL Server BIT
             update_values.append(1 if params.activo else 0)
+        if params.puede_ver_todo is not None:
+            update_fields.append("PuedeVerTodo = ?")
+            update_values.append(1 if params.puede_ver_todo else 0)
             
         if not update_fields:
             return {"status": "success", "message": "Sin cambios a aplicar."}

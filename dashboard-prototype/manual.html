@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Manual de Procesos</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Mermaid.js for Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="manual.css">
+</head>
+<body class="manual-page">
+    <div class="app-container">
+        <!-- Sidebar and Topbar injected by sidebar.js -->
+        <main class="main-content">
+            <div class="manual-layout">
+                <!-- Internal Navigation (Sub-menu) -->
+                <nav class="manual-nav">
+                    <div class="manual-nav-header">
+                        <h3>Módulos del Sistema</h3>
+                    </div>
+                    <ul class="manual-nav-list">
+                        <li><a href="#intro" class="active">Introducción</a></li>
+                        <li class="nav-divider"></li>
+                        <li><a href="#logistica">1. Logística y Almacén</a></li>
+                        <li><a href="#compras">2. Compras (Orden de Compra)</a></li>
+                        <li><a href="#facturacion">3. Registro de Facturas</a></li>
+                        <li><a href="#tesoreria">4. Tesorería y Pagos</a></li>
+                        <li><a href="#rendiciones">5. Rendiciones y Movilidad</a></li>
+                        <li class="nav-divider"></li>
+                        <li><a href="#seguridad">Seguridad y Roles</a></li>
+                    </ul>
+                </nav>
+
+                <!-- Content Area -->
+                <section class="manual-content" id="manual-content">
+                    <div id="content-intro" class="content-section active">
+                        <div class="hero-section">
+                            <h1>Manual Operativo del Ecosistema Yelave</h1>
+                            <p>Esta es la guía definitiva para la operación estandarizada de todos los módulos. Cada área del ERP está interconectada para garantizar la trazabilidad total.</p>
+                            <div class="hero-stats">
+                                <div class="stat-card"><span class="stat-val">08</span><span class="stat-lab">Áreas Base</span></div>
+                                <div class="stat-card"><span class="stat-val">60+</span><span class="stat-lab">Validaciones</span></div>
+                                <div class="stat-card"><span class="stat-val">100%</span><span class="stat-lab">Trazabilidad</span></div>
+                            </div>
+                        </div>
+
+                        <h3>Mapa de Trazabilidad Global</h3>
+                        <div class="mermaid-container">
+                            <div class="mermaid">
+                            graph LR
+                                RQ["Logística: Requerimiento"] -- Conversion --> OC["Compras: Orden de Compra"]
+                                OC -- Recepción --> ALM["Almacén: Ingreso Stock"]
+                                ALM -- Cruce --> FAC["Contabilidad: Registro Factura"]
+                                FAC -- Programación --> TES["Tesorería: Pago Electrónico"]
+                                style RQ fill:#f1f5f9,stroke:#334155
+                                style TES fill:#10b981,stroke:#059669,color:#fff
+                            </div>
+                        </div>
+
+                        <div class="card-grid">
+                            <div class="info-card">
+                                <h3>Gobernanza de Datos</h3>
+                                <p>El sistema impide saltar etapas (ej. no se puede facturar sin OC o Ingreso previo), asegurando el control de auditoría.</p>
+                            </div>
+                            <div class="info-card">
+                                <h3>Entorno Multi-Empresa</h3>
+                                <p>Configuración independiente por RUC, compartiendo maestros de artículos y proveedores globales.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo Logística -->
+                    <div id="content-logistica" class="content-section">
+                        <div class="section-header">
+                            <span class="badge">LOGÍSTICA</span>
+                            <h2>Abastecimiento e Inventarios</h2>
+                        </div>
+                        
+                        <h3>Procedimiento A: Gestión de Requerimientos</h3>
+                        <ul class="procedure-list">
+                            <li class="procedure-step">
+                                <div class="step-number">1</div>
+                                <div class="step-text">
+                                    <h4>Solicitud de Artículo</h4>
+                                    <p>El usuario selecciona el almacén de destino y los materiales. El sistema verifica el stock de seguridad en tiempo real.</p>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">2</div>
+                                <div class="step-text">
+                                    <h4>Motor de Cálculo</h4>
+                                    <p>Analiza el stock actual vs demandas pendientes. Genera sugerencias de compra automáticas.</p>
+                                    <span class="validation-badge warning">⚠ Requiere Centro de Costo</span>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <h3>Procedimiento B: Movimiento de Almacén (Kardex)</h3>
+                        <p>Registro de entradas y salidas físicas.</p>
+                        <ul class="procedure-list">
+                            <li class="procedure-step">
+                                <div class="step-number">1</div>
+                                <div class="step-text">
+                                    <h4>Nota de Ingreso (NI)</h4>
+                                    <p>Vinculada a una OC. Solo permite ingresar cantidades autorizadas.</p>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">2</div>
+                                <div class="step-text">
+                                    <h4>Salida por Consumo</h4>
+                                    <p>Afecta el costo del proyecto o centro de costo asignado.</p>
+                                    <span class="validation-badge info">ℹ Método de Valoración: Promedio Ponderado</span>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <div class="mermaid-container">
+                            <div class="mermaid">
+                            graph TD
+                                A["Crear RQ"] --> B{"¿Stock?"}
+                                B -- "Sí" --> C["NS: Nota de Salida"]
+                                B -- "No" --> D["Generar OC"]
+                                D --> E["NI: Nota de Ingreso"]
+                                E --> F["Actualizar Kardex"]
+                                style F fill:#3b82f6,color:#fff
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo Compras -->
+                    <div id="content-compras" class="content-section">
+                        <div class="section-header">
+                            <span class="badge">COMPRAS</span>
+                            <h2>Órdenes de Compra (OC)</h2>
+                        </div>
+
+                        <h3>Procedimiento: Emisión y Autorización</h3>
+                        <ul class="procedure-list">
+                            <li class="procedure-step">
+                                <div class="step-number">1</div>
+                                <div class="step-text">
+                                    <h4>Configuración de la OC</h4>
+                                    <p>Definir moneda (PEN/USD), términos de pago y datos adjuntos (PDF de cotización).</p>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">2</div>
+                                <div class="step-text">
+                                    <h4>Niveles de Aprobación</h4>
+                                    <p>Según el monto y área, el sistema envía una notificación al aprobador correspondiente.</p>
+                                    <span class="validation-badge error">✖ Bloqueo si excede presupuesto</span>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <div class="mermaid-container">
+                            <div class="mermaid">
+                            stateDiagram-v2
+                                [*] --> Registrada
+                                Registrada --> Aprobada: Cumple Montos
+                                Aprobada --> Emitida: Enviada a Proveedor
+                                Emitida --> Cerrada: Facturada Totalmente
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo Facturación -->
+                    <div id="content-facturacion" class="content-section">
+                        <div class="section-header">
+                            <span class="badge">CONTABILIDAD</span>
+                            <h2>Registro de Facturas</h2>
+                        </div>
+
+                        <h3>Procedimiento: Conciliación Inteligente</h3>
+                        <ul class="procedure-list">
+                            <li class="procedure-step">
+                                <div class="step-number">1</div>
+                                <div class="step-text">
+                                    <h4>Carga de Documento Digital</h4>
+                                    <p>Búsqueda en SUNAT o carga de XML. El sistema extrae códigos, descripciones y montos.</p>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">2</div>
+                                <div class="step-text">
+                                    <h4>Cruce con Almacén/OC</h4>
+                                    <p>El usuario selecciona la OC de origen. El sistema valida que el precio de factura coincida con lo pactado.</p>
+                                    <span class="validation-badge warning">⚠ Tolerancia 0.05%</span>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">3</div>
+                                <div class="step-text">
+                                    <h4>Asiento Contable Auto</h4>
+                                    <p>Se genera la provisión en la cuenta 42/40/60 automáticamente.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Módulo Finanzas -->
+                    <div id="content-tesoreria" class="content-section">
+                        <div class="section-header">
+                            <span class="badge">TESORERÍA</span>
+                            <h2>Gestión de Pagos</h2>
+                        </div>
+
+                        <h3>Procedimiento: Programación de Pagos</h3>
+                        <p>Control exacto del flujo de caja (Cash Flow).</p>
+                        <ul class="procedure-list">
+                            <li class="procedure-step">
+                                <div class="step-number">1</div>
+                                <div class="step-text">
+                                    <h4>Selección de Obligaciones</h4>
+                                    <p>Filtro de facturas por fecha de vencimiento y prioridad.</p>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">2</div>
+                                <div class="step-text">
+                                    <h4>Ejecución y Voucher</h4>
+                                    <p>Carga el archivo de transferencia bancaria para cerrar el ciclo de pago.</p>
+                                    <span class="validation-badge info">ℹ Control de Detracciones aplicado</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Módulo Rendiciones -->
+                    <div id="content-rendiciones" class="content-section">
+                        <div class="section-header">
+                            <span class="badge">FINANZAS</span>
+                            <h2>Rendición de Gastos y Movilidad</h2>
+                        </div>
+
+                        <h3>Procedimiento: Liquidación de Gastos</h3>
+                        <ul class="procedure-list">
+                            <li class="procedure-step">
+                                <div class="step-number">1</div>
+                                <div class="step-text">
+                                    <h4>Planilla de Movilidad (PGM)</h4>
+                                    <p>Registro diario de traslados. Límite legal: S/ 41.00 (4% RMV).</p>
+                                    <span class="alert-box legal" style="padding:0.5rem; margin:0.5rem 0; display:block;">✔ Cumple norma SUNAT</span>
+                                </div>
+                            </li>
+                            <li class="procedure-step">
+                                <div class="step-number">2</div>
+                                <div class="step-text">
+                                    <h4>Rendición Global</h4>
+                                    <p>Agrupa PGM, Facturas y Boletas. Genera visor PDF y link público.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Módulo Seguridad -->
+                    <div id="content-seguridad" class="content-section">
+                        <div class="section-header">
+                            <span class="badge">SEGURIDAD</span>
+                            <h2>Roles y Nexus Chat</h2>
+                        </div>
+                        <p>Control de acceso basado en roles por área y comunicación Nexus.</p>
+                        
+                        <div class="procedure-list">
+                            <div class="procedure-step">
+                                <div class="step-number">N</div>
+                                <div class="step-text">
+                                    <h4>Nexus Chat</h4>
+                                    <p>Canal persistente para soporte e intercambio de documentos entre especialistas.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="sidebar.js"></script>
+    <script src="manual.js"></script>
+</body>
+</html>
+

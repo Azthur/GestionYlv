@@ -151,7 +151,209 @@
         }
         .action-dropdown-item:hover { background: #f1f5f9; color: var(--primary); }
         .action-dropdown-divider { height: 1px; background: #e2e8f0; margin: 4px 0; }
-    </style>
+    
+        /* --- MODAL INJECTED --- */
+        /* --- Full Width Content --- */
+        .content {
+            max-width: none !important;
+            width: 100% !important;
+        }
+    
+    
+
+
+/* --- MODAL CSS FROM ORDERS --- */
+        }
+
+        /* â”€â”€â”€ Report Modal Styles â”€â”€â”€ */
+        .report-header-band {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 1.25rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 3px solid #1e3a5f;
+        }
+
+        .report-company-info h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #1e3a5f;
+            margin: 0 0 0.15rem 0;
+        }
+
+        .report-company-info p {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .report-oc-badge {
+            text-align: right;
+            background: #1e3a5f;
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            min-width: 200px;
+        }
+
+        .report-oc-badge .oc-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.8;
+        }
+
+        .report-oc-badge .oc-number {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0.15rem 0;
+        }
+
+        .report-oc-badge .oc-date {
+            font-size: 0.85rem;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+
+        .report-supplier-box {
+            display: grid;
+            grid-template-columns: 110px 1fr 110px 1fr;
+            gap: 0.25rem 0.5rem;
+            font-size: 0.775rem;
+            padding: 0.85rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+        }
+
+        .report-supplier-box .lbl {
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .report-supplier-box .val {
+            color: #0f172a;
+        }
+
+        .report-supplier-box .val-full {
+            color: #0f172a;
+            grid-column: span 3;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.25rem;
+        }
+
+        .report-table th {
+            background: #e2e8f0;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #334155;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            text-align: left;
+        }
+
+        .report-table td {
+            border: 1px solid #e2e8f0;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.775rem;
+            vertical-align: top;
+        }
+
+        .report-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        .report-table .note-row td {
+            border-top: none;
+            padding-top: 0.1rem;
+            padding-bottom: 0.2rem;
+            color: #6b7280;
+            font-size: 0.7rem;
+        }
+
+        .report-totals-box {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 0.75rem;
+        }
+
+        .report-totals-box table {
+            border-collapse: collapse;
+            min-width: 300px;
+        }
+
+        .report-totals-box td {
+            padding: 0.35rem 0.85rem;
+            font-size: 0.825rem;
+        }
+
+        .report-totals-box .row-total {
+            font-weight: 700;
+            font-size: 0.95rem;
+            background: #f0f4f8;
+            border-top: 2px solid #1e3a5f;
+        }
+
+        .report-footer-dl {
+            font-size: 0.775rem;
+            margin-top: 1.25rem;
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 0.2rem 0.75rem;
+        }
+
+        .report-footer-dl dt {
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .report-footer-dl dd {
+            margin: 0;
+            color: #1e293b;
+        }
+
+        .report-disclaimer {
+            margin-top: 1.25rem;
+            padding: 0.65rem 1rem;
+            border: 1px solid #94a3b8;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            text-align: center;
+            color: #475569;
+            line-height: 1.6;
+            background: #f8fafc;
+        }
+
+        .report-signatures {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2.5rem;
+            padding-top: 0.5rem;
+        }
+
+        .report-signatures .sig-block {
+            text-align: center;
+            width: 28%;
+        }
+
+        .report-signatures .sig-line {
+            border-top: 1.5px solid #334155;
+            padding-top: 0.4rem;
+            font-size: 0.725rem;
+            font-weight: 600;
+            color: #334155;
+        }
+</style>
     <script src="auth-guard.js"></script>
 </head>
 <body>
@@ -202,6 +404,25 @@
                                 <p style="margin:0.25rem 0 0; font-size:0.8rem; color:var(--text-muted);">Bandeja de documentos libres correspondientes a su área.</p>
                             </div>
                             <div id="filtroFechas" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+                                <div id="logisticaFilters" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+                                    <div class="filter-group">
+                                        <label>Tipo OC</label>
+                                        <select id="filterTipoOC" onchange="loadOCsDisponibles()">
+                                            <option value="ALL">Todas Permitidas</option>
+                                            <option value="M">Mercaderías (M)</option>
+                                            <option value="S">Servicios (S)</option>
+                                            <option value="T">Contabilidad (T)</option>
+                                        </select>
+                                    </div>
+                                    <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; cursor:pointer; color:#1e293b; font-weight:600; padding:0 0.5rem; background:#f4f7f6; border:1px solid #cbd5e1; border-radius:6px; height:34px; white-space:nowrap; margin-bottom:2px;">
+                                        <input type="checkbox" id="filterMyRecords" value="1" checked style="width:14px; height:14px;" onchange="loadOCsDisponibles()">
+                                        Solo mis registros
+                                    </label>
+                                    <label id="lblDirectasContabilidad" style="display:none; align-items:center; gap:0.4rem; font-size:0.75rem; cursor:pointer; color:#1e293b; font-weight:600; padding:0 0.5rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; height:34px; white-space:nowrap; margin-bottom:2px;">
+                                        <input type="checkbox" id="filterDirectasCont" value="1" style="width:14px; height:14px;" onchange="onDirectasContChange()">
+                                        + Añadir OCs Directas Cont.
+                                    </label>
+                                </div>
                                 <div class="filter-group">
                                     <label>Año</label>
                                     <select id="filterAno">
@@ -263,6 +484,70 @@
                                     </tr>
                                 </thead>
                                 <tbody id="ocsDisponiblesTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 🔹 Contenedor 1: Facturas sin Orden de Compra -->
+                    <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                            <div>
+                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#b45309;">📄 Facturas sin Orden de Compra</h3>
+                                <p style="margin:0.2rem 0 0; font-size:0.75rem; color:var(--text-muted);">Facturas registradas sin OC vinculada</p>
+                            </div>
+                            <button class="btn-action outline" onclick="loadFacturasSinOC()" style="font-size:0.75rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                Cargar
+                            </button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="display nowrap" id="facturasSinOCTable" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllFacturasSinOC" onchange="toggleAllFacturasSinOC()"></th>
+                                        <th>N° Factura</th>
+                                        <th>Tipo</th>
+                                        <th>Fecha Emisión</th>
+                                        <th>Fecha Vencimiento</th>
+                                        <th>Proveedor</th>
+                                        <th>RUC</th>
+                                        <th>Moneda</th>
+                                        <th style="text-align:right;">Importe Total</th>
+                                        <th class="no-print" style="width:40px;">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="facturasSinOCTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 🔹 Contenedor 2: Rendiciones Aprobadas -->
+                    <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #10b981;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                            <div>
+                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#047857;">✅ Rendiciones Aprobadas</h3>
+                                <p style="margin:0.2rem 0 0; font-size:0.75rem; color:var(--text-muted);">Rendiciones con estado Aprobado listas para Tesorería</p>
+                            </div>
+                            <button class="btn-action outline" onclick="loadRendicionesAprobadas()" style="font-size:0.75rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                Cargar
+                            </button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="display nowrap" id="rendicionesAprobadasTable" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRendiciones" onchange="toggleAllRendiciones()"></th>
+                                        <th>N° Rendición</th>
+                                        <th>Usuario</th>
+                                        <th>Fecha</th>
+                                        <th>Moneda</th>
+                                        <th style="text-align:right;">Importe</th>
+                                        <th>Estado</th>
+                                        <th class="no-print" style="width:40px;">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rendicionesAprobadasTbody"></tbody>
                             </table>
                         </div>
                     </div>
@@ -478,6 +763,393 @@
         </div>
     </div>
 
+    <!-- Modal: Purchase Order Report -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal glass-modal" style="max-width:920px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Orden de Compra <span id="reportOcNro" style="color:var(--primary)"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printReport()"
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeReportModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow:hidden; padding:0; display:flex; flex-direction:row; background:#f8fafc; align-items:stretch;">
+                <div id="reportScrollContainer" style="flex:1; overflow-y:auto; transition:all 0.3s ease;">
+                    <div id="reportContent"
+                        style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
+                        <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando reporte...</div>
+                    </div>
+                </div>
+                <div id="reportAttachmentViewer" style="display:none; width:50%; min-width:400px; border-left:1px solid #e2e8f0; background:#f1f5f9; flex-direction:column; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index:10;">
+                    <div style="padding:0.75rem 1.25rem; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                        <h4 id="reportViewerTitle" style="margin:0; font-size:0.85rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:0.5rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <span>Documento</span>
+                        </h4>
+                        <button onclick="closeReportViewer()" class="btn-flat" style="padding:0.3rem; color:#64748b;" title="Cerrar vista lateral">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    <div id="reportViewerLoader" style="display:none; flex:1; align-items:center; justify-content:center; flex-direction:column; color:#64748b; font-weight:500; font-size:0.9rem;">
+                        <svg class="spinner" viewBox="0 0 50 50" width="30" height="30" style="margin-bottom:1rem;"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke="#2563eb" stroke-width="4"></circle></svg>
+                        Cargando documento...
+                    </div>
+                    <iframe id="reportAttachmentIframe" style="flex:1; width:100%; border:none; background:#fff;" onload="document.getElementById('reportViewerLoader').style.display='none';"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Warehouse Entries (Voucher estilo Crystal Report) -->
+    <div class="modal-overlay" id="warehouseModal">
+        <div class="modal glass-modal" style="max-width:950px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Ingresos a Almacén - OC <span id="warehouseOcNro" style="color:var(--primary)"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printWarehouseVoucher()"
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeWarehouseModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
+                <div id="warehouse-tbody" style="display:none;"></div>
+                <div style="text-align:center; padding:3rem; color:var(--text-muted);">Seleccione una OC para ver
+                    ingresos</div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Attachments (Signed Orders / Vouchers) -->
+    <div class="modal-overlay" id="attachmentModal">
+        <div class="modal glass-modal" style="max-width:600px; width:95%;">
+            <div class="modal-header">
+                <h3><span id="attachmentModalTitle">Adjuntos</span> - OC <span id="attachmentOcNro"
+                        style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeAttachmentModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="attachmentUploadArea"
+                    style="margin-bottom:1.5rem; padding:1.5rem; border:2px dashed var(--border); border-radius:12px; text-align:center; background:rgba(255,255,255,0.5);">
+                    <p style="margin-bottom:1rem; font-size:0.875rem; color:var(--text-muted);">Subir nuevo archivo (PDF
+                        o Imagen)</p>
+                    <input type="file" id="attachmentFileInput" accept=".pdf,image/*" style="display:none"
+                        onchange="handleAttachmentUpload()">
+                    <button class="btn btn-primary" onclick="document.getElementById('attachmentFileInput').click()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16" style="margin-right:0.5rem">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>Seleccionar y Subir
+                    </button>
+                </div>
+                <h4 style="font-size:0.875rem; margin-bottom:1rem; color:var(--text-primary);">Archivos Guardados:</h4>
+                <div id="attachmentList" class="custom-scrollbar"
+                    style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
+                    <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando
+                        archivos...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: File Preview window -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal glass-modal"
+            style="max-width:900px; width:95%; height:85vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <h3 id="previewModalTitle">Visualización de Archivo</h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="#" id="previewModalDownloadBtn" class="btn btn-outline" download
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem; text-decoration:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>Descargar
+                    </a>
+                    <button class="close-btn" onclick="closePreviewModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body"
+                style="flex:1; padding:0; background:#f1f5f9; display:flex; justify-content:center; align-items:center; overflow:hidden;"
+                id="previewModalBody">
+                <div style="color:var(--text-muted);">Cargando previsualización...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Generar Solicitud de Recojo -->
+    <div class="modal-overlay" id="recojoModal">
+        <div class="modal glass-modal" style="max-width:850px; width:95%;">
+            <div class="modal-header">
+                <h3>Generar Solicitud de Recojo - OC <span id="recojoOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeRecojoModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="formRecojo">
+                    <input type="hidden" id="recCodCia">
+                    <input type="hidden" id="recTipoOc">
+                    <input type="hidden" id="recYear">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="filter-group">
+                            <label>Fecha Recojo *</label>
+                            <input type="date" id="recFecha" required>
+                        </div>
+                        <div class="filter-group">
+                            <label>Hora Recojo</label>
+                            <input type="time" id="recHora">
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Nombre del Proveedor *</label>
+                            <input type="text" id="recProveedor" required>
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Dirección Origen (Proveedor) *</label>
+                            <input type="text" id="recOrigen" required>
+                        </div>
+                        <div class="filter-group url-maps-group" style="grid-column: span 2;">
+                            <label>URL de Google Maps (Origen)</label>
+                            <input type="url" id="recUrlMaps" placeholder="https://maps.google.com/..."
+                                style="font-family:monospace; font-size:0.75rem;">
+                        </div>
+                        <div class="filter-group">
+                            <label>Contacto Origen</label>
+                            <input type="text" id="recContacto">
+                        </div>
+                        <div class="filter-group">
+                            <label>Celular de Contacto *</label>
+                            <input type="tel" id="recCelular" required>
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Lugar de Entrega (Destino) *</label>
+                            <input type="text" id="recDestino" required>
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Observaciones</label>
+                            <textarea id="recObservaciones" rows="2"
+                                style="padding:0.5rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.8125rem;"></textarea>
+                        </div>
+                    </div>
+                    <h4 style="font-size:0.875rem; margin-bottom:0.5rem; color:var(--text-primary);">Seleccionar Ãtems
+                    </h4>
+                    <div class="table-responsive"
+                        style="max-height: 250px; overflow-y:auto; margin-bottom:1rem; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table class="report-table" style="margin-top:0;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px; text-align:center;"><input type="checkbox" id="chkAllRecojo"
+                                            onchange="toggleAllRecojo()"></th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th style="width: 80px; text-align:center;">Unid</th>
+                                    <th style="width: 100px; text-align:right;">Pendiente</th>
+                                    <th style="width: 120px; text-align:right;">A Recoger</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recojoItemsTbody">
+                                <tr>
+                                    <td colspan="6" style="text-align:center; padding:2rem;">Cargando ítems...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
+                        <button type="button" class="btn btn-outline" onclick="closeRecojoModal()">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="submitSolicitudRecojo()">Generar
+                            Solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Búsqueda Global de OC -->
+    <div class="modal-overlay" id="ocSearchModal">
+        <div class="modal glass-modal" style="max-width:850px; width:95%; display:flex; flex-direction:column; max-height:85vh;">
+            <div class="modal-header">
+                <h3>🔎 Buscar Orden de Compra</h3>
+                <button class="close-btn" onclick="closeOcSearchModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+                <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.75rem 0;">Busque por Nro. de OC, RUC o Nombre de Proveedor. El resultado muestra el historial completo (todos los años).</p>
+                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                    <input type="text" id="ocSearchInput" placeholder="Ej: 00005565, 20100130204, BACKUS..." style="flex:1; padding:0.6rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:1rem;">
+                    <button class="btn btn-primary" onclick="triggerOcSearch()">Buscar</button>
+                </div>
+                <div style="flex:1; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead style="position:sticky; top:0; background:#f1f5f9; z-index:1;">
+                            <tr>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Nro. OC</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Fecha</th>
+                                <th style="padding:0.6rem; text-align:center; border-bottom:1px solid #cbd5e1;">Tipo</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Proveedor</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">RUC</th>
+                                <th style="padding:0.6rem; text-align:right; border-bottom:1px solid #cbd5e1;">Total</th>
+                                <th style="padding:0.6rem; text-align:center; border-bottom:1px solid #cbd5e1;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ocSearchTbody">
+                            <tr><td colspan="7" style="text-align:center; padding:2rem; color:#94a3b8;">Escriba para buscar OC</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Trazabilidad OC → Almacén → Factura -->
+    <div class="modal-overlay" id="trazaModal">
+        <div class="modal glass-modal" style="max-width:1050px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Trazabilidad - OC <span id="trazaOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeTrazaModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto;">
+                <div id="trazaContent" style="padding:0.5rem;">
+                    <div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando trazabilidad...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .traza-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+
+        .traza-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        .traza-bar-fill.complete {
+            background: #22c55e;
+        }
+
+        .traza-bar-fill.partial {
+            background: #f59e0b;
+        }
+
+        .traza-bar-fill.pending {
+            background: #e2e8f0;
+        }
+
+        .traza-summary {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.25rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .traza-summary-item {
+            text-align: center;
+        }
+
+        .traza-summary-item .tval {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .traza-summary-item .tlabel {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .traza-factura-list {
+            margin-top: 1rem;
+        }
+
+        .traza-factura-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.65rem 1rem;
+            background: #f0f4ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+    
+        /* --- MODAL INJECTED --- */
+        /* --- Full Width Content --- */
+        .content {
+            max-width: none !important;
+            width: 100% !important;
+        }
+    
+    </style>
+
+    
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -489,7 +1161,301 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="cargos_documentales.js"></script>
+    <script src="cargos_documentales.js?v=99"></script>
     <script src="sidebar.js"></script>
+<!-- ALL MODALS INJECTED -->
+<div class="modal-overlay" id="reportModal">
+        <div class="modal glass-modal" style="max-width:920px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Orden de Compra <span id="reportOcNro" style="color:var(--primary)"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printReport()"
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeReportModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow:hidden; padding:0; display:flex; flex-direction:row; background:#f8fafc; align-items:stretch;">
+                <div id="reportScrollContainer" style="flex:1; overflow-y:auto; transition:all 0.3s ease;">
+                    <div id="reportContent"
+                        style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
+                        <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando reporte...</div>
+                    </div>
+                </div>
+                <div id="reportAttachmentViewer" style="display:none; width:50%; min-width:400px; border-left:1px solid #e2e8f0; background:#f1f5f9; flex-direction:column; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index:10;">
+                    <div style="padding:0.75rem 1.25rem; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                        <h4 id="reportViewerTitle" style="margin:0; font-size:0.85rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:0.5rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <span>Documento</span>
+                        </h4>
+                        <button onclick="closeReportViewer()" class="btn-flat" style="padding:0.3rem; color:#64748b;" title="Cerrar vista lateral">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    <div id="reportViewerLoader" style="display:none; flex:1; align-items:center; justify-content:center; flex-direction:column; color:#64748b; font-weight:500; font-size:0.9rem;">
+                        <svg class="spinner" viewBox="0 0 50 50" width="30" height="30" style="margin-bottom:1rem;"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke="#2563eb" stroke-width="4"></circle></svg>
+                        Cargando documento...
+                    </div>
+                    <iframe id="reportAttachmentIframe" style="flex:1; width:100%; border:none; background:#fff;" onload="document.getElementById('reportViewerLoader').style.display='none';"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+<div class="modal-overlay" id="warehouseModal">
+        <div class="modal glass-modal" style="max-width:950px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Ingresos a Almacén - OC <span id="warehouseOcNro" style="color:var(--primary)"></span></h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="btn btn-outline" onclick="printWarehouseVoucher()"
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>Imprimir
+                    </button>
+                    <button class="close-btn" onclick="closeWarehouseModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
+                <div id="warehouse-tbody" style="display:none;"></div>
+                <div style="text-align:center; padding:3rem; color:var(--text-muted);">Seleccione una OC para ver
+                    ingresos</div>
+            </div>
+        </div>
+    </div>
+<div class="modal-overlay" id="attachmentModal">
+        <div class="modal glass-modal" style="max-width:600px; width:95%;">
+            <div class="modal-header">
+                <h3><span id="attachmentModalTitle">Adjuntos</span> - OC <span id="attachmentOcNro"
+                        style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeAttachmentModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="attachmentUploadArea"
+                    style="margin-bottom:1.5rem; padding:1.5rem; border:2px dashed var(--border); border-radius:12px; text-align:center; background:rgba(255,255,255,0.5);">
+                    <p style="margin-bottom:1rem; font-size:0.875rem; color:var(--text-muted);">Subir nuevo archivo (PDF
+                        o Imagen)</p>
+                    <input type="file" id="attachmentFileInput" accept=".pdf,image/*" style="display:none"
+                        onchange="handleAttachmentUpload()">
+                    <button class="btn btn-primary" onclick="document.getElementById('attachmentFileInput').click()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16" style="margin-right:0.5rem">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>Seleccionar y Subir
+                    </button>
+                </div>
+                <h4 style="font-size:0.875rem; margin-bottom:1rem; color:var(--text-primary);">Archivos Guardados:</h4>
+                <div id="attachmentList" class="custom-scrollbar"
+                    style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
+                    <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">Cargando
+                        archivos...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+<div class="modal-overlay" id="previewModal">
+        <div class="modal glass-modal"
+            style="max-width:900px; width:95%; height:85vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <h3 id="previewModalTitle">Visualización de Archivo</h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="#" id="previewModalDownloadBtn" class="btn btn-outline" download
+                        style="padding:0.35rem 0.75rem; font-size:0.775rem; text-decoration:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                            height="15" style="margin-right:0.3rem">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>Descargar
+                    </a>
+                    <button class="close-btn" onclick="closePreviewModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                            height="24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body"
+                style="flex:1; padding:0; background:#f1f5f9; display:flex; justify-content:center; align-items:center; overflow:hidden;"
+                id="previewModalBody">
+                <div style="color:var(--text-muted);">Cargando previsualización...</div>
+            </div>
+        </div>
+    </div>
+<div class="modal-overlay" id="recojoModal">
+        <div class="modal glass-modal" style="max-width:850px; width:95%;">
+            <div class="modal-header">
+                <h3>Generar Solicitud de Recojo - OC <span id="recojoOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeRecojoModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="formRecojo">
+                    <input type="hidden" id="recCodCia">
+                    <input type="hidden" id="recTipoOc">
+                    <input type="hidden" id="recYear">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="filter-group">
+                            <label>Fecha Recojo *</label>
+                            <input type="date" id="recFecha" required>
+                        </div>
+                        <div class="filter-group">
+                            <label>Hora Recojo</label>
+                            <input type="time" id="recHora">
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Nombre del Proveedor *</label>
+                            <input type="text" id="recProveedor" required>
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Dirección Origen (Proveedor) *</label>
+                            <input type="text" id="recOrigen" required>
+                        </div>
+                        <div class="filter-group url-maps-group" style="grid-column: span 2;">
+                            <label>URL de Google Maps (Origen)</label>
+                            <input type="url" id="recUrlMaps" placeholder="https://maps.google.com/..."
+                                style="font-family:monospace; font-size:0.75rem;">
+                        </div>
+                        <div class="filter-group">
+                            <label>Contacto Origen</label>
+                            <input type="text" id="recContacto">
+                        </div>
+                        <div class="filter-group">
+                            <label>Celular de Contacto *</label>
+                            <input type="tel" id="recCelular" required>
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Lugar de Entrega (Destino) *</label>
+                            <input type="text" id="recDestino" required>
+                        </div>
+                        <div class="filter-group" style="grid-column: span 2;">
+                            <label>Observaciones</label>
+                            <textarea id="recObservaciones" rows="2"
+                                style="padding:0.5rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.8125rem;"></textarea>
+                        </div>
+                    </div>
+                    <h4 style="font-size:0.875rem; margin-bottom:0.5rem; color:var(--text-primary);">Seleccionar Ãtems
+                    </h4>
+                    <div class="table-responsive"
+                        style="max-height: 250px; overflow-y:auto; margin-bottom:1rem; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table class="report-table" style="margin-top:0;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px; text-align:center;"><input type="checkbox" id="chkAllRecojo"
+                                            onchange="toggleAllRecojo()"></th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th style="width: 80px; text-align:center;">Unid</th>
+                                    <th style="width: 100px; text-align:right;">Pendiente</th>
+                                    <th style="width: 120px; text-align:right;">A Recoger</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recojoItemsTbody">
+                                <tr>
+                                    <td colspan="6" style="text-align:center; padding:2rem;">Cargando ítems...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
+                        <button type="button" class="btn btn-outline" onclick="closeRecojoModal()">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="submitSolicitudRecojo()">Generar
+                            Solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<div class="modal-overlay" id="ocSearchModal">
+        <div class="modal glass-modal" style="max-width:850px; width:95%; display:flex; flex-direction:column; max-height:85vh;">
+            <div class="modal-header">
+                <h3>🔎 Buscar Orden de Compra</h3>
+                <button class="close-btn" onclick="closeOcSearchModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+                <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.75rem 0;">Busque por Nro. de OC, RUC o Nombre de Proveedor. El resultado muestra el historial completo (todos los años).</p>
+                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                    <input type="text" id="ocSearchInput" placeholder="Ej: 00005565, 20100130204, BACKUS..." style="flex:1; padding:0.6rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:1rem;">
+                    <button class="btn btn-primary" onclick="triggerOcSearch()">Buscar</button>
+                </div>
+                <div style="flex:1; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead style="position:sticky; top:0; background:#f1f5f9; z-index:1;">
+                            <tr>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Nro. OC</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Fecha</th>
+                                <th style="padding:0.6rem; text-align:center; border-bottom:1px solid #cbd5e1;">Tipo</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Proveedor</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">RUC</th>
+                                <th style="padding:0.6rem; text-align:right; border-bottom:1px solid #cbd5e1;">Total</th>
+                                <th style="padding:0.6rem; text-align:center; border-bottom:1px solid #cbd5e1;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ocSearchTbody">
+                            <tr><td colspan="7" style="text-align:center; padding:2rem; color:#94a3b8;">Escriba para buscar OC</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+<div class="modal-overlay" id="trazaModal">
+        <div class="modal glass-modal" style="max-width:1050px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Trazabilidad - OC <span id="trazaOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeTrazaModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto;">
+                <div id="trazaContent" style="padding:0.5rem;">
+                    <div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando trazabilidad...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- END ALL MODALS INJECTED -->
 </body>
 </html>

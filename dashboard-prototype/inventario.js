@@ -298,7 +298,8 @@ async function loadProductos() {
         ]);
         
         dtProd = $('#tblProducto').DataTable({
-            data: dtData, destroy: true, pageLength: 50, scrollX: true,
+            data: dtData, destroy: true,
+            deferRender: true, pageLength: 50, scrollX: true,
             language: { search:'Buscar:', lengthMenu:'Mostrar _MENU_', info:'_START_ a _END_ de _TOTAL_', zeroRecords:'Sin resultados', paginate:{previous:'‹',next:'›'} },
             dom: '<"dt-top"Bfl>rt<"dt-bottom"ip>',
             buttons: canExport ? [
@@ -364,7 +365,8 @@ async function loadAlmacenStock() {
         ]);
         
         dtAlm = $('#tblAlmacen').DataTable({
-            data: dtData, destroy: true, pageLength: 50, scrollX: true,
+            data: dtData, destroy: true,
+            deferRender: true, pageLength: 50, scrollX: true,
             language: { search:'Buscar:', lengthMenu:'Mostrar _MENU_', info:'_START_ a _END_ de _TOTAL_', zeroRecords:'Sin resultados', paginate:{previous:'‹',next:'›'} },
             dom: '<"dt-top"Bfl>rt<"dt-bottom"ip>',
             buttons: canExport ? [
@@ -450,7 +452,8 @@ async function loadLoteStock() {
         });
         
         dtLote = $('#tblLote').DataTable({
-            data: dtData, destroy: true, pageLength: 50, scrollX: true,
+            data: dtData, destroy: true,
+            deferRender: true, pageLength: 50, scrollX: true,
             language: { search:'Buscar:', lengthMenu:'Mostrar _MENU_', info:'_START_ a _END_ de _TOTAL_', zeroRecords:'Sin resultados', paginate:{previous:'‹',next:'›'} },
             dom: '<"dt-top"Bfl>rt<"dt-bottom"ip>',
             buttons: canExport ? [

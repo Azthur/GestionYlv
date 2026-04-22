@@ -11,6 +11,7 @@
         * { box-sizing:border-box; margin:0; padding:0; }
         body { background:var(--bg); font-family:'Inter',sans-serif; color:var(--text); min-height:100vh; }
         .container { max-width:920px; margin:2rem auto; padding:0 1rem; }
+        .container-wide { max-width:1500px; margin:2rem auto; padding:0 1rem; display:flex; gap:2rem; align-items:flex-start; }
         .page {
             background:var(--surface); border:1px solid var(--border); border-radius:12px;
             padding:3rem; box-shadow:0 4px 20px rgba(0,0,0,0.06);
@@ -21,6 +22,7 @@
         .header .right { text-align:right; }
         .header .doc-num { font-size:1.5rem; color:var(--primary); font-weight:800; }
         .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-bottom:2.5rem; }
+        .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; margin-bottom:2.5rem; }
         .panel { background:#f8fafc; padding:1.5rem; border-radius:8px; border:1px solid #f1f5f9; }
         .panel h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin:0 0 1rem 0; font-weight:700; }
         .row { display:flex; justify-content:space-between; margin-bottom:0.6rem; font-size:0.85rem; }
@@ -39,7 +41,8 @@
         .tfinal { display:flex; justify-content:space-between; margin-top:1rem; padding-top:1rem; border-top:2px solid #cbd5e1; font-size:1.1rem; }
         .docs { margin-top:2rem; padding-top:1.5rem; border-top:1px dashed #cbd5e1; }
         .docs h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin:0 0 1rem 0; }
-        .fitem { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px dashed #e2e8f0; }
+        .fitem { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px dashed #e2e8f0; cursor:pointer; transition: background 0.15s; border-radius:4px; padding-left:0.5rem; }
+        .fitem:hover { background:#eff6ff; }
         .fbadge { padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600; color:white; }
         .flink { color:var(--primary); text-decoration:none; font-size:0.85rem; font-weight:500; }
         .obs { margin-bottom:2.5rem; background:#eff6ff; border-left:4px solid #3b82f6; padding:1.25rem; border-radius:0 8px 8px 0; }
@@ -47,12 +50,32 @@
         .footer { text-align:center; color:#94a3b8; font-size:0.75rem; margin-top:3rem; padding-top:1.5rem; border-top:1px solid #f1f5f9; }
         .badge { padding:0.3rem 1rem; border-radius:999px; font-size:0.8rem; font-weight:600; display:inline-block; margin-bottom:1rem; }
         .badge-ok { background:#dcfce7; color:#166534; }
+        .badge-cerrado { background:#faf5ff; color:#6d28d9; }
+        .badge-contab { background:#fefce8; color:#a16207; }
         .badge-an { background:#fee2e2; color:#991b1b; }
         .loading { text-align:center; padding:4rem; color:var(--muted); }
         .error { text-align:center; padding:4rem; color:#ef4444; }
+        .section-title { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin:0 0 1rem 0; font-weight:700; }
+        .item-extra { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:1rem; margin-top:0.5rem; font-size:0.8rem; }
+        .item-extra .ie-row { display:flex; gap:1rem; margin-bottom:0.35rem; }
+        .item-extra .ie-label { color:#0369a1; font-weight:600; min-width:80px; }
+        .compact-panel { background:#f8fafc; padding:0.85rem 1rem; border-radius:6px; border:1px solid #f1f5f9; }
+        .compact-panel h3 { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; margin:0 0 0.5rem 0; font-weight:700; }
+        .crow { display:flex; justify-content:space-between; margin-bottom:0.3rem; font-size:0.78rem; }
+        .crow strong { color:#334155; min-width:35%; font-size:0.78rem; }
+        .crow span { color:#475569; text-align:right; font-size:0.78rem; }
+        .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+        @media(max-width:768px) { .info-grid{grid-template-columns:1fr} }
+        .preview-panel { flex:1; position:sticky; top:2rem; }
+        .preview-placeholder { 
+            width:100%; height:850px; border-radius:12px; border:1px solid #e2e8f0; background:white;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94a3b8;
+        }
+        .preview-placeholder svg { margin-bottom:1rem; opacity:0.4; }
+        .preview-placeholder p { font-size:0.9rem; }
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @media print { body{background:white} .page{box-shadow:none;border:none;padding:1.5rem} }
-        @media(max-width:768px) { .grid2{grid-template-columns:1fr} .totals-box{width:100%} .page{padding:1.5rem} .header{flex-direction:column;gap:1rem} .header .right{text-align:left} }
+        @media print { body{background:white} .page{box-shadow:none;border:none;padding:1.5rem} .preview-panel{display:none!important} }
+        @media(max-width:768px) { .grid2{grid-template-columns:1fr} .grid3{grid-template-columns:1fr} .totals-box{width:100%} .page{padding:1.5rem} .header{flex-direction:column;gap:1rem} .header .right{text-align:left} .container-wide{flex-direction:column} }
     </style>
     <script src="auth-guard.js"></script>
 </head>
@@ -77,20 +100,109 @@
                 .catch(function(e) { document.getElementById('content').innerHTML = '<div class="error"><h2>Error</h2><p>' + e.message + '</p></div>'; });
         }
         function fmt(n) { return (n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+        
+        function previewDoc(url) {
+            var container = document.getElementById('mainContainer');
+            var panel = document.getElementById('sidePreviewPanel');
+            if (container && panel) {
+                // Cambiar a layout de dos columnas
+                container.style.maxWidth = '1500px';
+                container.style.display = 'flex';
+                container.style.gap = '2rem';
+                container.style.alignItems = 'flex-start';
+                // Mostrar panel lateral
+                panel.style.display = 'block';
+                document.getElementById('visorIframe').src = url;
+                // Scroll al inicio
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
+        function closePreview() {
+            var container = document.getElementById('mainContainer');
+            var panel = document.getElementById('sidePreviewPanel');
+            if (container && panel) {
+                container.style.maxWidth = '920px';
+                container.style.display = 'block';
+                panel.style.display = 'none';
+                document.getElementById('visorIframe').src = '';
+            }
+        }
+
         function render(d) {
             var tm = {'01':'Factura','03':'Boleta de Venta','07':'Nota de Crédito','08':'Nota de Débito'};
             var tipo = tm[d.CodTipoDoc] || d.CodTipoDoc;
-            var estado = d.Estado === 'Anulada' ? '<span class="badge badge-an">ANULADO</span>' : '<span class="badge badge-ok">REGISTRADO</span>';
-            // Items
+            
+            // Badge de estado
+            var estadoBadge = '';
+            if (d.Estado === 'Anulada') estadoBadge = '<span class="badge badge-an">ANULADO</span>';
+            else if (d.Estado === 'Cerrado') estadoBadge = '<span class="badge badge-cerrado">🔒 CERRADO</span>';
+            else if (d.Estado === 'Contabilizado') estadoBadge = '<span class="badge badge-contab">📘 CONTABILIZADO</span>';
+            else estadoBadge = '<span class="badge badge-ok">REGISTRADO</span>';
+
+            // ═══════════════ ITEMS ═══════════════
             var rows = '';
             var items = d.items || [];
+            var itemExtraHTML = '';
             for (var i=0; i<items.length; i++) {
                 var it = items[i];
-                rows += '<tr><td>'+(i+1)+'</td><td>'+(it.CodMaterial||'-')+'</td><td>'+(it.Descripcion||'-')+'</td><td>'+(it.UnidadMedida||'-')+'</td><td class="r">'+fmt(it.Cantidad)+'</td><td class="r">'+fmt(it.PrecioUnitario)+'</td><td class="r">'+fmt(it.SubTotal)+'</td><td class="r">'+fmt(it.IGV)+'</td><td class="r b">'+fmt(it.Total)+'</td></tr>';
+                var hasExtra = it.Inci || it.Fabricante || it.FechaVencimientoItem || it.Obs1 || it.Obs2 || it.Obs3 || it.Obs4;
+                var extraBadge = hasExtra ? ' <span style="background:#0ea5e9;color:white;padding:1px 5px;border-radius:3px;font-size:0.65rem;font-weight:600;vertical-align:middle;">+INFO</span>' : '';
+                rows += '<tr><td>'+(i+1)+'</td><td>'+(it.CodMaterial||'-')+extraBadge+'</td><td>'+(it.Descripcion||'-')+'</td><td>'+(it.UnidadMedida||'-')+'</td><td class="r">'+fmt(it.Cantidad)+'</td><td class="r">'+fmt(it.PrecioUnitario)+'</td><td class="r">'+fmt(it.SubTotal)+'</td><td class="r">'+fmt(it.IGV)+'</td><td class="r b">'+fmt(it.Total)+'</td></tr>';
+                
+                // Datos extra del item
+                if (hasExtra) {
+                    itemExtraHTML += '<div class="item-extra">';
+                    itemExtraHTML += '<div style="font-weight:700;color:#0c4a6e;margin-bottom:0.5rem;">Ítem '+(i+1)+': '+(it.CodMaterial||it.Descripcion||'')+'</div>';
+                    if (it.Inci) itemExtraHTML += '<div class="ie-row"><span class="ie-label">INCI:</span><span>'+it.Inci+'</span></div>';
+                    if (it.Fabricante) itemExtraHTML += '<div class="ie-row"><span class="ie-label">Fabricante:</span><span>'+it.Fabricante+'</span></div>';
+                    if (it.FechaVencimientoItem) itemExtraHTML += '<div class="ie-row"><span class="ie-label">Fecha Vencimiento:</span><span>'+it.FechaVencimientoItem+'</span></div>';
+                    if (it.Obs1) itemExtraHTML += '<div class="ie-row"><span class="ie-label">Obs. 1:</span><span>'+it.Obs1+'</span></div>';
+                    if (it.Obs2) itemExtraHTML += '<div class="ie-row"><span class="ie-label">Obs. 2:</span><span>'+it.Obs2+'</span></div>';
+                    if (it.Obs3) itemExtraHTML += '<div class="ie-row"><span class="ie-label">Obs. 3:</span><span>'+it.Obs3+'</span></div>';
+                    if (it.Obs4) itemExtraHTML += '<div class="ie-row"><span class="ie-label">Obs. 4:</span><span>'+it.Obs4+'</span></div>';
+                    
+                    // Archivos del item agrupados por observaciones
+                    console.log('factura_visor - Item:', it.CodMaterial, 'archivos:', it.archivos);
+                    if (it.archivos && it.archivos.length > 0) {
+                        // Agrupar archivos por ObsField
+                        var archivosPorObs = {};
+                        it.archivos.forEach(function(a) {
+                            var obs = a.ObsField || 'otros';
+                            if (!archivosPorObs[obs]) archivosPorObs[obs] = [];
+                            archivosPorObs[obs].push(a);
+                        });
+
+                        // Mostrar archivos agrupados por observación
+                        var obsLabels = {'obs1': 'Obs. 1', 'obs2': 'Obs. 2', 'obs3': 'Obs. 3', 'obs4': 'Obs. 4'};
+                        for (var obs in archivosPorObs) {
+                            var label = obsLabels[obs] || 'Otros';
+                            itemExtraHTML += '<div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px dashed #bae6fd;"><div style="font-weight:600;color:#0369a1;margin-bottom:0.35rem;">Archivos - '+label+':</div>';
+                            archivosPorObs[obs].forEach(function(a) {
+                                var ext = (a.NombreArchivo||'').split('.').pop().toUpperCase();
+                                var col = ext==='PDF'?'#ef4444':ext==='XML'?'#10b981':'#6366f1';
+                                var url = '/api/contabilidad/facturas/items/archivos/'+a.Id+'/descargar?v=' + Date.now();
+                                var isPreviewable = ['PDF','JPG','PNG','JPEG','WEBP'].indexOf(ext) !== -1;
+                                if (isPreviewable) {
+                                    itemExtraHTML += '<div class="fitem" onclick="previewDoc(\''+url+'\')"><span class="fbadge" style="background:'+col+'">'+ext+'</span><span class="flink">'+a.NombreArchivo+'</span></div>';
+                                } else {
+                                    itemExtraHTML += '<div class="fitem"><span class="fbadge" style="background:'+col+'">'+ext+'</span><a href="'+url+'" target="_blank" class="flink">'+a.NombreArchivo+'</a></div>';
+                                }
+                            });
+                            itemExtraHTML += '</div>';
+                        }
+                    }
+                    
+                    itemExtraHTML += '</div>';
+                }
             }
-            // Archivos
-            var previewUrl = '';
+
+            // ═══════════════ ARCHIVOS ═══════════════
+            var hasPreviewable = false;
             var archs = d.archivos || [];
+            var archHTML = '';
             if (archs.length > 0) {
                 var fl = '';
                 for (var j=0; j<archs.length; j++) {
@@ -98,27 +210,130 @@
                     var ext = (a.NombreArchivo||'').split('.').pop().toUpperCase();
                     var u = '/api/contabilidad/archivos/'+a.Id+'/descargar?v=' + Date.now();
                     var isPreviewable = ['PDF','JPG','PNG','JPEG','WEBP'].indexOf(ext) !== -1;
-                    if (isPreviewable && !previewUrl) previewUrl = u;
+                    if (isPreviewable) hasPreviewable = true;
                     var col = ext==='PDF'?'#ef4444':ext==='XML'?'#10b981':'#6366f1';
                     
-                    var act = isPreviewable ? 'onclick="document.getElementById(\'visorIframe\').src=\''+u+'\'" style="cursor:pointer;"' : 'href="'+u+'" target="_blank"';
-                    var aLink = isPreviewable ? '<span '+act+' class="flink">'+a.NombreArchivo+'</span>' : '<a '+act+' class="flink">'+a.NombreArchivo+'</a>';
-                    
-                    fl += '<div class="fitem"><span class="fbadge" style="background:'+col+'">'+ext+'</span>'+aLink+'<a href="'+u+'" target="_blank" style="margin-left:auto; color:#64748b; text-decoration:none;" title="Descargar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a></div>';
+                    if (isPreviewable) {
+                        fl += '<div class="fitem" onclick="previewDoc(\''+u+'\')">';
+                    } else {
+                        fl += '<div class="fitem">';
+                    }
+                    fl += '<span class="fbadge" style="background:'+col+'">'+ext+'</span>';
+                    fl += '<span class="flink">'+ a.NombreArchivo+'</span>';
+                    fl += '<a href="'+u+'" target="_blank" style="margin-left:auto; color:#64748b; text-decoration:none;" title="Descargar" onclick="event.stopPropagation()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>';
+                    fl += '</div>';
                 }
-                archHTML = '<div class="docs"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"><h3>Documentos Adjuntos</h3><span style="font-size:0.75rem; color:#64748b;">(Clic para previsualizar)</span></div>'+fl+'</div>';
+                archHTML = '<div class="docs"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"><h3>Documentos Adjuntos</h3><span style="font-size:0.75rem; color:#64748b;">(Clic en documento para previsualizar)</span></div>'+fl+'</div>';
             } else {
                 archHTML = '<div class="docs"><h3>Documentos Adjuntos</h3><div style="color:#94a3b8;font-size:0.85rem;padding:0.5rem 0;">Sin documentos adjuntos.</div></div>';
             }
-            // Obs
+
+            // ═══════════════ OBSERVACIONES ═══════════════
             var obsHTML = '';
             if (d.Observaciones) {
                 obsHTML = '<div class="obs"><h3>Observaciones</h3><p style="margin:0;font-size:0.9rem;color:#1e40af;line-height:1.5;">'+d.Observaciones+'</p></div>';
             }
+
+            // ═══════════════ DETRACCIÓN ═══════════════
+            var detracHTML = '';
+            if (d.DetBienServicio || d.DetPorcentaje || d.DetMonto) {
+                detracHTML = '<div class="compact-panel" style="border-left:3px solid #f59e0b;">' +
+                    '<h3 style="color:#b45309;">Detracción</h3>' +
+                    '<div class="crow"><strong>Bien/Servicio:</strong><span>'+(d.DetBienServicio||'-')+'</span></div>' +
+                    '<div class="crow"><strong>Medio Pago:</strong><span>'+(d.DetMedioPago||'-')+'</span></div>' +
+                    '<div class="crow"><strong>Nro. Cuenta:</strong><span>'+(d.DetNroCuenta||'-')+'</span></div>' +
+                    '<div class="crow"><strong>Porcentaje:</strong><span>'+(d.DetPorcentaje ? d.DetPorcentaje+'%' : '-')+'</span></div>' +
+                    '<div class="crow"><strong>Monto:</strong><span style="font-weight:700;color:#b45309;">'+fmt(d.DetMonto)+'</span></div>' +
+                    (d.DetLeyenda ? '<div style="margin-top:0.35rem;font-size:0.72rem;color:#92400e;background:#fef3c7;padding:0.35rem;border-radius:4px;">'+d.DetLeyenda+'</div>' : '') +
+                '</div>';
+            }
+
+            // ═══════════════ CRÉDITOS / CUOTAS ═══════════════
+            var creditoHTML = '';
+            if (d.CreditoNumCuotas || d.CreditoMtoPendiente || d.CreditoFecPlazo) {
+                creditoHTML = '<div class="compact-panel" style="border-left:3px solid #8b5cf6;">' +
+                    '<h3 style="color:#6d28d9;">Condiciones de Pago / Crédito</h3>' +
+                    '<div class="crow"><strong>N° Cuotas:</strong><span>'+(d.CreditoNumCuotas||1)+'</span></div>' +
+                    '<div class="crow"><strong>Monto Pendiente:</strong><span style="font-weight:700;">'+fmt(d.CreditoMtoPendiente)+'</span></div>' +
+                    '<div class="crow"><strong>Fecha Plazo:</strong><span>'+(d.CreditoFecPlazo||'-')+'</span></div>';
+                
+                if (d.CreditoCuotasJson) {
+                    try {
+                        var cuotas = JSON.parse(d.CreditoCuotasJson);
+                        if (cuotas && cuotas.length > 0) {
+                            creditoHTML += '<div style="margin-top:0.5rem;"><table style="font-size:0.75rem;"><thead><tr><th>Cuota</th><th class="r">Importe</th><th class="r">Vencimiento</th></tr></thead><tbody>';
+                            for (var c=0;c<cuotas.length;c++) {
+                                creditoHTML += '<tr><td>Cuota '+(cuotas[c].numcuota || (c+1))+'</td><td class="r b">'+fmt(cuotas[c].mtoCuota||cuotas[c].monto||0)+'</td><td class="r">'+(cuotas[c].fecVencimiento||cuotas[c].fecha||'-')+'</td></tr>';
+                            }
+                            creditoHTML += '</tbody></table></div>';
+                        }
+                    } catch(e) {}
+                }
+                creditoHTML += '</div>';
+            }
+
+            // ═══════════════ GUÍAS RELACIONADAS ═══════════════
+            var guiasHTML = '';
+            if (d.DocsRelacionadosJson) {
+                try {
+                    var docs = JSON.parse(d.DocsRelacionadosJson);
+                    if (docs && docs.length > 0) {
+                        guiasHTML = '<div class="compact-panel" style="border-left:3px solid #10b981;">' +
+                            '<h3 style="color:#047857;">Documentos Relacionados / Guías</h3>';
+                        for (var g=0;g<docs.length;g++) {
+                            guiasHTML += '<div class="crow"><strong>'+(docs[g].desCpeRel||docs[g].codCpeRel||'Doc')+'</strong><span>'+(docs[g].numSerieDocRel||docs[g].numSerie||'')+'-'+(docs[g].numDocRel||docs[g].numDoc||'')+'</span></div>';
+                        }
+                        guiasHTML += '</div>';
+                    }
+                } catch(e) {}
+            }
+
+            // ═══════════════ NOTA CRÉDITO / DÉBITO ═══════════════
+            var ncndHTML = '';
+            if (d.DocModificaSerie && d.DocModificaNumero) {
+                var tipoNota = d.DesTipoNota || (d.CodTipoDoc === '07' ? 'Nota de Crédito' : 'Nota de Débito');
+                ncndHTML = '<div class="compact-panel" style="border-left:3px solid #ef4444; background:#fef2f2;">' +
+                    '<h3 style="color:#dc2626;">Documento Modificado</h3>' +
+                    '<div class="crow"><strong>Tipo:</strong><span>'+(d.CodTipoNota||'-')+' - '+tipoNota+'</span></div>' +
+                    '<div class="crow"><strong>Doc. Original:</strong><span style="font-weight:700;">'+d.DocModificaSerie+'-'+d.DocModificaNumero+'</span></div>' +
+                    '<div class="crow"><strong>Fecha Doc.:</strong><span>'+(d.DocModificaFecha||'-')+'</span></div>' +
+                    (d.DesMotivo ? '<div class="crow"><strong>Motivo:</strong><span>'+d.DesMotivo+'</span></div>' : '') +
+                '</div>';
+            }
+
+            // ═══════════════ ITEM EXTRAS ═══════════════
+            var itemExtraSection = '';
+            if (itemExtraHTML) {
+                itemExtraSection = '<div style="margin-bottom:2.5rem;"><h3 class="section-title">Datos Adicionales de Ítems</h3>' + itemExtraHTML + '</div>';
+            }
+
+            // ═══════════════ COMPOSICIÓN FINAL ═══════════════
             var pageHTML = 
                 '<div class="page">' +
-                estado +
-                '<div class="header"><div><h1>CONSTANCIA DE REGISTRO</h1><div class="sub">Recepción de Compras / '+tipo+'</div></div><div class="right"><div class="doc-num">'+(d.CodTipoDoc||'01')+' '+(d.Serie||'')+'-'+(d.Numero||'')+'</div><div style="font-weight:600;color:#334155;margin-top:0.35rem;font-size:0.85rem;">Emisión: '+(d.FecEmision||'-')+' | Vence: '+(d.FecVencimiento||'-')+'</div><div style="color:#64748b;font-size:0.85rem;">Moneda: '+(d.CodMoneda||'PEN')+' (TC: '+(d.TipoCambio||1)+')</div></div></div>' +
+                estadoBadge +
+                // HEADER
+                '<div class="header">' +
+                    '<div><h1>CONSTANCIA DE REGISTRO</h1><div class="sub">Recepción de Compras / '+tipo+'</div></div>' +
+                    '<div class="right">' +
+                        '<div class="doc-num">'+(d.CodTipoDoc||'01')+' '+(d.Serie||'')+'-'+(d.Numero||'')+'</div>' +
+                    '</div>' +
+                '</div>' +
+                // FECHAS DESTACADAS
+                '<div class="grid3">' +
+                    '<div class="panel" style="text-align:center; border-top:3px solid #2563eb;">' +
+                        '<div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:0.35rem;">Fecha Emisión</div>' +
+                        '<div style="font-size:1.15rem; font-weight:700; color:#0f172a;">'+(d.FecEmision||'-')+'</div>' +
+                    '</div>' +
+                    '<div class="panel" style="text-align:center; border-top:3px solid #f59e0b;">' +
+                        '<div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:0.35rem;">Fecha Vencimiento</div>' +
+                        '<div style="font-size:1.15rem; font-weight:700; color:#0f172a;">'+(d.FecVencimiento||'-')+'</div>' +
+                    '</div>' +
+                    '<div class="panel" style="text-align:center; border-top:3px solid #10b981;">' +
+                        '<div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:0.35rem;">Moneda (T.C.)</div>' +
+                        '<div style="font-size:1.15rem; font-weight:700; color:#0f172a;">'+(d.CodMoneda||'PEN')+' ('+(d.TipoCambio||1)+')</div>' +
+                    '</div>' +
+                '</div>' +
+                // DATOS PROVEEDOR Y OPERATIVOS
                 '<div class="grid2">' +
                     '<div class="panel"><h3>Datos del Proveedor</h3>' +
                         '<div class="row"><strong>Razón Social:</strong><span>'+(d.NomProveedor||'-')+'</span></div>' +
@@ -128,14 +343,15 @@
                     '</div>' +
                     '<div class="panel"><h3>Datos Operativos</h3>' +
                         '<div class="row"><strong>Orden de Compra:</strong><span>'+(d.NroOrdenCompra?(d.TipoOc||'')+d.NroOrdenCompra:'Ninguna')+'</span></div>' +
-                        '<div class="row"><strong>Doc. Modifica:</strong><span>'+(d.DocModificaSerie?d.DocModificaSerie+'-'+d.DocModificaNumero:'-')+'</span></div>' +
                         '<div class="row"><strong>Modo Registro:</strong><span>'+(d.ModoRegistro||'-')+'</span></div>' +
                         '<div class="row"><strong>Registrado por:</strong><span>'+(d.CreatedBy||'SISTEMA')+'</span></div>' +
                         '<div class="row"><strong>Fecha Registro:</strong><span>'+(d.CreatedAt||'-')+'</span></div>' +
+                        '<div class="row"><strong>Estado CPE:</strong><span>'+(d.IndEstadoCpe||'-')+'</span></div>' +
                     '</div>' +
                 '</div>' +
-                '<div style="margin-bottom:2.5rem;"><h3 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin:0 0 1rem 0;">Detalle de Ítems</h3><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><table><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>UM</th><th class="r">Cant.</th><th class="r">P.Unit</th><th class="r">SubTotal</th><th class="r">IGV</th><th class="r">Total</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>' +
-                obsHTML +
+                // ITEMS TABLE (foco principal - arriba)
+                '<div style="margin-bottom:1.5rem;"><h3 class="section-title">Detalle de Ítems</h3><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><table><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>UM</th><th class="r">Cant.</th><th class="r">P.Unit</th><th class="r">SubTotal</th><th class="r">IGV</th><th class="r">Total</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>' +
+                // TOTALES
                 '<div class="totals-box">' +
                     '<div class="trow"><span class="lb">Op. Gravada:</span><strong>'+fmt(d.MtoGravado||d.SubTotal)+'</strong></div>' +
                     '<div class="trow"><span class="lb">Op. Inafecta:</span><strong>'+fmt(d.MtoInafecto||0)+'</strong></div>' +
@@ -144,19 +360,35 @@
                     '<div class="trow"><span class="lb">Otros Tributos:</span><strong>'+fmt((d.OtrosTributos||0)+(d.MtoICBPER||0)+(d.MtoOtrosCargos||0))+'</strong></div>' +
                     '<div class="tfinal"><strong style="color:#0f172a;">TOTAL:</strong><strong style="font-size:1.25rem;color:#2563eb;">'+(d.CodMoneda||'PEN')+' '+fmt(d.Total)+'</strong></div>' +
                 '</div>' +
+                // ARCHIVOS
                 archHTML +
+                // SECCIONES INFORMATIVAS COMPACTAS (grilla 2x2)
+                (ncndHTML || detracHTML || guiasHTML || creditoHTML ?
+                    '<div class="info-grid">' + ncndHTML + detracHTML + guiasHTML + creditoHTML + '</div>' : '') +
+                // ITEM EXTRAS
+                itemExtraSection +
+                // PREVIEW INLINE - ya no se usa, se usa panel lateral
+                // FOOTER
                 '<div class="footer">Documento generado por ERP Yelave &bull; '+new Date().toLocaleString('es-PE')+'</div>' +
                 '</div>';
-            
-            if (previewUrl) {
-                document.getElementById('content').innerHTML = 
-                    '<div class="container" style="max-width:1500px; display:flex; gap:2rem; align-items:flex-start;">' +
-                        '<div style="flex:1; min-width:0;">' + pageHTML + '</div>' +
-                        '<div style="flex:1; position:sticky; top:2rem;"><iframe id="visorIframe" src="'+previewUrl+'" width="100%" height="850px" style="border-radius:12px; border:1px solid #e2e8f0; background:white; display:block;"></iframe></div>' +
-                    '</div>';
-            } else {
-                document.getElementById('content').innerHTML = '<div class="container">' + pageHTML + '</div>';
-            }
+
+            // Layout: una sola columna por defecto, con panel lateral OCULTO para preview
+            var sidePanel = hasPreviewable ? 
+                '<div id="sidePreviewPanel" style="display:none; flex:0 0 50%; min-width:0; position:sticky; top:1rem;">' +
+                    '<div style="border:2px solid #2563eb; border-radius:12px; overflow:hidden; background:white;">' +
+                        '<div style="display:flex; justify-content:space-between; align-items:center; padding:0.65rem 1rem; background:#eff6ff; border-bottom:1px solid #bfdbfe;">' +
+                            '<span style="font-size:0.85rem; font-weight:700; color:#1e40af;">📄 Vista Previa</span>' +
+                            '<button onclick="closePreview()" style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:4px 12px; cursor:pointer; font-size:0.78rem; color:#64748b; font-family:inherit; font-weight:500;">✕ Cerrar</button>' +
+                        '</div>' +
+                        '<iframe id="visorIframe" width="100%" height="850px" style="border:none; background:white; display:block;"></iframe>' +
+                    '</div>' +
+                '</div>' : '';
+
+            document.getElementById('content').innerHTML = 
+                '<div id="mainContainer" style="max-width:920px; margin:2rem auto; padding:0 1rem;">' + 
+                    '<div style="flex:1; min-width:0;">' + pageHTML + '</div>' + 
+                    sidePanel + 
+                '</div>';
         }
     </script>
     <script src="sidebar.js"></script>

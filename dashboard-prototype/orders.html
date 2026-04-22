@@ -647,8 +647,17 @@
                             <option value="T">Contable (T)</option>
                         </select>
                     </div>
-                    <div class="filter-group" style="flex: 0.5; justify-content: flex-end;">
-                        <label>&nbsp;</label>
+                    <div class="filter-group" style="flex: 2;">
+                        <label for="filterOcSearch">🔎 Buscar OC / Proveedor / RUC</label>
+                        <input type="text" id="filterOcSearch" placeholder="Nro OC, RUC o Proveedor..." onkeyup="if(event.key==='Enter') loadOrders()">
+                    </div>
+                    <div id="filterMyRecordsContainer" class="filter-group" style="flex: 1; justify-content: flex-end; align-items: flex-end; display:none;">
+                        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; cursor:pointer; color:#1e293b; font-weight:600; padding: 0.35rem 0.5rem; background:#f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; height:36px; white-space:nowrap;">
+                            <input type="checkbox" id="filterMyRecords" value="1" checked style="width:16px; height:16px;">
+                            Solo mis registros
+                        </label>
+                    </div>
+                    <div class="filter-group" style="flex: 1; flex-direction: row; gap: 0.5rem; justify-content: flex-end; align-items: flex-end;">
                         <button class="btn btn-primary" onclick="loadOrders()"
                             style="height:36px; padding:0 1.25rem; font-size:0.8rem;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
@@ -657,6 +666,9 @@
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                             </svg>Buscar
                         </button>
+                        <a href="trazabilidad_global.html" class="btn" style="height:36px; padding:0 1rem; font-size:0.8rem; background: #8b5cf6; color: white; display:flex; align-items:center; text-decoration:none; border-radius:4px; font-weight:600;" title="Ver trazabilidad global general de ítems">
+                            <span style="font-size:1rem; margin-right:0.3rem;">👁‍🗨</span> Global
+                        </a>
                     </div>
                 </div>
 
@@ -727,11 +739,28 @@
                     </button>
                 </div>
             </div>
-            <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
-                <div id="reportContent"
-                    style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
-                    <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando
-                        reporte...</div>
+            <div class="modal-body" style="max-height:80vh; overflow:hidden; padding:0; display:flex; flex-direction:row; background:#f8fafc; align-items:stretch;">
+                <div id="reportScrollContainer" style="flex:1; overflow-y:auto; transition:all 0.3s ease;">
+                    <div id="reportContent"
+                        style="padding:2rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem;">
+                        <div id="reportLoading" style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando reporte...</div>
+                    </div>
+                </div>
+                <div id="reportAttachmentViewer" style="display:none; width:50%; min-width:400px; border-left:1px solid #e2e8f0; background:#f1f5f9; flex-direction:column; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index:10;">
+                    <div style="padding:0.75rem 1.25rem; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                        <h4 id="reportViewerTitle" style="margin:0; font-size:0.85rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:0.5rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <span>Documento</span>
+                        </h4>
+                        <button onclick="closeReportViewer()" class="btn-flat" style="padding:0.3rem; color:#64748b;" title="Cerrar vista lateral">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    <div id="reportViewerLoader" style="display:none; flex:1; align-items:center; justify-content:center; flex-direction:column; color:#64748b; font-weight:500; font-size:0.9rem;">
+                        <svg class="spinner" viewBox="0 0 50 50" width="30" height="30" style="margin-bottom:1rem;"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke="#2563eb" stroke-width="4"></circle></svg>
+                        Cargando documento...
+                    </div>
+                    <iframe id="reportAttachmentIframe" style="flex:1; width:100%; border:none; background:#fff;" onload="document.getElementById('reportViewerLoader').style.display='none';"></iframe>
                 </div>
             </div>
         </div>
@@ -926,6 +955,46 @@
                             Solicitud</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Búsqueda Global de OC -->
+    <div class="modal-overlay" id="ocSearchModal">
+        <div class="modal glass-modal" style="max-width:850px; width:95%; display:flex; flex-direction:column; max-height:85vh;">
+            <div class="modal-header">
+                <h3>🔎 Buscar Orden de Compra</h3>
+                <button class="close-btn" onclick="closeOcSearchModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+                <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.75rem 0;">Busque por Nro. de OC, RUC o Nombre de Proveedor. El resultado muestra el historial completo (todos los años).</p>
+                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                    <input type="text" id="ocSearchInput" placeholder="Ej: 00005565, 20100130204, BACKUS..." style="flex:1; padding:0.6rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-family:var(--font); font-size:1rem;">
+                    <button class="btn btn-primary" onclick="triggerOcSearch()">Buscar</button>
+                </div>
+                <div style="flex:1; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead style="position:sticky; top:0; background:#f1f5f9; z-index:1;">
+                            <tr>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Nro. OC</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Fecha</th>
+                                <th style="padding:0.6rem; text-align:center; border-bottom:1px solid #cbd5e1;">Tipo</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">Proveedor</th>
+                                <th style="padding:0.6rem; text-align:left; border-bottom:1px solid #cbd5e1;">RUC</th>
+                                <th style="padding:0.6rem; text-align:right; border-bottom:1px solid #cbd5e1;">Total</th>
+                                <th style="padding:0.6rem; text-align:center; border-bottom:1px solid #cbd5e1;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ocSearchTbody">
+                            <tr><td colspan="7" style="text-align:center; padding:2rem; color:#94a3b8;">Escriba para buscar OC</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

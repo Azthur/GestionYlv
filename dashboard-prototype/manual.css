@@ -1,0 +1,350 @@
+/* Manual Interactivo - Estilos Premium */
+:root {
+    --primary-manual: #1e3a8a;
+    --secondary-manual: #3b82f6;
+    --accent-manual: #f59e0b;
+    --bg-manual: #f8fafc;
+    --card-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border-manual: #e2e8f0;
+}
+
+[data-theme="dark"] {
+    --bg-manual: #0f172a;
+    --card-bg: #1e293b;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border-manual: #334155;
+    --primary-manual: #3b82f6;
+}
+
+.manual-page {
+    font-family: 'Inter', sans-serif;
+    color: var(--text-main);
+    background: var(--bg-manual);
+}
+
+.manual-layout {
+    display: flex;
+    gap: 2rem;
+    min-height: calc(100vh - 100px);
+    margin-top: 2rem;
+}
+
+/* Sidebar Interno (Sub-Navegación) */
+.manual-nav {
+    width: 280px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-manual);
+    height: fit-content;
+    position: sticky;
+    top: 100px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.manual-nav-header h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+    color: var(--primary-manual);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.manual-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.manual-nav-list li a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    margin-bottom: 0.25rem;
+}
+
+.manual-nav-list li a:hover {
+    background: rgba(59,130,246,0.1);
+    color: var(--secondary-manual);
+    padding-left: 1.25rem;
+}
+
+.manual-nav-list li a.active {
+    background: var(--primary-manual);
+    color: white;
+    font-weight: 600;
+}
+
+.nav-divider {
+    height: 1px;
+    background: var(--border-manual);
+    margin: 1rem 0;
+}
+
+/* Área de Contenido */
+.manual-content {
+    flex: 1;
+    max-width: 900px;
+}
+
+.content-section {
+    display: none;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.content-section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero Section */
+.hero-section {
+    padding: 3rem;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    border-radius: 20px;
+    color: white;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 10px 25px -5px rgba(30,58,138,0.3);
+}
+
+.hero-section h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+
+.hero-section p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    max-width: 700px;
+    line-height: 1.6;
+}
+
+.hero-stats {
+    display: flex;
+    gap: 3rem;
+    margin-top: 2.5rem;
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-val {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+}
+
+.stat-lab {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Cards e Info */
+.card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.info-card {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid var(--border-manual);
+    transition: transform 0.2s;
+}
+
+.info-card:hover {
+    transform: translateY(-5px);
+}
+
+.info-card .icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.info-card h3 {
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.info-card p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Section Header */
+.section-header {
+    margin-bottom: 2rem;
+}
+
+.section-header .badge {
+    background: rgba(59,130,246,0.1);
+    color: var(--secondary-manual);
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.section-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2rem;
+    margin-top: 0.5rem;
+}
+
+/* Mermaid Wrapper */
+.mermaid {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+}
+
+[data-theme="dark"] .mermaid {
+    background: #f8fafc; /* Keep diagrams readable vs dark background */
+    filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* Procedimientos Paso a Paso */
+.procedure-list {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+}
+
+.procedure-step {
+    display: flex;
+    gap: 1.25rem;
+    padding: 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-manual);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.procedure-step:hover {
+    border-color: var(--secondary-manual);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.1);
+}
+
+.step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--primary-manual);
+    color: white;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.step-text h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.step-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Badges de Validación */
+.validation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.validation-badge.success { background: #dcfce7; color: #166534; }
+.validation-badge.warning { background: #fef9c3; color: #854d0e; }
+.validation-badge.error { background: #fee2e2; color: #991b1b; }
+
+/* Alert Boxes Mejoradas */
+.alert-box {
+    padding: 1.25rem;
+    border-radius: 12px;
+    margin: 1.5rem 0;
+    border-left: 5px solid transparent;
+}
+
+.alert-box.caution {
+    background: #fff1f2;
+    border-color: #f43f5e;
+    color: #9f1239;
+}
+
+.alert-box.legal {
+    background: #f0fdf4;
+    border-color: #22c55e;
+    color: #166534;
+}
+
+/* Mermaid Wrapper Mejorada */
+.mermaid-container {
+    background: #ffffff;
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid var(--border-manual);
+    margin: 2rem 0;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+[data-theme="dark"] .mermaid-container {
+    background: #f8fafc;
+    filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* Sub-secciones */
+.manual-content h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    margin: 2rem 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.manual-content h3::before {
+    content: '';
+    width: 4px;
+    height: 1.25rem;
+    background: var(--accent-manual);
+    border-radius: 2px;
+}
+

@@ -69,7 +69,7 @@ function toggleSidebar() {
 }
 
 // ─── Modals ──────────────────────────────────
-function openEditModal(login, nombre, correo, celular, rol, activo) {
+async function openEditModal(login, nombre, correo, celular, rol, activo, puedeVerTodo) {
     document.getElementById('editModalTitle').textContent = `Editar Usuario: ${login}`;
     document.getElementById('editLoginId').value = login;
     document.getElementById('editNombre').value = nombre || login;
@@ -77,8 +77,30 @@ function openEditModal(login, nombre, correo, celular, rol, activo) {
     document.getElementById('editCelular').value = celular || '';
     document.getElementById('editRol').value = rol || 'USER';
     document.getElementById('editActivo').checked = activo;
+    document.getElementById('editPuedeVerTodo').checked = !!puedeVerTodo;
+
+    // Reset OC Tipos
+    document.getElementById('editTipoM').checked = false;
+    document.getElementById('editTipoS').checked = false;
+    document.getElementById('editTipoT').checked = false;
 
     document.getElementById('editModal').classList.add('active');
+
+    // Cargar permisos de Tipo de OC asíncronamente
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`/api/admin/usuario-tipooc/${login}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const tipos = await res.json();
+            if(tipos.includes('M')) document.getElementById('editTipoM').checked = true;
+            if(tipos.includes('S')) document.getElementById('editTipoS').checked = true;
+            if(tipos.includes('T')) document.getElementById('editTipoT').checked = true;
+        }
+    } catch(err) {
+        console.error("Error cargando Tipos OC para usuario", err);
+    }
 }
 
 function closeEditModal() {
@@ -173,7 +195,7 @@ async function loadUsers() {
                             const safeRol = (row.rol || 'USER').replace(/'/g, "\'");
                             
                             return `
-                                <button class="btn-text" onclick="openEditModal('${safeLogin}', '${safeNombre}', '${safeCorreo}', '${safeCel}', '${safeRol}', ${row.activo})" style="margin-right:0.5rem">Editar</button>
+                                <button class="btn-text" onclick="openEditModal('${safeLogin}', '${safeNombre}', '${safeCorreo}', '${safeCel}', '${safeRol}', ${row.activo}, ${row.puede_ver_todo ? 1 : 0})" style="margin-right:0.5rem">Editar</button>
                                 <button class="btn-text" onclick="openPwdModal('${safeLogin}')" style="color:var(--danger)">Reset</button>
                             `;
                         }
@@ -203,11 +225,19 @@ async function submitUserEdit() {
         correo: document.getElementById('editCorreo').value,
         celular: document.getElementById('editCelular').value,
         rol: document.getElementById('editRol').value,
-        activo: document.getElementById('editActivo').checked
+        activo: document.getElementById('editActivo').checked,
+        puede_ver_todo: document.getElementById('editPuedeVerTodo').checked
     };
+
+    const tiposOcsSeleccionados = [];
+    if(document.getElementById('editTipoM').checked) tiposOcsSeleccionados.push('M');
+    if(document.getElementById('editTipoS').checked) tiposOcsSeleccionados.push('S');
+    if(document.getElementById('editTipoT').checked) tiposOcsSeleccionados.push('T');
 
     try {
         const token = localStorage.getItem('yelave_token');
+        
+        // 1. Guardar info de usuario
         const res = await fetch(`/api/users/${login}`, {
             method: 'PUT',
             headers: {
@@ -216,8 +246,18 @@ async function submitUserEdit() {
             },
             body: JSON.stringify(body)
         });
+        if (!res.ok) throw new Error('Error al guardar datos básicos');
 
-        if (!res.ok) throw new Error('Error al guardar cambios');
+        // 2. Guardar tipos de OC
+        const resOc = await fetch(`/api/admin/usuario-tipooc/${login}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tipos_oc: tiposOcsSeleccionados })
+        });
+        if (!resOc.ok) throw new Error('Error al guardar los Tipos de OC');
         
         closeEditModal();
         loadUsers(); // refresh data
@@ -363,7 +403,7 @@ function propagatePerm(el, cls) {
 
 async function savePermisos() {
     const rol = document.getElementById('selPermisoRol').value;
-    if (!rol) { alert('Seleccione un rol primero'); return; }
+    if (!rol) { showToast('Seleccione un rol primero', 'warning'); return; }
     
     const rows = document.querySelectorAll('#permisos-tbody tr[data-modulo-id]');
     const permisos = [];
@@ -386,9 +426,9 @@ async function savePermisos() {
         });
         if (!res.ok) throw new Error('Error al guardar');
         const data = await res.json();
-        alert(data.message || 'Permisos guardados exitosamente');
+        showToast(data.message || 'Permisos guardados exitosamente', 'success');
     } catch (e) {
-        alert('Error: ' + e.message);
+        showToast(e.message, 'error');
     }
 }
 
@@ -409,6 +449,12 @@ async function loadRoles() {
                 <td>${r.Nombre}</td>
                 <td style="color:var(--text-muted);font-size:0.85rem;">${r.Descripcion || '-'}</td>
                 <td>${r.Activo ? '<span class="badge active">Activo</span>' : '<span class="badge inactive">Inactivo</span>'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem;" 
+                            onclick="openEditRoleModal('${r.Codigo}', '${(r.Nombre || '').replace(/'/g, "\\'")}', '${(r.Descripcion || '').replace(/'/g, "\\'")}')">
+                        ✏️ Editar
+                    </button>
+                </td>
             </tr>
         `).join('');
     } catch (e) {
@@ -417,34 +463,147 @@ async function loadRoles() {
 }
 
 function openNewRoleModal() {
-    const codigo = prompt('Codigo del nuevo rol (sin espacios, ej: SUPERVISOR):');
-    if (!codigo) return;
-    const nombre = prompt('Nombre del rol (ej: Supervisor de Area):');
-    if (!nombre) return;
-    const desc = prompt('Descripcion (opcional):') || '';
-    
-    createRole(codigo.toUpperCase().replace(/\s/g, '_'), nombre, desc);
+    document.getElementById('roleModalTitle').textContent = 'Crear Nuevo Rol';
+    document.getElementById('roleSubmitBtn').textContent = 'Crear Rol';
+    document.getElementById('roleCodigo').value = '';
+    document.getElementById('roleCodigo').disabled = false;
+    document.getElementById('roleNombre').value = '';
+    document.getElementById('roleDescripcion').value = '';
+    document.getElementById('roleDescCount').textContent = '0';
+    document.getElementById('roleModal').dataset.mode = 'create';
+    document.getElementById('roleModal').classList.add('active');
+    setTimeout(() => document.getElementById('roleCodigo').focus(), 150);
 }
 
-async function createRole(codigo, nombre, descripcion) {
-    try {
-        const token = localStorage.getItem('yelave_token');
-        const res = await fetch('/api/admin/roles', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codigo, nombre, descripcion })
+function openEditRoleModal(codigo, prevName, prevDesc) {
+    document.getElementById('roleModalTitle').textContent = `Editar Rol: ${codigo}`;
+    document.getElementById('roleSubmitBtn').textContent = 'Guardar Cambios';
+    document.getElementById('roleCodigo').value = codigo;
+    document.getElementById('roleCodigo').disabled = true;
+    document.getElementById('roleNombre').value = prevName;
+    document.getElementById('roleDescripcion').value = prevDesc;
+    document.getElementById('roleDescCount').textContent = String(prevDesc.length);
+    document.getElementById('roleModal').dataset.mode = 'edit';
+    document.getElementById('roleModal').dataset.editCodigo = codigo;
+    document.getElementById('roleModal').classList.add('active');
+    setTimeout(() => document.getElementById('roleNombre').focus(), 150);
+}
+
+function closeRoleModal() {
+    document.getElementById('roleModal').classList.remove('active');
+}
+
+// Character counter for description
+document.addEventListener('DOMContentLoaded', () => {
+    const desc = document.getElementById('roleDescripcion');
+    if (desc) {
+        desc.addEventListener('input', () => {
+            document.getElementById('roleDescCount').textContent = desc.value.length;
         });
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || 'Error');
-        }
-        alert('Rol creado exitosamente');
-        loadRoles();
-        // Reset select cache
-        document.getElementById('selPermisoRol').innerHTML = '<option value="">-- Seleccionar Rol --</option>';
-    } catch (e) {
-        alert('Error: ' + e.message);
     }
+});
+
+async function submitRoleForm() {
+    const mode = document.getElementById('roleModal').dataset.mode;
+    const codigo = document.getElementById('roleCodigo').value.trim().toUpperCase().replace(/\s/g, '_');
+    const nombre = document.getElementById('roleNombre').value.trim();
+    const descripcion = document.getElementById('roleDescripcion').value.trim();
+
+    if (!nombre) {
+        showToast('El nombre es obligatorio', 'error');
+        document.getElementById('roleNombre').focus();
+        return;
+    }
+    if (mode === 'create' && !codigo) {
+        showToast('El código es obligatorio', 'error');
+        document.getElementById('roleCodigo').focus();
+        return;
+    }
+
+    const token = localStorage.getItem('yelave_token');
+    const btn = document.getElementById('roleSubmitBtn');
+    const origText = btn.textContent;
+    btn.textContent = 'Guardando...';
+    btn.disabled = true;
+
+    try {
+        if (mode === 'create') {
+            const res = await fetch('/api/admin/roles', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo, nombre, descripcion })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.detail || 'Error al crear rol');
+            }
+            showToast('Rol creado exitosamente', 'success');
+            document.getElementById('selPermisoRol').innerHTML = '<option value="">-- Seleccionar Rol --</option>';
+        } else {
+            const editCodigo = document.getElementById('roleModal').dataset.editCodigo;
+            const res = await fetch(`/api/admin/roles/${editCodigo}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, descripcion })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.detail || 'Error al actualizar rol');
+            }
+            showToast(`Rol '${editCodigo}' actualizado`, 'success');
+        }
+        closeRoleModal();
+        loadRoles();
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        btn.textContent = origText;
+        btn.disabled = false;
+    }
+}
+
+// ─── Toast Notifications ─────────────────
+function showToast(message, type = 'info') {
+    // Remove any existing toast
+    document.querySelectorAll('.toast-notification').forEach(t => t.remove());
+    
+    const colors = {
+        success: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', icon: '✅' },
+        error:   { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', icon: '❌' },
+        info:    { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: 'ℹ️' },
+        warning: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: '⚠️' },
+    };
+    const c = colors[type] || colors.info;
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.cssText = `
+        position: fixed; top: 1.5rem; right: 1.5rem; z-index: 99999;
+        padding: 1rem 1.5rem; border-radius: 10px; font-family: 'Inter', sans-serif;
+        background: ${c.bg}; border: 1px solid ${c.border}; color: ${c.text};
+        font-size: 0.875rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        display: flex; align-items: center; gap: 0.6rem;
+        animation: toastIn 0.3s ease-out;
+        max-width: 420px;
+    `;
+    toast.innerHTML = `<span style="font-size:1.1rem;">${c.icon}</span> ${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'toastOut 0.3s ease-in forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+// Inject toast animations
+if (!document.getElementById('toast-style')) {
+    const s = document.createElement('style');
+    s.id = 'toast-style';
+    s.textContent = `
+        @keyframes toastIn { from { transform: translateX(120%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+        @keyframes toastOut { from { transform: translateX(0); opacity:1; } to { transform: translateX(120%); opacity:0; } }
+    `;
+    document.head.appendChild(s);
 }
 
 // ─── Empresas ────────────────────────────────

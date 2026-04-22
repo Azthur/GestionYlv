@@ -6,10 +6,44 @@ import mimetypes
 from typing import List, Optional
 from database import get_db_connection
 from auth import get_current_user
+from pydantic import BaseModel
 
 ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
 
 router = APIRouter(prefix="/api/logistics", tags=["Logística y Compras"])
+
+# ── Setup: Crear tabla LogOcAcciones si no existe ──
+def setup_oc_tables():
+    conn = get_db_connection()
+    if not conn:
+        print("⚠ No se pudo conectar para crear LogOcAcciones")
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='LogOcAcciones' AND xtype='U')
+            CREATE TABLE LogOcAcciones (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                CodCia CHAR(3) NOT NULL,
+                Anos VARCHAR(4) NOT NULL,
+                NroDoc VARCHAR(20) NOT NULL,
+                TipoOc VARCHAR(5),
+                Accion VARCHAR(20) NOT NULL,
+                UsuarioLogin VARCHAR(50) NOT NULL,
+                UsuarioNombre VARCHAR(100),
+                FechaHora DATETIME DEFAULT GETDATE(),
+                Observacion VARCHAR(500)
+            )
+        """)
+        conn.commit()
+        print("[OK] Tabla LogOcAcciones verificada/creada")
+    except Exception as e:
+        print(f"[WARN] Error setup LogOcAcciones: {e}")
+    finally:
+        conn.close()
+
+# Run on import
+setup_oc_tables()
 
 import time
 
@@ -55,7 +89,10 @@ def get_purchase_orders(
     year: Optional[str] = Query(None, description="Año (Anos)"),
     period: Optional[int] = Query(None, description="Mes / Periodo (1-12)"),
     tipo_oc: Optional[str] = Query(None, description="Tipo de OC (TipoOc)"),
-    proveedor: Optional[str] = Query(None, description="RUC o Nombre de proveedor")
+    proveedor: Optional[str] = Query(None, description="RUC o Nombre de proveedor"),
+    search: Optional[str] = Query(None, description="Búsqueda global: NroDoc, RUC o Nombre proveedor (ignora año/periodo)"),
+    only_my_records: bool = Query(True, description="Filtrar por mis propios registros"),
+    current_user: dict = Depends(get_current_user)
 ):
     """Obtener cabeceras de Órdenes de Compra (CmpVOcom)"""
     conn = get_db_connection()
@@ -84,30 +121,80 @@ def get_purchase_orders(
                 RTRIM(NomDep) as nomdep,
                 RTRIM(NomCom) as nomcom,
                 RTRIM(Usuario) as usuario,
-                CASE WHEN EXISTS (SELECT 1 FROM LogSolicitudesRecojo sr WHERE sr.nro_oc = o.NroDoc AND sr.codcia = o.codcia AND sr.estado != 'Completada' AND sr.estado != 'Cancelada') THEN 1 ELSE 0 END as has_recojo
+                CASE WHEN EXISTS (SELECT 1 FROM LogSolicitudesRecojo sr WHERE sr.nro_oc = o.NroDoc AND sr.codcia = o.codcia AND sr.estado != 'Completada' AND sr.estado != 'Cancelada') THEN 1 ELSE 0 END as has_recojo,
+                (SELECT STUFF((SELECT ', '+RTRIM(f.CodTipoDoc)+'-'+RTRIM(f.Serie)+'-'+RTRIM(f.Numero)+'|'+CAST(f.Id AS VARCHAR(10)) FROM CntFacturaCab f WHERE RTRIM(f.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(f.CodCia) = RTRIM(o.CodCia) AND f.Estado != 'Anulada' FOR XML PATH('')), 1, 2, '')) as facturas_vinculadas
             FROM CmpVOcom o 
             WHERE RTRIM(CodCia) = ?
         """
         params = [codcia]
         
-        if year:
-            query += " AND RTRIM(Anos) = ?"
-            params.append(year)
-            
-        if period:
-            query += " AND MONTH(Fchdoc) = ?"
-            params.append(period)
+        if search:
+            # Búsqueda global: ignora año y periodo, busca por NroDoc, RUC o Proveedor
+            search_txt = f"%{search.strip()}%"
+            query += " AND (RTRIM(NroDoc) LIKE ? OR RTRIM(RucAux) LIKE ? OR RTRIM(NomAux) LIKE ?)"
+            params.extend([search_txt, search_txt, search_txt])
+        else:
+            # Filtros normales
+            if year:
+                query += " AND RTRIM(Anos) = ?"
+                params.append(year)
+                
+            if period:
+                query += " AND MONTH(Fchdoc) = ?"
+                params.append(period)
             
         if tipo_oc:
             query += " AND RTRIM(TipoOc) = ?"
             params.append(tipo_oc)
             
+        # --- RLS Enforcement (Row-Level Security) ---
+        login = current_user["login"]
+        is_admin_or_super = current_user.get("rol") == "ADMIN" or login.strip().upper() == "71941916JL"
+        
+        print(f"DEBUG: login={login}, rol={current_user.get('rol')}, is_admin_or_super={is_admin_or_super}, only_my_records={only_my_records}")
+        
+        puede_ver_todo = False
+        allowed_types = []
+        if is_admin_or_super:
+            puede_ver_todo = True
+            allowed_types = ['M', 'S', 'T']
+            print(f"DEBUG: Usuario es admin, puede_ver_todo={puede_ver_todo}, allowed_types={allowed_types}")
+        else:
+            # Obtener bandera de ver_todo
+            cursor.execute("SELECT ISNULL(PuedeVerTodo, 0) FROM WebUsers WHERE login = ?", (login,))
+            r = cursor.fetchone()
+            if r: puede_ver_todo = bool(r[0])
+            
+            # Obtener tipos de OC permitidos
+            cursor.execute("SELECT RTRIM(TipoOc) FROM WebUsuarioTipoOc WHERE Login = ?", (login,))
+            allowed_types = [row[0] for row in cursor.fetchall()]
+
+        # 1. Filtro estricto por Usuario Logueado (Mis Registros)
+        if only_my_records or not puede_ver_todo:
+            # Forzamos que solo vea los suyos
+            query += " AND RTRIM(Usuario) = ?"
+            params.append(login.strip().upper())
+            
+        # 2. Filtro estricto de Tipo OC (si no tiene permisos, no ve nada o limitados)
+        if not is_admin_or_super:
+            if not allowed_types:
+                # Si no tiene ningún tipo configurado, le bloqueamos la consulta
+                query += " AND 1 = 0"
+            else:
+                placeholders = ','.join('?' * len(allowed_types))
+                query += f" AND RTRIM(TipoOc) IN ({placeholders})"
+                params.extend(allowed_types)
+        # --- End RLS ---
+
         if proveedor:
             query += " AND (RTRIM(RucAux) LIKE ? OR RTRIM(NomAux) LIKE ?)"
             params.append(f"%{proveedor}%")
             params.append(f"%{proveedor}%")
             
         query += " ORDER BY Fchdoc DESC, NroDoc DESC"
+        
+        print(f"DEBUG: SQL query: {query}")
+        print(f"DEBUG: SQL params: {params}")
         
         cursor.execute(query, tuple(params))
         
@@ -132,7 +219,7 @@ def get_purchase_orders(
             
             # Recojo Check
             order_dict['has_recojo'] = bool(order_dict.get('has_recojo', 0))
-            
+
             orders.append(order_dict)
             
         return orders
@@ -687,3 +774,180 @@ def download_attachment(
     except Exception as e:
         if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=str(e))
+
+# ════════════════════════════════════════════════════════════
+# APROBACIÓN Y CIERRE DE OC
+# ════════════════════════════════════════════════════════════
+
+class OcActionRequest(BaseModel):
+    codcia: str
+    year: str
+    tipo_oc: str
+
+@router.post("/orders/{nrodoc}/aprobar")
+def aprobar_oc(nrodoc: str, req: OcActionRequest, user: dict = Depends(get_current_user)):
+    """Aprobar Orden de Compra (FlgEst pasa de R a P)"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection error")
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SET ANSI_NULLS, ANSI_PADDING, ANSI_WARNINGS, ARITHABORT, CONCAT_NULL_YIELDS_NULL, QUOTED_IDENTIFIER ON; SET NUMERIC_ROUNDABORT OFF;")
+        
+        # Verificar estado actual
+        cursor.execute("""
+            SELECT RTRIM(FlgEst) as flgest 
+            FROM CmpVOcom 
+            WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
+        """, (req.codcia.strip(), req.year.strip(), nrodoc.strip(), req.tipo_oc.strip()))
+        
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="OC no encontrada")
+            
+        estado = row.flgest or 'E'
+        if estado != 'E':
+            raise HTTPException(status_code=400, detail=f"Solo se puede aprobar OC en estado EMITIDO (E). Estado actual: {estado}")
+            
+        usuario_login = user.get("login", "")
+        usuario_nombre = user.get("nombre", "")
+        
+        # 1. Update OC a 'P' (Pendiente / Aprobado)
+        cursor.execute("""
+            UPDATE CmpVOcom 
+            SET FlgEst = 'P', digita = ?
+            WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
+        """, (usuario_login, req.codcia.strip(), req.year.strip(), nrodoc.strip(), req.tipo_oc.strip()))
+        
+        # 2. Insert Log
+        cursor.execute("""
+            INSERT INTO LogOcAcciones (CodCia, Anos, NroDoc, TipoOc, Accion, UsuarioLogin, UsuarioNombre)
+            VALUES (?, ?, ?, ?, 'APROBACION', ?, ?)
+        """, (req.codcia.strip(), req.year.strip(), nrodoc.strip(), req.tipo_oc.strip(), usuario_login, usuario_nombre))
+        
+        conn.commit()
+        return {"status": "success", "message": "OC aprobada exitosamente"}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+from contabilidad import get_trazabilidad
+
+@router.post("/orders/{nrodoc}/cerrar-integral")
+def cerrar_oc_integral(nrodoc: str, req: OcActionRequest, user: dict = Depends(get_current_user)):
+    """Cierra la OC, y todos sus movimientos de almacén y facturas vinculadas"""
+    # 1. Validar trazabilidad
+    try:
+        traza = get_trazabilidad(nrodoc=nrodoc.strip(), codcia=req.codcia.strip(), tipo_oc=req.tipo_oc.strip(), year=req.year.strip())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"No se pudo verificar la trazabilidad: {str(e)}")
+        
+    if traza.get("validaciones") and len(traza["validaciones"]) > 0:
+        raise HTTPException(status_code=400, detail="No se puede cerrar la OC porque tiene discrepancias en trazabilidad.")
+        
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection error")
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SET ANSI_NULLS, ANSI_PADDING, ANSI_WARNINGS, ARITHABORT, CONCAT_NULL_YIELDS_NULL, QUOTED_IDENTIFIER ON; SET NUMERIC_ROUNDABORT OFF;")
+        
+        usuario_login = user.get("login", "")
+        usuario_nombre = user.get("nombre", "")
+        
+        # 1. Actualizar OC a C (Cerrado)
+        cursor.execute("""
+            UPDATE CmpVOcom 
+            SET FlgEst = 'C', digita = ?
+            WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
+        """, (usuario_login, req.codcia.strip(), req.year.strip(), nrodoc.strip(), req.tipo_oc.strip()))
+        
+        # 2. Cerrar Movimientos de Almacén (cabecera AlmVMovm)
+        cursor.execute("""
+            UPDATE AlmVMovm 
+            SET flgest = 'C'
+            WHERE RTRIM(CodCia) = ? AND RTRIM(ordcmp) = ?
+        """, (req.codcia.strip(), nrodoc.strip()))
+        
+        # 3. Cerrar Movimientos de Almacén (detalle AlmRMovm)
+        cursor.execute("""
+            UPDATE AlmRMovm 
+            SET flgest = 'C'
+            WHERE RTRIM(CodCia) = ? AND RTRIM(ordcmp) = ?
+        """, (req.codcia.strip(), nrodoc.strip()))
+        
+        # 4. Cerrar Facturas Vinculadas
+        cursor.execute("""
+            UPDATE CntFacturaCab 
+            SET Estado = 'Cerrado'
+            WHERE RTRIM(CodCia) = ? AND RTRIM(NroOrdenCompra) = ?
+        """, (req.codcia.strip(), nrodoc.strip()))
+        
+        # 5. Insert Log
+        cursor.execute("""
+            INSERT INTO LogOcAcciones (CodCia, Anos, NroDoc, TipoOc, Accion, UsuarioLogin, UsuarioNombre)
+            VALUES (?, ?, ?, ?, 'CIERRE', ?, ?)
+        """, (req.codcia.strip(), req.year.strip(), nrodoc.strip(), req.tipo_oc.strip(), usuario_login, usuario_nombre))
+        
+        conn.commit()
+        return {"status": "success", "message": "Proceso de cierre integral completado"}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/orders/{nrodoc}/acciones")
+def get_oc_acciones(nrodoc: str, codcia: str = Query(...), tipo_oc: str = Query(...), year: str = Query(...)):
+    """Obtiene el historial de firmas/acciones de una OC (Registro, Aprobación, Cierre)"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection error")
+        
+    try:
+        cursor = conn.cursor()
+        
+        # Buscar usuario que registró originalmente de CmpVOcom
+        cursor.execute("""
+            SELECT RTRIM(Usuario) as usuario, Fchdoc as fchdoc, RTRIM(FlgEst) as flgest
+            FROM CmpVOcom
+            WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
+        """, (codcia.strip(), year.strip(), nrodoc.strip(), tipo_oc.strip()))
+        oc_row = cursor.fetchone()
+        
+        acciones = []
+        if oc_row:
+            acciones.append({
+                "accion": "REGISTRO",
+                "usuario_login": oc_row.usuario or "",
+                "usuario_nombre": oc_row.usuario or "", 
+                "fecha_hora": oc_row.fchdoc.strftime("%Y-%m-%d %H:%M") if oc_row.fchdoc else None
+            })
+            
+        # Buscar aprobaciones y cierres
+        cursor.execute("""
+            SELECT Accion as accion, RTRIM(UsuarioLogin) as login, RTRIM(UsuarioNombre) as nombre, FechaHora as fch
+            FROM LogOcAcciones
+            WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
+            ORDER BY FechaHora ASC
+        """, (codcia.strip(), year.strip(), nrodoc.strip(), tipo_oc.strip()))
+        
+        for row in cursor.fetchall():
+            acciones.append({
+                "accion": row.accion,
+                "usuario_login": row.login,
+                "usuario_nombre": row.nombre,
+                "fecha_hora": row.fch.strftime("%Y-%m-%d %H:%M") if row.fch else None
+            })
+            
+        return {"acciones": acciones, "estado_actual": oc_row.flgest if oc_row else ""}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

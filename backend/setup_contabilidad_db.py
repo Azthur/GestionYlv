@@ -259,11 +259,72 @@ creation_scripts = [
         Proveedor VARCHAR(200) NULL,
         RucProveedor VARCHAR(15) NULL,
         EstadoContable VARCHAR(20) DEFAULT 'PENDIENTE',
+        TipoDocumento VARCHAR(10) NULL,
+        TipoComprobante VARCHAR(20) NULL,
+        FechaEmision DATE NULL,
+        FechaVencimiento DATE NULL,
+        MontoRendicion DECIMAL(12,2) NULL,
+        Moneda CHAR(3) NULL,
         CONSTRAINT FK_CntCargosDetalle_Cab FOREIGN KEY (CargoId) REFERENCES CntCargosDocumentales(Id) ON DELETE CASCADE
     );
     """,
+    # Agregar columnas si no existen (para tablas existentes)
+    """
+    IF EXISTS (SELECT * FROM sysobjects WHERE name='CntCargosDetalle' AND xtype='U')
+    BEGIN
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='TipoDocumento' AND object_id = OBJECT_ID('CntCargosDetalle'))
+            ALTER TABLE CntCargosDetalle ADD TipoDocumento VARCHAR(10) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='TipoComprobante' AND object_id = OBJECT_ID('CntCargosDetalle'))
+            ALTER TABLE CntCargosDetalle ADD TipoComprobante VARCHAR(20) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='FechaEmision' AND object_id = OBJECT_ID('CntCargosDetalle'))
+            ALTER TABLE CntCargosDetalle ADD FechaEmision DATE NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='FechaVencimiento' AND object_id = OBJECT_ID('CntCargosDetalle'))
+            ALTER TABLE CntCargosDetalle ADD FechaVencimiento DATE NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='MontoRendicion' AND object_id = OBJECT_ID('CntCargosDetalle'))
+            ALTER TABLE CntCargosDetalle ADD MontoRendicion DECIMAL(12,2) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='Moneda' AND object_id = OBJECT_ID('CntCargosDetalle'))
+            ALTER TABLE CntCargosDetalle ADD Moneda CHAR(3) NULL;
+    END
+    """,
 
-    # ─── 11. Índices para cargos ───────────────────────────
+    # ─── 11. Tabla de Pagos Tesorería ─────────────────────────
+    """
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='FinPagos' AND xtype='U')
+    CREATE TABLE FinPagos (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        CodCia VARCHAR(50) NOT NULL,
+        NroOrdenCompra VARCHAR(50) NOT NULL,
+        DetalleId INT NOT NULL,
+        MontoPago DECIMAL(18,2) NOT NULL,
+        FechaPago DATE NOT NULL,
+        BancoPago VARCHAR(100),
+        Moneda CHAR(3) DEFAULT 'PEN',
+        TipoPago VARCHAR(50),
+        NroOperacion VARCHAR(50),
+        Notas TEXT,
+        UsuarioRegistro VARCHAR(100),
+        FechaRegistro DATETIME DEFAULT GETDATE(),
+        TipoDocumento VARCHAR(20) NULL,
+        Estado VARCHAR(20) DEFAULT 'ACTIVO'
+    );
+    """,
+
+    # ─── 12. Tabla de Adjuntos de Pagos ─────────────────────
+    """
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='FinPagosAdjuntos' AND xtype='U')
+    CREATE TABLE FinPagosAdjuntos (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        PagoId INT NOT NULL,
+        ArchivoNombre VARCHAR(255) NOT NULL,
+        ArchivoRuta VARCHAR(500) NOT NULL,
+        TipoMime VARCHAR(100),
+        TamanoBytes BIGINT,
+        FechaCarga DATETIME DEFAULT GETDATE(),
+        CONSTRAINT FK_FinPagosAdjuntos_Pago FOREIGN KEY (PagoId) REFERENCES FinPagos(Id) ON DELETE CASCADE
+    );
+    """,
+
+    # ─── 13. Índices para cargos ───────────────────────────
     """
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='IX_CntCargos_CodCia')
     CREATE INDEX IX_CntCargos_CodCia ON CntCargosDocumentales (CodCia, Estado);
@@ -289,6 +350,11 @@ def setup_contabilidad():
         print("   - CntCompras")
         print("   - CntFacturaCab")
         print("   - CntFacturaDet")
+        print("   - CntFacturaArchivos")
+        print("   - CntCargosDocumentales")
+        print("   - CntCargosDetalle (con columnas extendidas)")
+        print("   - FinPagos")
+        print("   - FinPagosAdjuntos")
         print("   - Índices de búsqueda creados")
         return True
 

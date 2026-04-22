@@ -1020,6 +1020,7 @@
                                 <thead>
                                     <tr>
                                         <th style="width:35px;">#</th>
+                                        <th style="width:50px;">Más</th>
                                         <th style="width:120px;">Cód. Artículo</th>
                                         <th style="width:110px;">Cód. Prov.</th>
                                         <th>Descripción</th>
@@ -1118,7 +1119,7 @@
                                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.75rem;">
                                     <div class="input-group"><label>Monto Pendiente</label><input type="text"
                                             id="invCreditoMtoPendiente" class="modern-input"></div>
-                                    <div class="input-group"><label>Fecha Plazo Pago</label><input type="text"
+                                    <div class="input-group"><label>Fecha Plazo Pago</label><input type="date"
                                             id="invCreditoFecPlazo" class="modern-input"></div>
                                     <div class="input-group"><label>Nro. Cuotas</label><input type="text"
                                             id="invCreditoNumCuotas" class="modern-input"></div>
@@ -1145,6 +1146,10 @@
                                     style="display:none; background:#fef3c7; color:#92400e;">docs</span>
                             </summary>
                             <div class="info-accordion-body">
+                                <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+                                    <input type="text" id="invGuiaManual" class="modern-input" placeholder="Nro. Guía de Remisión" style="flex:1;">
+                                    <button class="btn-sec" onclick="agregarGuiaManual()" style="padding:0.4rem 0.8rem;">Agregar</button>
+                                </div>
                                 <div id="docsRelacionadosList" style="font-size:0.82rem; color:var(--text-muted);">Sin
                                     documentos relacionados</div>
                             </div>
@@ -1358,16 +1363,20 @@
                     </div>
 
                     <div style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;">
-                        <table id="facturasTable" class="fluent-table" style="width:100%; min-width:900px;">
+                        <table id="facturasTable" class="fluent-table" style="width:100%; min-width:1100px;">
                             <thead>
                                 <tr>
+                                    <th>ID</th>
                                     <th>N° Comprobante</th>
+                                    <th>Tipo</th>
                                     <th>Fecha</th>
+                                    <th>Fecha Registro</th>
+                                    <th>Fecha Vencimiento</th>
                                     <th>Proveedor</th>
                                     <th>RUC</th>
                                     <th>Mon.</th>
                                     <th style="text-align:right;">Total</th>
-                                    <th>Orden Compra</th>
+                                    <th>Nro Orden Compra</th>
                                     <th>Origen</th>
                                     <th>Usuario</th>
                                     <th>Estado</th>
@@ -1384,7 +1393,7 @@
 
             <!-- Modal: SUNAT -->
             <div id="modalSunat" class="fluent-overlay">
-                <div class="fluent-dialog">
+                <div class="fluent-dialog" style="max-width: 1200px; width: 95%;">
                     <div class="fluent-dialog-header">
                         <div>
                             <h3 class="fluent-dialog-title">Bandeja SUNAT Integrada</h3>
@@ -1421,6 +1430,8 @@
                                         <th style="z-index:10;">F. Emisión</th>
                                         <th style="z-index:10;">Proveedor</th>
                                         <th style="text-align:right; z-index:10;">Importe Total</th>
+                                        <th style="z-index:10;">OC Vinculada</th>
+                                        <th style="z-index:10;">Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody id="sunatResultsTbody"></tbody>
@@ -1432,7 +1443,7 @@
 
             <!-- Modal: ÓRDENES DE COMPRA -->
             <div id="modalOC" class="fluent-overlay">
-                <div class="fluent-dialog">
+                <div class="fluent-dialog" style="max-width: 1200px; width: 95%;">
                     <div class="fluent-dialog-header">
                         <h3 class="fluent-dialog-title">Asignar Orden de Compra Pendiente</h3>
                         <button class="fluent-dialog-close" onclick="closeDialog('modalOC')"><svg viewBox="0 0 24 24"
@@ -1467,8 +1478,10 @@
                                         <th style="width:60px; z-index:10;">Elegir</th>
                                         <th style="z-index:10;">N° Orden</th>
                                         <th style="z-index:10;">Fecha Doc</th>
-                                        <th style="z-index:10;">Cuenta RUC</th>
+                                        <th style="z-index:10;">Proveedor</th>
+                                        <th style="z-index:10;">RUC</th>
                                         <th style="text-align:right; z-index:10;">Contrato</th>
+                                        <th style="z-index:10;">Facturas Vinculadas</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ocResultsTbody"></tbody>
@@ -1477,8 +1490,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Modal: CONCILIAR OC -->
             <div id="modalConciliarOC" class="fluent-overlay">
                 <div class="fluent-dialog" style="max-width: 1000px; width: 95%;">
                     <div class="fluent-dialog-header">

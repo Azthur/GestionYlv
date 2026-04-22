@@ -2,7 +2,7 @@
 Módulo Contable - Backend API
 Endpoints para: Tokens, Sincronización de Compras, Registro de Facturas, Trazabilidad
 """
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
@@ -12,9 +12,8 @@ import json
 import uuid
 import os
 import shutil
-
 from database import get_db_connection
-
+from auth import get_current_user
 router = APIRouter(prefix="/api/contabilidad", tags=["Contabilidad"])
 
 
@@ -62,6 +61,7 @@ class FacturaDetItem(BaseModel):
     total: Optional[float] = 0
     cantidad_oc: Optional[float] = None
     cantidad_almacen: Optional[float] = None
+    extra_data: Optional[dict] = None
 
 class FacturaCreate(BaseModel):
     id: Optional[int] = None
@@ -456,53 +456,60 @@ def list_compras(
     try:
         cursor = conn.cursor()
         query = """
-            SELECT Id, RTRIM(CodCia) as CodCia, NumRuc, NomRazonSocial,
-                   CodTipoCDP, DesTipoCDP, NumSerieCDP, NumCDP,
-                   FecEmision, FecVencPag,
-                   NumDocIdProveedor, NomRazonSocialProveedor,
-                   CodMoneda, CodEstadoComprobante, DesEstadoComprobante,
-                   PerTributario, PorTasaIGV,
-                   MtoBIGravadaDG, MtoIgvIpmDG, MtoValorAdqNG,
-                   MtoTotalCp, MtoTipoCambio,
-                   IdApiOrg, SyncedAt
-            FROM CntCompras
-            WHERE RTRIM(CodCia) = ?
+            SELECT c.Id, RTRIM(c.CodCia) as CodCia, c.NumRuc, c.NomRazonSocial,
+                   c.CodTipoCDP, c.DesTipoCDP, c.NumSerieCDP, c.NumCDP,
+                   c.FecEmision, c.FecVencPag,
+                   c.NumDocIdProveedor, c.NomRazonSocialProveedor,
+                   c.CodMoneda, c.CodEstadoComprobante, c.DesEstadoComprobante,
+                   c.PerTributario, c.PorTasaIGV,
+                   c.MtoBIGravadaDG, c.MtoIgvIpmDG, c.MtoValorAdqNG,
+                   c.MtoTotalCp, c.MtoTipoCambio,
+                   c.IdApiOrg, c.SyncedAt,
+                   CASE WHEN c.XmlDataJson IS NOT NULL AND LEN(c.XmlDataJson) > 10 THEN 1 ELSE 0 END as TieneXml,
+                   (SELECT TOP 1 f.Id FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaId,
+                   (SELECT TOP 1 f.Uuid FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaUuid,
+                   (SELECT TOP 1 f.Estado FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaEstado,
+                   (SELECT TOP 1 RTRIM(f.NroOrdenCompra) FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as NroOrdenCompra,
+                   (SELECT TOP 1 RTRIM(f.TipoOc) FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as TipoOc
+            FROM CntCompras c
+            WHERE RTRIM(c.CodCia) = ?
         """
         params = [codcia.strip()]
 
         if periodo:
-            query += " AND PerTributario = ?"
+            query += " AND c.PerTributario = ?"
             params.append(periodo)
         if proveedor:
-            query += " AND (NumDocIdProveedor LIKE ? OR NomRazonSocialProveedor LIKE ?)"
+            query += " AND (c.NumDocIdProveedor LIKE ? OR c.NomRazonSocialProveedor LIKE ?)"
             params.extend([f"%{proveedor}%", f"%{proveedor}%"])
 
-        query += " ORDER BY FecEmision DESC, NumSerieCDP, NumCDP"
+        query += " ORDER BY c.FecEmision DESC, c.NumSerieCDP, c.NumCDP"
 
         cursor.execute(query, tuple(params))
         cols = [c[0] for c in cursor.description]
         rows = []
         for r in cursor.fetchall():
             d = dict(zip(cols, r))
-            if d.get('FecEmision'):
-                d['FecEmision'] = d['FecEmision'].strftime("%Y-%m-%d")
-            if d.get('FecVencPag'):
-                d['FecVencPag'] = d['FecVencPag'].strftime("%Y-%m-%d")
-            if d.get('SyncedAt'):
-                d['SyncedAt'] = d['SyncedAt'].strftime("%Y-%m-%d %H:%M")
+            for k in ['FecEmision', 'FecVencPag', 'SyncedAt']:
+                if d.get(k):
+                    if hasattr(d[k], 'strftime'):
+                        fmt = "%Y-%m-%d %H:%M" if k == 'SyncedAt' else "%Y-%m-%d"
+                        d[k] = d[k].strftime(fmt)
+                    elif isinstance(d[k], str) and k != 'SyncedAt':
+                        d[k] = d[k][:10]   # Ensure it's truncated or passed forward
             for k in ['MtoBIGravadaDG','MtoIgvIpmDG','MtoValorAdqNG','MtoTotalCp','MtoTipoCambio','PorTasaIGV']:
                 if d.get(k) is not None:
                     d[k] = float(d[k])
             rows.append(d)
 
         # Count total
-        count_query = "SELECT COUNT(*) FROM CntCompras WHERE RTRIM(CodCia) = ?"
+        count_query = "SELECT COUNT(*) FROM CntCompras c WHERE RTRIM(c.CodCia) = ?"
         count_params = [codcia.strip()]
         if periodo:
-            count_query += " AND PerTributario = ?"
+            count_query += " AND c.PerTributario = ?"
             count_params.append(periodo)
         if proveedor:
-            count_query += " AND (NumDocIdProveedor LIKE ? OR NomRazonSocialProveedor LIKE ?)"
+            count_query += " AND (c.NumDocIdProveedor LIKE ? OR c.NomRazonSocialProveedor LIKE ?)"
             count_params.extend([f"%{proveedor}%", f"%{proveedor}%"])
 
         cursor.execute(count_query, tuple(count_params))
@@ -726,6 +733,11 @@ def enrich_batch(data: EnrichBatchRequest):
 @router.post("/facturas")
 def crear_factura(data: FacturaCreate):
     """Registrar factura (cabecera + detalle)"""
+    print(f"DEBUG: crear_factura - credito_mto_pendiente: {data.credito_mto_pendiente}, credito_fec_plazo: {data.credito_fec_plazo}, credito_num_cuotas: {data.credito_num_cuotas}")
+    print(f"DEBUG: crear_factura - items: {len(data.items)}")
+    for i, item in enumerate(data.items):
+        print(f"DEBUG: item {i} - extra_data: {item.extra_data}")
+    
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Error de base de datos")
@@ -756,18 +768,97 @@ def crear_factura(data: FacturaCreate):
         for col, dtype in _new_cab_cols.items():
             try:
                 cursor.execute(f"IF COL_LENGTH('CntFacturaCab','{col}') IS NULL ALTER TABLE CntFacturaCab ADD [{col}] {dtype}")
-            except Exception:
+                print(f"DEBUG: Columna {col} verificada/creada en CntFacturaCab")
+            except Exception as e:
+                print(f"DEBUG: Error al crear columna {col} en CntFacturaCab: {e}")
                 pass
         _new_det_cols = {
             'CodProveedor': 'varchar(50)', 'DesUnidadMedida': 'varchar(100)',
-            'MtoICBPERItem': 'decimal(18,2)', 'MtoDescuento': 'decimal(18,2)'
+            'MtoICBPERItem': 'decimal(18,2)', 'MtoDescuento': 'decimal(18,2)',
+            'Inci': 'varchar(500)', 'Fabricante': 'varchar(250)',
+            'Obs1': 'varchar(500)', 'Obs2': 'varchar(500)', 'Obs3': 'varchar(500)', 'Obs4': 'varchar(500)',
+            'ExtraDataJson': 'varchar(MAX)'
         }
         for col, dtype in _new_det_cols.items():
             try:
                 cursor.execute(f"IF COL_LENGTH('CntFacturaDet','{col}') IS NULL ALTER TABLE CntFacturaDet ADD [{col}] {dtype}")
             except Exception:
                 pass
+        
+        # Modificar tamaño de columna INCI si ya existe pero es varchar(50)
+        try:
+            cursor.execute("""
+                DECLARE @current_len int
+                SELECT @current_len = CHARACTER_MAXIMUM_LENGTH 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'CntFacturaDet' AND COLUMN_NAME = 'Inci'
+                
+                IF @current_len = 50
+                BEGIN
+                    ALTER TABLE CntFacturaDet ALTER COLUMN Inci varchar(500)
+                    PRINT 'Columna Inci modificada de varchar(50) a varchar(500)'
+                END
+            """)
+            conn.commit()
+        except Exception as e:
+            print(f"DEBUG: Error al modificar columna Inci: {e}")
+            pass
+        
+        # Crear tabla para archivos de items si no existe
+        try:
+            cursor.execute("""
+                IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'CntFacturaDetArchivos')
+                BEGIN
+                    CREATE TABLE CntFacturaDetArchivos (
+                        Id INT IDENTITY(1,1) PRIMARY KEY,
+                        FacturaCabId INT NOT NULL,
+                        ItemIndex INT NOT NULL,
+                        ObsField VARCHAR(50) NOT NULL,
+                        NombreArchivo VARCHAR(255) NOT NULL,
+                        RutaArchivo VARCHAR(500) NOT NULL,
+                        TamanioBytes INT,
+                        CreatedBy VARCHAR(50),
+                        CreatedAt DATETIME DEFAULT GETDATE(),
+                        FOREIGN KEY (FacturaCabId) REFERENCES CntFacturaCab(Id)
+                    )
+                    PRINT 'Tabla CntFacturaDetArchivos creada'
+                END
+            """)
+            conn.commit()
+        except Exception as e:
+            print(f"DEBUG: Error al crear tabla CntFacturaDetArchivos: {e}")
+            pass
         conn.commit()
+
+        # Función de truncamiento preventivo para evitar error 22001
+        def trunc(val, maxlen):
+            if val is None:
+                return None
+            s = str(val)
+            return s[:maxlen] if len(s) > maxlen else s
+
+        # Truncar campos de texto a su tamaño máximo de columna
+        data.nom_proveedor = trunc(data.nom_proveedor, 500)
+        data.det_leyenda = trunc(data.det_leyenda, 1000)
+        data.det_bien_servicio = trunc(data.det_bien_servicio, 500)
+        data.det_medio_pago = trunc(data.det_medio_pago, 100)
+        data.det_nro_cuenta = trunc(data.det_nro_cuenta, 50)
+        data.observaciones = trunc(data.observaciones, 2000)
+        data.dir_emisor = trunc(data.dir_emisor, 500)
+        data.ubigeo_emisor = trunc(data.ubigeo_emisor, 100)
+        data.dir_receptor = trunc(data.dir_receptor, 500)
+        data.mto_total_letras = trunc(data.mto_total_letras, 500)
+        data.nom_comercial_emisor = trunc(data.nom_comercial_emisor, 500)
+        data.nom_comercial_prov = trunc(data.nom_comercial_prov, 500)
+        data.dir_proveedor = trunc(data.dir_proveedor, 500)
+        data.ubigeo_proveedor = trunc(data.ubigeo_proveedor, 100)
+        data.dir_receptor_factura = trunc(data.dir_receptor_factura, 500)
+        data.des_motivo = trunc(data.des_motivo, 1000)
+        data.des_tipo_nota = trunc(data.des_tipo_nota, 500)
+        data.modo_registro = trunc(data.modo_registro, 10)
+        data.created_by = trunc(data.created_by, 50)
+        data.placa_vehicular = trunc(data.placa_vehicular, 20)
+        data.nro_orden_compra = trunc(data.nro_orden_compra, 20)
 
 
         # Check for duplicate
@@ -784,6 +875,15 @@ def crear_factura(data: FacturaCreate):
         cursor.execute("SET ARITHABORT ON")
 
         if data.id:
+            # Bloqueo por estado CONTABILIZADO o CERRADO
+            cursor.execute("SELECT Estado FROM CntFacturaCab WHERE Id = ?", (data.id,))
+            current_status = cursor.fetchone()
+            if current_status and current_status[0] in ['Cerrado', 'Contabilizado']:
+                raise HTTPException(status_code=403, detail=f"No se puede modificar una factura en estado {current_status[0]}")
+
+            # Si FecVencimiento es null, usar CreditoFecPlazo
+            fec_vencimiento_val = data.fec_vencimiento if data.fec_vencimiento else data.credito_fec_plazo
+
             cursor.execute("""
                 UPDATE CntFacturaCab SET
                     CodCia=?, NumRucProveedor=?, NomProveedor=?, CodTipoDoc=?, Serie=?, Numero=?,
@@ -807,7 +907,7 @@ def crear_factura(data: FacturaCreate):
                 WHERE Id=?
             """, (
                 data.codcia.strip(), data.num_ruc_proveedor, data.nom_proveedor, data.cod_tipo_doc, data.serie, data.numero,
-                data.fec_emision, data.fec_vencimiento, data.cod_moneda, data.tipo_cambio,
+                data.fec_emision, fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
                 data.sub_total, data.igv, data.otros_tributos, data.total,
                 data.mto_gravado, data.mto_exonerado, data.mto_inafecto, data.mto_gratuito,
                 data.mto_anticipos, data.mto_isc, data.mto_icbper, data.mto_otros_cargos,
@@ -828,6 +928,9 @@ def crear_factura(data: FacturaCreate):
             factura_id = data.id
             cursor.execute("DELETE FROM CntFacturaDet WHERE FacturaCabId=?", (factura_id,))
         else:
+            # Si FecVencimiento es null, usar CreditoFecPlazo
+            fec_vencimiento_val = data.fec_vencimiento if data.fec_vencimiento else data.credito_fec_plazo
+            
             cursor.execute("""
                 INSERT INTO CntFacturaCab (
                     CodCia, NumRucProveedor, NomProveedor, CodTipoDoc, Serie, Numero,
@@ -848,11 +951,11 @@ def crear_factura(data: FacturaCreate):
                     CreditoMtoPendiente, CreditoFecPlazo, CreditoNumCuotas, CreditoCuotasJson,
                     DocsRelacionadosJson, XmlDataJson
                 ) OUTPUT INSERTED.Id
-                VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+                VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                         ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 data.codcia.strip(), data.num_ruc_proveedor, data.nom_proveedor, data.cod_tipo_doc, data.serie, data.numero,
-                data.fec_emision, data.fec_vencimiento, data.cod_moneda, data.tipo_cambio,
+                data.fec_emision, fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
                 data.sub_total, data.igv, data.otros_tributos, data.total,
                 data.mto_gravado, data.mto_exonerado, data.mto_inafecto, data.mto_gratuito,
                 data.mto_anticipos, data.mto_isc, data.mto_icbper, data.mto_otros_cargos,
@@ -873,14 +976,26 @@ def crear_factura(data: FacturaCreate):
 
 
         # Insert details
-        for item in data.items:
+        print(f"DEBUG: Iniciando inserción de {len(data.items)} items")
+        for idx, item in enumerate(data.items):
+            print(f"DEBUG: Procesando item {idx} - codigo: {item.cod_material}, cantidad: {item.cantidad}, precio: {item.precio_unitario}")
+            # Truncar campos de texto para evitar error 22001
+            extra_data = item.extra_data if item.extra_data else {}
+            inci_val = trunc(extra_data.get('inci'), 500) if extra_data.get('inci') else None
+            fabricante_val = trunc(extra_data.get('fabricante'), 250) if extra_data.get('fabricante') else None
+            obs1_val = trunc(extra_data.get('obs1'), 500) if extra_data.get('obs1') else None
+            obs2_val = trunc(extra_data.get('obs2'), 500) if extra_data.get('obs2') else None
+            obs3_val = trunc(extra_data.get('obs3'), 500) if extra_data.get('obs3') else None
+            obs4_val = trunc(extra_data.get('obs4'), 500) if extra_data.get('obs4') else None
+            
             cursor.execute("""
                 INSERT INTO CntFacturaDet (
                     FacturaCabId, NroItem, CodMaterial, CodProveedor, Descripcion,
                     UnidadMedida, DesUnidadMedida, Cantidad, PrecioUnitario, Descuento,
                     SubTotal, IGV, ICBPER, MtoICBPERItem, MtoDescuento, Total,
-                    CantidadOC, CantidadAlmacen
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    CantidadOC, CantidadAlmacen,
+                    Inci, Fabricante, Obs1, Obs2, Obs3, Obs4, FechaVencimientoItem, ExtraDataJson
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 factura_id,
                 item.nro_item,
@@ -894,12 +1009,20 @@ def crear_factura(data: FacturaCreate):
                 item.descuento,
                 item.sub_total,
                 item.igv,
-                item.icbper,
-                item.mto_icbper_item,
-                item.mto_descuento,
+                item.icbper or 0,
+                item.mto_icbper_item or 0,
+                item.mto_descuento or 0,
                 item.total,
                 item.cantidad_oc,
-                item.cantidad_almacen
+                None,
+                inci_val,
+                fabricante_val,
+                obs1_val,
+                obs2_val,
+                obs3_val,
+                obs4_val,
+                extra_data.get('fecha_vencimiento') if extra_data else None,
+                json.dumps(extra_data) if extra_data else None
             ))
 
         conn.commit()
@@ -918,6 +1041,32 @@ def crear_factura(data: FacturaCreate):
         raise
     except Exception as e:
         conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/facturas/columns")
+def get_factura_columns():
+    """Obtener columnas de la tabla CntFacturaCab"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'CntFacturaCab'
+            ORDER BY ORDINAL_POSITION
+        """)
+        cols = [c[0] for c in cursor.description]
+        rows = []
+        for r in cursor.fetchall():
+            d = dict(zip(cols, r))
+            rows.append(d)
+        return rows
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
@@ -943,7 +1092,8 @@ def list_facturas(
                    CodTipoDoc, Serie, Numero, FecEmision, FecVencimiento,
                    CodMoneda, TipoCambio, SubTotal, IGV, OtrosTributos, Total,
                    NroOrdenCompra, TipoOc, AnosOc,
-                   Estado, ModoRegistro, CreatedAt, CreatedBy
+                   Estado, ModoRegistro, CreatedAt, CreatedBy,
+                   CreditoFecPlazo, CreditoNumCuotas, CreditoMtoPendiente
             FROM CntFacturaCab
             WHERE RTRIM(CodCia) = ?
         """
@@ -996,6 +1146,28 @@ def get_factura_detail(factura_id: int):
         raise HTTPException(status_code=500, detail="Error de base de datos")
     try:
         cursor = conn.cursor()
+        
+        cursor = conn.cursor()
+        
+        # Auto-migración robusta: asegurar columnas en CntFacturaDet
+        _cols_to_check = {
+            'Inci': 'varchar(50)', 'Fabricante': 'varchar(250)',
+            'Obs1': 'varchar(500)', 'Obs2': 'varchar(500)', 'Obs3': 'varchar(500)', 'Obs4': 'varchar(500)',
+            'FechaVencimientoItem': 'date',
+            'ExtraDataJson': 'varchar(MAX)'
+        }
+        for col, dtype in _cols_to_check.items():
+            try:
+                # Verificar existencia columna por columna y aplicar commit inmediatamente
+                cursor.execute(f"SELECT COL_LENGTH('CntFacturaDet', '{col}')")
+                if cursor.fetchone()[0] is None:
+                    cursor.execute(f"ALTER TABLE CntFacturaDet ADD [{col}] {dtype}")
+                    conn.commit()
+            except Exception as e:
+                print(f"DEBUG: Error migrando columna {col}: {e}")
+                try: conn.rollback()
+                except: pass
+
         cursor.execute("""
             SELECT * FROM CntFacturaCab WHERE Id = ?
         """, (factura_id,))
@@ -1018,23 +1190,100 @@ def get_factura_detail(factura_id: int):
                 cab[k] = float(cab[k])
         cab['CodCia'] = cab['CodCia'].strip() if cab.get('CodCia') else ''
 
-        # Get details
-        cursor.execute("""
-            SELECT Id, NroItem, CodMaterial, Descripcion, UnidadMedida,
-                   Cantidad, PrecioUnitario, Descuento, SubTotal, IGV, ICBPER, Total,
-                   CantidadOC, CantidadAlmacen
-            FROM CntFacturaDet WHERE FacturaCabId = ? ORDER BY NroItem
-        """, (factura_id,))
+        # Obtener columnas reales de CntFacturaDet
+        cursor.execute("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CntFacturaDet'")
+        actual_cols = [row[0] for row in cursor.fetchall()]
+        
+        needed_cols = [
+            'Id', 'NroItem', 'CodMaterial', 'Descripcion', 'UnidadMedida',
+            'Cantidad', 'PrecioUnitario', 'Descuento', 'SubTotal', 'IGV', 'ICBPER', 'Total',
+            'CantidadOC', 'CantidadAlmacen',
+            'Inci', 'Fabricante', 'Obs1', 'Obs2', 'Obs3', 'Obs4', 'FechaVencimientoItem', 'ExtraDataJson'
+        ]
+        
+        # Filtrar solo las que existen
+        select_cols = [c for c in needed_cols if c in actual_cols]
+        missing_cols = [c for c in needed_cols if c not in actual_cols]
+        
+        query_det = f"SELECT {', '.join(select_cols)} FROM CntFacturaDet WHERE FacturaCabId = ? ORDER BY NroItem"
+        cursor.execute(query_det, (factura_id,))
+        
         det_cols = [c[0] for c in cursor.description]
         items = []
         for r in cursor.fetchall():
             d = dict(zip(det_cols, r))
+            
+            # Rellenar columnas faltantes con None para mantener compatibilidad con el frontend
+            for col in missing_cols:
+                d[col] = None
+                
             for k in ['Cantidad','PrecioUnitario','Descuento','SubTotal','IGV','ICBPER','Total','CantidadOC','CantidadAlmacen']:
                 if d.get(k) is not None:
                     d[k] = float(d[k])
+            
+            if d.get('FechaVencimientoItem'):
+                d['FechaVencimientoItem'] = d['FechaVencimientoItem'].strftime("%Y-%m-%d")
+            
+            # Parse extraData from ExtraDataJson
+            if d.get('ExtraDataJson'):
+                try:
+                    d['extraData'] = json.loads(d['ExtraDataJson'])
+                except:
+                    d['extraData'] = None
+            else:
+                d['extraData'] = None
             items.append(d)
 
-        return {"cabecera": cab, "items": items}
+        # Get archivos
+        archivos = []
+        try:
+            cursor.execute("SELECT Id, NombreArchivo, TipoDocumento, TamanioBytes FROM CntFacturaArchivos WHERE FacturaCabId=?", (factura_id,))
+            arc_cols = [c[0] for c in cursor.description]
+            archivos = [dict(zip(arc_cols, r)) for r in cursor.fetchall()]
+        except Exception:
+            pass
+
+        # Get archivos de items
+        item_archivos = []
+        try:
+            cursor.execute("""
+                SELECT Id, ItemIndex, ObsField, NombreArchivo, RutaArchivo, TamanioBytes, CreatedAt
+                FROM CntFacturaDetArchivos WHERE FacturaCabId=? ORDER BY ItemIndex, ObsField, CreatedAt DESC
+            """, (factura_id,))
+            ia_cols = [c[0] for c in cursor.description]
+            for r in cursor.fetchall():
+                d = dict(zip(ia_cols, r))
+                if d.get('CreatedAt'):
+                    d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+                item_archivos.append(d)
+            print(f"DEBUG get_factura_detail: Archivos de items obtenidos: {len(item_archivos)} archivos para factura {factura_id}")
+        except Exception as e:
+            print(f"DEBUG get_factura_detail: Error al obtener archivos de items: {e}")
+            pass
+
+        # Agrupar archivos de items por item_index (convertir de 1-based a 0-based)
+        item_archivos_dict = {}
+        for ia in item_archivos:
+            # ItemIndex en DB es 1-based, convertir a 0-based para consistencia con frontend
+            idx = ia['ItemIndex'] - 1 if ia['ItemIndex'] is not None else None
+            if idx is not None and idx not in item_archivos_dict:
+                item_archivos_dict[idx] = []
+            if idx is not None:
+                item_archivos_dict[idx].append(ia)
+        print(f"DEBUG get_factura_detail: Archivos agrupados por item_index (0-based): {item_archivos_dict}")
+
+        # Agregar archivos a cada item usando item_index (0-based)
+        for item in items:
+            nro_item = item.get('NroItem')
+            # Convertir NroItem (1-based) a item_index (0-based)
+            item_index = nro_item - 1 if nro_item is not None else None
+            print(f"DEBUG get_factura_detail: Item {item.get('CodMaterial')}, NroItem: {nro_item}, item_index: {item_index}, tiene archivos: {item_index in item_archivos_dict if item_index is not None else False}")
+            if item_index is not None and item_index in item_archivos_dict:
+                item['archivos'] = item_archivos_dict[item_index]
+            else:
+                item['archivos'] = []
+
+        return {"cabecera": cab, "items": items, "archivos": archivos}
 
     except HTTPException:
         raise
@@ -1053,18 +1302,29 @@ def eliminar_factura(factura_id: int):
     try:
         cursor = conn.cursor()
         
+        # Bloqueo por estado CONTABILIZADO o CERRADO
+        cursor.execute("SELECT Estado FROM CntFacturaCab WHERE Id = ?", (factura_id,))
+        current_status = cursor.fetchone()
+        if current_status and current_status[0] in ['Cerrado', 'Contabilizado']:
+            raise HTTPException(status_code=403, detail=f"No se puede eliminar una factura en estado {current_status[0]}")
+
         target_dir = os.path.join(UPLOAD_DIR, str(factura_id))
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir, ignore_errors=True)
             
         cursor.execute("SET ARITHABORT ON")
-        cursor.execute("DELETE FROM CntFacturaArchivos WHERE FacturaCabId=?", (factura_id,))
-        cursor.execute("DELETE FROM CntFacturaDet WHERE FacturaCabId=?", (factura_id,))
+        # Eliminar en orden correcto respetando foreign keys
+        for table in ['CntFacturaDetArchivos', 'CntFacturaArchivos', 'CntFacturaDet']:
+            try:
+                cursor.execute(f"DELETE FROM {table} WHERE FacturaCabId=?", (factura_id,))
+            except Exception as e:
+                print(f"DEBUG: Error al eliminar de {table} (puede no existir): {e}")
         cursor.execute("DELETE FROM CntFacturaCab WHERE Id=?", (factura_id,))
         conn.commit()
         return {"status": "success", "message": "Factura eliminada permanentemente"}
     except Exception as e:
         conn.rollback()
+        print(f"DEBUG: Error al eliminar factura {factura_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
@@ -1073,6 +1333,238 @@ def eliminar_factura(factura_id: int):
 # ════════════════════════════════════════════════════════════
 #  TRAZABILIDAD OC → ALMACEN → FACTURA
 # ════════════════════════════════════════════════════════════
+
+@router.get("/trazabilidad/global")
+def get_trazabilidad_global(
+    codcia: str = Query(..., description="Company code"),
+    year: str = Query(..., description="Year"),
+    period: str = Query(None, description="Month (1-12)"),
+    tipo_oc: str = Query(None, description="Optional filter for OC type"),
+    codmat_search: str = Query(None, description="Search by material code or description"),
+    only_my_records: bool = Query(True, description="Filtrar por mis propios registros"),
+    current_user: dict = Depends(get_current_user)
+):
+    """Devuelve listado masivo y aplanado de ítems de OC con su trazabilidad completa para revisión global"""
+    conn = get_db_connection()
+    if not conn: raise HTTPException(status_code=500, detail="Database connection error")
+    
+    try:
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                RTRIM(c.NroDoc) as nrodoc,
+                c.Fchdoc as fchdoc,
+                RTRIM(c.TipoOc) as tipooc,
+                RTRIM(c.NomAux) as nom_proveedor,
+                RTRIM(c.CodMon) as oc_moneda,
+                RTRIM(c.Usuario) as usuario,
+                RTRIM(r.CodMat) as codmat,
+                RTRIM(r.DesMat) as desmat,
+                r.CanDes as candes,
+                r.PreUni as preuni
+            FROM CmpVOcom c
+            INNER JOIN CmpROcom r ON RTRIM(c.CodCia) = RTRIM(r.CodCia) AND RTRIM(c.NroDoc) = RTRIM(r.NroDoc) AND RTRIM(c.Anos) = RTRIM(r.Anos)
+            WHERE RTRIM(c.CodCia) = ?
+        """
+        params = [codcia.strip()]
+        
+        if codmat_search:
+            # Búsqueda de producto: historial completo, ignora año y periodo
+            query += " AND (r.CodMat LIKE ? OR r.DesMat LIKE ?)"
+            match_txt = f"%{codmat_search.strip()}%"
+            params.extend([match_txt, match_txt])
+        else:
+            # Búsqueda normal: siempre filtra por año
+            query += " AND RTRIM(c.Anos) = ?"
+            params.append(year.strip())
+            if period:
+                query += " AND MONTH(c.Fchdoc) = ?"
+                params.append(int(period))
+            
+        if tipo_oc:
+            query += " AND RTRIM(c.TipoOc) = ?"
+            params.append(tipo_oc.strip())
+            
+        # --- RLS Enforcement (Row-Level Security) ---
+        login = current_user["login"]
+        is_admin_or_super = current_user.get("rol") == "ADMIN" or login.strip().upper() == "71941916JL"
+        
+        puede_ver_todo = False
+        allowed_types = []
+        if is_admin_or_super:
+            puede_ver_todo = True
+            allowed_types = ['M', 'S', 'T']
+        else:
+            # Obtener bandera de ver_todo
+            cursor.execute("SELECT ISNULL(PuedeVerTodo, 0) FROM WebUsers WHERE login = ?", (login,))
+            r = cursor.fetchone()
+            if r: puede_ver_todo = bool(r[0])
+            
+            # Obtener tipos de OC permitidos
+            cursor.execute("SELECT RTRIM(TipoOc) FROM WebUsuarioTipoOc WHERE Login = ?", (login,))
+            allowed_types = [row[0] for row in cursor.fetchall()]
+
+        # 1. Filtro estricto por Usuario Logueado (Mis Registros)
+        if only_my_records or not puede_ver_todo:
+            # Forzamos que solo vea los suyos
+            query += " AND RTRIM(c.Usuario) = ?"
+            params.append(login.strip().upper())
+            
+        # 2. Filtro estricto de Tipo OC (si no tiene permisos, no ve nada o limitados)
+        if not is_admin_or_super:
+            if not allowed_types:
+                # Si no tiene ningún tipo configurado, le bloqueamos la consulta
+                query += " AND 1 = 0"
+            else:
+                placeholders = ','.join('?' * len(allowed_types))
+                query += f" AND RTRIM(c.TipoOc) IN ({placeholders})"
+                params.extend(allowed_types)
+        # --- End RLS ---
+            
+        query += " ORDER BY c.Fchdoc DESC, c.NroDoc DESC"
+        cursor.execute(query, tuple(params))
+        oc_items = []
+        nrodoc_set = set()
+        
+        for row in cursor.fetchall():
+            oc_items.append({
+                "nrodoc": row.nrodoc,
+                "fchdoc": row.fchdoc.strftime("%Y-%m-%d") if row.fchdoc else "",
+                "tipooc": row.tipooc,
+                "proveedor": row.nom_proveedor,
+                "usuario": row.usuario or "",
+                "oc_moneda": "Soles" if str(row.oc_moneda).strip() in ("1", "1.0", "S/", "MN", "PEN") else "Dólares",
+                "codmat": row.codmat,
+                "desmat": row.desmat,
+                "candes": float(row.candes) if row.candes else 0,
+                "preuni": float(row.preuni) if row.preuni else 0
+            })
+            nrodoc_set.add(row.nrodoc)
+            
+        if not nrodoc_set:
+            return []
+
+        nrodocs_list = list(nrodoc_set)
+        placeholders_oc = ",".join(["?" for _ in nrodocs_list])
+        
+        # ALMACEN
+        alm_query = f"""
+            SELECT RTRIM(ordcmp) as nrodoc, RTRIM(codmat) as codmat, candes, preuni, RTRIM(codmon) as codmon
+            FROM AlmRMovm
+            WHERE RTRIM(CodCia) = ? AND RTRIM(ordcmp) IN ({placeholders_oc})
+        """
+        cursor.execute(alm_query, tuple([codcia.strip()] + nrodocs_list))
+        almacen_by_oc_mat = {}
+        for row in cursor.fetchall():
+            if not row.nrodoc or not row.codmat: continue
+            key = f"{row.nrodoc}_{row.codmat}"
+            if key not in almacen_by_oc_mat:
+                almacen_by_oc_mat[key] = {"cant": 0, "preuni": 0, "cod_moneda": row.codmon if row.codmon else ""}
+            almacen_by_oc_mat[key]["cant"] += (float(row.candes) if row.candes else 0)
+            p = float(row.preuni) if row.preuni else 0
+            if p > 0: almacen_by_oc_mat[key]["preuni"] = p
+            if row.codmon and row.codmon.strip(): almacen_by_oc_mat[key]["cod_moneda"] = row.codmon
+
+        # FACTURAS
+        fac_query = f"""
+            SELECT RTRIM(fc.NroOrdenCompra) as nrodoc, RTRIM(fd.CodMaterial) as codmat,
+                   SUM(fd.Cantidad) as total_facturado, MAX(fd.PrecioUnitario) as p_unitario, MAX(fc.CodMoneda) as cod_moneda,
+                   MAX(fd.Inci) as inci, MAX(fd.Fabricante) as fabricante, MAX(fd.FechaVencimientoItem) as fecha_vencimiento_item,
+                   MAX(fd.Obs1) as obs1, MAX(fd.Obs2) as obs2, MAX(fd.Obs3) as obs3, MAX(fd.Obs4) as obs4,
+                   MAX(fc.Id) as factura_cab_id, MAX(fd.NroItem) as item_index
+            FROM CntFacturaDet fd
+            INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
+            WHERE RTRIM(fc.CodCia) = ? AND RTRIM(fc.NroOrdenCompra) IN ({placeholders_oc}) AND fc.Estado != 'Anulada'
+            GROUP BY RTRIM(fc.NroOrdenCompra), RTRIM(fd.CodMaterial)
+        """
+        cursor.execute(fac_query, tuple([codcia.strip()] + nrodocs_list))
+        factura_by_oc_mat = {}
+        for row in cursor.fetchall():
+            if not row.nrodoc or not row.codmat: continue
+            key = f"{row.nrodoc}_{row.codmat}"
+            factura_by_oc_mat[key] = {
+                "cant": float(row.total_facturado) if row.total_facturado else 0,
+                "preuni": float(row.p_unitario) if row.p_unitario else 0,
+                "cod_moneda": str(row.cod_moneda).strip() if row.cod_moneda else "",
+                "inci": row.inci if row.inci else "",
+                "fabricante": row.fabricante if row.fabricante else "",
+                "fecha_vencimiento_item": row.fecha_vencimiento_item.strftime("%Y-%m-%d") if row.fecha_vencimiento_item else "",
+                "obs1": row.obs1 if row.obs1 else "",
+                "obs2": row.obs2 if row.obs2 else "",
+                "obs3": row.obs3 if row.obs3 else "",
+                "obs4": row.obs4 if row.obs4 else "",
+                "factura_cab_id": row.factura_cab_id if row.factura_cab_id else None,
+                "item_index": row.item_index if row.item_index else None
+            }
+
+        def map_moneda(cod):
+            if not cod: return "-"
+            c = str(cod).strip().upper()
+            if c in ("1", "1.0", "S/", "MN", "PEN"): return "Soles"
+            if c in ("2", "2.0", "US$", "USD", "ME", "US"): return "Dólares"
+            return cod
+
+        for it in oc_items:
+            key = f"{it['nrodoc']}_{it['codmat']}"
+            a_info = almacen_by_oc_mat.get(key, {})
+            cant_almacen = a_info.get("cant", 0) if isinstance(a_info, dict) else 0
+            
+            f_info = factura_by_oc_mat.get(key, {})
+            cant_facturada = f_info.get("cant", 0)
+
+            warnings = []
+            oc_m = it["oc_moneda"]
+            fac_m = map_moneda(f_info.get("cod_moneda")) if f_info.get("cod_moneda") else oc_m
+            alm_m = map_moneda(a_info.get("cod_moneda")) if isinstance(a_info, dict) and a_info.get("cod_moneda") else oc_m
+
+            # Strict validations
+            is_M = it["tipooc"] == "M"
+            
+            if is_M:
+                if alm_m != oc_m and alm_m != "-" and alm_m != "Desconocida":
+                    warnings.append(f"Moneda difiere: OC({oc_m}), Alm({alm_m})")
+                
+                alm_p = a_info.get("preuni", 0) if isinstance(a_info, dict) else 0
+                if alm_p > 0 and abs(alm_p - it["preuni"]) > 0.05:
+                    warnings.append(f"Precio difiere: OC({it['preuni']}), Alm({alm_p})")
+                    
+                if cant_almacen < it["candes"]:
+                    warnings.append(f"Cant Alm incompleta: {cant_almacen} / {it['candes']}")
+
+            # Always check facturas
+            if fac_m != oc_m and fac_m != "-" and fac_m != "Desconocida":
+                warnings.append(f"Moneda difiere: OC({oc_m}), Fac({fac_m})")
+                
+            fac_p = f_info.get("preuni", 0)
+            if fac_p > 0 and abs(fac_p - it["preuni"]) > 0.05:
+                warnings.append(f"Precio difiere: OC({it['preuni']}), Fac({fac_p})")
+                
+            if cant_facturada < it["candes"]:
+                warnings.append(f"Cant Fac incompleta: {cant_facturada} / {it['candes']}")
+
+            it["cant_almacen"] = cant_almacen
+            it["cant_facturada"] = cant_facturada
+            it["pct_almacen"] = round((cant_almacen / it["candes"] * 100), 1) if it["candes"] > 0 else 0
+            it["pct_facturado"] = round((cant_facturada / it["candes"] * 100), 1) if it["candes"] > 0 else 0
+            it["warnings"] = warnings
+            it["inci"] = f_info.get("inci", "") if isinstance(f_info, dict) else ""
+            it["fabricante"] = f_info.get("fabricante", "") if isinstance(f_info, dict) else ""
+            it["fecha_vencimiento"] = f_info.get("fecha_vencimiento_item", "") if isinstance(f_info, dict) else ""
+            it["obs1"] = f_info.get("obs1", "") if isinstance(f_info, dict) else ""
+            it["obs2"] = f_info.get("obs2", "") if isinstance(f_info, dict) else ""
+            it["obs3"] = f_info.get("obs3", "") if isinstance(f_info, dict) else ""
+            it["obs4"] = f_info.get("obs4", "") if isinstance(f_info, dict) else ""
+            it["factura_cab_id"] = f_info.get("factura_cab_id", None) if isinstance(f_info, dict) else None
+            it["item_index"] = f_info.get("item_index", None) if isinstance(f_info, dict) else None
+
+        return oc_items
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 
 @router.get("/trazabilidad/{nrodoc}")
 def get_trazabilidad(
@@ -1127,13 +1619,21 @@ def get_trazabilidad(
                 "imptot": float(row.imptot) if row.imptot else 0,
             })
 
+        def map_moneda(cod):
+            if not cod: return "-"
+            c = str(cod).strip().upper()
+            if c in ("1", "1.0", "S/", "MN", "PEN"): return "Soles"
+            if c in ("2", "2.0", "US$", "USD", "ME", "US"): return "Dólares"
+            return cod
+
         # 2. Detalles de ingresos a almacén (documentos específicos)
         movimientos_almacen = []
         cursor.execute("""
             SELECT 
                 RTRIM(almcen) as almcen, RTRIM(tipmov) as tipmov, 
                 RTRIM(codmov) as codmov, RTRIM(nrodoc) as nrodoc,
-                fchdoc, RTRIM(codmat) as codmat, candes
+                fchdoc, RTRIM(codmat) as codmat, candes,
+                preuni, RTRIM(codmon) as codmon
             FROM AlmRMovm
             WHERE RTRIM(CodCia) = ? AND LTRIM(RTRIM(ordcmp)) = ?
             ORDER BY fchdoc, nrodoc
@@ -1145,11 +1645,19 @@ def get_trazabilidad(
             d = dict(zip(movs_cols, r))
             if d.get('fchdoc'): d['fchdoc'] = d['fchdoc'].strftime("%Y-%m-%d")
             d['candes'] = float(d['candes']) if d.get('candes') else 0
+            d['preuni'] = float(d['preuni']) if d.get('preuni') else 0
+            d['codmon_desc'] = map_moneda(d.get('codmon'))
             movimientos_almacen.append(d)
             
             # Map for item aggregation
             m = d['codmat'].strip()
-            almacen_by_mat[m] = almacen_by_mat.get(m, 0) + d['candes']
+            if m not in almacen_by_mat:
+                almacen_by_mat[m] = {"cant": 0, "preuni": 0, "cod_moneda": d.get('codmon', '')}
+            almacen_by_mat[m]["cant"] += d['candes']
+            if float(d['preuni']) > 0:
+                almacen_by_mat[m]["preuni"] = float(d['preuni'])
+            if d.get('codmon') and d.get('codmon').strip() != '':
+                almacen_by_mat[m]["cod_moneda"] = d.get('codmon', '')
 
         # 3. Facturas vinculadas a esta OC
         facturas = []
@@ -1169,28 +1677,71 @@ def get_trazabilidad(
                 d['Total'] = float(d['Total'])
             facturas.append(d)
 
-        # 4. Detalle facturado por material
+        # 4. Detalle facturado por material con validaciones
+        # Obtenemos moneda y fecha de la orden
+        cursor.execute("SELECT CodMon, FchDoc FROM CmpVOcom WHERE RTRIM(CodCia)=? AND RTRIM(NroDoc)=?", (codcia.strip(), nrodoc.strip()))
+        row_oc = cursor.fetchone()
+        oc_moneda = "1" if row_oc and str(row_oc[0]).strip() in ("1", "1.0", "S/") else "2"
+        fch_oc = row_oc[1].strftime("%Y-%m-%d") if row_oc and row_oc[1] else None
+
         facturado_by_mat = {}
         factura_ids = [f['Id'] for f in facturas]
         if factura_ids:
             placeholders = ",".join(["?" for _ in factura_ids])
             cursor.execute(f"""
-                SELECT CodMaterial, SUM(Cantidad) as total_facturado
-                FROM CntFacturaDet
-                WHERE FacturaCabId IN ({placeholders})
-                GROUP BY CodMaterial
+                SELECT fd.CodMaterial, SUM(fd.Cantidad) as total_facturado, MAX(fd.PrecioUnitario) as p_unitario, MAX(fc.CodMoneda) as cod_moneda
+                FROM CntFacturaDet fd
+                INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
+                WHERE fd.FacturaCabId IN ({placeholders})
+                GROUP BY fd.CodMaterial
             """, tuple(factura_ids))
             for row in cursor.fetchall():
                 if row.CodMaterial:
-                    facturado_by_mat[row.CodMaterial.strip()] = float(row.total_facturado) if row.total_facturado else 0
+                    facturado_by_mat[row.CodMaterial.strip()] = {
+                        "cant": float(row.total_facturado) if row.total_facturado else 0,
+                        "preuni": float(row.p_unitario) if row.p_unitario else 0,
+                        "cod_moneda": str(row.cod_moneda).strip() if row.cod_moneda else ""
+                    }
 
         # 5. Build response
         trazabilidad_items = []
+        global_warnings = set()
+
         for it in oc_items:
             cod = it["codmat"]
             cant_oc = it["candes"]
-            cant_almacen = almacen_by_mat.get(cod, 0)
-            cant_facturada = facturado_by_mat.get(cod, 0)
+            oc_preuni = it["preuni"]
+            
+            a_info = almacen_by_mat.get(cod, {})
+            cant_almacen = a_info.get("cant", 0) if isinstance(a_info, dict) else a_info
+            
+            f_info = facturado_by_mat.get(cod, {})
+            cant_facturada = f_info.get("cant", 0)
+            
+            # Validations
+            warnings = []
+            oc_m = map_moneda(oc_moneda)
+            fac_m = map_moneda(f_info.get("cod_moneda")) if f_info.get("cod_moneda") else oc_m
+            alm_m = map_moneda(a_info.get("cod_moneda")) if isinstance(a_info, dict) and a_info.get("cod_moneda") else oc_m
+
+            # Crosscheck MONDEDA
+            if (fac_m != oc_m) or (alm_m != oc_m and alm_m != "Desconocida"):
+                w = f"Moneda difiere en {cod}: OC({oc_m})"
+                if fac_m != oc_m: w += f", Fac({fac_m})"
+                if alm_m != oc_m and alm_m != "Desconocida": w += f", Almacén({alm_m})"
+                warnings.append(w)
+                global_warnings.add(w)
+
+            # Crosscheck PRICE
+            fac_p = f_info.get("preuni", 0)
+            alm_p = a_info.get("preuni", 0) if isinstance(a_info, dict) else 0
+
+            if (fac_p > 0 and abs(fac_p - oc_preuni) > 0.05) or (alm_p > 0 and abs(alm_p - oc_preuni) > 0.05):
+                w = f"Precio unitario difiere en {cod}: OC({oc_preuni})"
+                if fac_p > 0 and abs(fac_p - oc_preuni) > 0.05: w += f", Fac({fac_p})"
+                if alm_p > 0 and abs(alm_p - oc_preuni) > 0.05: w += f", Almacén({alm_p})"
+                warnings.append(w)
+                global_warnings.add(w)
 
             pct_almacen = (cant_almacen / cant_oc * 100) if cant_oc > 0 else 0
             pct_facturado = (cant_facturada / cant_oc * 100) if cant_oc > 0 else 0
@@ -1204,14 +1755,39 @@ def get_trazabilidad(
                 "pct_facturado": round(pct_facturado, 1),
                 "estado_almacen": "Completo" if pct_almacen >= 100 else ("Parcial" if pct_almacen > 0 else "Pendiente"),
                 "estado_factura": "Completo" if pct_facturado >= 100 else ("Parcial" if pct_facturado > 0 else "Pendiente"),
+                "warnings": warnings,
             })
+
+        # Fetch extra details for each invoice to display in the UI
+        if factura_ids:
+            placeholders = ",".join(["?" for _ in factura_ids])
+            cursor.execute(f"""
+                SELECT FacturaCabId, RTRIM(CodMaterial) as codmat, RTRIM(Descripcion) as desmat, Cantidad, PrecioUnitario 
+                FROM CntFacturaDet 
+                WHERE FacturaCabId IN ({placeholders})
+            """, tuple(factura_ids))
+            fac_dets = {}
+            for row in cursor.fetchall():
+                fid = row.FacturaCabId
+                if fid not in fac_dets: fac_dets[fid] = []
+                fac_dets[fid].append({
+                    "codmat": row.codmat or "",
+                    "desmat": row.desmat or "",
+                    "cant": float(row.Cantidad) if row.Cantidad else 0,
+                    "preuni": float(row.PrecioUnitario) if row.PrecioUnitario else 0
+                })
+            for f in facturas:
+                f["codmon_desc"] = map_moneda(f.get('CodMoneda'))
+                f["detalles"] = fac_dets.get(f['Id'], [])
 
         return {
             "nrodoc": nrodoc,
             "codcia": codcia,
+            "fch_oc": fch_oc,
             "items": trazabilidad_items,
             "facturas": facturas,
             "movimientos_almacen": movimientos_almacen,
+            "validaciones": list(global_warnings),
             "resumen": {
                 "total_items_oc": len(trazabilidad_items),
                 "total_facturas": len(facturas),
@@ -1229,16 +1805,86 @@ def get_trazabilidad(
         conn.close()
 
 
+
 # ════════════════════════════════════════════════════════════
 #  ARCHIVOS ADJUNTOS
 # ════════════════════════════════════════════════════════════
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads", "facturas")
+from dotenv import load_dotenv
+load_dotenv()
+
+FILE_SERVER = os.getenv("FILE_SERVER", "")
+FILE_USER = os.getenv("FILE_USER", "")
+FILE_PASSWORD = os.getenv("FILE_PASSWORD", "")
+
+# Si hay servidor de archivos configurado, usarlo; si no, usar ATTACHMENTS_ROOT local
+if FILE_SERVER:
+    # Convertir ruta Windows SMB a formato Linux: \\server\share -> //server/share
+    SMB_PATH = FILE_SERVER.replace("\\", "//")
+    UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", f"/mnt/smb{SMB_PATH}")
+else:
+    UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+def mount_file_server():
+    """Montar servidor de archivos SMB si está configurado"""
+    if not FILE_SERVER:
+        return False
+    
+    try:
+        import subprocess
+        import tempfile
+        
+        # Convertir ruta Windows SMB a formato Linux
+        smb_path = FILE_SERVER.replace("\\", "//")
+        
+        # Crear archivo de credenciales temporal
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.credentials') as cred_file:
+            cred_file.write(f"username={FILE_USER}\n")
+            cred_file.write(f"password={FILE_PASSWORD}\n")
+            cred_file.write(f"domain=WORKGROUP\n")
+            cred_path = cred_file.name
+        
+        try:
+            # Crear punto de montaje
+            mount_point = UPLOAD_DIR
+            os.makedirs(mount_point, exist_ok=True)
+            
+            # Intentar montar
+            mount_cmd = [
+                'mount',
+                '-t', 'cifs',
+                smb_path,
+                mount_point,
+                '-o', f'credentials={cred_path},uid=1000,gid=1000,iocharset=utf8,vers=3.0'
+            ]
+            
+            result = subprocess.run(mount_cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                print(f"Servidor de archivos montado exitosamente en {mount_point}")
+                return True
+            else:
+                print(f"Error al montar servidor de archivos: {result.stderr}")
+                return False
+        finally:
+            # Limpiar archivo de credenciales temporal
+            try:
+                os.unlink(cred_path)
+            except:
+                pass
+    except Exception as e:
+        print(f"Error al montar servidor de archivos: {e}")
+        return False
+
+# Intentar montar servidor de archivos al iniciar
+mount_file_server()
 
 @router.post("/facturas/{factura_id}/archivos")
 async def upload_archivo(factura_id: int, archivo: UploadFile = File(...), tipo_doc: str = Form("PDF"), created_by: str = Form("")):
     """Subir archivo adjunto a una factura"""
+    print(f"DEBUG: upload_archivo - factura_id: {factura_id}, archivo: {archivo.filename}, tipo_doc: {tipo_doc}, UPLOAD_DIR: {UPLOAD_DIR}")
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Error de base de datos")
@@ -1251,13 +1897,16 @@ async def upload_archivo(factura_id: int, archivo: UploadFile = File(...), tipo_
 
         # Save file to disk
         factura_dir = os.path.join(UPLOAD_DIR, str(factura_id))
+        print(f"DEBUG: factura_dir: {factura_dir}")
         os.makedirs(factura_dir, exist_ok=True)
         safe_name = archivo.filename.replace(" ", "_")
         file_path = os.path.join(factura_dir, safe_name)
+        print(f"DEBUG: file_path: {file_path}")
 
         with open(file_path, "wb") as f:
             content = await archivo.read()
             f.write(content)
+        print(f"DEBUG: archivo guardado exitosamente, tamaño: {len(content)} bytes")
 
         # Save DB record
         cursor.execute("""
@@ -1325,6 +1974,176 @@ def descargar_archivo(archivo_id: int):
     finally:
         conn.close()
 
+@router.post("/facturas/{factura_id}/items/archivos/upload")
+async def upload_item_archivo(
+    factura_id: int,
+    item_index: int = Form(...),
+    obs_field: str = Form(...),
+    archivo: UploadFile = File(...),
+    created_by: str = Form("")
+):
+    """Subir archivo adjunto a un item de factura"""
+    print(f"DEBUG: upload_item_archivo - factura_id: {factura_id}, item_index: {item_index}, obs_field: {obs_field}, archivo: {archivo.filename}")
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        
+        # Verify factura exists
+        cursor.execute("SELECT Id FROM CntFacturaCab WHERE Id=?", (int(factura_id),))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Factura no encontrada")
+        
+        # Save file to disk in ATTACHMENTS_ROOT
+        item_dir = os.path.join(UPLOAD_DIR, "facturas", str(factura_id), "items", f"item_{item_index}", obs_field)
+        print(f"DEBUG: item_dir: {item_dir}")
+        os.makedirs(item_dir, exist_ok=True)
+        safe_name = archivo.filename.replace(" ", "_")
+        file_path = os.path.join(item_dir, safe_name)
+        print(f"DEBUG: file_path: {file_path}")
+
+        with open(file_path, "wb") as f:
+            content = await archivo.read()
+            f.write(content)
+        print(f"DEBUG: archivo de item guardado, tamaño: {len(content)} bytes")
+        
+        # Save DB record - Convertir item_index (0-based) a NroItem (1-based)
+        nro_item = item_index + 1
+        cursor.execute("""
+            INSERT INTO CntFacturaDetArchivos (FacturaCabId, ItemIndex, ObsField, NombreArchivo, RutaArchivo, TamanioBytes, CreatedBy)
+            VALUES (?,?,?,?,?,?,?)
+        """, (int(factura_id), nro_item, obs_field, safe_name, file_path, len(content), created_by))
+        conn.commit()
+        print(f"DEBUG: registro de archivo de item guardado en base de datos")
+
+        return {"message": "Archivo de item subido exitosamente", "filename": safe_name, "path": file_path, "size": len(content)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"DEBUG: Error en upload_item_archivo: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al subir archivo de item: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.get("/facturas/{factura_id}/items/archivos")
+def list_item_archivos(factura_id: int):
+    """Listar archivos adjuntos de items de una factura"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT Id, ItemIndex, ObsField, NombreArchivo, RutaArchivo, TamanioBytes, CreatedAt
+            FROM CntFacturaDetArchivos WHERE FacturaCabId=? ORDER BY ItemIndex, ObsField, CreatedAt DESC
+        """, (factura_id,))
+        cols = [c[0] for c in cursor.description]
+        rows = []
+        for r in cursor.fetchall():
+            d = dict(zip(cols, r))
+            if d.get('CreatedAt'):
+                d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+            rows.append(d)
+        return rows
+    except Exception as e:
+        print(f"DEBUG: Error en list_item_archivos: {e}")
+        # Si la tabla no existe aún, retornar array vacío
+        return []
+    finally:
+        conn.close()
+
+@router.delete("/facturas/items/archivos/{archivo_id}")
+def delete_item_archivo(archivo_id: int):
+    """Eliminar archivo adjunto de item"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        
+        # Obtener información del archivo
+        cursor.execute("SELECT RutaArchivo FROM CntFacturaDetArchivos WHERE Id=?", (archivo_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+        
+        ruta_archivo = row[0]
+        
+        # Eliminar archivo del disco
+        if ruta_archivo and os.path.exists(ruta_archivo):
+            try:
+                os.remove(ruta_archivo)
+            except Exception as e:
+                print(f"DEBUG: Error al eliminar archivo del disco: {e}")
+        
+        # Eliminar registro de la base de datos
+        cursor.execute("DELETE FROM CntFacturaDetArchivos WHERE Id=?", (archivo_id,))
+        conn.commit()
+        
+        return {"message": "Archivo eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"DEBUG: Error en delete_item_archivo: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al eliminar archivo: {str(e)}")
+    finally:
+        conn.close()
+
+@router.get("/facturas/items/archivos/{archivo_id}/descargar")
+def descargar_item_archivo(archivo_id: int):
+    """Descargar archivo adjunto de item"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT NombreArchivo, RutaArchivo FROM CntFacturaDetArchivos WHERE Id=?", (archivo_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+        
+        nombre, ruta = row
+        if not os.path.exists(ruta):
+            raise HTTPException(status_code=404, detail="El archivo no existe en el servidor")
+            
+        return FileResponse(path=ruta, filename=nombre, content_disposition_type="inline")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/facturas/{factura_id}/items/{item_index}/archivos")
+def list_item_archivos_by_index(factura_id: int, item_index: int):
+    """Listar archivos adjuntos de un item específico de una factura"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT Id, ItemIndex, ObsField, NombreArchivo, RutaArchivo, TamanioBytes, CreatedAt
+            FROM CntFacturaDetArchivos WHERE FacturaCabId=? AND ItemIndex=? ORDER BY ObsField, CreatedAt DESC
+        """, (factura_id, item_index))
+        cols = [c[0] for c in cursor.description]
+        rows = []
+        for r in cursor.fetchall():
+            d = dict(zip(cols, r))
+            if d.get('CreatedAt'):
+                d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+            rows.append(d)
+        return rows
+    except Exception as e:
+        print(f"DEBUG: Error en list_item_archivos_by_index: {e}")
+        # Si la tabla no existe aún, retornar array vacío
+        return []
+    finally:
+        conn.close()
+
 
 # ════════════════════════════════════════════════════════════
 #  ACTUALIZAR OBSERVACIONES
@@ -1376,26 +2195,46 @@ def get_factura_publica(factura_uuid: str):
                 cab[k] = cab[k].strftime("%Y-%m-%d")
         if cab.get('CreatedAt'):
             cab['CreatedAt'] = cab['CreatedAt'].strftime("%Y-%m-%d %H:%M")
-        for k in ['SubTotal','IGV','OtrosTributos','Total','TipoCambio']:
+        for k in ['Total', 'SubTotal', 'IGV', 'ICBPER', 'DescuentoGlobal']:
             if cab.get(k) is not None:
                 cab[k] = float(cab[k])
+        if cab.get('CreditoNumCuotas') is not None:
+            cab['CreditoNumCuotas'] = int(cab['CreditoNumCuotas'])
 
         factura_id = cab['Id']
 
-        # Detalle
-        cursor.execute("""
-            SELECT NroItem, CodMaterial, Descripcion, UnidadMedida,
-                   Cantidad, PrecioUnitario, Descuento, SubTotal, IGV, ICBPER, Total,
-                   CantidadOC, CantidadAlmacen
-            FROM CntFacturaDet WHERE FacturaCabId=? ORDER BY NroItem
-        """, (factura_id,))
+        # Detalle - consulta dinámica para evitar error por columnas faltantes
+        cursor.execute("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CntFacturaDet'")
+        actual_det_cols = [row[0] for row in cursor.fetchall()]
+        
+        needed_det = [
+            'NroItem', 'CodMaterial', 'Descripcion', 'UnidadMedida',
+            'Cantidad', 'PrecioUnitario', 'Descuento', 'SubTotal', 'IGV', 'ICBPER', 'Total',
+            'CantidadOC', 'CantidadAlmacen',
+            'Inci', 'Fabricante', 'Obs1', 'Obs2', 'Obs3', 'Obs4', 'FechaVencimientoItem', 'ExtraDataJson'
+        ]
+        select_det = [c for c in needed_det if c in actual_det_cols]
+        missing_det = [c for c in needed_det if c not in actual_det_cols]
+
+        cursor.execute(f"SELECT {', '.join(select_det)} FROM CntFacturaDet WHERE FacturaCabId=? ORDER BY NroItem", (factura_id,))
         det_cols = [c[0] for c in cursor.description]
         items = []
         for r in cursor.fetchall():
             d = dict(zip(det_cols, r))
+            for col in missing_det:
+                d[col] = None
             for k in ['Cantidad','PrecioUnitario','Descuento','SubTotal','IGV','ICBPER','Total','CantidadOC','CantidadAlmacen']:
                 if d.get(k) is not None:
                     d[k] = float(d[k])
+            if d.get('FechaVencimientoItem'):
+                d['FechaVencimientoItem'] = d['FechaVencimientoItem'].strftime("%Y-%m-%d")
+            if d.get('ExtraDataJson'):
+                try:
+                    d['extraData'] = json.loads(d['ExtraDataJson'])
+                except:
+                    d['extraData'] = None
+            else:
+                d['extraData'] = None
             items.append(d)
 
         # Archivos
@@ -1407,6 +2246,43 @@ def get_factura_publica(factura_uuid: str):
         except Exception:
             pass
 
+        # Get archivos de items
+        item_archivos = []
+        try:
+            cursor.execute("""
+                SELECT Id, ItemIndex, ObsField, NombreArchivo, RutaArchivo, TamanioBytes, CreatedAt
+                FROM CntFacturaDetArchivos WHERE FacturaCabId=? ORDER BY ItemIndex, ObsField, CreatedAt DESC
+            """, (factura_id,))
+            ia_cols = [c[0] for c in cursor.description]
+            for r in cursor.fetchall():
+                d = dict(zip(ia_cols, r))
+                if d.get('CreatedAt'):
+                    d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+                item_archivos.append(d)
+        except Exception as e:
+            print(f"DEBUG: Error al obtener archivos de items: {e}")
+            pass
+
+        # Agrupar archivos de items por item_index (convertir de 1-based a 0-based)
+        item_archivos_dict = {}
+        for ia in item_archivos:
+            # ItemIndex en DB es 1-based, convertir a 0-based para consistencia con frontend
+            idx = ia['ItemIndex'] - 1 if ia['ItemIndex'] is not None else None
+            if idx is not None and idx not in item_archivos_dict:
+                item_archivos_dict[idx] = []
+            if idx is not None:
+                item_archivos_dict[idx].append(ia)
+
+        # Agregar archivos a cada item usando item_index (0-based)
+        for item in items:
+            nro_item = item.get('NroItem')
+            # Convertir NroItem (1-based) a item_index (0-based)
+            item_index = nro_item - 1 if nro_item is not None else None
+            if item_index is not None and item_index in item_archivos_dict:
+                item['archivos'] = item_archivos_dict[item_index]
+            else:
+                item['archivos'] = []
+
         cab['items'] = items
         cab['archivos'] = archivos
         return cab
@@ -1414,6 +2290,94 @@ def get_factura_publica(factura_uuid: str):
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/facturas-sin-oc")
+def get_facturas_sin_oc(
+    codcia: str = Query(...),
+    login: Optional[str] = Query(None),
+    draw: int = Query(1),
+    start: int = Query(0),
+    length: int = Query(10),
+    search_value: Optional[str] = Query(None, alias="search[value]")
+):
+    """Listar facturas sin orden de compra vinculada para enviar a Tesorería - EXCLUYE facturas ya en cargos"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+
+        # Consulta base para facturas sin OC con ROW_NUMBER para paginación compatible
+        # EXCLUYE facturas que ya están en CntCargosDetalle (NroFactura = Serie-Numero)
+        base_query = """
+            SELECT f.Id, RTRIM(f.CodCia) as CodCia,
+                   RTRIM(f.CodTipoDoc) as CodTipoDoc, RTRIM(f.Serie) as Serie, RTRIM(f.Numero) as Numero,
+                   f.FecEmision, f.FecVencimiento,
+                   RTRIM(f.NomProveedor) as NomProveedor, RTRIM(f.NumRucProveedor) as NumRucProveedor,
+                   RTRIM(f.CodMoneda) as CodMoneda, f.Total,
+                   f.Estado, f.Uuid, f.CreatedAt
+            FROM CntFacturaCab f
+            WHERE RTRIM(f.CodCia) = ?
+              AND (f.NroOrdenCompra IS NULL OR RTRIM(f.NroOrdenCompra) = '')
+              AND f.Estado != 'Anulada'
+              AND NOT EXISTS (
+                  SELECT 1 FROM CntCargosDetalle d
+                  WHERE RTRIM(d.NroFactura) = RTRIM(f.Serie) + '-' + RTRIM(f.Numero)
+                    AND RTRIM(d.CodCiaOc) = RTRIM(f.CodCia)
+              )
+        """
+        params = [codcia.strip()]
+
+        # Filtro por búsqueda
+        if search_value:
+            base_query += " AND (f.Serie LIKE ? OR f.Numero LIKE ? OR f.NomProveedor LIKE ?)"
+            search_pattern = f"%{search_value}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+
+        # Total records
+        cursor.execute(f"SELECT COUNT(*) FROM ({base_query}) as subq", tuple(params))
+        total_records = cursor.fetchone()[0]
+
+        # Paginación con ROW_NUMBER (compatible con SQL Server 2008+)
+        paginated_query = f"""
+            SELECT * FROM (
+                SELECT *, ROW_NUMBER() OVER (ORDER BY FecEmision DESC) as rn
+                FROM ({base_query}) as filtered
+            ) as numbered
+            WHERE rn > ? AND rn <= ?
+        """
+        params.extend([start, start + length])
+
+        cursor.execute(paginated_query, tuple(params))
+        cols = [c[0] for c in cursor.description]
+        data = []
+        for r in cursor.fetchall():
+            d = dict(zip(cols, r))
+            if d.get('FecEmision'):
+                d['FecEmision'] = d['FecEmision'].strftime("%Y-%m-%d")
+            if d.get('FecVencimiento'):
+                d['FecVencimiento'] = d['FecVencimiento'].strftime("%Y-%m-%d")
+            if d.get('CreatedAt'):
+                d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+            if d.get('Total') is not None:
+                d['Total'] = float(d['Total'])
+            # Eliminar la columna rn del resultado
+            if 'rn' in d:
+                del d['rn']
+            data.append(d)
+
+        return {
+            "draw": draw,
+            "recordsTotal": total_records,
+            "recordsFiltered": total_records,
+            "data": data
+        }
+    except Exception as e:
+        print(f"Error en facturas-sin-oc: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()

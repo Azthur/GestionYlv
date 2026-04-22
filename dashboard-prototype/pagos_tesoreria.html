@@ -134,7 +134,7 @@
                 <!-- Panel Pendientes -->
                 <div id="panelPendientes" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 0 8px 8px 8px; padding: 1.5rem;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                        <h3 style="margin:0; font-size:1rem; font-weight:700; color:var(--text-primary);">📋 Órdenes de Compra Pendientes de Pago</h3>
+                        <h3 style="margin:0; font-size:1rem; font-weight:700; color:var(--text-primary);">📋 Documentos Pendientes de Pago</h3>
                         <button class="btn-action outline" onclick="loadPendientes()" style="font-size:0.8rem;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                             Actualizar
@@ -144,7 +144,22 @@
                         <table id="pendientesTable" class="display nowrap" style="width:100%;">
                             <thead>
                                 <tr>
-                                    <th>N° OC</th><th>Tipo</th><th>Proveedor</th><th>N° Factura</th><th>Fecha OC</th><th>N° Cargo</th><th style="text-align:right;">Monto Factura</th><th style="width:140px;">Acciones</th>
+                                    <th>Tipo</th>
+                                    <th>N° OC</th>
+                                    <th>Tipo OC</th>
+                                    <th>N° Comprobante</th>
+                                    <th>Tipo Comp</th>
+                                    <th>Fecha OC</th>
+                                    <th>Fecha Emisión</th>
+                                    <th>Fecha Venc.</th>
+                                    <th>Proveedor</th>
+                                    <th>Mon</th>
+                                    <th style="text-align:right;">Importe OC</th>
+                                    <th style="text-align:right;">Importe Factura</th>
+                                    <th>N° Rendición</th>
+                                    <th style="text-align:right;">Importe Rendición</th>
+                                    <th>N° Cargo</th>
+                                    <th style="width:100px;">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="pendientesTbody"></tbody>
@@ -197,8 +212,7 @@
                         <div>
                             <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Moneda</label>
                             <select id="pago_moneda" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                                <option value="PEN">Soles (PEN)</option>
-                                <option value="USD">Dólares (USD)</option>
+                                <option value="">Cargando...</option>
                             </select>
                         </div>
                         <div>
@@ -211,22 +225,13 @@
                         <div>
                             <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Banco Emisor</label>
                             <select id="pago_banco" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                                <option value="BCP">BCP</option>
-                                <option value="BBVA">BBVA</option>
-                                <option value="SCOTIABANK">Scotiabank</option>
-                                <option value="INTERBANK">Interbank</option>
-                                <option value="BANBIF">BanBif</option>
-                                <option value="EFECTIVO">Caja / Efectivo</option>
-                                <option value="OTRO">Otro</option>
+                                <option value="">Cargando...</option>
                             </select>
                         </div>
                         <div>
                             <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Tipo de Pago</label>
                             <select id="pago_tipo" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                                <option value="TRANSFERENCIA">Transferencia</option>
-                                <option value="CHEQUE">Cheque</option>
-                                <option value="EFECTIVO">Efectivo</option>
-                                <option value="TARJETA">Tarjeta</option>
+                                <option value="">Cargando...</option>
                             </select>
                         </div>
                     </div>

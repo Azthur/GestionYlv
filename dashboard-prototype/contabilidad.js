@@ -36,6 +36,16 @@ function toggleSidebar() {
 }
 
 // ─── Format Utils ────────────
+const escapeHtml = (unsafe) => {
+    if (!unsafe) return '';
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+};
+
 const fmtNum = (val, dec = 2) => {
     if (val === null || val === undefined || isNaN(val)) return '0.00';
     return parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -201,11 +211,25 @@ async function loadCompras() {
             fmtNum(c.MtoBIGravadaDG),
             fmtNum(c.MtoIgvIpmDG),
             `<strong>${fmtNum(c.MtoTotalCp)}</strong>`,
+            c.NroOrdenCompra ? `<span style="font-weight:600; color:#f59e0b;">${c.TipoOc||''}${c.NroOrdenCompra}</span>` : '<span style="color:#94a3b8;">-</span>',
+            c.FacturaUuid ? `<a href="factura_visor.html?uid=${c.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:none; font-size:0.75rem;">Ver Factura</a>` : '<span style="color:#94a3b8;">-</span>',
+            c.TieneXml ? `<div class="split-btn-group" style="display:inline-flex; border:1px solid #10b981; border-radius:4px; overflow:hidden;">
+                            <button onclick="viewXmlDetails('${c.NumDocIdProveedor}', '${c.CodTipoCDP}', '${c.NumSerieCDP}', '${c.NumCDP}')" style="background:transparent; border:none; padding:0.25rem 0.6rem; font-size:0.75rem; color:#10b981; cursor:pointer; font-weight:500;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-right:0.2rem"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Ítems XML
+                            </button>
+                            <button style="background:#10b981; border:none; padding:0.25rem 0.4rem; color:white; cursor:pointer; border-left:1px solid #047857;" title="Más opciones...">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                        </div>`
+                       : `<span style="font-size:0.75rem; color:#94a3b8; padding:0.3rem 0; display:inline-block;">Pendiente</span>`,
+            c.FacturaId ? `<span class="cnt-badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;">${c.FacturaEstado||'Registrada'}</span>` : `<span class="cnt-badge inactive">No Regist.</span>`,
             c.DesEstadoComprobante ? `<span class="cnt-badge ${c.DesEstadoComprobante === 'Activo' ? 'active' : 'inactive'}">${c.DesEstadoComprobante}</span>` : '-'
         ]);
 
         dtCompras = $('#comprasTable').DataTable({
-            data: dtData, destroy: true, order: [[2, 'desc']], pageLength: 25, scrollX: true,
+            data: dtData, destroy: true,
+            deferRender: true, order: [[2, 'desc']], pageLength: 25, scrollX: true,
             language: {
                 search: 'Buscar:', lengthMenu: 'Mostrar _MENU_', info: '_START_ a _END_ de _TOTAL_',
                 infoEmpty: 'Sin registros', zeroRecords: 'Sin resultados',
@@ -216,14 +240,95 @@ async function loadCompras() {
                 { extend: 'excel', text: '📊 Excel', title: 'Compras_SUNAT' },
             ],
             columnDefs: [
-                { targets: [6,7,8], className: 'dt-body-right' },
-                { targets: [5,9], className: 'dt-body-center' }
+                { targets: [6,7,8,9], className: 'dt-body-right' },
+                { targets: [5,10,11], className: 'dt-body-center' }
             ]
         });
     } catch(err) {
-        document.getElementById('comprasTbody').innerHTML = `<tr><td colspan="10" style="text-align:center;color:#ef4444;padding:2rem;">${err.message}</td></tr>`;
+        document.getElementById('comprasTbody').innerHTML = `<tr><td colspan="12" style="text-align:center;color:#ef4444;padding:2rem;">${err.message}</td></tr>`;
     }
 }
+
+// ─── Visualizar XML ────────────
+async function viewXmlDetails(proveedor, cod_comp, serie, numero) {
+    const codcia = getSelectedCia();
+    if (!codcia) return;
+
+    Swal.fire({ title: 'Cargando XML...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/contabilidad/facturas/buscar-cpe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ codcia, proveedor, cod_comp, serie, numero })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error al buscar CPE');
+
+        Swal.close();
+        let itemsHtml = '';
+        const items = data.informacionItems || [];
+        
+        let mtoTotalCalculado = 0;
+
+        if (items && items.length > 0) {
+            itemsHtml = `
+            <div style="max-height: 300px; overflow-y: auto; text-align: left; margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #cbd5e1;">
+                            <th style="padding: 4px; width:40px;">#</th>
+                            <th style="padding: 4px; width:50px;">Cant</th>
+                            <th style="padding: 4px; width:50px;">U.M.</th>
+                            <th style="padding: 4px;">Descripción</th>
+                            <th style="padding: 4px; text-align:right;">P.Unit</th>
+                            <th style="padding: 4px; text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map((it, i) => {
+                            mtoTotalCalculado += parseFloat(it.mtoImpTotal || 0);
+                            return `
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 4px;">${i + 1}</td>
+                                <td style="padding: 4px;">${it.cntItems || '-'}</td>
+                                <td style="padding: 4px;">${it.codUnidadMedida || '-'}</td>
+                                <td style="padding: 4px;">${escapeHtml(it.desItem || '')}</td>
+                                <td style="padding: 4px; text-align:right;">${fmtNum(it.mtoValUnitario)}</td>
+                                <td style="padding: 4px; text-align:right;">${fmtNum(it.mtoImpTotal)}</td>
+                            </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        } else {
+            itemsHtml = '<p style="margin-top:10px; color:#64748b; font-size:0.9rem;">No se encontraron ítems en este XML.</p>';
+        }
+
+        const emisor = data.datosEmisor || {};
+        const fec = data.fecEmision || '';
+        const mon = data.codMoneda || '';
+
+        Swal.fire({
+            title: `XML: ${serie}-${numero}`,
+            html: `
+                <div style="text-align:left; font-size: 0.9rem;">
+                    <p><strong>RUC:</strong> ${escapeHtml(emisor.numRuc)} | <strong>Razón Soc:</strong> ${escapeHtml(emisor.desRazonSocialEmis)}</p>
+                    <p><strong>Fecha Emisión:</strong> ${escapeHtml(fec)} | <strong>Moneda:</strong> ${escapeHtml(mon)}</p>
+                    <p><strong>Total (según ítems):</strong> <span style="font-weight:bold; color:#16a34a;">${fmtNum(mtoTotalCalculado)}</span></p>
+                    ${itemsHtml}
+                </div>
+            `,
+            width: '750px',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#8b5cf6'
+        });
+    } catch(err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    }
+}
+
 
 // ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════

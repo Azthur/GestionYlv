@@ -300,6 +300,70 @@ def buscar_factura(codcia: str = Query(...), q: str = Query(...)):
     finally:
         conn.close()
 
+@router.get("/rendiciones/aprobadas")
+def get_rendiciones_aprobadas(codcia: str = Query(...)):
+    """Listar rendiciones aprobadas para enviar a Tesorería - EXCLUYE rendiciones ya en cargos"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        # Primero verificar qué estados existen
+        cursor.execute("SELECT DISTINCT Estado FROM FinRendicionGastosCab WHERE RTRIM(CodCia) = ?", (codcia.strip(),))
+        estados = cursor.fetchall()
+        print(f"Estados encontrados en FinRendicionGastosCab: {estados}")
+
+        # Filtrar por rendiciones que tienen FechaAprobacion (indica que están aprobadas)
+        # EXCLUYE rendiciones que ya están en CntCargosDetalle (NroOrdenCompra = NroRendicion)
+        cursor.execute("""
+            SELECT Id, RTRIM(CodCia) as CodCia, NroRendicion, RTRIM(CodAux) as CodAux, RTRIM(NomAux) as NomAux,
+                   Fecha, RTRIM(Moneda) as Moneda, TotalGastado, Estado, UuidLink
+            FROM FinRendicionGastosCab r
+            WHERE RTRIM(r.CodCia) = ?
+              AND r.FechaAprobacion IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM CntCargosDetalle d
+                  WHERE RTRIM(d.NroOrdenCompra) = RTRIM(r.NroRendicion)
+                    AND RTRIM(d.CodCiaOc) = RTRIM(r.CodCia)
+              )
+            ORDER BY r.Fecha DESC
+        """, (codcia.strip(),))
+        cols = [c[0] for c in cursor.description]
+        data = []
+        for r in cursor.fetchall():
+            d = dict(zip(cols, r))
+            if d.get('Fecha'):
+                d['Fecha'] = d['Fecha'].strftime("%Y-%m-%d")
+            if d.get('TotalGastado') is not None:
+                d['TotalGastado'] = float(d['TotalGastado'])
+            data.append(d)
+        return data
+    except Exception as e:
+        print(f"Error en rendiciones-aprobadas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/rendiciones/revision")
+def get_rendiciones_para_revision(codcia: Optional[str] = Query(None)):
+    """Si codcia no se envia trae todas, si se envia trae solo esa CIA"""
+    conn = get_db_connection()
+    if not conn: raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        query = "SELECT r.*, e.nomcia FROM FinRendicionGastosCab r LEFT JOIN AdmMcias e ON r.CodCia = e.codcia"
+        params = []
+        if codcia:
+            query += " WHERE r.CodCia = ?"
+            params.append(codcia)
+        query += " ORDER BY r.FechaRegistro DESC"
+        
+        cursor.execute(query, tuple(params))
+        cols = [col[0] for col in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
 @router.get("/rendiciones/{id}")
 def get_rendicion_por_id(id: int):
     conn = get_db_connection()
@@ -542,26 +606,6 @@ def get_rendicion_publica(uuid_link: str):
     finally:
         conn.close()
 
-@router.get("/rendiciones/revision")
-def get_rendiciones_para_revision(codcia: Optional[str] = Query(None)):
-    """Si codcia no se envia trae todas, si se envia trae solo esa CIA"""
-    conn = get_db_connection()
-    if not conn: raise HTTPException(status_code=500, detail="Error DB")
-    try:
-        cursor = conn.cursor()
-        query = "SELECT r.*, e.nomcia FROM FinRendicionGastosCab r LEFT JOIN AdmMcias e ON r.CodCia = e.codcia"
-        params = []
-        if codcia:
-            query += " WHERE r.CodCia = ?"
-            params.append(codcia)
-        query += " ORDER BY r.FechaRegistro DESC"
-        
-        cursor.execute(query, tuple(params))
-        cols = [col[0] for col in cursor.description]
-        return [dict(zip(cols, row)) for row in cursor.fetchall()]
-    finally:
-        conn.close()
-
 class AprobarRendicionInput(BaseModel):
     aprobador_documento: str
     aprobador_nombre: str
@@ -576,22 +620,22 @@ def aprobar_rendicion(id_rendicion: int, data: AprobarRendicionInput):
         row = cursor.fetchone()
         if not row: raise HTTPException(status_code=404, detail="No encontrada")
         if row.FechaAprobacion: raise HTTPException(status_code=400, detail="Ya aprobada.")
-        
+
         now = datetime.now()
         # Aprobar Rendicion
         cursor.execute("""
-            UPDATE FinRendicionGastosCab 
-            SET AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ? 
+            UPDATE FinRendicionGastosCab
+            SET AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ?
             WHERE Id = ?
         """, (data.aprobador_documento, data.aprobador_nombre, now, id_rendicion))
-        
+
         # Aprobar Planillas Anidadas en este REPORTE para que también se firmen
         cursor.execute("""
-            UPDATE FinPlanillaMovilidadCab 
+            UPDATE FinPlanillaMovilidadCab
             SET AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ?
-            WHERE Id IN (SELECT DocReferenciaId FROM FinRendicionGastosDet WHERE RendicionId = ? AND TipoDoc = 'PGM-Planilla')
+            WHERE Id IN (SELECT DocReferenciaId FROM FinRendicionGastosDet WHERE RendicionId=? AND TipoDoc='PGM-Planilla')
         """, (data.aprobador_documento, data.aprobador_nombre, now, id_rendicion))
-        
+
         conn.commit()
         return {"status": "success"}
     except Exception as e:
@@ -599,6 +643,7 @@ def aprobar_rendicion(id_rendicion: int, data: AprobarRendicionInput):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
 
 from fastapi.responses import FileResponse
 
