@@ -45,7 +45,11 @@ async function cargarPlanillaParaEditar(id) {
                 fileListViejos.style.marginTop = "10px";
                 fileZone.appendChild(fileListViejos);
             }
-            fileListViejos.innerHTML = adj.map(a => `<div style="padding:4px; font-weight:bold;"><a href="${API_URL}/finanzas/adjuntos/planilla/${a.Id}" target="_blank" style="color:#2563eb;">📎 ${a.NombreArchivo} (Anterior)</a></div>`).join("");
+            fileListViejos.innerHTML = adj.map(a => `
+                <div id="adj-old-${a.Id}" style="padding:4px; font-weight:bold; display:flex; align-items:center; gap:10px;">
+                    <a href="${API_URL}/finanzas/adjuntos/planilla/${a.Id}" target="_blank" style="color:#2563eb;">📎 ${a.ArchivoNombre} (Anterior)</a>
+                    <button type="button" onclick="eliminarAdjuntoAntiguo('planilla', ${a.Id})" style="background:#ef4444; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:0.75rem;">✕ Eliminar</button>
+                </div>`).join("");
         }
         
         _editId = id;
@@ -68,9 +72,9 @@ async function cargarPlanillaParaEditar(id) {
             tr.id = `row-${rId}`;
             tr.innerHTML = `
                 <td><input type="date" class="f-fecha" value="${d.Fecha}"></td>
-                <td><input type="text" class="f-motivo" placeholder="Ej: Visita Cliente" value="${d.Motivo}"></td>
-                <td><input type="text" class="f-desde" placeholder="Origen" value="${d.Desde}"></td>
-                <td><input type="text" class="f-hasta" placeholder="Destino" value="${d.Hasta}"></td>
+                <td><input type="text" class="f-motivo" placeholder="Ej: Visita Cliente" value="${d.Motivo}" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
+                <td><input type="text" class="f-desde" placeholder="Origen" value="${d.Desde}" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
+                <td><input type="text" class="f-hasta" placeholder="Destino" value="${d.Hasta}" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
                 <td><input type="number" step="0.01" class="f-monto" value="${d.Monto}" onkeyup="calcularTotal()" onchange="calcularTotal()"></td>
                 <td style="text-align:center;">
                     <button class="btn-icon text-red" onclick="borrarFila(${rId})" title="Eliminar fila">&#10006;</button>
@@ -176,9 +180,9 @@ function agregarFila() {
     tr.id = `fila-${rowCount}`;
     tr.innerHTML = `
         <td><input type="date" class="f-fecha" required></td>
-        <td><input type="text" class="f-motivo text-left" placeholder="Motivo..."></td>
-        <td><input type="text" class="f-desde text-left" placeholder="De..."></td>
-        <td><input type="text" class="f-hasta text-left" placeholder="A..."></td>
+        <td><input type="text" class="f-motivo text-left" placeholder="Motivo..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
+        <td><input type="text" class="f-desde text-left" placeholder="De..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
+        <td><input type="text" class="f-hasta text-left" placeholder="A..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
         <td style="padding:0;">
             <div style="display:flex; align-items:center;">
                 <span style="padding-left:5px;">S/</span>
@@ -236,6 +240,19 @@ function renderFileList() {
 function quitarArchivo(idx) {
     archivosAdjuntos.splice(idx, 1);
     renderFileList();
+}
+
+async function eliminarAdjuntoAntiguo(tipo, idAdjunto) {
+    if (!confirm("¿Está seguro de eliminar este archivo adjunto permanentemente?")) return;
+    try {
+        Swal.showLoading();
+        await axios.delete(`${API_URL}/finanzas/adjuntos/${tipo}/${idAdjunto}`);
+        document.getElementById(`adj-old-${idAdjunto}`).remove();
+        Swal.fire("Eliminado", "El archivo fue eliminado", "success");
+    } catch(e) {
+        console.error(e);
+        Swal.fire("Error", "No se pudo eliminar el archivo", "error");
+    }
 }
 
 // ============================================================
@@ -301,11 +318,12 @@ async function guardarPlanilla() {
 
     // Preparar formData
     const currentUser = JSON.parse(localStorage.getItem('yelave_user') || '{}');
-    const uName = currentUser.nombre || currentUser.login || "SISTEMA";
+    const uName = currentUser.login || "SISTEMA";
     
     const formData = new FormData();
     if (_editId) formData.append("id", _editId);
     
+    const codcia = document.getElementById("selEmpresa").value;
     formData.append("codcia", codcia);
     formData.append("fecha_emision", document.getElementById("iptFechaEmision").value);
     formData.append("periodo", document.getElementById("iptPeriodo").value);

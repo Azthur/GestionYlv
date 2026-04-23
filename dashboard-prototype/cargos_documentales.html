@@ -395,75 +395,71 @@
                     <!-- Rellenado por JS -->
                 </div>
 
-                <!-- ═══ TAB: GENERAR CARGO ═══ -->
-                <div id="panelGenerar">
-                    <div class="filter-bar" style="flex-direction: column; gap: 1rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
-                            <div>
-                                <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:var(--text-primary);">Seleccionar Órdenes de Compra</h3>
-                                <p style="margin:0.25rem 0 0; font-size:0.8rem; color:var(--text-muted);">Bandeja de documentos libres correspondientes a su área.</p>
-                            </div>
-                            <div id="filtroFechas" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
-                                <div id="logisticaFilters" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
-                                    <div class="filter-group">
-                                        <label>Tipo OC</label>
-                                        <select id="filterTipoOC" onchange="loadOCsDisponibles()">
-                                            <option value="ALL">Todas Permitidas</option>
-                                            <option value="M">Mercaderías (M)</option>
-                                            <option value="S">Servicios (S)</option>
-                                            <option value="T">Contabilidad (T)</option>
-                                        </select>
-                                    </div>
-                                    <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; cursor:pointer; color:#1e293b; font-weight:600; padding:0 0.5rem; background:#f4f7f6; border:1px solid #cbd5e1; border-radius:6px; height:34px; white-space:nowrap; margin-bottom:2px;">
-                                        <input type="checkbox" id="filterMyRecords" value="1" checked style="width:14px; height:14px;" onchange="loadOCsDisponibles()">
-                                        Solo mis registros
-                                    </label>
-                                    <label id="lblDirectasContabilidad" style="display:none; align-items:center; gap:0.4rem; font-size:0.75rem; cursor:pointer; color:#1e293b; font-weight:600; padding:0 0.5rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; height:34px; white-space:nowrap; margin-bottom:2px;">
-                                        <input type="checkbox" id="filterDirectasCont" value="1" style="width:14px; height:14px;" onchange="onDirectasContChange()">
-                                        + Añadir OCs Directas Cont.
-                                    </label>
-                                </div>
+                <!-- ═══ FILTER BAR GLOBAL ═══ -->
+                <div class="filter-bar" id="globalFilterBar" style="flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+                        <div>
+                            <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:var(--text-primary);">Filtros de Búsqueda</h3>
+                            <p style="margin:0.25rem 0 0; font-size:0.8rem; color:var(--text-muted);">Aplica para la bandeja actual.</p>
+                        </div>
+                        <div id="filtroFechas" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+                            <div id="logisticaFilters" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
                                 <div class="filter-group">
-                                    <label>Año</label>
-                                    <select id="filterAno">
-                                        <option value="2026" selected>2026</option>
-                                        <option value="2025">2025</option>
-                                        <option value="2024">2024</option>
-                                        <option value="2023">2023</option>
-                                        <option value="2022">2022</option>
-                                        <option value="2021">2021</option>
-                                        <option value="2020">2020</option>
-                                        <option value="2019">2019</option>
-                                        <option value="2018">2018</option>
-                                        <option value="2017">2017</option>
-                                        <option value="2016">2016</option>
+                                    <label>Tipo OC</label>
+                                    <select id="filterTipoOC" onchange="refreshCurrentTab()">
+                                        <option value="ALL">Todas Permitidas</option>
+                                        <option value="M">Mercaderías (M)</option>
+                                        <option value="S">Servicios (S)</option>
+                                        <option value="T">Contabilidad (T)</option>
                                     </select>
                                 </div>
-                                <div class="filter-group">
-                                    <label>Mes</label>
-                                    <select id="filterMes">
-                                        <option value="0">Todos</option>
-                                        <option value="1">Enero</option>
-                                        <option value="2">Febrero</option>
-                                        <option value="3">Marzo</option>
-                                        <option value="4">Abril</option>
-                                        <option value="5">Mayo</option>
-                                        <option value="6">Junio</option>
-                                        <option value="7">Julio</option>
-                                        <option value="8">Agosto</option>
-                                        <option value="9">Septiembre</option>
-                                        <option value="10">Octubre</option>
-                                        <option value="11">Noviembre</option>
-                                        <option value="12">Diciembre</option>
-                                    </select>
-                                </div>
-                                <button class="btn-action primary" onclick="loadOCsDisponibles()" style="height:fit-content;">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                                    Cargar OCs
-                                </button>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; cursor:pointer; color:#1e293b; font-weight:600; padding:0 0.5rem; background:#f4f7f6; border:1px solid #cbd5e1; border-radius:6px; height:34px; white-space:nowrap; margin-bottom:2px;">
+                                    <input type="checkbox" id="filterMyRecords" value="1" checked style="width:14px; height:14px;" onchange="refreshCurrentTab()">
+                                    Solo mis registros
+                                </label>
+                                <label id="lblDirectasContabilidad" style="display:none; align-items:center; gap:0.4rem; font-size:0.75rem; cursor:pointer; color:#1e293b; font-weight:600; padding:0 0.5rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; height:34px; white-space:nowrap; margin-bottom:2px;">
+                                    <input type="checkbox" id="filterDirectasCont" value="1" style="width:14px; height:14px;" onchange="onDirectasContChange()">
+                                    + Añadir OCs Directas Cont.
+                                </label>
                             </div>
+                            <div class="filter-group">
+                                <label>Año</label>
+                                <select id="filterAno" onchange="refreshCurrentTab()">
+                                    <option value="0">Todos</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2023">2023</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Mes</label>
+                                <select id="filterMes" onchange="refreshCurrentTab()">
+                                    <option value="0">Todos</option>
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option>
+                                    <option value="11">Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                            <button class="btn-action primary" onclick="refreshCurrentTab()" style="height:fit-content;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                Actualizar / Cargar
+                            </button>
                         </div>
                     </div>
+                </div>
+
+                <!-- ═══ TAB: GENERAR CARGO ═══ -->
+                <div id="panelGenerar">
 
                     <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem;">
                         <div style="overflow-x: auto;">

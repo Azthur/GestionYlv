@@ -16,6 +16,12 @@ let currentAttachmentContext = null; // { codcia, tipooc, nrodoc, docType }
         currentLogin = '';
         currentRole = '';
     }
+    
+    // Default filterPeriod to current month
+    window.addEventListener('DOMContentLoaded', () => {
+        const pSel = document.getElementById('filterPeriod');
+        if (pSel) pSel.value = String(new Date().getMonth() + 1);
+    });
 })();
 
 // ─── Format Utils ────────────
@@ -33,16 +39,16 @@ function formatStatus(status) {
     let watermark = '';
     let badge = '';
 
-    if (s === 'X' || s === 'E*' || s === 'ANULADO') {
-        watermark = '<div class="watermark-text wm-anulado">ANULADO</div>';
+    if (s === 'E' || s === 'A' || s === 'X' || s === 'E*' || s === 'ANULADO') {
+        watermark = '<div class="watermark-text wm-anulado">OC ANULADA</div>';
         badge = '<span class="badge canceled"><i class="fas fa-times-circle"></i> ANULADO</span>';
-    } else if (s === 'C' || s === 'CERRADO') {
+    } else if (s === 'C') {
         watermark = '<div class="watermark-text wm-completo">CERRADO</div>';
         badge = '<span class="badge approved" style="background:#f0fdf4; color:#16a34a;"><i class="fas fa-check-double"></i> CERRADO</span>';
     } else if (s === 'P') {
         badge = '<span class="badge" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-clock"></i> PENDIENTE</span>';
-    } else if (s === 'E') {
-        badge = '<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fas fa-file-signature"></i> EMITIDO</span>';
+    } else if (s === 'R') {
+        badge = '<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fas fa-file-signature"></i> REGISTRADO</span>';
     } else {
         badge = '<span class="badge pending"><i class="fas fa-clock"></i> SIN ESTADO</span>';
     }
@@ -146,7 +152,7 @@ async function loadOrders() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                         Trazabilidad OC
                     </button>
-                    ${((o.estado || '').trim() === 'E' || (o.estado || '').trim() === '') ? `
+                    ${((o.estado || '').trim().toUpperCase() === 'R') ? `
                     <div class="action-dropdown-divider"></div>
                     <button class="action-dropdown-item" onclick="aprobarOc('${cia}','${o.nrodoc}','${o.tipooc}','${o.anos}')" style="color:var(--success);">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
@@ -168,6 +174,7 @@ async function loadOrders() {
 
             return [
                 btnHtml,
+                statusInfo.badge,
                 o.nrodoc || '',
                 o.fchdoc || '',
                 tipoLabel,
@@ -182,7 +189,6 @@ async function loadOrders() {
                 (o.nomdep || '').substring(0, 20),
                 (o.nomcom || '').substring(0, 20),
                 o.usuario || '',
-                statusInfo.badge,
                 statusInfo.watermark, // Hidden col 16
                 o.tipooc || ''        // Hidden col 17
             ];
@@ -193,8 +199,8 @@ async function loadOrders() {
             data: dtData,
             destroy: true,
             deferRender: true,
-            order: [[1, 'desc']],
-            pageLength: 25,
+            order: [[2, 'desc']],
+            pageLength: 10,
             scrollX: true,
             language: {
                 search: 'Buscar:',
@@ -211,7 +217,7 @@ async function loadOrders() {
             },
             columnDefs: [
                 { targets: 0, className: 'dt-body-center sticky-col-left', orderable: false },
-                { targets: 7, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
+                { targets: 8, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
                 { targets: [16, 17], visible: false } // Hide helper columns
             ]
         });
@@ -1633,6 +1639,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => openAttachmentModal(cia, 'O', seek_oc, 'signed_order'), 600);
             } else if (seek_wh && cia) {
                 setTimeout(() => openWarehouseModal(cia, seek_wh), 600);
+            }
+
+            // Soporte ?oc=XXXX — auto-buscar y abrir reporte OC (desde pagos_tesoreria)
+            const ocDirect = urlParams.get('oc');
+            if (ocDirect) {
+                const filterSearch = document.getElementById('filterOcSearch');
+                if (filterSearch) {
+                    filterSearch.value = ocDirect;
+                    setTimeout(() => {
+                        loadOrders().then(() => {
+                            const ciaSel = document.getElementById('filterCia').value;
+                            if (ciaSel) {
+                                setTimeout(() => openReportModal(ciaSel, ocDirect, 'O', new Date().getFullYear().toString()), 400);
+                            }
+                        });
+                    }, 300);
+                }
             }
         });
     });

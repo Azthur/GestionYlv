@@ -1,57 +1,55 @@
-import sys, os
-sys.path.append(os.path.dirname(__file__))
-os.chdir(os.path.dirname(__file__))
+"""Inspect sales/orders/guides tables for dashboard development."""
+import json
 from database import get_db_connection
 
+tables = ['CCBRGDOC', 'VTARITEM', 'VTAVPEDI', 'VTARPEDI', 'VTAVGUIA', 'VTARGUIA']
+
 conn = get_db_connection()
+if not conn:
+    print("ERROR: No DB connection")
+    exit(1)
+
 cursor = conn.cursor()
 
-print("=== CmpVOcom COLUMNS ===")
-cursor.execute("SELECT TOP 1 * FROM CmpVOcom")
-for d in cursor.description:
-    print(f"  {d[0]:20s} type={d[1].__name__ if hasattr(d[1],'__name__') else d[1]}")
-
-print("\n=== CmpVOcom SAMPLE (flgest, digita, usuario) ===")
-cursor.execute("SELECT TOP 5 RTRIM(NroDoc) nrodoc, RTRIM(FlgEst) flgest, RTRIM(Digita) digita, RTRIM(Usuario) usuario, RTRIM(TipoOc) tipooc, RTRIM(Anos) anos FROM CmpVOcom ORDER BY NroDoc DESC")
-for r in cursor.fetchall():
-    print(f"  OC={r.nrodoc} flgest={r.flgest} digita={r.digita} usuario={r.usuario} tipo={r.tipooc} anos={r.anos}")
-
-print("\n=== AlmRMovm COLUMNS ===")
-cursor.execute("SELECT TOP 1 * FROM AlmRMovm")
-for d in cursor.description:
-    print(f"  {d[0]:20s}")
-
-print("\n=== AlmRMovm SAMPLE (flgest) ===")
-cursor.execute("SELECT TOP 5 RTRIM(CodCia) codcia, RTRIM(Almcen) almcen, RTRIM(TipMov) tipmov, RTRIM(CodMov) codmov, RTRIM(NroDoc) nrodoc, RTRIM(FlgEst) flgest, RTRIM(ordcmp) ordcmp FROM AlmRMovm ORDER BY NroDoc DESC")
-for r in cursor.fetchall():
-    print(f"  cia={r.codcia} alm={r.almcen} tip={r.tipmov} cod={r.codmov} doc={r.nrodoc} flg={r.flgest} ordcmp={r.ordcmp}")
-
-print("\n=== WebFacturas or Facturas table? ===")
-try:
-    cursor.execute("SELECT TOP 1 * FROM WebFacturas")
-    for d in cursor.description:
-        print(f"  {d[0]:20s}")
-except:
-    print("  WebFacturas not found")
-
-try:
-    cursor.execute("SELECT TOP 1 * FROM RegistroFacturas")
-    for d in cursor.description:
-        print(f"  {d[0]:20s}")
-except:
-    print("  RegistroFacturas not found")
-
-# Check if there's a LogOcAcciones or similar tracking table
-print("\n=== Check existing tracking tables ===")
-for t in ['LogOcAcciones', 'LogOcAprobaciones', 'WebOcEstados', 'LogSolicitudesRecojo']:
+for tbl in tables:
+    print(f"\n{'='*60}")
+    print(f"TABLE: {tbl}")
+    print('='*60)
     try:
-        cursor.execute(f"SELECT COUNT(*) FROM {t}")
+        cursor.execute(f"""
+            SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = ?
+            ORDER BY ORDINAL_POSITION
+        """, (tbl,))
+        cols = cursor.fetchall()
+        if not cols:
+            print("  >>> TABLE NOT FOUND")
+            continue
+        for c in cols:
+            size = f"({c[2]})" if c[2] else ""
+            print(f"  {c[0]:30s} {c[1]:12s}{size:8s} {'NULL' if c[3]=='YES' else 'NOT NULL'}")
+        
+        # Row count
+        cursor.execute(f"SELECT COUNT(*) FROM {tbl}")
         cnt = cursor.fetchone()[0]
-        print(f"  {t}: EXISTS ({cnt} rows)")
-        cursor.execute(f"SELECT TOP 1 * FROM {t}")
-        cols = [d[0] for d in cursor.description]
-        print(f"    cols: {', '.join(cols)}")
-    except:
-        print(f"  {t}: NOT EXISTS")
+        print(f"  --- ROW COUNT: {cnt:,}")
+        
+        # Sample 3 rows
+        cursor.execute(f"SELECT TOP 3 * FROM {tbl}")
+        sample_cols = [col[0] for col in cursor.description]
+        rows = cursor.fetchall()
+        print(f"  --- SAMPLE ({len(rows)} rows):")
+        for row in rows:
+            d = {}
+            for i, v in enumerate(row):
+                val = str(v).strip() if v is not None else None
+                if val and len(val) > 60:
+                    val = val[:60] + '...'
+                d[sample_cols[i]] = val
+            print(f"    {json.dumps(d, ensure_ascii=False, default=str)}")
+    except Exception as e:
+        print(f"  ERROR: {e}")
 
 conn.close()
+print("\nDone.")

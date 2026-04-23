@@ -11,6 +11,17 @@ from database import get_db_connection
 
 router = APIRouter(prefix="/api/finanzas", tags=["Finanzas - Gastos y Rendiciones"])
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FILE_SERVER = os.getenv("FILE_SERVER", "")
+if FILE_SERVER:
+    SMB_PATH = FILE_SERVER.replace("\\", "//")
+    BASE_UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", f"/mnt/smb/{SMB_PATH.replace('//', '').replace('/', '_')}")
+else:
+    BASE_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+
 # ════════════════════════════════════════════════════════════
 # ════════════════════════════════════════════════════════════
 #  ENDPOINT EMPRESAS
@@ -188,7 +199,7 @@ async def create_planilla(
     if not conn:
         raise HTTPException(status_code=500, detail="Error DB")
         
-    upload_dir = os.path.join(os.path.dirname(__file__), "..", "uploads", "planillas")
+    upload_dir = os.path.join(BASE_UPLOAD_DIR, "planillas")
     os.makedirs(upload_dir, exist_ok=True)
     
     try:
@@ -285,7 +296,8 @@ def buscar_factura(codcia: str = Query(...), q: str = Query(...)):
                 f.CodMoneda as CodMon,
                 RTRIM(f.NumRucProveedor) as RucPro,
                 RTRIM(f.NomProveedor) as NomPro,
-                f.Id as FacturaId
+                f.Id as FacturaId,
+                ISNULL(f.Observaciones, '') as Observaciones
             FROM CntFacturaCab f
             WHERE f.Estado != 'Anulada' AND RTRIM(f.CodCia) = ?
             AND (f.Serie LIKE ? OR f.Numero LIKE ? OR f.NumRucProveedor LIKE ? OR f.NomProveedor LIKE ?)
@@ -301,7 +313,11 @@ def buscar_factura(codcia: str = Query(...), q: str = Query(...)):
         conn.close()
 
 @router.get("/rendiciones/aprobadas")
-def get_rendiciones_aprobadas(codcia: str = Query(...)):
+def get_rendiciones_aprobadas(
+    codcia: str = Query(...),
+    ano: Optional[str] = Query("0"),
+    mes: Optional[int] = Query(0)
+):
     """Listar rendiciones aprobadas para enviar a Tesorería - EXCLUYE rendiciones ya en cargos"""
     conn = get_db_connection()
     if not conn:
@@ -315,19 +331,29 @@ def get_rendiciones_aprobadas(codcia: str = Query(...)):
 
         # Filtrar por rendiciones que tienen FechaAprobacion (indica que están aprobadas)
         # EXCLUYE rendiciones que ya están en CntCargosDetalle (NroOrdenCompra = NroRendicion)
-        cursor.execute("""
+        where_clause = ""
+        params = [codcia.strip()]
+        if ano and ano != "0":
+            where_clause += " AND YEAR(r.Fecha) = ?"
+            params.append(ano)
+        if mes and mes > 0:
+            where_clause += " AND MONTH(r.Fecha) = ?"
+            params.append(mes)
+
+        cursor.execute(f"""
             SELECT Id, RTRIM(CodCia) as CodCia, NroRendicion, RTRIM(CodAux) as CodAux, RTRIM(NomAux) as NomAux,
                    Fecha, RTRIM(Moneda) as Moneda, TotalGastado, Estado, UuidLink
             FROM FinRendicionGastosCab r
             WHERE RTRIM(r.CodCia) = ?
               AND r.FechaAprobacion IS NOT NULL
+              {{where_clause}}
               AND NOT EXISTS (
                   SELECT 1 FROM CntCargosDetalle d
                   WHERE RTRIM(d.NroOrdenCompra) = RTRIM(r.NroRendicion)
                     AND RTRIM(d.CodCiaOc) = RTRIM(r.CodCia)
               )
             ORDER BY r.Fecha DESC
-        """, (codcia.strip(),))
+        """.format(where_clause=where_clause), tuple(params))
         cols = [c[0] for c in cursor.description]
         data = []
         for r in cursor.fetchall():
@@ -412,7 +438,7 @@ async def create_rendicion(
     if not conn:
         raise HTTPException(status_code=500, detail="Error DB")
         
-    upload_dir = os.path.join(os.path.dirname(__file__), "..", "uploads", "rendiciones")
+    upload_dir = os.path.join(BASE_UPLOAD_DIR, "rendiciones")
     os.makedirs(upload_dir, exist_ok=True)
     
     try:
@@ -625,16 +651,26 @@ def aprobar_rendicion(id_rendicion: int, data: AprobarRendicionInput):
         # Aprobar Rendicion
         cursor.execute("""
             UPDATE FinRendicionGastosCab
-            SET AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ?
+            SET Estado = 'APROBADO', AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ?
             WHERE Id = ?
         """, (data.aprobador_documento, data.aprobador_nombre, now, id_rendicion))
 
         # Aprobar Planillas Anidadas en este REPORTE para que también se firmen
         cursor.execute("""
             UPDATE FinPlanillaMovilidadCab
-            SET AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ?
+            SET Estado = 'APROBADO', AprobadorDocumento = ?, AprobadorNombre = ?, FechaAprobacion = ?
             WHERE Id IN (SELECT DocReferenciaId FROM FinRendicionGastosDet WHERE RendicionId=? AND TipoDoc='PGM-Planilla')
         """, (data.aprobador_documento, data.aprobador_nombre, now, id_rendicion))
+
+        # Marcar Facturas asociadas a esta Rendición como CONTABILIZADAS
+        cursor.execute("""
+            UPDATE CntFacturaCab
+            SET Estado = 'CONTABILIZADA'
+            WHERE Id IN (
+                SELECT DocReferenciaId FROM FinRendicionGastosDet 
+                WHERE RendicionId=? AND TipoDoc != 'PGM-Planilla' AND DocReferenciaId IS NOT NULL
+            )
+        """, (id_rendicion,))
 
         conn.commit()
         return {"status": "success"}
@@ -669,6 +705,46 @@ def descargar_adjunto(tipo: str, id_adjunto: int):
         if not os.path.exists(ruta):
             raise HTTPException(status_code=404, detail="El archivo físico no existe")
             
-        return FileResponse(path=ruta, filename=nombre, media_type=mime)
+        headers = {"Content-Disposition": f'inline; filename="{nombre}"'}
+        return FileResponse(path=ruta, media_type=mime, headers=headers)
     finally:
         conn.close()
+
+@router.delete("/adjuntos/{tipo}/{id_adjunto}")
+def eliminar_adjunto(tipo: str, id_adjunto: int):
+    """Eliminar archivo adjunto de planilla o rendición"""
+    conn = get_db_connection()
+    if not conn: raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        if tipo == 'planilla':
+            cursor.execute("SELECT ArchivoRuta FROM FinPlanillaMovilidadAdjuntos WHERE Id = ?", (id_adjunto,))
+        elif tipo == 'rendicion':
+            cursor.execute("SELECT ArchivoRuta FROM FinRendicionGastosAdjuntos WHERE Id = ?", (id_adjunto,))
+        else:
+            raise HTTPException(status_code=400, detail="Tipo inválido")
+            
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+            
+        ruta = row[0]
+        
+        # Eliminar archivo físico si existe
+        if os.path.exists(ruta):
+            try:
+                os.remove(ruta)
+            except Exception as e:
+                print(f"Error eliminando archivo físico {ruta}: {e}")
+                
+        # Eliminar registro
+        if tipo == 'planilla':
+            cursor.execute("DELETE FROM FinPlanillaMovilidadAdjuntos WHERE Id = ?", (id_adjunto,))
+        else:
+            cursor.execute("DELETE FROM FinRendicionGastosAdjuntos WHERE Id = ?", (id_adjunto,))
+            
+        conn.commit()
+        return {"status": "success"}
+    finally:
+        conn.close()
+

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Gerencial — Yelave ERP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        [data-theme="dark"]{--bg:#0f172a;--surface:#1e293b;--card:#1e293b;--border:#334155;--text:#f8fafc;--text2:#94a3b8;--text3:#64748b;--chart-grid:rgba(51,65,85,.25);--input-bg:#0f172a;--topbar-bg:linear-gradient(135deg,#1e293b,#0f172a);--shadow:0 2px 12px rgba(0,0,0,.3);--info-alpha:.06}
+        [data-theme="light"]{--bg:#f1f5f9;--surface:#fff;--card:#fff;--border:#e2e8f0;--text:#0f172a;--text2:#475569;--text3:#94a3b8;--chart-grid:rgba(0,0,0,.06);--input-bg:#fff;--topbar-bg:linear-gradient(135deg,#fff,#f8fafc);--shadow:0 2px 12px rgba(0,0,0,.08);--info-alpha:.08}
+        html,body{height:100%;overflow:hidden}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;transition:background .3s,color .3s}
+
+        /* TOPBAR */
+        .topbar{background:var(--topbar-bg);border-bottom:1px solid var(--border);padding:.3rem 1rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:40px;transition:all .3s}
+        .topbar-left{display:flex;align-items:center;gap:.75rem}
+        .topbar h1{font-size:.85rem;font-weight:800;background:linear-gradient(135deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+        .company-label{font-size:.82rem;font-weight:700;color:var(--text);padding:.2rem .7rem;border-radius:6px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);white-space:nowrap}
+        [data-theme="light"] .company-label{background:rgba(59,130,246,.08)}
+        .filters{display:flex;gap:.35rem;align-items:center}
+        .topbar select,.topbar input{background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:.22rem .4rem;border-radius:5px;font-size:.68rem;font-family:inherit;transition:all .3s}
+        .btn-sm{border:none;padding:.22rem .55rem;border-radius:5px;font-weight:600;font-size:.65rem;cursor:pointer;transition:all .2s;color:#fff}
+        .btn-apply{background:linear-gradient(135deg,#3b82f6,#6366f1)}
+        .btn-fs{background:linear-gradient(135deg,#8b5cf6,#a855f7)}
+        .btn-theme{background:linear-gradient(135deg,#f59e0b,#f97316);font-size:.75rem;padding:.22rem .4rem}
+        .btn-sm:hover{transform:translateY(-1px);filter:brightness(1.15)}
+        .auto-info{font-size:.5rem;color:var(--text3);display:flex;align-items:center;gap:3px}
+        .auto-info .dot{width:5px;height:5px;border-radius:50%;background:#10b981;animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+        /* DASHBOARD */
+        .dashboard{flex:1;overflow:hidden;display:grid;grid-template-rows:auto 5fr 5fr 4fr;padding:.35rem .6rem;gap:.35rem}
+
+        /* KPIs */
+        .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:.35rem}
+        .kpi{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:.4rem .55rem;position:relative;overflow:hidden;transition:all .3s}
+        .kpi:hover{box-shadow:var(--shadow)}
+        .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .kpi.c1::before{background:linear-gradient(90deg,#3b82f6,#06b6d4)}
+        .kpi.c2::before{background:linear-gradient(90deg,#10b981,#34d399)}
+        .kpi.c3::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
+        .kpi.c4::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+        .kpi.c5::before{background:linear-gradient(90deg,#06b6d4,#22d3ee)}
+        .kpi.c6::before{background:linear-gradient(90deg,#ec4899,#f472b6)}
+        .kpi-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:600}
+        .kpi-value{font-size:1.1rem;font-weight:800;margin:.1rem 0;line-height:1}
+        .kpi-sub{font-size:.55rem;color:var(--text2);line-height:1.3}
+
+        /* CHART CARDS */
+        .charts-row{display:grid;gap:.35rem;overflow:hidden;min-height:0}
+        .row-top{grid-template-columns:2fr 1fr 1fr}
+        .row-mid{grid-template-columns:1fr 1fr 1fr 1fr}
+        .row-bot{grid-template-columns:1fr 1fr 1fr 1fr}
+        .chart-card{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:.4rem .55rem;display:flex;flex-direction:column;overflow:hidden;min-height:0;transition:all .3s}
+        .chart-card:hover{box-shadow:var(--shadow)}
+        .chart-card h3{font-size:.6rem;font-weight:700;margin-bottom:.25rem;display:flex;align-items:center;gap:.25rem;flex-shrink:0;color:var(--text)}
+        .chart-card h3 span{font-size:.75rem}
+        .chart-body{flex:1;position:relative;min-height:0}
+        .chart-body canvas{position:absolute;top:0;left:0;width:100%!important;height:100%!important}
+
+        /* INFO PANELS */
+        .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;height:100%;overflow:hidden;align-content:start}
+        .info-box{padding:.35rem .45rem;border-radius:5px}
+        .info-box.bl{background:rgba(59,130,246,var(--info-alpha));border:1px solid rgba(59,130,246,.12)}
+        .info-box.gr{background:rgba(16,185,129,var(--info-alpha));border:1px solid rgba(16,185,129,.12)}
+        .info-box.or{background:rgba(245,158,11,var(--info-alpha));border:1px solid rgba(245,158,11,.12)}
+        .info-box.pu{background:rgba(139,92,246,var(--info-alpha));border:1px solid rgba(139,92,246,.12)}
+        .info-box .lbl{font-size:.45rem;color:var(--text3);text-transform:uppercase;font-weight:600}
+        .info-box .val{font-size:.8rem;font-weight:800;margin-top:.05rem}
+        .bar-mini{height:3px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:.15rem}
+        .bar-mini .fill{height:100%;border-radius:2px;transition:width .6s ease}
+
+        .eff-wrap{display:flex;align-items:center;gap:.5rem;height:100%}
+        .eff-right{flex:1;font-size:.55rem}
+        .eff-row{display:flex;justify-content:space-between;padding:.15rem 0;border-bottom:1px solid var(--border)}
+        .eff-mini{display:grid;grid-template-columns:1fr 1fr;gap:.25rem;margin-bottom:.3rem}
+        .eff-stat{text-align:center;padding:.25rem;border-radius:5px}
+        .eff-stat .lbl{font-size:.42rem;color:var(--text3);text-transform:uppercase;font-weight:600}
+        .eff-stat .val{font-size:.75rem;font-weight:800;margin-top:.05rem}
+
+        /* Flatpickr theme override */
+        .flatpickr-calendar{background:var(--card)!important;border:1px solid var(--border)!important;box-shadow:var(--shadow)!important;font-family:'Inter',sans-serif!important;font-size:.75rem!important}
+        .flatpickr-day{color:var(--text)!important;border-radius:4px!important}
+        .flatpickr-day:hover{background:rgba(59,130,246,.15)!important;border-color:transparent!important}
+        .flatpickr-day.selected{background:#3b82f6!important;border-color:#3b82f6!important;color:#fff!important}
+        .flatpickr-day.today{border-color:#3b82f6!important}
+        .flatpickr-months .flatpickr-month{color:var(--text)!important;fill:var(--text)!important;background:transparent!important}
+        .flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--card)!important;color:var(--text)!important}
+        .flatpickr-current-month input.cur-year{color:var(--text)!important}
+        span.flatpickr-weekday{color:var(--text3)!important}
+        .flatpickr-day.flatpickr-disabled{color:var(--text3)!important}
+        .numInputWrapper:hover{background:transparent!important}
+        .flatpickr-months .flatpickr-prev-month svg,.flatpickr-months .flatpickr-next-month svg{fill:var(--text2)!important}
+    </style>
+    <script>window.__YELAVE_DASHBOARD_KEEP_ALIVE__=true;</script>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+<div class="topbar">
+    <div class="topbar-left">
+        <h1>📊 Dashboard Gerencial</h1>
+        <div class="company-label" id="companyLabel">—</div>
+    </div>
+    <div class="filters">
+        <div class="auto-info"><div class="dot"></div><span id="autoStatus">Auto 5min</span></div>
+        <select id="filterCia" onchange="onCiaChange()" style="max-width:90px"></select>
+        <input type="text" id="fechaIni" placeholder="Desde" style="width:90px;cursor:pointer" readonly>
+        <input type="text" id="fechaFin" placeholder="Hasta" style="width:90px;cursor:pointer" readonly>
+        <button class="btn-sm btn-apply" onclick="applyFilters()">🔍</button>
+        <button class="btn-sm btn-theme" onclick="toggleTheme()" id="btnTheme" title="Modo claro/oscuro">🌙</button>
+        <button class="btn-sm btn-fs" onclick="toggleFullscreen()" title="Pantalla completa">⛶</button>
+    </div>
+</div>
+<div class="dashboard">
+    <!-- KPIs: /resumen + /comparativo -->
+    <div class="kpi-row">
+        <div class="kpi c1"><div class="kpi-label">💰 Venta Total</div><div class="kpi-value" id="kVentaTotal">—</div><div class="kpi-sub" id="kVentaSub"></div></div>
+        <div class="kpi c2"><div class="kpi-label">📄 Documentos</div><div class="kpi-value" id="kDocs">—</div><div class="kpi-sub" id="kDocsSub"></div></div>
+        <div class="kpi c3"><div class="kpi-label">🎫 Ticket Prom.</div><div class="kpi-value" id="kTicket">—</div><div class="kpi-sub" id="kTicketSub"></div></div>
+        <div class="kpi c4"><div class="kpi-label">📦 Pedidos</div><div class="kpi-value" id="kPedidos">—</div><div class="kpi-sub" id="kPedidosSub"></div></div>
+        <div class="kpi c5"><div class="kpi-label">🚛 Guías</div><div class="kpi-value" id="kGuias">—</div><div class="kpi-sub" id="kGuiasSub"></div></div>
+        <div class="kpi c6"><div class="kpi-label">📈 Variación</div><div class="kpi-value" id="kVariacion">—</div><div class="kpi-sub" id="kVariacionSub"></div></div>
+    </div>
+    <!-- Row 1: /ventas-diarias | /ventas-mensuales | /tipo-docs (from resumen) -->
+    <div class="charts-row row-top">
+        <div class="chart-card"><h3><span>📈</span>Ventas Diarias (PEN / USD)</h3><div class="chart-body"><canvas id="chartDiarias"></canvas></div></div>
+        <div class="chart-card"><h3><span>📊</span>Mensuales — Comparativo</h3><div class="chart-body"><canvas id="chartMensuales"></canvas></div></div>
+        <div class="chart-card"><h3><span>🗂️</span>Tipo Documento</h3><div class="chart-body"><canvas id="chartTipoDocs"></canvas></div></div>
+    </div>
+    <!-- Row 2: /top-productos (importe) | /top-productos (cantidad) | /ranking-vendedores | /distribucion-geografica -->
+    <div class="charts-row row-mid">
+        <div class="chart-card"><h3><span>🏆</span>Top Productos — Importe</h3><div class="chart-body"><canvas id="chartTopProd"></canvas></div></div>
+        <div class="chart-card"><h3><span>📦</span>Top Productos — Cantidad</h3><div class="chart-body"><canvas id="chartTopCant"></canvas></div></div>
+        <div class="chart-card"><h3><span>👥</span>Ranking Vendedores</h3><div class="chart-body"><canvas id="chartVendedores"></canvas></div></div>
+        <div class="chart-card"><h3><span>🌎</span>Top Distritos — Clientes</h3><div class="chart-body"><canvas id="chartGeo"></canvas></div></div>
+    </div>
+    <!-- Row 3: /precios-descuentos | /descuentos-evolucion | /analisis-pedidos -->
+    <div class="charts-row row-bot" style="grid-template-columns:1fr 1.3fr 1fr">
+        <div class="chart-card"><h3><span>🏷️</span>Precios y Descuentos</h3><div id="preciosPanel" style="flex:1;overflow:hidden"></div></div>
+        <div class="chart-card"><h3><span>📉</span>Evolución % Descuento Diario</h3><div class="chart-body"><canvas id="chartDescuentos"></canvas></div></div>
+        <div class="chart-card"><h3><span>📋</span>Pedidos — Efectividad</h3><div id="pedidosPanel" style="flex:1;overflow:hidden"></div></div>
+    </div>
+</div>
+<script src="dashboard_gerencial.js"></script>
+</body>
+</html>

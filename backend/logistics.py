@@ -806,9 +806,9 @@ def aprobar_oc(nrodoc: str, req: OcActionRequest, user: dict = Depends(get_curre
         if not row:
             raise HTTPException(status_code=404, detail="OC no encontrada")
             
-        estado = row.flgest or 'E'
-        if estado != 'E':
-            raise HTTPException(status_code=400, detail=f"Solo se puede aprobar OC en estado EMITIDO (E). Estado actual: {estado}")
+        estado = row.flgest or 'R'
+        if estado != 'R':
+            raise HTTPException(status_code=400, detail=f"Solo se puede aprobar OC en estado REGISTRADO (R). Estado actual: {estado}")
             
         usuario_login = user.get("login", "")
         usuario_nombre = user.get("nombre", "")

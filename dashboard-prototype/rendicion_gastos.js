@@ -47,7 +47,11 @@ async function cargarRendicionParaEditar(id) {
                 fileListViejos.style.marginTop = "10px";
                 fileZone.appendChild(fileListViejos);
             }
-            fileListViejos.innerHTML = adj.map(a => `<div style="padding:4px; font-weight:bold;"><a href="${API_URL}/finanzas/adjuntos/rendicion/${a.Id}" target="_blank" style="color:#2563eb;">📎 ${a.NombreArchivo} (Anterior)</a></div>`).join("");
+            fileListViejos.innerHTML = adj.map(a => `
+                <div id="adj-old-${a.Id}" style="padding:4px; font-weight:bold; display:flex; align-items:center; gap:10px;">
+                    <a href="${API_URL}/finanzas/adjuntos/rendicion/${a.Id}" target="_blank" style="color:#2563eb;">📎 ${a.ArchivoNombre} (Anterior)</a>
+                    <button type="button" onclick="eliminarAdjuntoAntiguo('rendicion', ${a.Id})" style="background:#ef4444; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:0.75rem;">✕ Eliminar</button>
+                </div>`).join("");
         }
         
         _editId = id;
@@ -57,7 +61,15 @@ async function cargarRendicionParaEditar(id) {
         
         document.getElementById("iptFecha").value = cab.Fecha;
         document.getElementById("iptPeriodo").value = cab.Periodo;
-        document.getElementById("selMoneda").value = cab.Moneda || 'PEN';
+        
+        let mon = String(cab.Moneda || '').trim().toLowerCase();
+        if (mon === '1' || mon === 'soles' || mon === 'pen' || mon === 's/') {
+            document.getElementById("selMoneda").value = "1";
+        } else if (mon === '2' || mon === 'dolares' || mon === 'usd' || mon === 'dólares') {
+            document.getElementById("selMoneda").value = "2";
+        } else {
+            document.getElementById("selMoneda").value = "1";
+        }
         
         const sel = document.getElementById("selPersona");
         sel.value = cab.CodAux ? cab.CodAux.trim() : "";
@@ -73,6 +85,7 @@ async function cargarRendicionParaEditar(id) {
             tr.id = `row-${rId}`;
             tr.dataset.refId = d.DocReferenciaId || '';
             tr.innerHTML = `
+                <td>${rId}</td>
                 <td><input type="date" class="f-fecha" value="${d.Fecha}"></td>
                 <td>
                     <select class="f-tipo" onchange="tipoDocChanged(${rId})">
@@ -266,7 +279,7 @@ function calcularResumen() {
     const saldoInicial = parseFloat(document.getElementById("iptSaldoInicial").value) || 0;
     
     const monedaMain = document.getElementById("selMoneda").value;
-    const totalGasto = monedaMain === "Dolares" ? totDol : totSol;
+    const totalGasto = monedaMain === "2" ? totDol : totSol;
     
     const saldoFinal = saldoInicial - totalGasto;
     document.getElementById("iptSaldoFinal").value = saldoFinal.toFixed(2);
@@ -344,6 +357,7 @@ function llenarFilaDesdeFactura(f) {
     tr.querySelector(".f-numero").value = f.Numero;
     tr.querySelector(".f-ruc").value = f.RucPro || "";
     tr.querySelector(".f-proveedor").value = f.NomPro || "";
+    tr.querySelector(".f-det").value = f.Observaciones || "";
     
     if (f.CodMon === "USD") {
         tr.querySelector(".f-sol").value = "0.00";
@@ -485,6 +499,19 @@ function quitarArchivo(idx) {
     renderFileList();
 }
 
+async function eliminarAdjuntoAntiguo(tipo, idAdjunto) {
+    if (!confirm("¿Está seguro de eliminar este archivo adjunto permanentemente?")) return;
+    try {
+        Swal.showLoading();
+        await axios.delete(`${API_URL}/finanzas/adjuntos/${tipo}/${idAdjunto}`);
+        document.getElementById(`adj-old-${idAdjunto}`).remove();
+        Swal.fire("Eliminado", "El archivo fue eliminado", "success");
+    } catch(e) {
+        console.error(e);
+        Swal.fire("Error", "No se pudo eliminar el archivo", "error");
+    }
+}
+
 // ============================================================
 //  GUARDAR RENDICIÓN
 // ============================================================
@@ -523,7 +550,7 @@ async function guardarRendicion() {
     }
 
     const currentUser = JSON.parse(localStorage.getItem('yelave_user') || '{}');
-    const uName = currentUser.nombre || currentUser.login || "SISTEMA";
+    const uName = currentUser.login || "SISTEMA";
     
     const formData = new FormData();
     if (_editId) formData.append("id", _editId);

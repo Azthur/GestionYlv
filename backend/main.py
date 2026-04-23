@@ -72,6 +72,9 @@ app.include_router(permisos_router)
 from chat import router as chat_router, setup_chat_tables
 app.include_router(chat_router)
 
+from dashboard_gerencial import router as dashboard_gerencial_router
+app.include_router(dashboard_gerencial_router)
+
 # Crear tablas al iniciar
 setup_permisos_tables()
 setup_chat_tables()

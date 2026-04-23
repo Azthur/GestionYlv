@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor OC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', Arial, sans-serif; background: #fff; color: #1a1a1a; font-size: 0.8125rem; padding: 1.5rem; }
+        .loading { text-align: center; padding: 4rem 2rem; color: #94a3b8; font-size: 1rem; }
+        .error { text-align: center; padding: 3rem; color: #ef4444; font-weight: 600; }
+
+        .report-header-band { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 3px solid #1e3a5f; }
+        .report-company-info h2 { font-size: 1.15rem; font-weight: 700; color: #1e3a5f; margin: 0 0 0.15rem 0; }
+        .report-company-info p { font-size: 0.75rem; color: #6b7280; margin: 0; line-height: 1.4; }
+        .report-oc-badge { text-align: right; background: #1e3a5f; color: #fff; padding: 0.75rem 1.25rem; border-radius: 8px; min-width: 200px; }
+        .report-oc-badge .oc-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
+        .report-oc-badge .oc-number { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; margin: 0.15rem 0; }
+        .report-oc-badge .oc-date { font-size: 0.85rem; font-weight: 400; opacity: 0.9; }
+
+        .report-supplier-box { display: grid; grid-template-columns: 110px 1fr 110px 1fr; gap: 0.25rem 0.5rem; font-size: 0.775rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1.25rem; }
+        .report-supplier-box .lbl { font-weight: 600; color: #64748b; }
+        .report-supplier-box .val { color: #0f172a; }
+        .report-supplier-box .val-full { color: #0f172a; grid-column: span 3; }
+
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 0.25rem; }
+        .report-table th { background: #e2e8f0; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #334155; padding: 0.5rem; border: 1px solid #cbd5e1; text-align: left; }
+        .report-table td { border: 1px solid #e2e8f0; padding: 0.4rem 0.5rem; font-size: 0.775rem; vertical-align: top; }
+        .report-table tbody tr:nth-child(even) { background: #fafbfc; }
+        .report-table .note-row td { border-top: none; padding-top: 0.1rem; padding-bottom: 0.2rem; color: #6b7280; font-size: 0.7rem; }
+
+        .report-totals-box { display: flex; justify-content: flex-end; margin-top: 0.75rem; }
+        .report-totals-box table { border-collapse: collapse; min-width: 300px; }
+        .report-totals-box td { padding: 0.35rem 0.85rem; font-size: 0.825rem; }
+        .report-totals-box .row-total { font-weight: 700; font-size: 0.95rem; background: #f0f4f8; border-top: 2px solid #1e3a5f; }
+
+        .report-footer-dl { font-size: 0.775rem; margin-top: 1.25rem; display: grid; grid-template-columns: 140px 1fr; gap: 0.2rem 0.75rem; }
+        .report-footer-dl dt { font-weight: 600; color: #475569; }
+        .report-footer-dl dd { margin: 0; color: #1e293b; }
+
+        .report-disclaimer { margin-top: 1.25rem; padding: 0.65rem 1rem; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.7rem; text-align: center; color: #475569; line-height: 1.6; background: #f8fafc; }
+
+        .docs { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px dashed #cbd5e1; }
+        .docs h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin: 0 0 1rem 0; }
+        .fitem { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px dashed #e2e8f0; cursor: pointer; transition: background 0.15s; border-radius: 4px; padding-left: 0.5rem; }
+        .fitem:hover { background: #eff6ff; }
+        .fbadge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; color: white; }
+        .flink { color: var(--primary, #2563eb); text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+        
+        .traza-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .compact-panel { background: #f8fafc; padding: 0.85rem 1rem; border-radius: 6px; border: 1px solid #f1f5f9; border-left: 3px solid #10b981; }
+        .compact-panel h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 0.5rem 0; font-weight: 700; color: #047857; }
+        .crow { display: flex; justify-content: space-between; margin-bottom: 0.3rem; font-size: 0.78rem; }
+        .crow strong { color: #334155; min-width: 35%; font-size: 0.78rem; }
+        .crow span { color: #475569; text-align: right; font-size: 0.78rem; }
+    </style>
+</head>
+<body>
+    <div id="reportContainer">
+        <div class="loading">⏳ Cargando Orden de Compra...</div>
+    </div>
+
+    <script>
+        const fmtNum = (val, dec = 2) => {
+            if (val === null || val === undefined || isNaN(val)) return '0.00';
+            return parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        };
+
+        async function loadOCReport() {
+            const params = new URLSearchParams(window.location.search);
+            const nrodoc = params.get('nrodoc');
+            const codcia = params.get('codcia');
+            const tipooc = params.get('tipooc') || 'O';
+            const container = document.getElementById('reportContainer');
+
+            if (!nrodoc || !codcia) {
+                container.innerHTML = '<div class="error">❌ Parámetros faltantes (nrodoc, codcia)</div>';
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('yelave_token');
+                const url = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/report?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}`;
+                const res = await fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+
+                if (!res.ok) throw new Error('Error al cargar OC');
+                const data = await res.json();
+                renderReport(data);
+            } catch (err) {
+                container.innerHTML = `<div class="error">❌ ${err.message}</div>`;
+            }
+        }
+
+        function renderReport(data) {
+            const { company, header, items } = data;
+            const sym = header.codmon || 'S/';
+            let html = '';
+
+            let reportTitle = 'ORDEN DE COMPRA';
+            let reportBg = '#1e3a5f';
+            const t = String(header.tipooc || '').trim().toUpperCase();
+            if (t === 'S') { reportTitle = 'ORDEN DE SERVICIOS'; reportBg = '#16a34a'; }
+            if (t === 'T') { reportTitle = 'ORDEN CONTABLE'; reportBg = '#8b5cf6'; }
+
+            html += `
+            <div class="report-header-band">
+                <div class="report-company-info">
+                    <h2>${company.nomcia || 'EMPRESA'}</h2>
+                    <p>${company.dircia || ''}</p>
+                    <p>RUC: <strong>${company.ruccia || ''}</strong></p>
+                </div>
+                <div class="report-oc-badge" style="background:${reportBg};">
+                    <div class="oc-label">${reportTitle} N°</div>
+                    <div class="oc-number">${header.nrodoc}</div>
+                    <div class="oc-date">${header.fchdoc}</div>
+                </div>
+            </div>`;
+
+            html += `
+            <div class="report-supplier-box">
+                <span class="lbl">Señores :</span><span class="val-full" style="font-weight:600;">${header.nomaux}</span>
+                <span class="lbl">Dirección :</span><span class="val-full">${header.diraux}</span>
+                <span class="lbl">Atención :</span><span class="val">${header.contacto}</span>
+                <span class="lbl">Teléfono :</span><span class="val">${header.tlfaux}</span>
+                <span class="lbl">Ruc :</span><span class="val"><strong>${header.rucaux}</strong></span>
+                <span class="lbl">Comprador :</span><span class="val">${header.nomcom}</span>
+                ${header.nroreq ? `<span class="lbl">N° Req. :</span><span class="val">${header.nroreq}</span>` : ''}
+            </div>`;
+
+            const isGoods = (t === 'M');
+            html += `
+            <table class="report-table">
+                <thead><tr>
+                    <th style="width:30px;text-align:center;">N°</th>
+                    <th style="width:75px;">Código</th>
+                    <th>Producto / Servicio</th>
+                    <th style="width:35px;text-align:center;">Und</th>
+                    <th style="width:65px;text-align:right;">${isGoods ? 'Cant' : 'Cantidad'}</th>
+                    ${isGoods ? '<th style="width:65px;text-align:right;">Recibido</th>' : ''}
+                    <th style="width:65px;text-align:right;">Facturado</th>
+                    <th style="width:65px;text-align:center;">Estado</th>
+                    <th style="width:70px;text-align:right;">Precio</th>
+                    <th style="width:80px;text-align:right;">Total</th>
+                </tr></thead><tbody>`;
+
+            if (items.length === 0) {
+                html += `<tr><td colspan="${isGoods ? '10' : '9'}" style="text-align:center;color:#94a3b8;padding:2rem;">Sin ítems</td></tr>`;
+            } else {
+                items.forEach(it => {
+                    const rowColor = (it.estado_ingreso === 'Completo') ? 'color:#16a34a;font-weight:600;' : (it.estado_ingreso === 'Parcial' ? 'color:#d97706;font-weight:600;' : 'color:#64748b;');
+                    html += `<tr>
+                        <td style="text-align:center;color:#64748b;font-weight:600;">${it.item_display}</td>
+                        <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
+                        <td style="font-weight:500;">${it.desmat}</td>
+                        <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
+                        <td style="text-align:right;">${fmtNum(it.candes)}</td>
+                        ${isGoods ? `<td style="text-align:right;font-weight:600;color:#22c55e;">${fmtNum(it.cant_ingresada)}</td>` : ''}
+                        <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(it.cant_facturada)}</td>
+                        <td style="text-align:center;font-size:0.7rem;${rowColor}">${it.estado_ingreso}</td>
+                        <td style="text-align:right;">${fmtNum(it.preuni)}</td>
+                        <td style="text-align:right;font-weight:600;color:#1e3a5f;">${sym} ${fmtNum(it.imptot)}</td>
+                    </tr>`;
+                    if (it.notas && it.notas.length) {
+                        it.notas.forEach(n => {
+                            html += `<tr class="note-row"><td></td><td></td><td colspan="${isGoods ? '8' : '7'}" style="padding-left:1.5rem;"><span style="color:#94a3b8;">↳</span> ${n}</td></tr>`;
+                        });
+                    }
+                });
+            }
+            html += '</tbody></table>';
+
+            html += `
+            <div class="report-totals-box">
+                <table>
+                    <tr><td style="text-align:right;color:#64748b;font-weight:500;">Sub Total :</td>
+                        <td style="text-align:center;width:40px;color:#64748b;">${sym}</td>
+                        <td style="text-align:right;min-width:100px;">${fmtNum(header.impnet)}</td></tr>
+                    <tr><td style="text-align:right;color:#64748b;">IGV ${fmtNum(header.porigv, 2)}% :</td>
+                        <td style="text-align:center;color:#64748b;">${sym}</td>
+                        <td style="text-align:right;">${fmtNum(header.impigv)}</td></tr>
+                    <tr class="row-total"><td style="text-align:right;color:#1e3a5f;">Total General</td>
+                        <td style="text-align:center;color:#1e3a5f;">${sym}</td>
+                        <td style="text-align:right;color:#1e3a5f;">${fmtNum(header.imptot)}</td></tr>
+                </table>
+            </div>`;
+
+            html += '<dl class="report-footer-dl">';
+            if (header.glodoc) html += `<dt>Nota :</dt><dd>${header.glodoc}</dd>`;
+            if (header.tmpent) html += `<dt>Tiempo Entrega :</dt><dd>${header.tmpent}</dd>`;
+            if (header.entrega) html += `<dt>Entrega :</dt><dd>${header.entrega}</dd>`;
+            if (header.lugent) html += `<dt>Lugar Entrega :</dt><dd>${header.lugent}</dd>`;
+            if (header.despag) html += `<dt>Cond. de Pago :</dt><dd><strong>${header.despag}</strong></dd>`;
+            html += '</dl>';
+
+            html += `<div class="report-disclaimer">
+                A la entrega de la mercadería dejar copia o fotostática de la guía de remisión.<br>
+                En la oficina se recepcionará facturas adjuntando guía y o/c.
+            </div>`;
+
+            document.getElementById('reportContainer').innerHTML = html;
+            
+            // Cargar adjuntos y trazabilidad asíncronamente
+            loadExtras(codcia, nrodoc, tipooc);
+        }
+
+        async function loadExtras(codcia, nrodoc, tipooc) {
+            const container = document.getElementById('reportContainer');
+            const extrasDiv = document.createElement('div');
+            extrasDiv.id = 'reportExtras';
+            container.appendChild(extrasDiv);
+
+            const token = localStorage.getItem('yelave_token');
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            try {
+                // 1. Cargar Adjuntos (Órdenes firmadas)
+                const resAtt = await fetch(`/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=signed_order`, { headers });
+                let archHTML = '<div class="docs"><h3>Documentos Adjuntos (OC Firmada)</h3><div style="color:#94a3b8;font-size:0.85rem;padding:0.5rem 0;">Sin documentos adjuntos.</div></div>';
+                
+                if (resAtt.ok) {
+                    const files = await resAtt.json();
+                    if (files && files.length > 0) {
+                        let fl = '';
+                        files.forEach(a => {
+                            const ext = (a.filename || '').split('.').pop().toUpperCase();
+                            const u = a.url;
+                            const isPreviewable = ['PDF','JPG','PNG','JPEG','WEBP'].includes(ext);
+                            const col = ext === 'PDF' ? '#ef4444' : ext === 'XML' ? '#10b981' : '#6366f1';
+                            
+                            fl += `<div class="fitem">
+                                <span class="fbadge" style="background:${col}">${ext}</span>
+                                <span class="flink">${a.filename}</span>
+                                <a href="${u}" target="_blank" style="margin-left:auto; color:#64748b; text-decoration:none;" title="${isPreviewable ? 'Ver/Descargar' : 'Descargar'}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                </a>
+                            </div>`;
+                        });
+                        archHTML = `<div class="docs"><h3>Documentos Adjuntos (OC Firmada)</h3>${fl}</div>`;
+                    }
+                }
+                
+                // 2. Cargar Trazabilidad (Ingresos a Almacén)
+                let trazaHTML = '';
+                if (tipooc === 'M') {
+                    const resWh = await fetch(`/api/logistics/orders/${encodeURIComponent(nrodoc)}/warehouse-entry?codcia=${encodeURIComponent(codcia)}`, { headers });
+                    if (resWh.ok) {
+                        const whData = await resWh.json();
+                        if (whData.vouchers && whData.vouchers.length > 0) {
+                            trazaHTML += '<div class="docs"><h3>Trazabilidad - Ingresos a Almacén</h3><div class="traza-grid">';
+                            whData.vouchers.forEach(v => {
+                                const h = v.header;
+                                trazaHTML += `
+                                <div class="compact-panel">
+                                    <h3>🎫 INGRESO ${h.nrodoc}</h3>
+                                    <div class="crow"><strong>Almacén:</strong><span>${h.almacen} - ${h.des_almacen}</span></div>
+                                    <div class="crow"><strong>Movimiento:</strong><span>${h.tipmov}${h.codmov} - ${h.des_movimiento}</span></div>
+                                    <div class="crow"><strong>Fecha:</strong><span>${h.fchdoc}</span></div>
+                                    <div class="crow"><strong>Estado:</strong><span style="font-weight:600; color:${h.estado==='C'?'#10b981':'#f59e0b'}">${h.estado==='C'?'Cerrado':'Pendiente'}</span></div>
+                                </div>`;
+                            });
+                            trazaHTML += '</div></div>';
+                        }
+                    }
+                }
+
+                extrasDiv.innerHTML = trazaHTML + archHTML;
+
+            } catch (err) {
+                console.warn("Error cargando extras:", err);
+            }
+        }
+
+        loadOCReport();
+    </script>
+</body>
+</html>

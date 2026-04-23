@@ -62,8 +62,8 @@
         .bg-green { background: #dcfce7; }
         
         /* Modal Base */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-start; padding-top: 5vh; }
-        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 80%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .rg-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-start; padding-top: 5vh; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 80%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); margin: 0 auto; }
         .close-modal { float: right; cursor: pointer; font-size: 1.5rem; font-weight: bold; line-height: 1; }
         
         .search-bar { display: flex; gap: 10px; margin-bottom: 15px; }
@@ -120,8 +120,8 @@
                         <div class="meta-group">
                             <label>MONEDA:</label>
                             <select id="selMoneda">
-                                <option value="Soles">Soles</option>
-                                <option value="Dolares">Dólares</option>
+                                <option value="1">Soles</option>
+                                <option value="2">Dólares</option>
                             </select>
                         </div>
                     </div>
@@ -254,7 +254,7 @@
 
     <!-- Modals -->
     <!-- Modal Facturas -->
-    <div id="modalFacturas" class="modal">
+    <div id="modalFacturas" class="rg-modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal('modalFacturas')">&times;</span>
             <h2>Buscar Factura de Proveedor</h2>
@@ -270,7 +270,7 @@
     </div>
 
     <!-- Modal Planillas -->
-    <div id="modalPlanillas" class="modal">
+    <div id="modalPlanillas" class="rg-modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal('modalPlanillas')">&times;</span>
             <h2>Buscar Planillas de Movilidad Pendientes</h2>
@@ -283,7 +283,7 @@
     </div>
 
     <!-- Modal CONGASTO -->
-    <div id="modalCongasto" class="modal">
+    <div id="modalCongasto" class="rg-modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal('modalCongasto')">&times;</span>
             <h2>Buscar Categoría de Gasto</h2>
@@ -297,7 +297,7 @@
         </div>
     </div>
 
-    <script src="rendicion_gastos.js?v=2.5"></script>
+    <script src="rendicion_gastos.js?v=2.8"></script>
     <script src="sidebar.js"></script>
 </body>
 </html>

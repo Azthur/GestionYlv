@@ -85,7 +85,7 @@
         async function cargarHistorial() {
             try {
                 const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
-                const username = cu.username || "SISTEMA";
+                const username = cu.login || "SISTEMA";
                 const codcia = document.getElementById("selFiltroCia").value || "003";
                 
                 const res = await axios.get(`${API_URL}/finanzas/rendiciones?codcia=${codcia}`);

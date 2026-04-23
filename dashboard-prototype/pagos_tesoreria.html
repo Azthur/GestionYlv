@@ -145,21 +145,14 @@
                             <thead>
                                 <tr>
                                     <th>Tipo</th>
-                                    <th>N° OC</th>
-                                    <th>Tipo OC</th>
-                                    <th>N° Comprobante</th>
-                                    <th>Tipo Comp</th>
-                                    <th>Fecha OC</th>
-                                    <th>Fecha Emisión</th>
-                                    <th>Fecha Venc.</th>
-                                    <th>Proveedor</th>
+                                    <th>Documento Principal</th>
+                                    <th>Fechas (Venc / Emisión)</th>
+                                    <th>Proveedor / Beneficiario</th>
                                     <th>Mon</th>
-                                    <th style="text-align:right;">Importe OC</th>
-                                    <th style="text-align:right;">Importe Factura</th>
-                                    <th>N° Rendición</th>
-                                    <th style="text-align:right;">Importe Rendición</th>
-                                    <th>N° Cargo</th>
-                                    <th style="width:100px;">Acción</th>
+                                    <th style="text-align:right;">Importe a Pagar</th>
+                                    <th>Trazabilidad</th>
+                                    <th>Cargo Origen</th>
+                                    <th style="width:100px; text-align:center;">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="pendientesTbody"></tbody>
@@ -180,7 +173,7 @@
                         <table id="historialPagosTable" class="display nowrap" style="width:100%;">
                             <thead>
                                 <tr>
-                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Tipo</th><th>N° Operación</th><th>Fecha Pago</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th>
+                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Tipo</th><th>N° Operación</th><th>Fecha Pago</th><th>Mon</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th>
                                 </tr>
                             </thead>
                             <tbody id="historialPagosTbody"></tbody>
@@ -193,78 +186,124 @@
 
     <!-- ═══ MODAL: REGISTRO DE PAGO ═══ -->
     <div class="modal-overlay" id="modalPago">
-        <div class="modal" style="max-width:550px; width:95%;">
-            <div class="modal-header" style="background:#1e3a5f;">
-                <h3 style="color:#fff;" id="modalPagoTitle">Registro de Pago</h3>
+        <div class="modal" style="max-width:620px; width:95%;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); padding:1rem 1.5rem;">
+                <h3 style="color:#fff; font-size:1.05rem;" id="modalPagoTitle">💳 Registro de Pago</h3>
                 <button class="close-btn" style="color:#fff; opacity:0.8;" onclick="document.getElementById('modalPago').classList.remove('active')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
-            <div class="modal-body" style="padding:1.5rem; text-align:left;">
-                <div id="pagoResumen" style="background:#f0f4f8; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem 1rem; margin-bottom:1.25rem; font-size:0.8rem;"></div>
+            <div class="modal-body" style="padding:1.25rem 1.5rem; text-align:left;">
+                <!-- Resumen del documento -->
+                <div id="pagoResumen" style="background:linear-gradient(135deg, #f0f4f8, #e8f0fe); border:1px solid #c7d2fe; border-radius:10px; padding:1rem 1.25rem; margin-bottom:1.25rem; font-size:0.8rem;"></div>
+
                 <form id="formPago" onsubmit="event.preventDefault(); submitPago();">
                     <input type="hidden" id="pago_idDetalle">
                     <input type="hidden" id="pago_codcia">
                     <input type="hidden" id="pago_nrodoc">
                     <input type="hidden" id="pago_tipooc">
-                    
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-                        <div>
-                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Moneda</label>
-                            <select id="pago_moneda" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                                <option value="">Cargando...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Monto Pagado</label>
-                            <input type="number" step="0.01" id="pago_monto" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                        </div>
-                    </div>
-                    
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-                        <div>
-                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Banco Emisor</label>
-                            <select id="pago_banco" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                                <option value="">Cargando...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Tipo de Pago</label>
-                            <select id="pago_tipo" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                                <option value="">Cargando...</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-                        <div>
-                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Fecha de Pago</label>
-                            <input type="date" id="pago_fecha" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;">
-                        </div>
-                        <div>
-                            <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Nro. Operación / Ref.</label>
-                            <input type="text" id="pago_nro_operacion" required style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;" placeholder="Ej: 198273645">
-                        </div>
-                    </div>
 
+                    <!-- FILA 1: Banco Emisor (full width) — al seleccionar banco, se detecta la moneda -->
                     <div style="margin-bottom:1rem;">
-                        <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Subir Archivos (Vouchers, Reportes — MAX 3)</label>
-                        <input type="file" id="pago_adjuntos" multiple accept="image/*,application/pdf" style="width:100%; padding:0.5rem; border:1px dotted #94a3b8; border-radius:4px; font-size:0.8rem;">
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">🏦 Cuenta Bancaria de Pago</label>
+                        <select id="pago_banco" required onchange="onBancoChange()" style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff;">
+                            <option value="">— Seleccione cuenta bancaria —</option>
+                        </select>
+                        <div id="bancoMonedaInfo" style="margin-top:0.35rem; font-size:0.75rem; color:#64748b; display:none;">
+                            Moneda: <span id="bancoMonedaLabel" style="font-weight:700; color:#1e40af;"></span>
+                        </div>
                     </div>
 
-                    <div style="margin-bottom:1.5rem;">
-                        <label style="font-weight:600; font-size:0.8rem; display:block; margin-bottom:0.25rem;">Notas u Observaciones (Opcional)</label>
-                        <textarea id="pago_notas" rows="2" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85rem;"></textarea>
+                    <!-- FILA 2: Moneda (auto-set) + Monto -->
+                    <div style="display:grid; grid-template-columns:140px 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div>
+                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Moneda</label>
+                            <select id="pago_moneda" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#f8fafc; font-weight:600;">
+                                <option value="PEN">PEN — Soles</option>
+                                <option value="USD">USD — Dólares</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Monto a Pagar</label>
+                            <input type="number" step="0.01" id="pago_monto" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:1rem; font-weight:700; color:#0f172a;">
+                        </div>
                     </div>
 
-                    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
-                        <button type="button" class="btn-action outline" style="padding:0.6rem 1rem;" onclick="document.getElementById('modalPago').classList.remove('active')">Cancelar</button>
-                        <button type="submit" class="btn-action primary" style="padding:0.6rem 1.25rem; display:flex; align-items:center; gap:0.5rem;">
+                    <!-- FILA 3: Tipo Pago + Nro Operación -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div>
+                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Medio de Pago</label>
+                            <select id="pago_tipo" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff;">
+                                <option value="">Seleccione...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Nro. Operación / Ref.</label>
+                            <input type="text" id="pago_nro_operacion" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;" placeholder="Ej: 198273645">
+                        </div>
+                    </div>
+
+                    <!-- FILA 4: Fecha + Concepto -->
+                    <div style="display:grid; grid-template-columns:180px 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div>
+                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Fecha de Pago</label>
+                            <input type="date" id="pago_fecha" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
+                        </div>
+                        <div>
+                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Concepto Pago (CjaMTipo)</label>
+                            <select id="pago_concepto" style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff;">
+                                <option value="">Seleccione concepto...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- FILA 5: Archivos Adjuntos — Drag & Drop -->
+                    <div style="margin-bottom:1rem;">
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">📎 Adjuntos (Vouchers, Comprobantes — máx. 5)</label>
+                        <div id="dropZone" style="border:2px dashed #94a3b8; border-radius:8px; padding:1rem; text-align:center; cursor:pointer; transition:all 0.2s; background:#fafbfc;"
+                             onclick="document.getElementById('pago_adjuntos').click()"
+                             ondragover="event.preventDefault(); this.style.borderColor='#2563eb'; this.style.background='#eff6ff';"
+                             ondragleave="this.style.borderColor='#94a3b8'; this.style.background='#fafbfc';"
+                             ondrop="event.preventDefault(); this.style.borderColor='#94a3b8'; this.style.background='#fafbfc'; handleFileDrop(event);">
+                            <div style="color:#64748b; font-size:0.8rem;">
+                                <span style="font-size:1.5rem;">📁</span><br>
+                                Arrastra archivos aquí o <span style="color:#2563eb; font-weight:600; text-decoration:underline;">haz clic para seleccionar</span>
+                            </div>
+                        </div>
+                        <input type="file" id="pago_adjuntos" multiple accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx" style="display:none;" onchange="renderFileList()">
+                        <div id="fileListPreview" style="margin-top:0.5rem;"></div>
+                    </div>
+
+                    <!-- FILA 6: Notas -->
+                    <div style="margin-bottom:1.25rem;">
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Notas (Opcional)</label>
+                        <textarea id="pago_notas" rows="2" style="width:100%; padding:0.5rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; resize:vertical;" placeholder="Observaciones adicionales..."></textarea>
+                    </div>
+
+                    <!-- Botones -->
+                    <div style="display:flex; justify-content:flex-end; gap:0.75rem; border-top:1px solid #e2e8f0; padding-top:1rem;">
+                        <button type="button" class="btn-action outline" style="padding:0.6rem 1.25rem; font-size:0.85rem;" onclick="document.getElementById('modalPago').classList.remove('active')">Cancelar</button>
+                        <button type="submit" class="btn-action primary" id="btnSubmitPago" style="padding:0.6rem 1.5rem; display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:700;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"></polyline></svg>
                             Registrar Pago
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: VISOR DOCUMENTO (Iframe) ═══ -->
+    <div class="modal-overlay" id="modalVisor">
+        <div class="modal" style="width:90%; max-width:1200px; height:85vh; max-height:800px;">
+            <div class="modal-header" style="background:#0f172a; padding:1rem 1.5rem;">
+                <h3 style="color:#fff; font-size:1rem;" id="modalVisorTitle">Visor de Documento</h3>
+                <button class="close-btn" style="color:#fff; opacity:0.8;" onclick="document.getElementById('modalVisor').classList.remove('active')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:0; overflow:hidden; flex:1; height:0;">
+                <iframe id="visorIframe" style="width:100%; height:100%; border:none;"></iframe>
             </div>
         </div>
     </div>

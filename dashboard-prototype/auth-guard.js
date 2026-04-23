@@ -9,6 +9,12 @@
 (function() {
     'use strict';
 
+    // No aplicar auth-guard cuando se carga dentro de un iframe (ej: visor modal)
+    if (window !== window.top) {
+        document.documentElement.style.visibility = 'visible';
+        return;
+    }
+
     // 1. Ocultar body hasta validación
     document.documentElement.style.visibility = 'hidden';
 
@@ -110,7 +116,17 @@
         document.documentElement.style.visibility = 'visible';
     });
 
-    // 6. Inactivity Timeout (10 minutes)
+    // 6. Inactivity Timeout (10 minutes) — skip for dashboard gerencial (keep-alive)
+    if (window.__YELAVE_DASHBOARD_KEEP_ALIVE__) {
+        // Dashboard gerencial: refresh token periodically instead of expiring
+        setInterval(function() {
+            fetch('/api/auth/verify', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function(r) { if (!r.ok) { window.location.href = 'login.html'; } })
+            .catch(function() {});
+        }, 4 * 60 * 1000); // every 4 min
+        return; // skip inactivity setup
+    }
+
     let inactivityTimer;
     const INACTIVITY_LIMIT_MS = 10 * 60 * 1000;
 

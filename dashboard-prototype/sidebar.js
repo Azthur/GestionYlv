@@ -6,6 +6,9 @@
 (function () {
     'use strict';
 
+    // No inyectar sidebar cuando la página está dentro de un iframe (ej: visor modal)
+    if (window !== window.top) return;
+
     const API_URL = 'http://localhost:8000/api';
 
     // ── Iconos SVG por código de módulo ──

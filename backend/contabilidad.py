@@ -951,8 +951,7 @@ def crear_factura(data: FacturaCreate):
                     CreditoMtoPendiente, CreditoFecPlazo, CreditoNumCuotas, CreditoCuotasJson,
                     DocsRelacionadosJson, XmlDataJson
                 ) OUTPUT INSERTED.Id
-                VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
-                        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 data.codcia.strip(), data.num_ruc_proveedor, data.nom_proveedor, data.cod_tipo_doc, data.serie, data.numero,
                 data.fec_emision, fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
@@ -2302,7 +2301,9 @@ def get_facturas_sin_oc(
     draw: int = Query(1),
     start: int = Query(0),
     length: int = Query(10),
-    search_value: Optional[str] = Query(None, alias="search[value]")
+    search_value: Optional[str] = Query(None, alias="search[value]"),
+    ano: Optional[str] = Query("0"),
+    mes: Optional[int] = Query(0)
 ):
     """Listar facturas sin orden de compra vinculada para enviar a Tesorería - EXCLUYE facturas ya en cargos"""
     conn = get_db_connection()
@@ -2329,8 +2330,21 @@ def get_facturas_sin_oc(
                   WHERE RTRIM(d.NroFactura) = RTRIM(f.Serie) + '-' + RTRIM(f.Numero)
                     AND RTRIM(d.CodCiaOc) = RTRIM(f.CodCia)
               )
+              AND NOT EXISTS (
+                  SELECT 1 FROM FinRendicionGastosDet rd
+                  INNER JOIN FinRendicionGastosCab rc ON rd.RendicionId = rc.Id
+                  WHERE rd.DocReferenciaId = f.Id
+                    AND rc.FechaAprobacion IS NOT NULL
+              )
         """
         params = [codcia.strip()]
+
+        if ano and ano != "0":
+            base_query += " AND YEAR(f.FecEmision) = ?"
+            params.append(ano)
+        if mes and mes > 0:
+            base_query += " AND MONTH(f.FecEmision) = ?"
+            params.append(mes)
 
         # Filtro por búsqueda
         if search_value:

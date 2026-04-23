@@ -264,6 +264,18 @@ let recibidosDT = null;
 let facturasTesoreriaDT = null;
 let rendicionesTesoreriaDT = null;
 
+function refreshCurrentTab() {
+    if (currentSubTab.startsWith('generar_')) {
+        loadOCsDisponibles();
+        loadFacturasSinOC();
+        loadRendicionesAprobadas();
+    } else if (currentSubTab === 'recibidos') {
+        loadCargosRecibidos();
+    } else if (currentSubTab === 'historial') {
+        loadHistorial();
+    }
+}
+
 async function loadOCsDisponibles() {
     const codcia = document.getElementById('filterCia').value;
     if (!codcia) { Swal.fire('Atención', 'Seleccione una empresa.', 'warning'); return; }
@@ -605,7 +617,13 @@ async function loadCargosRecibidos() {
         return;
     }
 
-    if (recibidosDT) { recibidosDT.destroy(); recibidosDT = null; }
+    if (recibidosDT) { 
+        recibidosDT.destroy(); 
+        recibidosDT = null; 
+    }
+    $('#cargosRecibidosTable').empty();
+    $('#cargosRecibidosTable').html('<thead></thead><tbody id="cargosRecibidosTbody"></tbody>');
+
     const thead = $('#cargosRecibidosTable thead');
     const tbody = document.getElementById('cargosRecibidosTbody');
 
@@ -944,7 +962,12 @@ async function loadHistorial() {
     const codcia = document.getElementById('filterCia').value;
     if (!codcia) return;
 
-    if (historialDT) { historialDT.destroy(); historialDT = null; }
+    if (historialDT) { 
+        historialDT.destroy(); 
+        historialDT = null; 
+    }
+    $('#historialTable').empty();
+    $('#historialTable').html('<thead></thead><tbody id="historialTbody"></tbody>');
     
     const thead = $('#historialTable thead');
     const tbody = document.getElementById('historialTbody');
@@ -1190,11 +1213,14 @@ async function openCargoDetail(cargoId) {
             if (d.FacturaUuid && d.NroFactura) {
                 fHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">${d.NroFactura}</a>`;
             }
-            mapOC[key].FacturasList.push({
-                fHtml: fHtml,
-                fch: d.fch_factura || '-',
-                monto: parseFloat(d.MontoFactura || 0)
-            });
+            if ((d.NroFactura && d.NroFactura !== '-') || parseFloat(d.MontoFactura || 0) > 0) {
+                mapOC[key].FacturasList.push({
+                    fHtml: fHtml,
+                    fch: d.fch_factura || '-',
+                    monto: parseFloat(d.MontoFactura || 0),
+                    moneda: d.Moneda
+                });
+            }
         });
 
         const detailRows = Object.values(mapOC).map((d, i) => {
@@ -1242,13 +1268,17 @@ async function openCargoDetail(cargoId) {
             const facturasList = d.FacturasList || [];
             const totalFacturas = facturasList.reduce((sum, f) => sum + (f.monto || 0), 0);
             
+            const getCurSym = (mon) => (mon === 'USD' || mon === '2') ? '$' : 'S/';
+            const dsym = getCurSym(d.Moneda);
+            
             let facturasHtml = '';
             if (facturasList.length > 0) {
                 facturasList.forEach(fact => {
-                    facturasHtml += `<div style="margin-bottom:2px;">${fact.fHtml} <span style="color:#64748b;">(${fact.fch||'-'})</span> <b>S/${fact.monto.toLocaleString('es-PE',{minimumFractionDigits:2})}</b></div>`;
+                    const fsym = getCurSym(fact.moneda || d.Moneda);
+                    facturasHtml += `<div style="margin-bottom:2px;">${fact.fHtml} <span style="color:#64748b;">(${fact.fch||'-'})</span> <b>${fsym} ${fact.monto.toLocaleString('es-PE',{minimumFractionDigits:2})}</b></div>`;
                 });
-            } else if (d.FacturaUuid) {
-                facturasHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb;">${d.NroFactura||'Fact'}</a> <b>S/${parseFloat(d.MontoFactura||0).toLocaleString('es-PE',{minimumFractionDigits:2})}</b>`;
+            } else if (d.FacturaUuid || parseFloat(d.MontoFactura||0) > 0) {
+                facturasHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb;">${d.NroFactura||'Fact'}</a> <b>${dsym} ${parseFloat(d.MontoFactura||0).toLocaleString('es-PE',{minimumFractionDigits:2})}</b>`;
             }
 
             return `<tr>
@@ -1258,83 +1288,129 @@ async function openCargoDetail(cargoId) {
                     <div style="font-size:0.65rem; color:#64748b; background:#f1f5f9; padding:1px 4px; border-radius:3px; display:inline-block; margin-top:2px;">${tipoDoc}</div>
                 </td>
                 <td style="font-size:0.7rem; vertical-align:top; padding:4px 3px;">${fchEmision}</td>
-                <td style="font-size:0.7rem; vertical-align:top; padding:4px 3px;">${fchVencimiento}</td>
                 <td style="font-size:0.7rem; vertical-align:top; padding:4px 4px;">${proveedor}<br><span style="color:#94a3b8;">${d.TipoOc==='REND'?(d.rendicion_ruc||d.rendicion_codusuario||''):(d.RucProveedor||'')}</span></td>
-                <td style="text-align:right; font-size:0.7rem; vertical-align:top; padding:4px 4px;">${montoOC>0?`S/${parseFloat(montoOC).toLocaleString('es-PE',{minimumFractionDigits:2})}`:'-'}</td>
+                <td style="text-align:right; font-size:0.7rem; vertical-align:top; padding:4px 4px;">${montoOC>0?`${dsym} ${parseFloat(montoOC).toLocaleString('es-PE',{minimumFractionDigits:2})}`:'-'}</td>
                 <td style="vertical-align:top; padding:4px 4px;">
-                    <div style="text-align:right; font-size:0.7rem; ${totalFacturas>0?'font-weight:700;':''}">${totalFacturas>0?`S/${totalFacturas.toLocaleString('es-PE',{minimumFractionDigits:2})}`:'-'}</div>
+                    <div style="text-align:right; font-size:0.7rem; ${totalFacturas>0?'font-weight:700;':''}">${totalFacturas>0?`${dsym} ${totalFacturas.toLocaleString('es-PE',{minimumFractionDigits:2})}`:'-'}</div>
                     ${facturasHtml?`<div style="font-size:0.65rem; margin-top:3px; border-top:1px dashed #e2e8f0; padding-top:3px;">${facturasHtml}</div>`:''}
                 </td>
                 <td style="text-align:right; vertical-align:top; padding:4px 4px; ${montoRendicion>0?'font-weight:700; color:#7c3aed;':''}">
-                    <div style="font-size:0.7rem;">${montoRendicion>0?`S/${parseFloat(montoRendicion).toLocaleString('es-PE',{minimumFractionDigits:2})}`:'-'}</div>
+                    <div style="font-size:0.7rem;">${montoRendicion>0?`${dsym} ${parseFloat(montoRendicion).toLocaleString('es-PE',{minimumFractionDigits:2})}`:'-'}</div>
                     ${d.RendicionUuid?`<a href="/visor_rendicion.html?uuid=${d.RendicionUuid}" target="_blank" style="font-size:0.6rem; color:#8b5cf6;">📋Ver</a>`:''}
                 </td>
-                <td style="font-size:0.65rem; vertical-align:top; padding:4px 4px; line-height:1.5;">${enlacesHtml}</td>
+                <td class="no-print" style="font-size:0.65rem; vertical-align:top; padding:4px 4px; line-height:1.5;">${enlacesHtml}</td>
             </tr>`;
         }).join('');
 
         content.innerHTML = `
             <style>
                 @media print {
-                    @page { size: landscape; margin: 10mm; }
-                    body { font-size: 9pt; }
-                    .rpt-table { font-size: 8pt; }
-                    .rpt-table th, .rpt-table td { padding: 4px 3px !important; }
+                    @page { size: landscape; margin: 15mm; }
+                    body { font-size: 10pt; background: white !important; }
+                    .rpt-table { font-size: 9pt; width: 100%; border-collapse: collapse; }
+                    .rpt-table th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; padding: 8px 6px; }
+                    .rpt-table td { padding: 8px 6px; }
+                    .rpt-table tr { page-break-inside: avoid; }
+                    .rpt-table thead { display: table-header-group; }
+                    .rpt-table tfoot { display: table-footer-group; }
                     .no-print { display: none !important; }
+                    .report-card-info { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
                 }
-                .rpt-table { border-collapse: collapse; width: 100%; }
-                .rpt-table th { background: #1e3a5f; color: white; font-size: 0.75rem; padding: 6px 4px; border: 1px solid #475569; }
-                .rpt-table td { border: 1px solid #cbd5e1; font-size: 0.75rem; }
+                .rpt-table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                .rpt-table thead { background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+                .rpt-table th { color: #334155; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; padding: 12px 10px; border-bottom: 1px solid #e2e8f0; }
+                .rpt-table td { border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; padding: 10px 10px; color: #1e293b; vertical-align: middle; }
+                .rpt-table tbody tr:hover { background-color: #f8fafc; }
+                
+                .report-card-info {
+                    background: white;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    padding: 1.5rem;
+                    margin-bottom: 1.5rem;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                }
+                .info-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 1.5rem;
+                }
+                .info-item {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.25rem;
+                }
+                .info-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+                .info-value { font-size: 0.95rem; font-weight: 600; color: #0f172a; }
             </style>
-            <div class="report-band">
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem;">
                 <div>
-                    <h2 style="font-size:1.15rem; font-weight:700; color:#1e3a5f; margin:0 0 0.15rem;">CORPORACIÓN Y.L.V S.A.C</h2>
-                    <p style="font-size:0.75rem; color:#6b7280; margin:0; line-height:1.4;">RUC: 20601234567<br>CARGO DE ENTREGA DOCUMENTAL</p>
+                    <h2 style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0 0 0.25rem; letter-spacing:-0.02em;">CORPORACIÓN Y.L.V S.A.C</h2>
+                    <p style="font-size:0.85rem; color:#64748b; margin:0;">RUC: 20601234567 | CARGO DE ENTREGA DOCUMENTAL</p>
                 </div>
-                <div class="report-badge-box">
-                    <div class="rpt-label">CARGO DE ENTREGA</div>
-                    <div class="rpt-number">${h.NroCargo}</div>
-                    <div class="rpt-date">Generado: ${h.FechaCargo || '-'}</div>
+                <div style="text-align: right;">
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #2563eb; letter-spacing: 1px;">${h.NroCargo}</div>
+                    <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Generado: ${h.FechaCargo || '-'}</div>
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0.3rem 0.75rem; font-size:0.8rem; padding:0.85rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1.25rem;">
-                <span style="font-weight:600; color:#64748b;">Tipo:</span>
-                <span style="color:#0f172a; font-weight:600;">${tipoLabel}</span>
-                <span style="font-weight:600; color:#64748b;">Estado:</span>
-                <span style="color:#0f172a; font-weight:600;">${h.Estado}</span>
-                <span style="font-weight:600; color:#64748b;">Entrega:</span>
-                <span>${h.AreaOrigen} — ${h.UsuarioOrigen || '-'}</span>
-                <span style="font-weight:600; color:#64748b;">Recepción:</span>
-                <span>${h.UsuarioDestino ? h.AreaDestino + ' — ' + h.UsuarioDestino : '(Pendiente)'} ${h.FechaRecepcion ? '<br><small>(' + h.FechaRecepcion + ')</small>' : ''}</span>
-                ${h.Observaciones ? `<span style="font-weight:600; color:#64748b;">Notas:</span><span style="grid-column:span 3;">${h.Observaciones}</span>` : ''}
+            <div class="report-card-info">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Tipo de Cargo</span>
+                        <span class="info-value" style="color: #3b82f6;">${tipoLabel}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Estado</span>
+                        <span class="info-value">
+                            <span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1;">${h.Estado}</span>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Entrega (Origen)</span>
+                        <span class="info-value">${h.AreaOrigen}</span>
+                        <span style="font-size: 0.8rem; color: #64748b;">${h.UsuarioOrigen || '-'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Recepción (Destino)</span>
+                        <span class="info-value">${h.AreaDestino}</span>
+                        <span style="font-size: 0.8rem; color: #64748b;">${h.UsuarioDestino || '(Pendiente de firma)'}</span>
+                    </div>
+                </div>
+                ${h.Observaciones ? `
+                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                    <span class="info-label">Observaciones Adicionales</span>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.9rem; color: #334155; line-height: 1.5;">${h.Observaciones}</p>
+                </div>` : ''}
             </div>
 
-            <table class="rpt-table" style="width:100%;">
-                <thead>
-                    <tr>
-                        <th style="width:25px; text-align:center;">#</th>
-                        <th style="min-width:100px;">Documento</th>
-                        <th style="width:75px;">Emisión</th>
-                        <th style="width:75px;">Venc.</th>
-                        <th style="min-width:120px;">Proveedor</th>
-                        <th style="width:80px; text-align:right;">Monto OC</th>
-                        <th style="min-width:150px; text-align:right;">Monto Factura</th>
-                        <th style="width:80px; text-align:right;">Monto Rend.</th>
-                        <th style="min-width:100px;">Enlaces</th>
-                    </tr>
-                </thead>
-                <tbody>${detailRows}</tbody>
-                <tfoot>
-                    <tr style="background:#e2e8f0; font-weight:700; border-top:2px solid #1e3a5f;">
-                        <td colspan="5" style="text-align:right; padding:6px;">TOTALES (${det.length} docs):</td>
-                        <td style="text-align:right; padding:6px;">S/ ${totalOC.toLocaleString('es-PE',{minimumFractionDigits:2})}</td>
-                        <td style="text-align:right; padding:6px;">S/ ${totalFact.toLocaleString('es-PE',{minimumFractionDigits:2})}</td>
-                        <td style="text-align:right; color:#7c3aed; padding:6px;">S/ ${det.reduce((s,d)=>s+parseFloat(d.total_rendicion||d.MontoRendicion||0),0).toLocaleString('es-PE',{minimumFractionDigits:2})}</td>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            </table>
+            <div style="overflow-x: auto; padding-bottom: 1rem;">
+                <table class="rpt-table">
+                    <thead>
+                        <tr>
+                            <th style="width:30px; text-align:center;">#</th>
+                            <th style="min-width:120px;">Documento</th>
+                            <th style="width:80px;">Emisión</th>
+                            <th style="min-width:160px;">Proveedor / Tercero</th>
+                            <th style="width:90px; text-align:right;">Monto OC</th>
+                            <th style="min-width:140px; text-align:right;">Monto Factura</th>
+                            <th style="width:90px; text-align:right;">Monto Rend.</th>
+                            <th style="min-width:100px;" class="no-print">Enlaces Rápidos</th>
+                        </tr>
+                    </thead>
+                    <tbody>${detailRows}</tbody>
+                    <tfoot>
+                        <tr style="background:#f8fafc; border-top: 2px solid #cbd5e1;">
+                            <td colspan="4" style="text-align:right; font-weight:800; font-size:0.85rem; color:#0f172a;">TOTALES (${det.length} ítems):</td>
+                            <td style="text-align:right; font-weight:700; color:#0f172a;">${totalOC > 0 ? totalOC.toLocaleString('es-PE',{minimumFractionDigits:2}) : '-'}</td>
+                            <td style="text-align:right; font-weight:700; color:#0f172a;">${totalFact > 0 ? totalFact.toLocaleString('es-PE',{minimumFractionDigits:2}) : '-'}</td>
+                            <td style="text-align:right; font-weight:800; color:#7c3aed;">${det.reduce((s,d)=>s+parseFloat(d.total_rendicion||d.MontoRendicion||0),0) > 0 ? det.reduce((s,d)=>s+parseFloat(d.total_rendicion||d.MontoRendicion||0),0).toLocaleString('es-PE',{minimumFractionDigits:2}) : '-'}</td>
+                            <td class="no-print"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
 
             <div style="margin-top:1.25rem; padding:0.65rem 1rem; border:1px solid #94a3b8; border-radius:6px; font-size:0.7rem; text-align:center; color:#475569; background:#f8fafc;">
                 Declaro haber recibido la documentación arriba descrita en conformidad y buen estado.<br>
@@ -2465,6 +2541,8 @@ async function loadFacturasSinOC() {
                 data: function(d) {
                     d.codcia = codcia;
                     d.login = currentUser;
+                    d.ano = document.getElementById('filterAno') ? document.getElementById('filterAno').value : '0';
+                    d.mes = document.getElementById('filterMes') ? document.getElementById('filterMes').value : '0';
                 }
             },
             columns: [
@@ -2523,7 +2601,9 @@ async function loadRendicionesAprobadas() {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#94a3b8;">Cargando...</td></tr>';
 
     try {
-        const res = await axios.get(`/api/finanzas/rendiciones/aprobadas?codcia=${encodeURIComponent(codcia)}`);
+        const ano = document.getElementById('filterAno') ? document.getElementById('filterAno').value : '0';
+        const mes = document.getElementById('filterMes') ? document.getElementById('filterMes').value : '0';
+        const res = await axios.get(`/api/finanzas/rendiciones/aprobadas?codcia=${encodeURIComponent(codcia)}&ano=${ano}&mes=${mes}`);
         const items = res.data;
 
         if (items.length === 0) {
