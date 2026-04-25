@@ -4,7 +4,7 @@ Endpoints para: Tokens, Sincronización de Compras, Registro de Facturas, Trazab
 """
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
 from datetime import datetime, date
 import requests
@@ -73,7 +73,18 @@ class FacturaCreate(BaseModel):
     numero: Optional[str] = None
     fec_emision: Optional[str] = None
     fec_vencimiento: Optional[str] = None
-    cod_moneda: Optional[str] = "PEN"
+    cod_moneda: Optional[str] = "1"
+
+    @field_validator('cod_moneda', mode='before')
+    @classmethod
+    def normalize_moneda(cls, v):
+        """Normaliza moneda a '1' (Soles) o '2' (Dólares)"""
+        if v is None:
+            return '1'
+        raw = str(v).strip().replace('.0', '').upper()
+        if raw in ('2', 'USD', 'US$', 'ME', 'DOLARES'):
+            return '2'
+        return '1'
     tipo_cambio: Optional[float] = 1
     sub_total: Optional[float] = 0
     igv: Optional[float] = 0
@@ -2303,7 +2314,7 @@ def get_facturas_sin_oc(
     length: int = Query(10),
     search_value: Optional[str] = Query(None, alias="search[value]"),
     ano: Optional[str] = Query("0"),
-    mes: Optional[int] = Query(0)
+    mes: Optional[str] = Query("0")
 ):
     """Listar facturas sin orden de compra vinculada para enviar a Tesorería - EXCLUYE facturas ya en cargos"""
     conn = get_db_connection()
@@ -2342,9 +2353,9 @@ def get_facturas_sin_oc(
         if ano and ano != "0":
             base_query += " AND YEAR(f.FecEmision) = ?"
             params.append(ano)
-        if mes and mes > 0:
+        if mes and str(mes) != "0" and str(mes) != "":
             base_query += " AND MONTH(f.FecEmision) = ?"
-            params.append(mes)
+            params.append(int(mes))
 
         # Filtro por búsqueda
         if search_value:

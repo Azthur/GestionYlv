@@ -14,6 +14,16 @@ const formatCurrency = (val, sym = 'S/') => {
     if (val === null || val === undefined) return '-';
     return `${sym} ${fmtNum(val)}`;
 };
+/**
+ * Determina si un valor de moneda representa USD.
+ * Soporta: 2, '2', '2.0', 'USD', 'US$', 'ME'
+ * Todo lo demás (1, '1', 'PEN', null, undefined) → false (= Soles)
+ */
+const isUsdCurrency = (mon) => {
+    const m = String(mon || '').trim().replace(/\.0$/, '').toUpperCase();
+    return ['2', 'USD', 'US$', 'ME'].includes(m);
+};
+const getCurrSym = (mon) => isUsdCurrency(mon) ? '$' : 'S/';
 // ------------------------
 let currentUser = '';
 let currentRole = 'USER';
@@ -266,7 +276,16 @@ let rendicionesTesoreriaDT = null;
 
 function refreshCurrentTab() {
     if (currentSubTab.startsWith('generar_')) {
-        loadOCsDisponibles();
+        if (currentSubTab === 'generar_cont') {
+            const isDirectas = document.getElementById('filterDirectasCont') ? document.getElementById('filterDirectasCont').checked : false;
+            if (!isDirectas) {
+                loadDocumentosAceptadosTesoreria();
+            } else {
+                loadOCsDisponibles();
+            }
+        } else {
+            loadOCsDisponibles();
+        }
         loadFacturasSinOC();
         loadRendicionesAprobadas();
     } else if (currentSubTab === 'recibidos') {
@@ -304,6 +323,14 @@ async function loadOCsDisponibles() {
             console.log('Error destruyendo ocsDT:', e);
         }
         ocsDT = null;
+    }
+    if (docsAceptadosDT) {
+        try {
+            docsAceptadosDT.destroy();
+        } catch(e) {
+            console.log('Error destruyendo docsAceptadosDT:', e);
+        }
+        docsAceptadosDT = null;
     }
 
     try {
@@ -344,6 +371,9 @@ async function loadOCsDisponibles() {
                     data: 'nrodoc',
                     render: function(data, type, row) {
                         let html = `<strong>${data}</strong>`;
+                        if(row.cargo_origen) {
+                            html += `<br><span style="color:#0f766e; font-size:0.65rem; font-weight:600; background:#ccfbf1; padding:2px 4px; border-radius:4px; border:1px solid #99f6e4;">📦 Origen: ${row.cargo_origen}</span>`;
+                        }
                         if(row.observacion_rechazo) {
                             html += `<br><span style="color:#ef4444; font-size:0.65rem; font-weight:600;" title="${row.observacion_rechazo}">⚠️ Rechazado: ${row.observacion_rechazo.substring(0,25)}</span>`;
                         }
@@ -355,13 +385,19 @@ async function loadOCsDisponibles() {
                 { data: 'ruc', render: data => data || '-' },
                 { 
                     data: 'tipooc',
-                    render: data => `<span class="badge pending">${data || '-'}</span>`
+                    render: data => {
+                        const t = String(data||'').trim().toUpperCase();
+                        if (t === 'M') return '<span class="badge pending" style="background:#e0e7ff; color:#3730a3;">📦 Mercadería</span>';
+                        if (t === 'S') return '<span class="badge pending" style="background:#fce7f3; color:#9d174d;">⚙️ Servicios</span>';
+                        if (t === 'T') return '<span class="badge pending" style="background:#fef3c7; color:#92400e;">🗂️ Contable</span>';
+                        return `<span class="badge pending">${t || '-'}</span>`;
+                    }
                 },
                 { 
                     data: 'total_oc',
                     className: 'dt-right',
                     render: (data, t, row) => {
-                        const m = String(row.moneda||'1').trim() === '2' ? 'USD' : 'S/';
+                        const m = isUsdCurrency(row.moneda) ? '$' : 'S/';
                         return `${m} ${parseFloat(data || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`
                     }
                 },
@@ -386,7 +422,7 @@ async function loadOCsDisponibles() {
                     className: 'dt-right',
                     render: (data, t, row) => {
                         if (!row.factura) return '-';
-                        const m = String(row.moneda||'1').trim() === '2' ? 'USD' : 'S/';
+                        const m = isUsdCurrency(row.moneda) ? '$' : 'S/';
                         return `${m} ${parseFloat(data || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`
                     }
                 },
@@ -445,16 +481,16 @@ async function generarCargo() {
                     const oc = ocsDT.row(row).data();
                     if (oc) {
                         selected.push({
-                            nro_orden_compra: oc.nrodoc,
-                            tipo_oc: 'OC',
-                            codcia_oc: document.getElementById('filterCia').value,
-                            anos_oc: oc.anos,
+                            nro_orden_compra: oc.nrodoc || '',
+                            tipo_oc: oc.tipooc || 'M',  // Tipo real: M, S, T
+                            codcia_oc: document.getElementById('filterCia').value || '',
+                            anos_oc: oc.anos || '',
                             nro_factura: oc.factura || '',
-                            monto_oc: parseFloat(oc.total_oc || 0),
-                            monto_factura: parseFloat(oc.total_factura || 0),
+                            monto_oc: parseFloat(oc.total_oc || 0) || 0,
+                            monto_factura: parseFloat(oc.total_factura || 0) || 0,
                             proveedor: oc.proveedor || '',
                             ruc_proveedor: String(oc.ruc || ''),
-                            moneda: oc.moneda || '1'  // 1=PEN, 2=USD
+                            moneda: String(oc.moneda || '1')  // 1=PEN, 2=USD
                         });
                     }
                 }
@@ -479,14 +515,14 @@ async function generarCargo() {
                     selected.push({
                         nro_orden_compra: nroOc || '',
                         tipo_oc: tipoOc || 'OC',
-                        codcia_oc: codciaOc || document.getElementById('filterCia').value,
+                        codcia_oc: codciaOc || document.getElementById('filterCia').value || '',
                         anos_oc: '',
                         nro_factura: nroFactura || '',
-                        monto_oc: parseFloat(montoOc || 0),
-                        monto_factura: parseFloat(montoFactura || 0),
+                        monto_oc: parseFloat(montoOc || 0) || 0,
+                        monto_factura: parseFloat(montoFactura || 0) || 0,
                         proveedor: proveedor || '',
                         ruc_proveedor: String(ruc || ''),
-                        moneda: moneda || '1'
+                        moneda: String(moneda || '1')
                     });
                 }
             });
@@ -505,16 +541,18 @@ async function generarCargo() {
                     const numRuc = chk.data('numruc');
                     
                     if (serie && numero) {
+                        const moneda = chk.data('moneda');
                         selected.push({
                             nro_orden_compra: '',  // Facturas sin OC no tienen OC
                             tipo_oc: 'FACT',  // Código corto para factura sin OC
-                            codcia_oc: document.getElementById('filterCia').value,
+                            codcia_oc: document.getElementById('filterCia').value || '',
                             anos_oc: '',
                             nro_factura: `${serie}-${numero}`,
                             monto_oc: 0,
-                            monto_factura: parseFloat(total || 0),
+                            monto_factura: parseFloat(total || 0) || 0,
                             proveedor: nomProveedor || '',
-                            ruc_proveedor: String(numRuc || '')
+                            ruc_proveedor: String(numRuc || ''),
+                            moneda: String(moneda || '1')
                         });
                     }
                 }
@@ -534,15 +572,16 @@ async function generarCargo() {
                     
                     if (nroRendicion) {
                         selected.push({
-                            nro_orden_compra: nroRendicion,  // Usar NroRendicion como referencia
+                            nro_orden_compra: nroRendicion || '',  // Usar NroRendicion como referencia
                             tipo_oc: 'REND',  // Código corto para rendición
-                            codcia_oc: document.getElementById('filterCia').value,
+                            codcia_oc: document.getElementById('filterCia').value || '',
                             anos_oc: '',
                             nro_factura: '',
                             monto_oc: 0,
-                            monto_factura: parseFloat(total || 0),
+                            monto_factura: parseFloat(total || 0) || 0,
                             proveedor: nomAux || '',
-                            ruc_proveedor: String(codAux || '')
+                            ruc_proveedor: String(codAux || ''),
+                            moneda: '1'
                         });
                     }
                 }
@@ -558,19 +597,41 @@ async function generarCargo() {
         const areaOrigen = tipoCargo === 'LOG_A_CONT' ? 'LOGISTICA' : 'CONTABILIDAD';
         const areaDestino = tipoCargo === 'LOG_A_CONT' ? 'CONTABILIDAD' : 'TESORERIA';
 
-        // Calcular montos por tipo
-        const montoOCs = selected.filter(s => s.tipo_oc === 'OC').reduce((sum, s) => sum + (s.monto_factura || 0), 0);
-        const montoFacturas = selected.filter(s => s.tipo_oc === 'FACT').reduce((sum, s) => sum + (s.monto_factura || 0), 0);
-        const montoRendiciones = selected.filter(s => s.tipo_oc === 'REND').reduce((sum, s) => sum + (s.monto_factura || 0), 0);
+        // Calcular montos por tipo y moneda
+        const isOcType = (t) => ['M','S','T'].includes(t); // Tipos reales de OC
+        const getMonto = (items, filterFn, isUsd) => items.filter(s => filterFn(s.tipo_oc) && (isUsd ? isUsdCurrency(s.moneda) : !isUsdCurrency(s.moneda))).reduce((sum, s) => sum + (s.monto_factura || s.monto_oc || 0), 0);
+
+        const montoOCsPEN = getMonto(selected, isOcType, false);
+        const montoOCsUSD = getMonto(selected, isOcType, true);
+        const montoFacturasPEN = getMonto(selected, t => t === 'FACT', false);
+        const montoFacturasUSD = getMonto(selected, t => t === 'FACT', true);
+        const montoRendicionesPEN = getMonto(selected, t => t === 'REND', false);
+        const montoRendicionesUSD = getMonto(selected, t => t === 'REND', true);
+
+        const totalPEN = montoOCsPEN + montoFacturasPEN + montoRendicionesPEN;
+        const totalUSD = montoOCsUSD + montoFacturasUSD + montoRendicionesUSD;
+
+        const strPEN = totalPEN > 0 ? ` S/ ${totalPEN.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '';
+        const strUSD = totalUSD > 0 ? ` $ ${totalUSD.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '';
+        const separator = (totalPEN > 0 && totalUSD > 0) ? ' | ' : '';
+
+        const formatLine = (label, count, pen, usd) => {
+            if (count === 0) return '';
+            const p = pen > 0 ? `S/ ${pen.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '';
+            const u = usd > 0 ? `$ ${usd.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '';
+            const sep = (p && u) ? ' | ' : '';
+            return `<p><strong>${label}:</strong> ${count} (${p}${sep}${u})</p>`;
+        };
 
         const confirm = await Swal.fire({
             title: '¿Generar Cargo de Entrega?',
             html: `<div style="text-align:left; font-size:0.9rem;">
                 <p><strong>Tipo:</strong> ${areaOrigen} → ${areaDestino}</p>
-                <p><strong>OCs:</strong> ${selected.filter(s => s.tipo_oc === 'OC').length} (S/ ${montoOCs.toLocaleString('es-PE', {minimumFractionDigits: 2})})</p>
-                <p><strong>Facturas sin OC:</strong> ${selected.filter(s => s.tipo_oc === 'FACT').length} (S/ ${montoFacturas.toLocaleString('es-PE', {minimumFractionDigits: 2})})</p>
-                <p><strong>Rendiciones:</strong> ${selected.filter(s => s.tipo_oc === 'REND').length} (S/ ${montoRendiciones.toLocaleString('es-PE', {minimumFractionDigits: 2})})</p>
-                <p><strong>Total:</strong> S/ ${(montoOCs + montoFacturas + montoRendiciones).toLocaleString('es-PE', {minimumFractionDigits: 2})}</p>
+                ${formatLine('OCs', selected.filter(s => isOcType(s.tipo_oc)).length, montoOCsPEN, montoOCsUSD)}
+                ${formatLine('Facturas sin OC', selected.filter(s => s.tipo_oc === 'FACT').length, montoFacturasPEN, montoFacturasUSD)}
+                ${formatLine('Rendiciones', selected.filter(s => s.tipo_oc === 'REND').length, montoRendicionesPEN, montoRendicionesUSD)}
+                <hr style="margin:0.5rem 0; border-color:#cbd5e1;">
+                <p><strong>Total:</strong>${strPEN}${separator}${strUSD}</p>
             </div>`,
             icon: 'question',
             showCancelButton: true,
@@ -582,12 +643,12 @@ async function generarCargo() {
         if (!confirm.isConfirmed) return;
 
         const payload = {
-            codcia: document.getElementById('filterCia').value,
-            tipo_cargo: tipoCargo,
-            usuario_origen: currentUser,
-            area_origen: areaOrigen,
-            area_destino: areaDestino,
-            observaciones: document.getElementById('cargoObservaciones').value.trim(),
+            codcia: document.getElementById('filterCia').value || '',
+            tipo_cargo: tipoCargo || 'LOG_A_CONT',
+            usuario_origen: currentUser || 'Usuario',
+            area_origen: areaOrigen || 'LOGISTICA',
+            area_destino: areaDestino || 'CONTABILIDAD',
+            observaciones: document.getElementById('cargoObservaciones').value.trim() || '',
             detalle: selected
         };
 
@@ -617,50 +678,77 @@ async function loadCargosRecibidos() {
         return;
     }
 
-    if (recibidosDT) { 
-        recibidosDT.destroy(); 
-        recibidosDT = null; 
+    const currentMode = viewModeBandeja;
+
+    if ($.fn.DataTable.isDataTable('#cargosRecibidosTable')) {
+        $('#cargosRecibidosTable').DataTable().clear().destroy();
     }
+    recibidosDT = null;
+    
     $('#cargosRecibidosTable').empty();
-    $('#cargosRecibidosTable').html('<thead></thead><tbody id="cargosRecibidosTbody"></tbody>');
-
-    const thead = $('#cargosRecibidosTable thead');
-    const tbody = document.getElementById('cargosRecibidosTbody');
-
-    if (viewModeBandeja === 'CARGO') {
-        thead.html(`<tr>
-            <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
-            <th>N° Cargo</th><th>Flujo</th><th>Estado</th><th>Generado</th><th>Área Origen</th><th style="text-align:right;">Items</th><th style="text-align:right;">Monto Total</th><th style="width:120px;">Acciones</th>
-        </tr>`);
-    } else {
-        thead.html(`<tr>
-            <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
-            <th>Estado İtem</th><th>N° Cargo</th><th>Generado</th><th>Origen</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
-        </tr>`);
-    }
-
-    tbody.innerHTML = `<tr><td colspan="${viewModeBandeja === 'CARGO' ? 9 : 11}" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando...</td></tr>`;
+    $('#cargosRecibidosTable').html(`<tbody><tr><td colspan="${currentMode === 'CARGO' ? 9 : 11}" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando...</td></tr></tbody>`);
 
     try {
         const res = await axios.get(`/api/cargos/bandeja?codcia=${encodeURIComponent(codcia)}&current_area=${currentArea}&_t=${new Date().getTime()}`);
         const allItems = res.data;
         let pending = allItems;
-        tbody.innerHTML = '';
+        
+        if ($.fn.DataTable.isDataTable('#cargosRecibidosTable')) {
+            $('#cargosRecibidosTable').DataTable().clear().destroy();
+        }
+        
+        $('#cargosRecibidosTable').empty();
+        $('#cargosRecibidosTable').html('<thead></thead><tbody id="cargosRecibidosTbody"></tbody>');
+        const thead = $('#cargosRecibidosTable thead');
+        const tbody = document.getElementById('cargosRecibidosTbody');
+
+        if (currentMode === 'CARGO') {
+            thead.html(`<tr>
+                <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
+                <th>N° Cargo</th><th>Flujo</th><th>Estado</th><th>Generado</th><th>Área Origen</th><th style="text-align:right;">Items</th><th style="text-align:right;">Total OC</th><th style="text-align:right;">Total Fact.</th><th style="text-align:right;">Total Rend.</th><th style="width:120px;">Acciones</th>
+            </tr>`);
+        } else {
+            thead.html(`<tr>
+                <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
+                <th>Estado İtem</th><th>N° Cargo</th><th>Generado</th><th>Origen</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
+            </tr>`);
+        }
+
         if (pending.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${viewModeBandeja === 'CARGO' ? 9 : 11}" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay OCs pendientes.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${currentMode === 'CARGO' ? 9 : 11}" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay OCs pendientes.</td></tr>`;
             return;
         }
 
         let dtData = [];
 
-        if (viewModeBandeja === 'CARGO') {
+        if (currentMode === 'CARGO') {
             const mapCargo = {};
             pending.forEach(c => {
                 if (!mapCargo[c.CargoId]) {
-                    mapCargo[c.CargoId] = { CargoId: c.CargoId, NroCargo: c.NroCargo, TipoCargo: c.TipoCargo, FechaCargo: c.FechaCargo, AreaOrigen: c.AreaOrigen, EstadoCargo: c.EstadoCargo, Items: 0, MontoTotal: 0, EsDevuelto: false };
+                    mapCargo[c.CargoId] = { 
+                        CargoId: c.CargoId, NroCargo: c.NroCargo, TipoCargo: c.TipoCargo, FechaCargo: c.FechaCargo, 
+                        AreaOrigen: c.AreaOrigen, EstadoCargo: c.EstadoCargo, Items: 0, 
+                        MontoOC_PEN: 0, MontoOC_USD: 0,
+                        MontoFactura_PEN: 0, MontoFactura_USD: 0,
+                        MontoRend_PEN: 0, MontoRend_USD: 0,
+                        EsDevuelto: false 
+                    };
                 }
                 mapCargo[c.CargoId].Items++;
-                mapCargo[c.CargoId].MontoTotal += parseFloat(c.MontoFactura || 0);
+                const isUsd = isUsdCurrency(c.Moneda);
+                
+                // Acumular según TipoOc y Moneda
+                if (['M', 'S', 'T'].includes(c.TipoOc) || c.TipoOc === 'OC') {
+                    if (isUsd) mapCargo[c.CargoId].MontoOC_USD += parseFloat(c.MontoOC || 0);
+                    else mapCargo[c.CargoId].MontoOC_PEN += parseFloat(c.MontoOC || 0);
+                } else if (c.TipoOc === 'FACT') {
+                    if (isUsd) mapCargo[c.CargoId].MontoFactura_USD += parseFloat(c.MontoFactura || 0);
+                    else mapCargo[c.CargoId].MontoFactura_PEN += parseFloat(c.MontoFactura || 0);
+                } else if (c.TipoOc === 'REND') {
+                    if (isUsd) mapCargo[c.CargoId].MontoRend_USD += parseFloat(c.MontoFactura || 0);
+                    else mapCargo[c.CargoId].MontoRend_PEN += parseFloat(c.MontoFactura || 0);
+                }
+
                 if (c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO') mapCargo[c.CargoId].EsDevuelto = true;
             });
 
@@ -679,19 +767,30 @@ async function loadCargosRecibidos() {
                 
                 let actionsHtml = `<div style="display:flex; align-items:center; gap:0.5rem; white-space:nowrap;">${mainButtons}<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Más Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div></div>`;
 
+                const formatTot = (pen, usd) => {
+                    let h = '';
+                    if (pen > 0) h += `S/ ${pen.toLocaleString('es-PE',{minimumFractionDigits:2})}<br>`;
+                    if (usd > 0) h += `$ ${usd.toLocaleString('es-PE',{minimumFractionDigits:2})}`;
+                    return h || '-';
+                };
+
                 return [
                     `<input type="checkbox" class="rec-chk no-print" data-cargoid="${cg.CargoId}">`,
                     `<strong>${cg.NroCargo}</strong>`, tipoLabel, estadoItem, cg.FechaCargo || '-', cg.AreaOrigen || '-',
-                    `<span style="font-weight:700;">${cg.Items}</span>`, `S/ ${cg.MontoTotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                    `<span style="font-weight:700;">${cg.Items}</span>`, 
+                    formatTot(cg.MontoOC_PEN, cg.MontoOC_USD),
+                    formatTot(cg.MontoFactura_PEN, cg.MontoFactura_USD),
+                    formatTot(cg.MontoRend_PEN, cg.MontoRend_USD),
+                    actionsHtml
                 ];
             });
 
             recibidosDT = $('#cargosRecibidosTable').DataTable({
                 data: dtData, destroy: true,
-            deferRender: true, order: [[4, 'desc']], pageLength: 10,
+                deferRender: true, order: [[4, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
-                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7] } } ],
-                columnDefs: [ { targets: [0, 8], orderable: false }, { targets: [6, 7], className: 'dt-right font-semibold text-slate-800' } ]
+                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
+                columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [6, 7, 8, 9], className: 'dt-right font-semibold text-slate-800' } ]
             });
         } else {
             dtData = pending.map(c => {
@@ -734,16 +833,21 @@ async function loadCargosRecibidos() {
                 let facturaCell = c.NroFactura || '-';
                 if (c.FacturaUuid && c.NroFactura) facturaCell = `<a href="/factura_visor.html?uid=${c.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline;">${c.NroFactura}</a>`;
 
+                const sym = getCurrSym(c.Moneda);
+                
+                let montoCell = c.MontoOC;
+                if (c.TipoOc === 'FACT' || c.TipoOc === 'REND') montoCell = c.MontoFactura;
+
                 return [
                     `<input type="checkbox" class="rec-chk no-print" data-cargoid="${c.CargoId}">`,
                     estadoItem, `<strong>${c.NroCargo}</strong>`, c.FechaCargo || '-', tipoLabel, `<strong>${c.NroOrdenCompra || '-'}</strong>`,
-                    c.Proveedor || '-', facturaCell, c.EstadoAlmacen || '-', `S/ ${parseFloat(c.MontoFactura || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                    c.Proveedor || '-', facturaCell, c.EstadoAlmacen || '-', `${sym} ${parseFloat(montoCell || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
                 ];
             });
 
             recibidosDT = $('#cargosRecibidosTable').DataTable({
                 data: dtData, destroy: true,
-            deferRender: true, order: [[3, 'desc']], pageLength: 10,
+                deferRender: true, order: [[3, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
                 columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [9], className: 'dt-right font-semibold text-slate-800' } ]
@@ -760,7 +864,7 @@ async function loadCargosRecibidos() {
     } catch (err) {
         console.error("LOAD CARGOS ERROR:", err);
         Swal.fire('Error Bandeja JS', String(err.message), 'error');
-        tbody.innerHTML = `<tr><td colspan="${viewModeBandeja === 'CARGO' ? 9 : 11}" style="color:#ef4444; text-align:center; padding:2rem;">${err.message}</td></tr>`;
+        $('#cargosRecibidosTable').html(`<tbody><tr><td colspan="${currentMode === 'CARGO' ? 9 : 11}" style="color:#ef4444; text-align:center; padding:2rem;">${err.message}</td></tr></tbody>`);
     }
 }
 
@@ -808,7 +912,7 @@ async function recibirCargo(id) {
                                 docLabel = '📋 Rendición';
                                 docValue = d.NroOrdenCompra || '-';
                                 subInfo = `Usuario: ${d.Proveedor || '-'}`;
-                                monto = parseFloat(d.MontoOC || 0);
+                                monto = parseFloat(d.MontoFactura || 0); // Rendición amount is stored in MontoFactura field
                             } else if (d.TipoOc === 'FACT') {
                                 docLabel = '📄 Factura';
                                 docValue = d.NroFactura || '-';
@@ -833,7 +937,7 @@ async function recibirCargo(id) {
                                             <span style="font-size:0.7rem; color:#64748b; background:#f1f5f9; padding:1px 6px; border-radius:4px;">${docLabel}</span>
                                             <strong style="margin-left:6px;">${docValue}</strong>
                                         </div>
-                                        <span style="color:#0f172a; font-weight:600;">S/ ${monto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</span>
+                                        <span style="color:#0f172a; font-weight:600;">${getCurrSym(d.Moneda)} ${monto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</span>
                                     </div>
                                     <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">${subInfo}</div>
                                     ${d.Proveedor ? `<div style="font-size:0.75rem; color:#475569; margin-top:2px;">Prov: ${d.Proveedor}</div>` : ''}
@@ -962,27 +1066,15 @@ async function loadHistorial() {
     const codcia = document.getElementById('filterCia').value;
     if (!codcia) return;
 
-    if (historialDT) { 
-        historialDT.destroy(); 
-        historialDT = null; 
+    const currentMode = viewModeHistorial;
+
+    if ($.fn.DataTable.isDataTable('#historialTable')) {
+        $('#historialTable').DataTable().clear().destroy();
     }
+    historialDT = null;
+
     $('#historialTable').empty();
-    $('#historialTable').html('<thead></thead><tbody id="historialTbody"></tbody>');
-    
-    const thead = $('#historialTable thead');
-    const tbody = document.getElementById('historialTbody');
-
-    if (viewModeHistorial === 'CARGO') {
-        thead.html(`<tr>
-            <th>N° Cargo</th><th>Estado</th><th>Fecha Cargo</th><th>Flujo</th><th>Origen</th><th>Destino</th><th style="text-align:right;">Items</th><th style="text-align:right;">Monto Total</th><th style="width:100px;">Acciones</th>
-        </tr>`);
-    } else {
-        thead.html(`<tr>
-            <th>Estado İtem</th><th>N° Cargo</th><th>Fecha Cargo</th><th>Flujo</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
-        </tr>`);
-    }
-
-    tbody.innerHTML = `<tr><td colspan="${viewModeHistorial === 'CARGO' ? 9 : 10}" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando historial...</td></tr>`;
+    $('#historialTable').html(`<tbody><tr><td colspan="${currentMode === 'CARGO' ? 9 : 10}" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando historial...</td></tr></tbody>`);
 
     try {
         const ano = document.getElementById("filterAno").value;
@@ -996,22 +1088,59 @@ async function loadHistorial() {
         else if (currentArea === 'TESORERIA') validos = allItems.filter(c => c.AreaDestino === 'TESORERIA');
         else validos = allItems;
 
-        tbody.innerHTML = '';
+        if ($.fn.DataTable.isDataTable('#historialTable')) {
+            $('#historialTable').DataTable().clear().destroy();
+        }
+
+        $('#historialTable').empty();
+        $('#historialTable').html('<thead></thead><tbody id="historialTbody"></tbody>');
+        const thead = $('#historialTable thead');
+        const tbody = document.getElementById('historialTbody');
+
+        if (currentMode === 'CARGO') {
+            thead.html(`<tr>
+                <th>N° Cargo</th><th>Estado</th><th>Fecha Cargo</th><th>Flujo</th><th>Origen</th><th>Destino</th><th style="text-align:right;">Items</th><th style="text-align:right;">Total OC</th><th style="text-align:right;">Total Fact.</th><th style="text-align:right;">Total Rend.</th><th style="width:100px;">Acciones</th>
+            </tr>`);
+        } else {
+            thead.html(`<tr>
+                <th>Estado İtem</th><th>N° Cargo</th><th>Fecha Cargo</th><th>Flujo</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
+            </tr>`);
+        }
+
         if (validos.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${viewModeHistorial === 'CARGO' ? 9 : 10}" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay historial para su área.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${currentMode === 'CARGO' ? 9 : 10}" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay historial para su área.</td></tr>`;
             return;
         }
 
         let dtData = [];
 
-        if (viewModeHistorial === 'CARGO') {
+        if (currentMode === 'CARGO') {
             const mapCargo = {};
             validos.forEach(c => {
                 if (!mapCargo[c.CargoId]) {
-                    mapCargo[c.CargoId] = { CargoId: c.CargoId, NroCargo: c.NroCargo, TipoCargo: c.TipoCargo, FechaCargo: c.FechaCargo, AreaOrigen: c.AreaOrigen, AreaDestino: c.AreaDestino, EstadoCargo: c.EstadoCargo, Items: 0, MontoTotal: 0 };
+                    mapCargo[c.CargoId] = { 
+                        CargoId: c.CargoId, NroCargo: c.NroCargo, TipoCargo: c.TipoCargo, FechaCargo: c.FechaCargo, 
+                        AreaOrigen: c.AreaOrigen, AreaDestino: c.AreaDestino, EstadoCargo: c.EstadoCargo, Items: 0, 
+                        MontoOC_PEN: 0, MontoOC_USD: 0,
+                        MontoFactura_PEN: 0, MontoFactura_USD: 0,
+                        MontoRend_PEN: 0, MontoRend_USD: 0 
+                    };
                 }
                 mapCargo[c.CargoId].Items++;
-                mapCargo[c.CargoId].MontoTotal += parseFloat(c.MontoFactura || 0);
+                const isUsd = isUsdCurrency(c.Moneda);
+                
+                // Acumular según TipoOc y Moneda
+                if (c.TipoOc === 'FACT') {
+                    if (isUsd) mapCargo[c.CargoId].MontoFactura_USD += parseFloat(c.MontoFactura || 0);
+                    else mapCargo[c.CargoId].MontoFactura_PEN += parseFloat(c.MontoFactura || 0);
+                } else if (c.TipoOc === 'REND') {
+                    if (isUsd) mapCargo[c.CargoId].MontoRend_USD += parseFloat(c.MontoFactura || 0);
+                    else mapCargo[c.CargoId].MontoRend_PEN += parseFloat(c.MontoFactura || 0);
+                } else {
+                    // M, S, T, o OC
+                    if (isUsd) mapCargo[c.CargoId].MontoOC_USD += parseFloat(c.MontoOC || 0);
+                    else mapCargo[c.CargoId].MontoOC_PEN += parseFloat(c.MontoOC || 0);
+                }
             });
 
             dtData = Object.values(mapCargo).map(cg => {
@@ -1021,19 +1150,30 @@ async function loadHistorial() {
                 let dpItems = `<button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${cg.CargoId})">📄 Vista Cargo Completo</button>`;
                 let actionsHtml = `<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div>`;
 
+                const formatTot = (pen, usd) => {
+                    let h = '';
+                    if (pen > 0) h += `S/ ${pen.toLocaleString('es-PE',{minimumFractionDigits:2})}<br>`;
+                    if (usd > 0) h += `$ ${usd.toLocaleString('es-PE',{minimumFractionDigits:2})}`;
+                    return h || '-';
+                };
+
                 return [
                     `<strong>${cg.NroCargo}</strong>`, estadoItem, cg.FechaCargo || '-', tipoLabel,
                     cg.AreaOrigen || '-', cg.AreaDestino || '-',
-                    `<span style="font-weight:700;">${cg.Items}</span>`, `S/ ${cg.MontoTotal.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                    `<span style="font-weight:700;">${cg.Items}</span>`,
+                    formatTot(cg.MontoOC_PEN, cg.MontoOC_USD),
+                    formatTot(cg.MontoFactura_PEN, cg.MontoFactura_USD),
+                    formatTot(cg.MontoRend_PEN, cg.MontoRend_USD),
+                    actionsHtml
                 ];
             });
 
             historialDT = $('#historialTable').DataTable({
                 data: dtData, destroy: true,
-            deferRender: true, order: [[2, 'desc']], pageLength: 10,
+                deferRender: true, order: [[2, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
-                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7] } } ],
-                columnDefs: [ { targets: [6, 7], className: 'dt-right font-semibold text-slate-800' } ]
+                buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9] } } ],
+                columnDefs: [ { targets: [10], orderable: false }, { targets: [6, 7, 8, 9], className: 'dt-right font-semibold text-slate-800' } ]
             });
         } else {
             dtData = validos.map(c => {
@@ -1071,10 +1211,14 @@ async function loadHistorial() {
                 let facturaCell = c.NroFactura || '-';
                 if (c.FacturaUuid && c.NroFactura) facturaCell = `<a href="/factura_visor.html?uid=${c.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline;">${c.NroFactura}</a>`;
 
+                const sym = getCurrSym(c.Moneda);
+                const isFactOrRend = (c.TipoOc === 'FACT' || c.TipoOc === 'REND');
+                const montoMostrar = isFactOrRend ? parseFloat(c.MontoFactura || 0) : parseFloat(c.MontoOC || 0);
+
                 return [
                     estadoItem, `<strong>${c.NroCargo}</strong><br><span style="font-size:0.65rem; color:#64748b;">${c.EstadoCargo}</span>`,
                     c.FechaCargo || '-', tipoLabel, `<strong>${c.NroOrdenCompra || '-'}</strong>`, c.Proveedor || '-',
-                    facturaCell, c.EstadoAlmacen || '-', `S/ ${parseFloat(c.MontoFactura || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                    facturaCell, c.EstadoAlmacen || '-', `${sym} ${montoMostrar.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
                 ];
             });
 
@@ -1088,54 +1232,10 @@ async function loadHistorial() {
         }
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="${viewModeHistorial === 'CARGO' ? 9 : 10}" style="color:#ef4444; text-align:center; padding:2rem;">${err.message}</td></tr>`;
+        $('#historialTable').html(`<tbody><tr><td colspan="${currentMode === 'CARGO' ? 9 : 10}" style="color:#ef4444; text-align:center; padding:2rem;">${err.message}</td></tr></tbody>`);
     }
 }
 
-async function loadRendicionesAprobadas() {
-    const codcia = document.getElementById('filterCia').value;
-    if (!codcia) return;
-
-    if (rendicionesAprobadas_DT) { rendicionesAprobadas_DT.destroy(); rendicionesAprobadas_DT = null; }
-    const tbody = document.getElementById('rendicionesAprobadasTbody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#94a3b8;">Cargando...</td></tr>';
-
-    try {
-        const res = await axios.get(`/api/finanzas/rendiciones/aprobadas?codcia=${encodeURIComponent(codcia)}`);
-        const items = res.data;
-
-        if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#94a3b8;">No hay rendiciones aprobadas disponibles.</td></tr>';
-            return;
-        }
-
-        const dtData = items.map(r => [
-            `<input type="checkbox" class="rendicion-aprobada-chk" data-id="${r.Id}" data-nrorendicion="${r.NroRendicion || ''}" data-nomaux="${(r.NomAux || '').replace(/"/g, '&quot;')}" data-total="${r.TotalGastado || 0}" data-codaux="${r.CodAux || ''}" data-uuidlink="${r.UuidLink || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;">`,
-            `<strong>${r.NroRendicion || '-'}</strong>`,
-            r.NomAux || '-',
-            r.Fecha || '-',
-            r.Moneda || 'PEN',
-            fmtNum(r.TotalGastado || 0),
-            `<span class="badge success" style="background:#d1fae5; color:#065f46;">${r.Estado || '-'}</span>`,
-            r.UuidLink ? `<a href="/visor_rendicion.html?uuid=${r.UuidLink}" target="_blank" class="btn-action outline" style="padding:0.25rem 0.5rem; font-size:0.7rem; text-decoration:none; display:inline-block;">📄 Ver PDF</a>` : '-'
-        ]);
-
-        rendicionesAprobadas_DT = $('#rendicionesAprobadasTable').DataTable({
-            data: dtData, destroy: true,
-            deferRender: true, order: [[3, 'desc']], pageLength: 10,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-            dom: 'Bfrtip',
-            buttons: [{ extend: 'excelHtml5', text: '📊 Exportar Rendiciones', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6] } }],
-            columnDefs: [
-                { targets: [0], orderable: false },
-                { targets: [5], className: 'dt-right font-semibold text-slate-800' }
-            ]
-        });
-
-    } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
-    }
-}
 
 async function eliminarCargo(id) {
     const confirm = await Swal.fire({
@@ -1182,13 +1282,21 @@ async function openCargoDetail(cargoId) {
             : 'CONTABILIDAD → TESORERÍA';
 
         let mapOC = {};
-        let totalOC = 0, totalFact = 0;
+        let totalOCPEN = 0, totalOCUS = 0;
+        let totalFactPEN = 0, totalFactUS = 0;
+        let totalRendPEN = 0, totalRendUS = 0;
         
         det.forEach(d => {
+            const isUsd = isUsdCurrency(d.Moneda);
             const key = d.NroOrdenCompra || d.Id;
             if (!mapOC[key]) {
                 mapOC[key] = { ...d, MontoFacturaTotal: 0, FacturasList: [], LinksHtml: [] };
-                totalOC += parseFloat(d.MontoOC || 0);
+                
+                // Acumular MontoOC solo para OC reales (no FACT ni REND)
+                if (d.TipoOc !== 'FACT' && d.TipoOc !== 'REND') {
+                    if (isUsd) totalOCUS += parseFloat(d.MontoOC || 0);
+                    else totalOCPEN += parseFloat(d.MontoOC || 0);
+                }
                 
                 if (d.NroOrdenCompra) {
                     const codcia = (d.CodCiaOc || '').trim();
@@ -1202,24 +1310,42 @@ async function openCargoDetail(cargoId) {
                 }
             }
             
-            mapOC[key].MontoFacturaTotal += parseFloat(d.MontoFactura || 0);
-            totalFact += parseFloat(d.MontoFactura || 0);
-            
-            if (d.FacturaUuid) {
-                mapOC[key].LinksHtml.push(`<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" class="no-print" style="color:#2563eb; text-decoration:none; margin-right:4px;" title="Ver Factura">📄</a>`);
-            }
-
-            let fHtml = d.NroFactura || '-';
-            if (d.FacturaUuid && d.NroFactura) {
-                fHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">${d.NroFactura}</a>`;
-            }
-            if ((d.NroFactura && d.NroFactura !== '-') || parseFloat(d.MontoFactura || 0) > 0) {
-                mapOC[key].FacturasList.push({
-                    fHtml: fHtml,
-                    fch: d.fch_factura || '-',
-                    monto: parseFloat(d.MontoFactura || 0),
-                    moneda: d.Moneda
-                });
+            // Rendiciones: su monto se guardó en MontoFactura al crear cargo, pero va a la columna Rend
+            if (d.TipoOc === 'REND') {
+                const montoRend = parseFloat(d.MontoFactura || d.MontoRendicion || 0);
+                if (isUsd) totalRendUS += montoRend;
+                else totalRendPEN += montoRend;
+                // NO agregar a FacturasList para rendiciones
+            } else if (d.TipoOc === 'FACT') {
+                // Facturas sin OC: MontoFactura va a la columna Factura
+                mapOC[key].MontoFacturaTotal += parseFloat(d.MontoFactura || 0);
+                if (isUsd) totalFactUS += parseFloat(d.MontoFactura || 0);
+                else totalFactPEN += parseFloat(d.MontoFactura || 0);
+                // Agregar a FacturasList
+                if (d.FacturaUuid) {
+                    mapOC[key].LinksHtml.push(`<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" class="no-print" style="color:#2563eb; text-decoration:none; margin-right:4px;" title="Ver Factura">📄</a>`);
+                }
+                let fHtml = d.NroFactura || '-';
+                if (d.FacturaUuid && d.NroFactura) {
+                    fHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">${d.NroFactura}</a>`;
+                }
+                mapOC[key].FacturasList.push({ fHtml, fch: d.fch_factura || '-', monto: parseFloat(d.MontoFactura || 0), moneda: d.Moneda });
+            } else {
+                // OC normal: MontoFactura va a la columna Factura
+                mapOC[key].MontoFacturaTotal += parseFloat(d.MontoFactura || 0);
+                if (isUsd) totalFactUS += parseFloat(d.MontoFactura || 0);
+                else totalFactPEN += parseFloat(d.MontoFactura || 0);
+                
+                if (d.FacturaUuid) {
+                    mapOC[key].LinksHtml.push(`<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" class="no-print" style="color:#2563eb; text-decoration:none; margin-right:4px;" title="Ver Factura">📄</a>`);
+                }
+                let fHtml = d.NroFactura || '-';
+                if (d.FacturaUuid && d.NroFactura) {
+                    fHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">${d.NroFactura}</a>`;
+                }
+                if ((d.NroFactura && d.NroFactura !== '-') || parseFloat(d.MontoFactura || 0) > 0) {
+                    mapOC[key].FacturasList.push({ fHtml, fch: d.fch_factura || '-', monto: parseFloat(d.MontoFactura || 0), moneda: d.Moneda });
+                }
             }
         });
 
@@ -1237,9 +1363,11 @@ async function openCargoDetail(cargoId) {
             let nroDoc = d.NroOrdenCompra || '-';
             let proveedor = d.Proveedor || '-';
             const tipoOcMap = { 'M': 'Mercadería', 'S': 'Servicios', 'T': 'Contable', 'OC': 'OC', 'FACT': 'Factura', 'REND': 'Rendición' };
-            let tipoDoc = tipoOcMap[d.TipoOc] || d.TipoOc || 'OC';
-            let montoOC = d.total_oc || d.MontoOC || 0;
-            let montoRendicion = parseFloat(d.total_rendicion || 0);
+            // Usar tipo real del JOIN con CmpVOcom (M/S/T) para OC normales
+            const realTipo = d.tipo_oc_real || d.TipoOc || 'OC';
+            let tipoDoc = tipoOcMap[realTipo] || realTipo || 'OC';
+            let montoOC = 0;
+            let montoRendicion = 0;
             
             if (d.TipoOc === 'FACT') {
                 nroDoc = d.NroFactura || '-';
@@ -1255,26 +1383,34 @@ async function openCargoDetail(cargoId) {
                 tipoDoc = 'Rendición';
                 proveedor = d.rendicion_usuario || d.Proveedor || '-';
                 montoOC = 0;
+                // El monto de la rendición se guardó en MontoFactura al crear el cargo
+                montoRendicion = parseFloat(d.MontoFactura || d.MontoRendicion || d.total_rendicion || 0);
                 if (d.RendicionUuid) enlacesHtml += `<a href="/visor_rendicion.html?uuid=${d.RendicionUuid}" target="_blank" style="color:#8b5cf6; text-decoration:none; margin-right:4px;">📋Rend</a>`;
             } else {
-                fchEmision = d.fch_oc || '-';
+                // OC normal — usar tipo real (M/S/T) para los enlaces
+                const tipoReal = (realTipo || 'OC').trim();
+                montoOC = parseFloat(d.total_oc || d.MontoOC || 0);
+                // Formatear fecha de OC
+                if (d.fch_oc) {
+                    const fOc = new Date(d.fch_oc);
+                    fchEmision = !isNaN(fOc.getTime()) ? fOc.toISOString().substring(0,10) : '-';
+                }
                 proveedor = d.Proveedor || '-';
-                if (nrodoc) enlacesHtml += `<a href="#" onclick="event.preventDefault(); openReportModal('${codcia}','${nrodoc}','${tipooc}','')" style="color:#10b981; text-decoration:none; margin-right:4px;">🔗OC</a>`;
-                if (tipooc === 'M') enlacesHtml += `<a href="#" onclick="event.preventDefault(); openWarehouseModal('${codcia}','${nrodoc}')" style="color:#f59e0b; text-decoration:none; margin-right:4px;">📦Alm</a>`;
-                enlacesHtml += `<a href="#" onclick="event.preventDefault(); openTrazaModal('${codcia}','${nrodoc}','${tipooc}','')" style="color:#8b5cf6; text-decoration:none; margin-right:4px;">📊Traza</a>`;
+                if (nrodoc) enlacesHtml += `<a href="#" onclick="event.preventDefault(); openReportModal('${codcia}','${nrodoc}','${tipoReal}','')" style="color:#10b981; text-decoration:none; margin-right:4px;">🔗OC</a>`;
+                if (tipoReal === 'M') enlacesHtml += `<a href="#" onclick="event.preventDefault(); openWarehouseModal('${codcia}','${nrodoc}')" style="color:#f59e0b; text-decoration:none; margin-right:4px;">📦Alm</a>`;
+                enlacesHtml += `<a href="#" onclick="event.preventDefault(); openTrazaModal('${codcia}','${nrodoc}','${tipoReal}','')" style="color:#8b5cf6; text-decoration:none; margin-right:4px;">📊Traza</a>`;
                 if (d.FacturaUuid) enlacesHtml += `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:none;">📄Fact</a>`;
             }
             
             const facturasList = d.FacturasList || [];
             const totalFacturas = facturasList.reduce((sum, f) => sum + (f.monto || 0), 0);
             
-            const getCurSym = (mon) => (mon === 'USD' || mon === '2') ? '$' : 'S/';
-            const dsym = getCurSym(d.Moneda);
+            const dsym = getCurrSym(d.Moneda);
             
             let facturasHtml = '';
             if (facturasList.length > 0) {
                 facturasList.forEach(fact => {
-                    const fsym = getCurSym(fact.moneda || d.Moneda);
+                    const fsym = getCurrSym(fact.moneda || d.Moneda);
                     facturasHtml += `<div style="margin-bottom:2px;">${fact.fHtml} <span style="color:#64748b;">(${fact.fch||'-'})</span> <b>${fsym} ${fact.monto.toLocaleString('es-PE',{minimumFractionDigits:2})}</b></div>`;
                 });
             } else if (d.FacturaUuid || parseFloat(d.MontoFactura||0) > 0) {
@@ -1392,10 +1528,10 @@ async function openCargoDetail(cargoId) {
                             <th style="width:30px; text-align:center;">#</th>
                             <th style="min-width:120px;">Documento</th>
                             <th style="width:80px;">Emisión</th>
-                            <th style="min-width:160px;">Proveedor / Tercero</th>
-                            <th style="width:90px; text-align:right;">Monto OC</th>
+                            <th style="min-width:150px;">Proveedor / Tercero</th>
+                            <th style="min-width:140px; text-align:right;">Monto OC</th>
                             <th style="min-width:140px; text-align:right;">Monto Factura</th>
-                            <th style="width:90px; text-align:right;">Monto Rend.</th>
+                            <th style="width:100px; text-align:right;">Monto Rend.</th>
                             <th style="min-width:100px;" class="no-print">Enlaces Rápidos</th>
                         </tr>
                     </thead>
@@ -1403,9 +1539,21 @@ async function openCargoDetail(cargoId) {
                     <tfoot>
                         <tr style="background:#f8fafc; border-top: 2px solid #cbd5e1;">
                             <td colspan="4" style="text-align:right; font-weight:800; font-size:0.85rem; color:#0f172a;">TOTALES (${det.length} ítems):</td>
-                            <td style="text-align:right; font-weight:700; color:#0f172a;">${totalOC > 0 ? totalOC.toLocaleString('es-PE',{minimumFractionDigits:2}) : '-'}</td>
-                            <td style="text-align:right; font-weight:700; color:#0f172a;">${totalFact > 0 ? totalFact.toLocaleString('es-PE',{minimumFractionDigits:2}) : '-'}</td>
-                            <td style="text-align:right; font-weight:800; color:#7c3aed;">${det.reduce((s,d)=>s+parseFloat(d.total_rendicion||d.MontoRendicion||0),0) > 0 ? det.reduce((s,d)=>s+parseFloat(d.total_rendicion||d.MontoRendicion||0),0).toLocaleString('es-PE',{minimumFractionDigits:2}) : '-'}</td>
+                            <td style="text-align:right; font-weight:700; color:#0f172a;">
+                                ${totalOCPEN > 0 ? `S/ ${totalOCPEN.toLocaleString('es-PE',{minimumFractionDigits:2})}<br>` : ''}
+                                ${totalOCUS > 0 ? `$ ${totalOCUS.toLocaleString('es-PE',{minimumFractionDigits:2})}` : ''}
+                                ${totalOCPEN === 0 && totalOCUS === 0 ? '-' : ''}
+                            </td>
+                            <td style="text-align:right; font-weight:700; color:#0f172a;">
+                                ${totalFactPEN > 0 ? `S/ ${totalFactPEN.toLocaleString('es-PE',{minimumFractionDigits:2})}<br>` : ''}
+                                ${totalFactUS > 0 ? `$ ${totalFactUS.toLocaleString('es-PE',{minimumFractionDigits:2})}` : ''}
+                                ${totalFactPEN === 0 && totalFactUS === 0 ? '-' : ''}
+                            </td>
+                            <td style="text-align:right; font-weight:800; color:#7c3aed;">
+                                ${totalRendPEN > 0 ? `S/ ${totalRendPEN.toLocaleString('es-PE',{minimumFractionDigits:2})}<br>` : ''}
+                                ${totalRendUS > 0 ? `$ ${totalRendUS.toLocaleString('es-PE',{minimumFractionDigits:2})}` : ''}
+                                ${totalRendPEN === 0 && totalRendUS === 0 ? '-' : ''}
+                            </td>
                             <td class="no-print"></td>
                         </tr>
                     </tfoot>
@@ -1590,7 +1738,8 @@ async function openReportModal(codcia, nrodoc, tipooc, year) {
             }
         } catch(e) { console.warn("Error cargando firmas", e); }
 
-        // Cargar Adjuntos
+        const codm = String(data.header.codmon || '1').trim().toUpperCase();
+        const sym = (codm === '2' || codm === 'USD' || codm === 'US$' || codm === 'ME') ? '$' : 'S/';
         let attachedDocs = { signed: [], voucher: [] };
         try {
             const getDocs = async (type) => {
@@ -1609,7 +1758,10 @@ async function openReportModal(codcia, nrodoc, tipooc, year) {
 
 function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher: [] }) {
     const { company, header, items } = data;
-    const sym = header.codmon || 'S/';
+    const codm = String(header.codmon || '1').trim().toUpperCase();
+    const sym = (codm === '2' || codm === 'USD' || codm === 'US$' || codm === 'ME') ? '$' : 'S/';
+    const tipooc = header.tipooc || '';
+    const isGoods = (tipooc || '').toUpperCase() === 'M';
     let html = '';
 
     // ── Watermark inside Report ──
@@ -1662,7 +1814,6 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
     </div>`;
 
     // ── Items Table ──
-    const isGoods = (t === 'M');
     const colCantLabel = isGoods ? 'Cant' : 'Cantidad';
     const statusColLabel = isGoods ? 'Recibido' : 'Facturado';
 
@@ -1916,9 +2067,9 @@ function closeReportViewer() {
 async function openWarehouseModal(codcia, nrodoc) {
     document.getElementById('warehouseOcNro').textContent = nrodoc;
     document.getElementById('warehouseModal').classList.add('active');
-    const tbody = document.getElementById('warehouse-tbody');
+    
     // Use the modal body directly for a richer layout
-    const modalBody = tbody.closest('.modal-body');
+    const modalBody = document.querySelector('#warehouseModal .modal-body');
     modalBody.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">Consultando ingresos a almacén...</div>';
 
     try {
@@ -2551,7 +2702,7 @@ async function loadFacturasSinOC() {
                     orderable: false,
                     className: 'dt-center',
                     render: function(data, type, row, meta) {
-                        return `<input type="checkbox" class="factura-sin-oc-chk" data-id="${row.Id}" data-serie="${row.Serie || ''}" data-numero="${row.Numero || ''}" data-total="${row.Total || 0}" data-nomproveedor="${(row.NomProveedor || '').replace(/"/g, '&quot;')}" data-numruc="${row.NumRucProveedor || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#f59e0b;">`;
+                        return `<input type="checkbox" class="factura-sin-oc-chk" data-id="${row.Id}" data-serie="${row.Serie || ''}" data-numero="${row.Numero || ''}" data-total="${row.Total || 0}" data-moneda="${row.CodMoneda || '1'}" data-nomproveedor="${(row.NomProveedor || '').replace(/"/g, '&quot;')}" data-numruc="${row.NumRucProveedor || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#f59e0b;">`;
                     }
                 },
                 { data: null, render: function(data, type, row) { return `${row.CodTipoDoc||''} ${row.Serie||''}-${row.Numero||''}`; } },
@@ -2696,6 +2847,7 @@ async function loadDocumentosAceptadosTesoreria() {
 
             const dtData = items.map(d => {
                 let docLabel = '', docNum = '', montoTotal = 0, fecha = '-', proveedor = '-', ruc = '-', tipo = '-', montoOC = 0, nroFactura = '-', montoFactura = 0;
+                let anosOcVal = d.AnosOc || '';
                 
                 // Construir enlaces primero
                 let enlace = '';
@@ -2731,8 +2883,8 @@ async function loadDocumentosAceptadosTesoreria() {
                     fecha = d.FchOc || '-';
                     proveedor = d.OcProveedor || d.Proveedor || '-';
                     ruc = d.RucProveedor || '-';
-                    tipo = d.OcTipo || d.TipoOc || '-';
-                    montoOC = parseFloat(d.TotalOc || d.MontoOC || 0);
+                    tipo = d.TipoOc || d.OcTipo || '-';
+                    montoOC = parseFloat(d.MontoOC || d.TotalOc || 0);
                     nroFactura = d.NroFactura || '-';
                     // Usar TotalFactura del OUTER APPLY, no MontoFactura del detalle
                     montoFactura = parseFloat(d.TotalFactura || 0);
@@ -2743,18 +2895,72 @@ async function loadDocumentosAceptadosTesoreria() {
                     }
                 }
 
+                let docDisplay = `<strong>${docNum}</strong><br><span style="font-size:0.65rem; color:#64748b; background:#f1f5f9; padding:1px 4px; border-radius:3px;">${docLabel}</span>`;
+                if (d.CargoOrigen) {
+                    docDisplay += `<br><span style="color:#0f766e; font-size:0.65rem; font-weight:600; background:#ccfbf1; padding:2px 4px; border-radius:4px; border:1px solid #99f6e4; display:inline-block; margin-top:2px;">📦 Origen: ${d.CargoOrigen}</span>`;
+                }
+
+                let tipoBadge = tipo;
+                if (tipo === 'M' || tipo === 'Mercadería') tipoBadge = '<span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; white-space:nowrap;">📦 Mercadería</span>';
+                else if (tipo === 'S' || tipo === 'Servicios') tipoBadge = '<span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; white-space:nowrap;">⚙️ Servicios</span>';
+                else if (tipo === 'T' || tipo === 'Contable') tipoBadge = '<span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; background:#f5f3ff; color:#7c3aed; border:1px solid #ede9fe; white-space:nowrap;">🗂️ Contable</span>';
+                else if (tipo === 'Factura') tipoBadge = '<span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; background:#fffbeb; color:#d97706; border:1px solid #fde68a; white-space:nowrap;">📄 Factura</span>';
+                else if (tipo === 'Rendición') tipoBadge = '<span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; background:#fdf4ff; color:#c026d3; border:1px solid #fbcfe8; white-space:nowrap;">📋 Rendición</span>';
+
+                let estAlmacen = '-';
+                if (tipo === 'M' || tipo === 'Mercadería' || d.OcTipo === 'M') {
+                    const ped = parseFloat(d.CantPedida || 0);
+                    const rec = parseFloat(d.CantRecibida || 0);
+                    if (ped > 0) {
+                        if (rec >= ped) estAlmacen = '<span style="color:#10b981; font-weight:600;">Completo</span>';
+                        else if (rec > 0) estAlmacen = '<span style="color:#f59e0b; font-weight:600;">Parcial</span>';
+                        else estAlmacen = '<span style="color:#64748b; font-weight:600;">Pendiente</span>';
+                    } else {
+                        estAlmacen = '<span style="color:#94a3b8;">Sin Ingreso</span>';
+                    }
+                } else if (tipo === 'S' || tipo === 'Servicios' || tipo === 'T' || tipo === 'Contable') {
+                    estAlmacen = '<span style="color:#94a3b8;">Sin Ingreso</span>';
+                }
+
+                let dpItems = '';
+                if (d.NroOrdenCompra) {
+                    const ccia = (d.CodCiaOc || '').trim();
+                    const ndoc = (d.NroOrdenCompra || '').trim();
+                    const toc = (d.TipoOc || '').trim();
+                    const anos = (anosOcVal || document.getElementById('filterAno').value || '').trim();
+                    const showW = toc.toUpperCase() === 'M' || d.OcTipo === 'M';
+
+                    dpItems += `<button class="action-dropdown-item" onclick="event.preventDefault(); openReportModal('${ccia}','${ndoc}','${toc}','${anos}')">📋 Ver Orden</button>`;
+                    if (showW) dpItems += `<button class="action-dropdown-item" onclick="event.preventDefault(); openWarehouseModal('${ccia}','${ndoc}')">📦 Ingresos Almacén</button>`;
+                    dpItems += `<button class="action-dropdown-item" onclick="event.preventDefault(); openTrazaModal('${ccia}','${ndoc}','${toc}','${anos}')">🔗 Trazabilidad OC</button>`;
+                    dpItems += `<div class="action-dropdown-divider"></div>`;
+                    dpItems += `<button class="action-dropdown-item" onclick="event.preventDefault(); openAttachmentModal('${ccia}','${toc}','${ndoc}','signed_order')">📝 Orden Firmada</button>`;
+                    dpItems += `<button class="action-dropdown-item" onclick="event.preventDefault(); openAttachmentModal('${ccia}','${toc}','${ndoc}','voucher')">💳 Voucher de Pago</button>`;
+                }
+                if (d.FacturaUuid) {
+                    dpItems += `<div class="action-dropdown-divider"></div><button class="action-dropdown-item" onclick="window.open('/factura_visor.html?uid=${d.FacturaUuid}', '_blank')">📄 Ver Factura (PDF)</button>`;
+                }
+                if (d.RendicionUuid) {
+                    dpItems += `<div class="action-dropdown-divider"></div><button class="action-dropdown-item" onclick="window.open('/visor_rendicion.html?uuid=${d.RendicionUuid}', '_blank')">📋 Ver Rendición (PDF)</button>`;
+                }
+                let actionsHtml = `<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div>`;
+                if (!dpItems) actionsHtml = '-';
+
+                let factCell = nroFactura;
+                if (factCell === '-') factCell = '<span style="color:#94a3b8; font-size:0.8rem;">Sin factura</span>';
+
                 return [
                     `<input type="checkbox" class="doc-aceptado-chk" data-id="${d.Id}" data-nrooc="${d.NroOrdenCompra || ''}" data-tipooc="${d.TipoOc || ''}" data-codciaoc="${d.CodCiaOc || ''}" data-nrofactura="${d.NroFactura || ''}" data-montooc="${montoOC}" data-montofactura="${montoFactura}" data-proveedor="${(proveedor || '').replace(/"/g, '&quot;')}" data-ruc="${ruc || ''}" data-moneda="${d.Moneda || '1'}" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;">`,
-                    `<strong>${docNum}</strong><br><span style="font-size:0.65rem; color:#64748b; background:#f1f5f9; padding:1px 4px; border-radius:3px;">${docLabel}</span>`,
+                    docDisplay,
                     fecha,
                     proveedor,
                     ruc,
-                    tipo,
-                    montoOC > 0 ? `S/ ${montoOC.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-',
-                    '-', // Almacén (no aplica para FACT/REND)
-                    nroFactura,
-                    montoFactura > 0 ? `S/ ${montoFactura.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-',
-                    enlace || '-'
+                    tipoBadge,
+                    montoOC > 0 ? `${getCurrSym(d.Moneda)} ${montoOC.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-',
+                    estAlmacen,
+                    factCell,
+                    montoFactura > 0 ? `${getCurrSym(d.Moneda)} ${montoFactura.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-',
+                    actionsHtml
                 ];
             });
 

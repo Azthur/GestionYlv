@@ -3,117 +3,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planilla Movilidad - Consulta</title>
+    <title>Planilla Movilidad - Formato Oficial</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #e2e8f0; margin: 0; padding: 20px; color: #1e293b; }
-        /* Floating Preview Modal */
-        .preview-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.85); z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(4px); }
-        .preview-modal { background: #fff; border-radius: 8px; width: 95%; max-width: 1100px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .preview-header { background: #1e293b; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 1rem; }
-        .preview-close { cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 12px; font-weight: bold; transition: all 0.2s; }
-        .preview-close:hover { background: #ef4444; }
-        .preview-iframe { width: 100%; flex: 1; border: none; background: #f1f5f9; }
+        /* ══ Reset para Impresión Profesional ══ */
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; margin: 0; padding: 20px; color: #0f172a; line-height: 1.5; }
+        
 
-        .btn-preview { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: background 0.2s; }
+
+        /* ══ Preview Modal ══ */
+        .preview-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.8); z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(4px); }
+        .preview-modal { background: #fff; border-radius: 12px; width: 95%; max-width: 1100px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .preview-header { background: #0f172a; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+        .preview-close { cursor: pointer; padding: 6px 12px; font-weight: bold; }
+        .preview-iframe { width: 100%; flex: 1; border: none; }
+        .btn-preview { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: background 0.2s; margin-right: 8px;}
         .btn-preview:hover { background: #c7d2fe; }
 
-        @media print {
-            @page { size: landscape; margin: 10mm; }
-            body { background: #fff; padding: 0; }
-            .page { box-shadow: none; padding: 0; max-width: 100%; }
-            .preview-overlay { display: none !important; }
-            button { display: none !important; }
-            #adjuntosBox { display: none !important; }
+        /* ══ Estilo de la Hoja ══ */
+        .page { 
+            background: #fff; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 45px 50px; 
+            border-radius: 2px; 
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); 
+            font-size: 0.85rem;
+            position: relative;
         }
-        .page { background: #fff; max-width: 900px; margin: 0 auto; padding: 40px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); font-size: 0.85rem; }
-        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 25px; }
-        .h-col { display: flex; flex-direction: column; }
-        .title { font-size: 1.4rem; font-weight: 800; text-align: center; flex-grow: 1; align-self: center; color: #0f172a; letter-spacing: 0.5px; }
+
+        /* ══ Header ══ */
+        .doc-header-top {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            padding-bottom: 8px; border-bottom: 2px solid #0f172a;
+            margin-bottom: 12px;
+        }
+        .h-left h2 { margin: 0; font-size: 1.2rem; font-weight: 700; color: #0f172a; }
+        .h-left .ruc { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+        .h-right { text-align: right; font-size: 0.85rem; color: #334155; }
+        .h-right b { color: #0f172a; font-weight: 600; }
+
+        /* ══ Título Principal ══ */
+        .doc-title { text-align: center; margin-bottom: 12px; }
+        .doc-title h3 {
+            margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a;
+            text-transform: uppercase; letter-spacing: 1px;
+            display: inline-block;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #cbd5e1;
+        }
+
+        /* ══ Cuadro de Datos ══ */
+        .info-box {
+            display: grid; grid-template-columns: 2fr 1fr 1fr;
+            border: 1px solid #e2e8f0; border-radius: 4px;
+            margin-bottom: 15px; background: #f8fafc;
+        }
+        .info-cell { padding: 6px 12px; border-right: 1px solid #e2e8f0; }
+        .info-cell:last-child { border-right: none; }
+        .info-label { font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+        .info-value { font-size: 0.8rem; font-weight: 600; color: #0f172a; }
+
+        /* ══ Tabla Profesional ══ */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th { 
+            background: #f1f5f9; color: #334155; 
+            border: 1px solid #cbd5e1;
+            padding: 6px 4px; font-weight: 700; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        td { border: 1px solid #e2e8f0; padding: 4px 6px; color: #334155; vertical-align: middle; font-size: 0.75rem; }
+        tbody tr:hover { background: #fcfcfc; }
         
-        table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-        th, td { border: 1px solid #cbd5e1; padding: 8px 6px; text-align: left; }
-        th { background: #1e293b; color: white; text-align: center; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
-        tbody tr:nth-child(even) { background: #f8fafc; }
+        .col-fecha { width: 85px; text-align: center; font-weight: 500; white-space: nowrap; }
+        .col-monto { width: 110px; text-align: right; font-weight: 600; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
-        
-        .firm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 60px; }
-        .firm { border-top: 2px solid #1e293b; text-align: center; padding-top: 10px; font-weight: bold; color: #475569; }
+
+        /* ══ Footer de Tabla ══ */
+        .table-footer-row td { border: none; padding-top: 15px; }
+        .total-box { 
+            background: #0f172a; color: #fff; padding: 10px 15px; 
+            border-radius: 4px; font-size: 1rem; display: flex; justify-content: space-between;
+        }
+
+        /* ══ Firmas ══ */
+        .firm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; margin-top: 60px; margin-bottom: 40px; }
+        .firm { border-top: 1.5px solid #0f172a; text-align: center; padding-top: 12px; }
+        .firm-label { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
+        .firm-sub { font-size: 0.75rem; color: #64748b; }
+
+        /* ══ Base Legal ══ */
+        .legal-footer {
+            font-size: 0.7rem; color: #94a3b8; line-height: 1.6;
+            border-top: 1px solid #f1f5f9; padding-top: 15px;
+            font-style: italic;
+        }
+
+        /* ══ Estilos de Impresión ══ */
+        @media print {
+            @page { size: portrait; margin: 8mm; }
+            body { background: #fff !important; padding: 0 !important; }
+            .page { box-shadow: none !important; padding: 0 !important; max-width: 100% !important; border: none !important; }
+            .no-print, .top-bar, .sidebar { display: none !important; }
+            
+            /* Permitir que el contenido fluya en múltiples páginas */
+            .app-container, .main-content, body { overflow: visible !important; height: auto !important; }
+            
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            
+            .firm-grid, .legal-footer { page-break-inside: avoid; }
+        }
+
+        .btn-print {
+            padding: 10px 24px; cursor: pointer; background: #0f172a; color:white; 
+            border:none; border-radius: 6px; font-weight:600; font-size:0.9rem;
+            display: inline-flex; align-items: center; gap: 8px;
+            transition: all 0.2s;
+        }
+        .btn-print:hover { background: #334155; transform: translateY(-1px); }
     </style>
     <script src="auth-guard.js"></script>
 </head>
 <body>
     <div class="app-container">
         <main class="main-content">
-    <div style="text-align:center; margin-bottom: 15px;">
-        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #2563eb; color:white; border:none; border-radius:4px; font-weight:bold;">Imprimir Documento</button>
+
+    <div style="text-align:center; margin-bottom: 25px;" class="no-print">
+        <button onclick="window.print()" class="btn-print">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-2 4H8v-4h8v4z"></path></svg>
+            Imprimir Declaración Jurada
+        </button>
     </div>
 
     <div class="page" id="reportContent">
-        <div class="header">
-            <div class="h-col">
-                <h2 style="margin:0; font-size: 1.5rem;" id="lblEmpNom">CARGANDO...</h2>
-                <div style="font-size: 0.8rem; color:#444;" id="lblEmpRuc"></div>
+        <!-- Cabecera -->
+        <div class="doc-header-top">
+            <div class="h-left">
+                <h2 id="lblEmpNom">EMPRESA...</h2>
+                <div class="ruc" id="lblEmpRuc">RUC: -</div>
             </div>
-            <div class="title">PLANILLA POR GASTOS<br>DE MOVILIDAD</div>
-            <div class="h-col" style="text-align: right; padding-top: 10px;">
-                <div>N°: <b id="lblNro"></b></div>
-                <div>Fecha: <b id="lblFecha"></b></div>
+            <div class="h-right">
+                Planilla N°: <b id="lblNro">-</b><br>
+                Fecha Emisión: <b id="lblFecha">-</b>
             </div>
         </div>
 
-        <div style="margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-            <div><b style="color: #475569;">Trabajador (a):</b> <br><span id="lblTrabajador" style="font-weight:600; color:#0f172a;"></span></div>
-            <div><b style="color: #475569;">D.N.I.:</b> <br><span id="lblDni" style="font-weight:600; color:#0f172a;"></span></div>
-            <div><b style="color: #475569;">Mes / Año:</b> <br><span id="lblPeriodo" style="font-weight:600; color:#0f172a;"></span></div>
+        <!-- Título -->
+        <div class="doc-title">
+            <h3>PLANILLA POR GASTOS DE MOVILIDAD</h3>
         </div>
 
+        <!-- Datos Trabajador -->
+        <div class="info-box">
+            <div class="info-cell">
+                <div class="info-label">Trabajador (a)</div>
+                <div class="info-value" id="lblTrabajador">-</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">D.N.I. / Documento</div>
+                <div class="info-value" id="lblDni">-</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Periodo</div>
+                <div class="info-value" id="lblPeriodo">-</div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
         <table>
             <thead>
                 <tr>
-                    <th rowspan="2">FECHA</th>
-                    <th colspan="3">DESPLAZAMIENTO</th>
-                    <th rowspan="2">MONTO (S/)</th>
+                    <th rowspan="2" class="col-fecha">Fecha</th>
+                    <th colspan="3">Detalle del Desplazamiento</th>
+                    <th rowspan="2" class="col-monto">Importe (S/)</th>
                 </tr>
                 <tr>
-                    <th>MOTIVO</th>
-                    <th>DESDE</th>
-                    <th>HASTA</th>
+                    <th>Motivo de la Comisión</th>
+                    <th>Lugar de Origen</th>
+                    <th>Lugar de Destino</th>
                 </tr>
             </thead>
             <tbody id="tbDetails"></tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4" class="text-right" style="border:none; padding-right:15px;"><b>TOTAL GASTADO</b></td>
-                    <td class="text-right" style="background:#f1f5f9; color:#000;"><b id="lblTotal"></b></td>
-                </tr>
-            </tfoot>
         </table>
 
+        <!-- Totales Separados para evitar saturación -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 50px;">
+            <div style="width: 250px; border-top: 2px solid #0f172a; padding-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 700; color: #64748b; font-size: 0.75rem; text-transform: uppercase;">Total Gastado</span>
+                    <span style="font-size: 1.1rem; font-weight: 800; color: #0f172a;" id="lblTotal">S/ 0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Firmas -->
         <div class="firm-grid">
             <div class="firm" id="boxFirmaGerencia">
-                <div>Aprobación (Supervisor)</div>
+                <div class="firm-label">VoBo Supervisor / Gerencia</div>
+                <div class="firm-sub">Firma y Sello de Aprobación</div>
             </div>
             <div class="firm" id="boxFirmaTrabajador">
-                <div>Firma del Trabajador</div>
+                <div class="firm-label">Firma del Trabajador</div>
+                <div class="firm-sub">DNI / CE: <span id="lblDniFirm">-</span></div>
             </div>
         </div>
-        
-        <div style="font-size: 0.7rem; color:#64748b; margin-top:25px; padding: 10px; background: #f8fafc; border-left: 3px solid #cbd5e1;">
-            Base Legal: Inciso a1) del artículo 37° del TUO de la Ley del Impuesto a la Renta y inciso v) del artículo 21° del Reglamento.
-            Los gastos sustentados con planilla no podrán exceder, por cada trabajador, del importe diario equivalente al 4% de la RMV.
+
+        <!-- Base Legal -->
+        <div class="legal-footer">
+            <b>Base Legal:</b> Inciso a1) del artículo 37° del TUO de la Ley del Impuesto a la Renta e inciso v) del artículo 21° del Reglamento. 
+            Esta planilla tiene carácter de Declaración Jurada. El monto máximo deducible diario no debe exceder el 4% de la RMV por trabajador.
         </div>
-        
-        <div id="adjuntosBox" style="margin-top: 40px; background:#f8fafc; border: 1px solid #e2e8f0; border-radius:6px; padding: 15px; display: none;">
-            <h3 style="font-size: 0.95rem; margin-top:0; margin-bottom:10px; color:#1e293b; display:flex; align-items:center; gap:8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                Documentos Adjuntos Sustentatorios
-            </h3>
-            <ul id="listaAdjuntos" style="list-style-type: none; padding: 0; margin: 0; display:flex; flex-direction:column; gap:8px;"></ul>
+
+        <!-- Adjuntos (Solo visible en web) -->
+        <div id="adjuntosBox" class="no-print" style="margin-top: 40px; border-top: 1px dashed #cbd5e1; padding-top: 20px; display:none;">
+            <h4 style="margin-top:0; color:#475569; font-size:0.85rem;">Documentos Digitales Adjuntos</h4>
+            <ul id="listaAdjuntos" style="list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></ul>
         </div>
+    </div>
+
+    <script>
+        const qs = new URLSearchParams(window.location.search);
+        const uuid = qs.get("uuid");
+        if(uuid) {
+            axios.get(`/api/finanzas/public/planillas/${uuid}`)
+            .then(res => {
+                const cab = res.data.cabecera;
+                const det = res.data.detalle;
+
+                document.getElementById("lblEmpNom").textContent = cab.EmpresaNom || cab.CodCia;
+                document.getElementById("lblEmpRuc").textContent = "RUC: " + cab.EmpresaRuc;
+                document.getElementById("lblNro").textContent = cab.NroPlanilla;
+                document.getElementById("lblFecha").textContent = cab.FechaEmision;
+                document.getElementById("lblTrabajador").textContent = cab.NomAux;
+                document.getElementById("lblDni").textContent = cab.RucDni;
+                document.getElementById("lblDniFirm").textContent = cab.RucDni;
+                document.getElementById("lblPeriodo").textContent = cab.Periodo;
+                document.getElementById("lblTotal").textContent = "S/ " + cab.TotalGastado.toLocaleString('es-PE', {minimumFractionDigits:2});
+
+                const tb = document.getElementById("tbDetails");
+                det.forEach(d => {
+                    let fechaFormat = d.Fecha;
+                    if (fechaFormat && fechaFormat.includes('-')) {
+                        const partes = fechaFormat.split('-');
+                        if (partes.length === 3) {
+                            // Asumiendo formato YYYY-MM-DD
+                            fechaFormat = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                        }
+                    }
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td class="col-fecha">${fechaFormat}</td>
+                        <td>${d.Motivo}</td>
+                        <td>${d.Desde}</td>
+                        <td>${d.Hasta}</td>
+                        <td class="col-monto">${d.Monto.toFixed(2)}</td>
+                    `;
+                    tb.appendChild(tr);
+                });
+
+                if (cab.AprobadorNombre) {
+                    const strFecha = new Date(cab.FechaAprobacion).toLocaleString('es-PE');
+                    document.getElementById("boxFirmaGerencia").innerHTML = `
+                        <div style="border:2px solid #22c55e; color:#15803d; padding:10px; border-radius:8px; background:#f0fdf4;">
+                            <div style="font-size:0.7rem; font-weight:bold; text-align:left;">CERTIFICADO DE APROBACIÓN GERENCIAL</div>
+                            <div style="font-size:0.65rem; margin-top:5px; text-align:left; line-height:1.4;">
+                                Aprobado por: <b>${cab.AprobadorNombre}</b><br>
+                                Doc: ${cab.AprobadorDocumento || ''}<br>
+                                Fecha: ${strFecha}<br>
+                                <span style="font-family:monospace;">Sello: YLV-${cab.UuidLink.split('-')[0].toUpperCase()}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (cab.UsuarioRegistro) {
+                    document.getElementById("boxFirmaTrabajador").innerHTML = `
+                        <div style="border:1px dashed #64748b; color:#334155; padding:10px; border-radius:8px; background:#f8fafc;">
+                            <div style="font-size:0.7rem; font-weight:bold; text-align:left;">DECLARACIÓN JURADA</div>
+                            <div style="font-size:0.65rem; margin-top:5px; text-align:left; line-height:1.4;">
+                                Firmado por: <b>${cab.UsuarioRegistro}</b><br>
+                                En Fecha: ${cab.FechaRegistro}<br>
+                                Doc. Ref: ${cab.RucDni}
+                            </div>
+                        </div>
+                    `;
+                }
+                if (res.data.adjuntos && res.data.adjuntos.length > 0) {
+                    document.getElementById("adjuntosBox").style.display = "block";
+                    const ul = document.getElementById("listaAdjuntos");
+                    res.data.adjuntos.forEach(a => {
+                        const li = document.createElement("li");
+                        const fileUrl = `/api/finanzas/adjuntos/planilla/${a.Id}`;
+                        li.innerHTML = `
+                            <button class="btn-preview" onclick="openPreview('${fileUrl}', '${a.ArchivoNombre}')">👁 Ver</button>
+                            <a href="${fileUrl}" target="_blank" style="color:#2563eb; text-decoration:none; font-size:0.75rem; display:flex; align-items:center; gap:5px;">
+                            ${a.ArchivoNombre}</a>`;
+                        ul.appendChild(li);
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById("reportContent").innerHTML = "<h2 style='text-align:center; color:red; padding:100px;'>No se pudo cargar el documento.</h2>";
+            });
+        }
+
+        function openPreview(url, title) {
+            document.getElementById('previewTitle').textContent = title || 'Vista Previa';
+            document.getElementById('previewFrame').src = url;
+            document.getElementById('previewOverlay').style.display = 'flex';
+        }
+
+        function closePreview() {
+            document.getElementById('previewOverlay').style.display = 'none';
+            document.getElementById('previewFrame').src = '';
+        }
+    </script>
+    <script src="sidebar.js"></script>
+        </main>
     </div>
     
     <!-- Modal Flotante de vista previa -->
@@ -125,106 +338,6 @@
             </div>
             <iframe class="preview-iframe" id="previewFrame" src=""></iframe>
         </div>
-    </div>
-
-    <script>
-        const qs = new URLSearchParams(window.location.search);
-        const uuid = qs.get("uuid");
-        if(uuid) {
-            axios.get(`http://localhost:8000/api/finanzas/public/planillas/${uuid}`)
-            .then(res => {
-                const cab = res.data.cabecera;
-                const det = res.data.detalle;
-                
-                document.getElementById("lblEmpNom").textContent = cab.EmpresaNom || cab.CodCia;
-                document.getElementById("lblEmpRuc").textContent = "RUC: " + cab.EmpresaRuc;
-                document.getElementById("lblNro").textContent = cab.NroPlanilla;
-                document.getElementById("lblFecha").textContent = cab.FechaEmision;
-                document.getElementById("lblTrabajador").textContent = cab.NomAux;
-                document.getElementById("lblDni").textContent = cab.RucDni;
-                document.getElementById("lblPeriodo").textContent = cab.Periodo;
-                document.getElementById("lblTotal").textContent = "S/ " + cab.TotalGastado.toFixed(2);
-                
-                const tb = document.getElementById("tbDetails");
-                det.forEach(d => {
-                    const tr = document.createElement("tr");
-                    tr.innerHTML = `
-                        <td class="text-center">${d.Fecha}</td>
-                        <td>${d.Motivo}</td>
-                        <td>${d.Desde}</td>
-                        <td>${d.Hasta}</td>
-                        <td class="text-right">${d.Monto.toFixed(2)}</td>
-                    `;
-                    tb.appendChild(tr);
-                });
-                
-                if (cab.AprobadorNombre) {
-                    const strFecha = new Date(cab.FechaAprobacion).toLocaleString('es-PE');
-                    document.getElementById("boxFirmaGerencia").innerHTML = `
-                        <div style="border:2px solid #22c55e; color:#15803d; padding:10px; border-radius:8px; background:#f0fdf4;">
-                            <div style="font-size:0.7rem; font-weight:bold; text-align:left;">CERTIFICADO DE APROBACIÓN GERENCIAL</div>
-                            <div style="font-size:0.65rem; margin-top:5px; text-align:left;">
-                                Aprobado por: <b>${cab.AprobadorNombre}</b><br>
-                                Doc: ${cab.AprobadorDocumento || ''}<br>
-                                Fecha: ${strFecha}<br>
-                                <span style="font-family:monospace;">Sello: YLV-${cab.UuidLink.split('-')[0].toUpperCase()}</span>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                if (cab.UsuarioRegistro) {
-                    document.getElementById("boxFirmaTrabajador").innerHTML = `
-                        <div style="border:1px dashed #64748b; color:#334155; padding:10px; border-radius:8px; background:#f8fafc;">
-                            <div style="font-size:0.7rem; font-weight:bold; text-align:left;">DECLARACIÓN JURADA</div>
-                            <div style="font-size:0.65rem; margin-top:5px; text-align:left;">
-                                Firmado por: <b>${cab.UsuarioRegistro}</b><br>
-                                En Fecha: ${cab.FechaRegistro}<br>
-                                Doc. Ref: ${cab.RucDni}
-                            </div>
-                        </div>
-                    `;
-                }
-
-                if (res.data.adjuntos && res.data.adjuntos.length > 0) {
-                    document.getElementById("adjuntosBox").style.display = "block";
-                    const ul = document.getElementById("listaAdjuntos");
-                    res.data.adjuntos.forEach(a => {
-                        const li = document.createElement("li");
-                        li.style.display = "flex";
-                        li.style.alignItems = "center";
-                        li.style.gap = "10px";
-                        
-                        const fileUrl = `http://localhost:8000/api/finanzas/adjuntos/planilla/${a.Id}`;
-                        li.innerHTML = `
-                            <button class="btn-preview" onclick="openPreview('${fileUrl}', '${a.ArchivoNombre}')">👁 Previsualizar</button>
-                            <a href="${fileUrl}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:600; font-size:0.85rem;">${a.ArchivoNombre}</a> 
-                            <span style="color:#94a3b8; font-size:0.75rem;">(${a.TipoMime})</span>
-                        `;
-                        ul.appendChild(li);
-                    });
-                }
-            })
-            .catch(err => {
-                document.getElementById("reportContent").innerHTML = "<h2 style='text-align:center; color:red;'>No se encontró el documento o formato inválido.</h2>";
-            });
-        } else {
-            document.getElementById("reportContent").innerHTML = "<h2 style='text-align:center;'>Falta UUID</h2>";
-        }
-        
-        function openPreview(url, title) {
-            document.getElementById('previewTitle').textContent = title || 'Vista Previa';
-            document.getElementById('previewFrame').src = url;
-            document.getElementById('previewOverlay').style.display = 'flex';
-        }
-        
-        function closePreview() {
-            document.getElementById('previewOverlay').style.display = 'none';
-            document.getElementById('previewFrame').src = '';
-        }
-    </script>
-    <script src="sidebar.js"></script>
-        </main>
     </div>
 </body>
 </html>

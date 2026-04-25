@@ -330,7 +330,9 @@ def get_purchase_order_report(
             WHERE RTRIM(CodCia) = ? AND RTRIM(NroDoc) = ?
         """
         h_params = [codcia, nrodoc]
-        if tipo_oc:
+        # Si tipo_oc es 'OC' o 'FACT', viene genérico desde cargos, lo ignoramos para la búsqueda real
+        t_oc_filter = tipo_oc.strip().upper() if tipo_oc else ''
+        if t_oc_filter and t_oc_filter not in ('OC', 'FACT'):
             header_query += " AND RTRIM(TipoOc) = ?"
             h_params.append(tipo_oc)
         if year:
@@ -411,7 +413,7 @@ def get_purchase_order_report(
             WHERE RTRIM(r.CodCia) = ? AND RTRIM(r.NroDoc) = ?
         """
         d_params = [codcia, nrodoc]
-        if tipo_oc:
+        if t_oc_filter and t_oc_filter not in ('OC', 'FACT'):
             detail_query += " AND RTRIM(r.TipoOc) = ?"
             d_params.append(tipo_oc)
         if year:

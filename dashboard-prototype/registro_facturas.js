@@ -48,6 +48,18 @@ const escapeHtml = (unsafe) => {
          .replace(/"/g, "&quot;")
          .replace(/'/g, "&#039;");
 };
+// ─── Currency Helpers ────────────
+// Normaliza cualquier valor de moneda a '1' o '2'
+function normMoneda(v) {
+    if (!v) return '1';
+    const raw = String(v).trim().replace('.0','').toUpperCase();
+    if (['2','USD','US$','ME','DOLARES','DÓLARES'].includes(raw)) return '2';
+    return '1';
+}
+// Devuelve símbolo legible: 'S/' o '$'
+function monSym(v) { return normMoneda(v) === '2' ? '$' : 'S/'; }
+// Devuelve label: 'Soles' o 'Dólares'
+function monLabel(v) { return normMoneda(v) === '2' ? 'Dólares ($)' : 'Soles (S/)'; }
 
 // ─── Global State ────────────
 let dtFacturas = null;
@@ -169,7 +181,7 @@ async function searchSunatInvoices() {
                 <td>${c.CodTipoCDP} ${c.NumSerieCDP}-${c.NumCDP}</td>
                 <td>${c.FecEmision || '-'}</td>
                 <td>${(c.NomRazonSocialProveedor || '').substring(0, 30)}</td>
-                <td style="text-align:right;">${c.CodMoneda} ${fmtNum(c.MtoTotalCp)}</td>
+                <td style="text-align:right;">${monSym(c.CodMoneda)} ${fmtNum(c.MtoTotalCp)}</td>
                 <td>${ocInfo || '<span style="color:#94a3b8;">-</span>'}</td>
                 <td>${estadoInfo}</td>
             </tr>`;
@@ -247,7 +259,7 @@ async function loadSunatInvoice(btn) {
         if(document.getElementById('invFecVenc')) {
             document.getElementById('invFecVenc').value = c.FecVencPag ? c.FecVencPag.substring(0,10) : fEmi;
         }
-        document.getElementById('invMoneda').value = c.CodMoneda || 'PEN';
+        document.getElementById('invMoneda').value = normMoneda(c.CodMoneda);
         document.getElementById('invTipoCambio').value = (c.MtoTipoCambio) || '1.000';
         
         Swal.fire({ title: 'Obteniendo XML completo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -396,10 +408,10 @@ async function previewSunatInvoice(btn) {
                         <div><strong>Razón Social:</strong> ${c.NomRazonSocialProveedor}</div>
                         <div><strong>Comprobante:</strong> ${c.CodTipoCDP} ${c.NumSerieCDP}-${c.NumCDP}</div>
                         <div><strong>Fecha Emisión:</strong> ${c.FecEmision?.substring(0,10) || '-'}</div>
-                        <div><strong>Moneda:</strong> ${c.CodMoneda}</div>
+                        <div><strong>Moneda:</strong> ${monLabel(c.CodMoneda)}</div>
                         <div><strong>Monto Base (BI):</strong> ${fmtNum(c.MtoBIMGravadas || c.MtoBiGravada || c.mtoBiGravada || 0)}</div>
                         <div><strong>Monto IGV:</strong> ${fmtNum(c.MtoIgvTot || c.MtoIgvIpm || c.MtoIgv || c.mtoIgv || 0)}</div>
-                        <div><strong>Total General:</strong> <span style="font-size:1.1em; color:var(--primary); font-weight:700;">${c.CodMoneda} ${fmtNum(c.MtoTotalCp)}</span></div>
+                        <div><strong>Total General:</strong> <span style="font-size:1.1em; color:var(--primary); font-weight:700;">${monSym(c.CodMoneda)} ${fmtNum(c.MtoTotalCp)}</span></div>
                     </div>
                 </div>
                 <h4 style="margin:0 0 0.5rem 0; color:var(--primary); font-size:0.95rem;">Líneas del Comprobante (${items.length})</h4>
@@ -599,7 +611,7 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
         if (!currentInvRuc) {
             document.getElementById('invRucProv').value = ruc;
             document.getElementById('invNomProv').value = prov;
-            document.getElementById('invMoneda').value = moneda;
+            document.getElementById('invMoneda').value = normMoneda(moneda);
         }
 
         // LOGICA DE VINCULACION OC (MANUAL POR USUARIO):
@@ -1982,7 +1994,7 @@ async function registrarFactura() {
         numero: document.getElementById('invNumero')?.value.trim(),
         fec_emision: document.getElementById('invFecEmision')?.value || null,
         fec_vencimiento: document.getElementById('invFecVenc')?.value || null,
-        cod_moneda: document.getElementById('invMoneda')?.value || 'PEN',
+        cod_moneda: normMoneda(document.getElementById('invMoneda')?.value),
         tipo_cambio: parseFloat(document.getElementById('invTipoCambio')?.value) || 1.0,
         sub_total: subTotalCalc,
         igv: igvCalc,
@@ -2189,7 +2201,7 @@ async function loadFacturas() {
                 fechaVencimiento,
                 (f.NomProveedor||'').substring(0,35),
                 f.NumRucProveedor || '-',
-                f.CodMoneda || '-',
+                monLabel(f.CodMoneda),
                 fmtNum(f.Total),
                 f.NroOrdenCompra ? `${f.TipoOc||''}${f.NroOrdenCompra}` : '-',
                 f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
@@ -2293,7 +2305,7 @@ async function viewFacturaDetail(id) {
                     <div style="text-align: right;">
                         <h2 style="margin: 0; font-size: 1.6rem; color: #0f172a;">${cab.CodTipoDoc || '01'} ${cab.Serie||''}-${cab.Numero||''}</h2>
                         <p style="font-weight: 600; color: #334155; margin-top: 0.35rem; font-size:0.9rem;">Emisión: ${cab.FecEmision || '-'} &nbsp;|&nbsp; Vence: ${cab.FecVencimiento || '-'}</p>
-                        <p style="color:#64748b; font-size:0.85rem;">Moneda: ${cab.CodMoneda || 'PEN'} (TC: ${cab.TipoCambio || 1})</p>
+                        <p style="color:#64748b; font-size:0.85rem;">Moneda: ${monLabel(cab.CodMoneda)} (TC: ${cab.TipoCambio || 1})</p>
                     </div>
                 </div>
 
@@ -2366,7 +2378,7 @@ async function viewFacturaDetail(id) {
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.85rem;"><span style="color:#64748b;">IGV (18%):</span> <strong>${fmtNum(cab.IGV || (cab.Total - cab.SubTotal))}</strong></div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.85rem;"><span style="color:#64748b;">Otros Tributos:</span> <strong>${fmtNum(cab.OtrosTributos || 0)}</strong></div>
                         <div style="display:flex; justify-content:space-between; margin-top:1rem; padding-top:1rem; border-top:2px solid #cbd5e1; font-size:1.1rem; color:#0f172a;">
-                            <strong>TOTAL PAGO:</strong> <strong style="color:#2563eb;">${cab.CodMoneda||'PEN'} ${fmtNum(cab.Total || cab.total)}</strong>
+                            <strong>TOTAL PAGO:</strong> <strong style="color:#2563eb;">${monSym(cab.CodMoneda)} ${fmtNum(cab.Total || cab.total)}</strong>
                         </div>
                     </div>
                 </div>
@@ -2454,7 +2466,7 @@ function printFacturaLocal() {
                 <div style="text-align: right;">
                     <p style="font-weight: 700; color: #0f172a; font-size:18px;">${data.CodTipoDoc || '01'} ${data.Serie||''}-${data.Numero||''}</p>
                     <p>Emisión: ${data.FecEmision || '-'} &nbsp;|&nbsp; Vence: ${data.FecVencimiento || '-'}</p>
-                    <p>Moneda: ${data.CodMoneda || 'PEN'} (TC: ${data.TipoCambio || 1})</p>
+                    <p>Moneda: ${monLabel(data.CodMoneda)} (TC: ${data.TipoCambio || 1})</p>
                 </div>
             </div>
 
@@ -2499,7 +2511,7 @@ function printFacturaLocal() {
                     <div><span>IGV:</span> <span>${fmtNum(data.IGV || (data.Total - data.SubTotal))}</span></div>
                     <div><span>Otros Tributos:</span> <span>${fmtNum(data.OtrosTributos || 0)}</span></div>
                     <div><span>ICBPER:</span> <span>${fmtNum(data.MtoICBPER || 0)}</span></div>
-                    <div><span>TOTAL GENERAL:</span> <span>${data.CodMoneda||'PEN'} ${fmtNum(data.Total || data.total)}</span></div>
+                    <div><span>TOTAL GENERAL:</span> <span>${monSym(data.CodMoneda)} ${fmtNum(data.Total || data.total)}</span></div>
                 </div>
             </div>
 
@@ -2602,7 +2614,7 @@ async function openEditRegistro(id) {
         setVal('invNumero', cab.Numero);
         setVal('invFecEmision', cab.FecEmision);
         setVal('invFecVenc', cab.FecVencimiento);
-        setVal('invMoneda', cab.CodMoneda);
+        setVal('invMoneda', normMoneda(cab.CodMoneda));
         // Sincronizar Fecha Plazo Pago con Fecha de Vencimiento
         setVal('invCreditoFecPlazo', cab.FecVencimiento || cab.CreditoFecPlazo);
         setVal('invTipoCambio', cab.TipoCambio || 1);

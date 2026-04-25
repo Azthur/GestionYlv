@@ -9,6 +9,15 @@ import uuid
 
 from database import get_db_connection
 
+def normalize_moneda_valor(v):
+    """Normaliza cualquier valor de moneda a '1' (Soles) o '2' (Dólares)"""
+    if v is None:
+        return '1'
+    raw = str(v).strip().replace('.0', '').upper()
+    if raw in ('2', 'USD', 'US$', 'ME', 'DOLARES'):
+        return '2'
+    return '1'
+
 router = APIRouter(prefix="/api/finanzas", tags=["Finanzas - Gastos y Rendiciones"])
 
 from dotenv import load_dotenv
@@ -301,6 +310,13 @@ def buscar_factura(codcia: str = Query(...), q: str = Query(...)):
             FROM CntFacturaCab f
             WHERE f.Estado != 'Anulada' AND RTRIM(f.CodCia) = ?
             AND (f.Serie LIKE ? OR f.Numero LIKE ? OR f.NumRucProveedor LIKE ? OR f.NomProveedor LIKE ?)
+            AND NOT EXISTS (
+                SELECT 1 FROM FinRendicionGastosDet d
+                INNER JOIN FinRendicionGastosCab c ON d.RendicionId = c.Id
+                WHERE d.DocReferenciaId = f.Id 
+                  AND d.TipoDoc IN ('01-Factura', '03-Boleta')
+                  AND c.Estado != 'ANULADO'
+            )
             ORDER BY f.FecEmision DESC
         """, (codcia, search, search, search, search))
         
@@ -444,6 +460,9 @@ async def create_rendicion(
     try:
         cursor = conn.cursor()
         items = json.loads(detalle)
+        
+        # Normalizar moneda a '1' o '2'
+        moneda = normalize_moneda_valor(moneda)
         
         if id:
             rendicion_id = id

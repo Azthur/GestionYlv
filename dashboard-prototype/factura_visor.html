@@ -100,6 +100,18 @@
                 .catch(function(e) { document.getElementById('content').innerHTML = '<div class="error"><h2>Error</h2><p>' + e.message + '</p></div>'; });
         }
         function fmt(n) { return (n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+        function monSym(m) {
+            var v = String(m || 'PEN').trim();
+            if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return '$';
+            if (v === '1' || v === 'PEN' || v === 'S/') return 'S/';
+            return v;
+        }
+        function monLabel(m) {
+            var v = String(m || 'PEN').trim();
+            if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return 'USD ($)';
+            if (v === '1' || v === 'PEN' || v === 'S/') return 'PEN (S/)';
+            return v;
+        }
         
         function previewDoc(url) {
             var container = document.getElementById('mainContainer');
@@ -330,7 +342,7 @@
                     '</div>' +
                     '<div class="panel" style="text-align:center; border-top:3px solid #10b981;">' +
                         '<div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:0.35rem;">Moneda (T.C.)</div>' +
-                        '<div style="font-size:1.15rem; font-weight:700; color:#0f172a;">'+(d.CodMoneda||'PEN')+' ('+(d.TipoCambio||1)+')</div>' +
+                        '<div style="font-size:1.15rem; font-weight:700; color:#0f172a;">'+monLabel(d.CodMoneda)+' (T.C. '+(d.TipoCambio||1)+')</div>' +
                     '</div>' +
                 '</div>' +
                 // DATOS PROVEEDOR Y OPERATIVOS
@@ -358,7 +370,7 @@
                     '<div class="trow"><span class="lb">Op. Exonerada:</span><strong>'+fmt(d.MtoExonerado||0)+'</strong></div>' +
                     '<div class="trow"><span class="lb">IGV (18%):</span><strong>'+fmt(d.IGV||0)+'</strong></div>' +
                     '<div class="trow"><span class="lb">Otros Tributos:</span><strong>'+fmt((d.OtrosTributos||0)+(d.MtoICBPER||0)+(d.MtoOtrosCargos||0))+'</strong></div>' +
-                    '<div class="tfinal"><strong style="color:#0f172a;">TOTAL:</strong><strong style="font-size:1.25rem;color:#2563eb;">'+(d.CodMoneda||'PEN')+' '+fmt(d.Total)+'</strong></div>' +
+                    '<div class="tfinal"><strong style="color:#0f172a;">TOTAL:</strong><strong style="font-size:1.25rem;color:#2563eb;">'+monSym(d.CodMoneda)+' '+fmt(d.Total)+'</strong></div>' +
                 '</div>' +
                 // ARCHIVOS
                 archHTML +

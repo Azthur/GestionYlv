@@ -327,13 +327,17 @@ async function buscarFacturax() {
         }
         
         res.data.forEach(f => {
+            let symbol = f.CodMon;
+            if (symbol === '1' || symbol === 'PEN' || symbol === 'S/') symbol = 'S/';
+            else if (symbol === '2' || symbol === 'USD' || symbol === '$') symbol = '$';
+            
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${f.FecEmision.substring(0,10)}</td>
                 <td>${f.Serie}-${f.Numero}</td>
                 <td>${f.RucPro || ''}</td>
                 <td>${f.NomPro || ''}</td>
-                <td>${f.CodMon} ${f.Total}</td>
+                <td>${symbol} ${parseFloat(f.Total).toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             `;
             tr.onclick = () => {
                 llenarFilaDesdeFactura(f);
@@ -347,6 +351,17 @@ async function buscarFacturax() {
 }
 
 function llenarFilaDesdeFactura(f) {
+    const monedaMain = document.getElementById("selMoneda").value;
+    const isFacturaUSD = (f.CodMon === "2" || f.CodMon === "USD" || f.CodMon === "$");
+    
+    // Validación: No mezclar monedas
+    if (monedaMain === "1" && isFacturaUSD) {
+        return Swal.fire("Alerta", "No es posible mezclar monedas en una misma rendición. La rendición actual es en Soles y la factura seleccionada es en Dólares.", "warning");
+    }
+    if (monedaMain === "2" && !isFacturaUSD) {
+        return Swal.fire("Alerta", "No es posible mezclar monedas en una misma rendición. La rendición actual es en Dólares y la factura seleccionada es en Soles.", "warning");
+    }
+
     const tr = document.getElementById(`fila-${currentRowIdxToFill}`);
     if(!tr) return;
     
@@ -359,7 +374,7 @@ function llenarFilaDesdeFactura(f) {
     tr.querySelector(".f-proveedor").value = f.NomPro || "";
     tr.querySelector(".f-det").value = f.Observaciones || "";
     
-    if (f.CodMon === "USD") {
+    if (isFacturaUSD) {
         tr.querySelector(".f-sol").value = "0.00";
         tr.querySelector(".f-dol").value = parseFloat(f.Total).toFixed(2);
     } else {
@@ -410,6 +425,11 @@ async function openModalPlanilla(rowIdx) {
 }
 
 function llenarFilaDesdePlanilla(p) {
+    const monedaMain = document.getElementById("selMoneda").value;
+    if (monedaMain === "2") {
+        return Swal.fire("Alerta", "No es posible mezclar monedas en una misma rendición. La rendición actual es en Dólares y la planilla de movilidad es en Soles.", "warning");
+    }
+
     const tr = document.getElementById(`fila-${currentRowIdxToFill}`);
     if(!tr) return;
     
@@ -563,10 +583,10 @@ async function guardarRendicion() {
     formData.append("nomaux", document.getElementById("iptPersonaNom").value);
     formData.append("rucdni", document.getElementById("iptPersonaDoc").value);
     formData.append("tipo_rendicion", document.getElementById("selTipoRendicion").value);
-    formData.append("saldo_inicial", document.getElementById("iptSaldoInicial").value);
-    formData.append("saldo_final", document.getElementById("iptSaldoFinal").value);
-    formData.append("total_gastado", document.getElementById("lblTotalGas").textContent);
-    formData.append("total_reembolso", document.getElementById("lblReembolso").textContent);
+    formData.append("saldo_inicial", parseFloat(document.getElementById("iptSaldoInicial").value) || 0);
+    formData.append("saldo_final", parseFloat(document.getElementById("iptSaldoFinal").value) || 0);
+    formData.append("total_gastado", parseFloat(document.getElementById("lblTotalGas").textContent) || 0);
+    formData.append("total_reembolso", parseFloat(document.getElementById("lblReembolso").textContent) || 0);
     formData.append("usuario", uName);
     formData.append("detalle", JSON.stringify(detalle));
     
@@ -602,7 +622,10 @@ async function guardarRendicion() {
         });
     } catch (e) {
         console.error(e);
-        const errJson = e.response && e.response.data && e.response.data.detail ? e.response.data.detail : "Error procesando el registro.";
+        let errJson = e.response && e.response.data && e.response.data.detail ? e.response.data.detail : "Error procesando el registro.";
+        if (typeof errJson !== 'string') {
+            errJson = JSON.stringify(errJson);
+        }
         Swal.fire("Error", errJson, "error");
     }
 }

@@ -3,7 +3,7 @@ Módulo Cargos Documentales - Backend API
 Flujo: Logística → Contabilidad → Tesquería
 """
 from fastapi import APIRouter, HTTPException, Query, File, UploadFile, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
 from datetime import datetime
 import os
@@ -112,12 +112,15 @@ def generar_cargo(payload: CargoCreate):
             prov = str(item.proveedor or '')[:50]  # Reducido de 100 a 50
             ruc = str(item.ruc_proveedor or '')[:15]  # Reducido de 20 a 15
             
-            # Normalizar moneda: 1 o 2 -> PEN o USD
-            moneda = str(item.moneda or '1').strip()
-            if moneda == '2' or moneda.upper() == 'USD':
-                moneda = 'USD'
+            # Normalizar moneda: aceptar cualquier forma (1, 2, '1', '2', '1.0', '2.0', 'PEN', 'USD')
+            raw_moneda = str(item.moneda or '1').strip()
+            # Eliminar .0 si viene como float serializado
+            if raw_moneda.endswith('.0'):
+                raw_moneda = raw_moneda[:-2]
+            if raw_moneda in ('2', 'USD', 'US$', 'ME'):
+                moneda = '2'
             else:
-                moneda = 'PEN'
+                moneda = '1'
 
             print(f"DEBUG: Insertando item - nro_oc: [{nro_oc}], tipo: [{tipo}], moneda: [{moneda}], monto_oc: {item.monto_oc}, monto_factura: {item.monto_factura}")
             try:
@@ -175,7 +178,7 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
                 RTRIM(c.Estado) as EstadoCargo,
                 d.Id as DetalleId, RTRIM(d.NroOrdenCompra) as NroOrdenCompra, RTRIM(d.TipoOc) as TipoOc,
                 RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, d.MontoOC, d.MontoFactura,
-                RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc
+                RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc, RTRIM(d.Moneda) as Moneda
             FROM CntCargosDocumentales c
             INNER JOIN CntCargosDetalle d ON c.Id = d.CargoId
             WHERE RTRIM(c.CodCia) = ?
@@ -350,6 +353,7 @@ def get_ocs_disponibles_ssr(request: Request):
                 INNER JOIN CntCargosDocumentales clog ON clog.Id = dlog.CargoId
                 WHERE RTRIM(dlog.NroOrdenCompra) = RTRIM(o.NroDoc)
                 AND RTRIM(dlog.CodCiaOc) = RTRIM(o.CodCia)
+                AND RTRIM(dlog.AnosOc) = RTRIM(o.Anos)
                 AND clog.TipoCargo = 'LOG_A_CONT'
                 AND clog.Estado != 'ANULADO'
                 AND ISNULL(dlog.EstadoContable, 'PENDIENTE') != 'RECHAZADO'
@@ -359,6 +363,7 @@ def get_ocs_disponibles_ssr(request: Request):
                 INNER JOIN CntCargosDocumentales ctes ON ctes.Id = dtes.CargoId
                 WHERE RTRIM(dtes.NroOrdenCompra) = RTRIM(o.NroDoc)
                 AND RTRIM(dtes.CodCiaOc) = RTRIM(o.CodCia)
+                AND RTRIM(dtes.AnosOc) = RTRIM(o.Anos)
                 AND ctes.TipoCargo = 'CONT_A_TES'
                 AND ctes.Estado != 'ANULADO'
             )"""
@@ -372,6 +377,7 @@ def get_ocs_disponibles_ssr(request: Request):
                 INNER JOIN CntCargosDocumentales ct ON dt.CargoId = ct.Id
                 WHERE RTRIM(dt.NroOrdenCompra) = RTRIM(o.NroDoc)
                 AND RTRIM(dt.CodCiaOc) = RTRIM(o.CodCia)
+                AND RTRIM(dt.AnosOc) = RTRIM(o.Anos)
                 AND ct.TipoCargo = 'CONT_A_TES'
                 AND ct.Estado != 'ANULADO'
                 AND ISNULL(dt.EstadoContable, 'PENDIENTE') != 'RECHAZADO'
@@ -386,6 +392,7 @@ def get_ocs_disponibles_ssr(request: Request):
                     INNER JOIN CntCargosDocumentales clg ON clg.Id = dlg.CargoId
                     WHERE RTRIM(dlg.NroOrdenCompra) = RTRIM(o.NroDoc)
                     AND RTRIM(dlg.CodCiaOc) = RTRIM(o.CodCia)
+                    AND RTRIM(dlg.AnosOc) = RTRIM(o.Anos)
                     AND clg.TipoCargo = 'LOG_A_CONT'
                     AND clg.Estado != 'ANULADO'
                 )"""
@@ -397,6 +404,7 @@ def get_ocs_disponibles_ssr(request: Request):
                     INNER JOIN CntCargosDocumentales cl ON dl.CargoId = cl.Id
                     WHERE RTRIM(dl.NroOrdenCompra) = RTRIM(o.NroDoc)
                     AND RTRIM(dl.CodCiaOc) = RTRIM(o.CodCia)
+                    AND RTRIM(dl.AnosOc) = RTRIM(o.Anos)
                     AND cl.TipoCargo = 'LOG_A_CONT'
                     AND cl.Estado != 'ANULADO'
                     AND ISNULL(dl.EstadoContable, 'PENDIENTE') NOT IN ('RECHAZADO')
@@ -408,6 +416,7 @@ def get_ocs_disponibles_ssr(request: Request):
                 INNER JOIN CntCargosDocumentales cr ON dr.CargoId = cr.Id
                 WHERE RTRIM(dr.NroOrdenCompra) = RTRIM(o.NroDoc)
                 AND RTRIM(dr.CodCiaOc) = RTRIM(o.CodCia)
+                AND RTRIM(dr.AnosOc) = RTRIM(o.Anos)
                 AND cr.TipoCargo = 'LOG_A_CONT'
                 AND cr.Estado != 'ANULADO'
                 AND dr.EstadoContable = 'RECHAZADO'
@@ -441,6 +450,7 @@ def get_ocs_disponibles_ssr(request: Request):
                     o.Fchdoc as fchdoc, RTRIM(o.NomAux) as proveedor, RTRIM(o.RucAux) as ruc,
                     o.CodMon as moneda, o.ImpTot as total_oc,
                     ROW_NUMBER() OVER (ORDER BY {order_by}) as rn
+                    {", (SELECT TOP 1 RTRIM(clog.NroCargo) FROM CntCargosDetalle dlog INNER JOIN CntCargosDocumentales clog ON dlog.CargoId = clog.Id WHERE RTRIM(dlog.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(dlog.CodCiaOc) = RTRIM(o.CodCia) AND RTRIM(dlog.AnosOc) = RTRIM(o.Anos) AND clog.TipoCargo = 'LOG_A_CONT' AND clog.Estado != 'ANULADO' ORDER BY clog.Id DESC) as cargo_origen" if tipo_cargo == 'CONT_A_TES' and not is_directas else ", NULL as cargo_origen"}
                 FROM CmpVOcom o WITH (NOLOCK)
                 {exclusion_joins}
                 WHERE {where_sql} {exclusion_where}
@@ -508,7 +518,8 @@ def get_ocs_disponibles_ssr(request: Request):
                 'cant_pedida': ped,
                 'cant_recibida': rec,
                 'estado_almacen': est_almacen,
-                'observacion_rechazo': '' # Can fetch if needed but not strictly required
+                'observacion_rechazo': '', # Can fetch if needed but not strictly required
+                'cargo_origen': d.get('cargo_origen', '')
             })
             if d['fchdoc']:
                 d['fchdoc'] = d['fchdoc'].strftime("%Y-%m-%d")
@@ -546,6 +557,14 @@ class CargoDetalleItem(BaseModel):
     proveedor: Optional[str] = None
     ruc_proveedor: Optional[str] = None
     moneda: Optional[str] = "1"
+
+    @field_validator('moneda', mode='before')
+    @classmethod
+    def coerce_moneda(cls, v):
+        """Aceptar int, float o str para moneda y siempre convertir a str"""
+        if v is None:
+            return '1'
+        return str(v).strip()
 
 class CargoCreate(BaseModel):
     codcia: str
@@ -999,12 +1018,12 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                 RTRIM(d.NroOrdenCompra) as NroOrdenCompra,
                 RTRIM(d.TipoOc) as TipoOc,
                 RTRIM(d.CodCiaOc) as CodCiaOc,
+                RTRIM(d.AnosOc) as AnosOc,
                 RTRIM(d.NroFactura) as NroFactura,
                 RTRIM(d.Proveedor) as Proveedor,
                 RTRIM(d.RucProveedor) as RucProveedor,
                 d.MontoOC,
-                d.MontoFactura,
-                RTRIM(d.EstadoContable) as EstadoContable,
+                d.MontoFactura, RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.Moneda) as Moneda,
                 ISNULL(d.TipoDocumento, 'OC') as TipoDocumento,
                 ISNULL(d.TipoComprobante, '') as TipoComprobante,
                 ISNULL(d.FechaEmision, '') as FechaEmision,
@@ -1105,12 +1124,12 @@ def get_pagos_pendientes(codcia: str = Query(...)):
             
             try:
                 cursor.execute(f"""
-                    SELECT RTRIM(NroDoc), Fchdoc, RTRIM(CodMon)
+                    SELECT RTRIM(NroDoc), Fchdoc, RTRIM(CodMon), RTRIM(Anos), RTRIM(TipoOc)
                     FROM CmpVOcom
                     WHERE RTRIM(NroDoc) IN ({ph})
                 """, tuple(chunk))
                 for row in cursor.fetchall():
-                    ocom_map[row[0].strip()] = {'Fchdoc': row[1], 'CodMon': row[2]}
+                    ocom_map[(row[0].strip(), row[3].strip(), row[4].strip())] = {'Fchdoc': row[1], 'CodMon': row[2]}
             except:
                 pass
 
@@ -1170,7 +1189,17 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                     r[fcol] = val.strftime("%Y-%m-%d")
 
             # Info OC
-            ocom_data = ocom_map.get(nro_oc, {})
+            anos_oc = (r.get('AnosOc') or '').strip()
+            tipo_oc = (r.get('TipoOc') or '').strip()
+            ocom_data = ocom_map.get((nro_oc, anos_oc, tipo_oc))
+            if not ocom_data:
+                for k, v in ocom_map.items():
+                    if k[0] == nro_oc and k[1] == anos_oc:
+                        ocom_data = v
+                        break
+            if not ocom_data:
+                ocom_data = {}
+                
             fchdoc = ocom_data.get('Fchdoc')
             if fchdoc and hasattr(fchdoc, 'strftime'):
                 r['FechaOC'] = fchdoc.strftime("%Y-%m-%d")
@@ -1754,6 +1783,8 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
                 d.MontoOC,
                 d.MontoFactura,
                 RTRIM(d.CodCiaOc) as CodCiaOc,
+                RTRIM(d.AnosOc) as AnosOc,
+                RTRIM(d.Moneda) as Moneda,
                 RTRIM(c.NroCargo) as CargoOrigen,
                 c.FechaCargo,
                 -- OC info
@@ -1784,6 +1815,8 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
                 FROM CmpVOcom o2
                 WHERE RTRIM(o2.NroDoc) = RTRIM(d.NroOrdenCompra)
                   AND RTRIM(o2.CodCia) = RTRIM(d.CodCiaOc)
+                  AND RTRIM(o2.Anos) = RTRIM(d.AnosOc)
+                  AND (RTRIM(d.TipoOc) NOT IN ('M','S','T') OR RTRIM(o2.TipoOc) = RTRIM(d.TipoOc))
             ) o
             -- Factura join
             OUTER APPLY (
@@ -1881,7 +1914,7 @@ def get_cargo_detalle(cargo_id: int):
                    RTRIM(d.CodCiaOc) as CodCiaOc, RTRIM(d.AnosOc) as AnosOc,
                    RTRIM(d.NroFactura) as NroFactura, d.MontoOC, d.MontoFactura,
                    RTRIM(d.Proveedor) as Proveedor, RTRIM(d.RucProveedor) as RucProveedor,
-                   RTRIM(d.EstadoContable) as EstadoContable,
+                   RTRIM(d.EstadoContable) as EstadoContable, ISNULL(RTRIM(d.Moneda), 'PEN') as Moneda,
                    -- Factura info
                    f.Uuid as FacturaUuid,
                    f.FecEmision as fch_factura,
@@ -1892,6 +1925,7 @@ def get_cargo_detalle(cargo_id: int):
                    o.Fchdoc as fch_oc,
                    o.ImpTot as total_oc,
                    RTRIM(o.RucAux) as ruc_proveedor_oc,
+                   o.TipoOcReal as tipo_oc_real,
                    -- Rendicion info
                    r.Fecha as fch_rendicion,
                    r.TotalGastado as total_rendicion,
@@ -1919,11 +1953,15 @@ def get_cargo_detalle(cargo_id: int):
             FROM CntCargosDetalle d
             -- OC join
             OUTER APPLY (
-                SELECT TOP 1 o2.Fchdoc, o2.ImpTot, RTRIM(o2.RucAux) as RucAux
+                SELECT TOP 1 o2.Fchdoc, o2.ImpTot, RTRIM(o2.RucAux) as RucAux, RTRIM(o2.TipoOc) as TipoOcReal
                 FROM CmpVOcom o2
                 WHERE RTRIM(o2.NroDoc) = RTRIM(d.NroOrdenCompra)
                   AND RTRIM(o2.CodCia) = RTRIM(d.CodCiaOc)
-                  AND RTRIM(o2.TipoOc) = RTRIM(d.TipoOc)
+                  AND RTRIM(o2.Anos) = RTRIM(d.AnosOc)
+                  AND (
+                    RTRIM(d.TipoOc) IN ('FACT','REND','OC')
+                    OR RTRIM(o2.TipoOc) = RTRIM(d.TipoOc)
+                  )
             ) o
             -- Factura join (busca por Serie-Numero para todas las facturas incluidas)
             OUTER APPLY (

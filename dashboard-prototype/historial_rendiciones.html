@@ -58,6 +58,12 @@
         const API_URL = "http://localhost:8000/api";
         let tbl;
 
+        function monSym(m) {
+            const v = String(m || '1').trim();
+            if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return '$';
+            return 'S/';
+        }
+
         document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const res = await axios.get(`${API_URL}/finanzas/empresas`);
@@ -108,7 +114,7 @@
                         h.Fecha || '',
                         h.NroRendicion || '',
                         h.NomAux || '',
-                        `S/ ${(h.TotalGastado || 0).toFixed(2)}`,
+                        `${monSym(h.Moneda)} ${(h.TotalGastado || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
                         h.UsuarioRegistro || '',
                         badge,
                         actionHtml

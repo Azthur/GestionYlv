@@ -165,20 +165,32 @@
             .then(res => {
                 const cab = res.data.cabecera;
                 const det = res.data.detalle;
+
+                function monSym(m) {
+                    const v = String(m || '1').trim();
+                    if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return '$';
+                    return 'S/';
+                }
+                function monLabel(m) {
+                    const v = String(m || '1').trim();
+                    if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return 'Dólares ($)';
+                    return 'Soles (S/)';
+                }
+                const sym = monSym(cab.Moneda);
                 
                 document.getElementById("lblEmpNom").textContent = cab.EmpresaNom || cab.CodCia;
                 document.getElementById("lblEmpRuc").textContent = "RUC/NIT: " + cab.EmpresaRuc;
                 document.getElementById("lblNro").textContent = cab.NroRendicion;
                 document.getElementById("lblFecha").textContent = cab.Fecha;
                 document.getElementById("lblPeriodo").textContent = cab.Periodo;
-                document.getElementById("lblMoneda").textContent = cab.Moneda;
+                document.getElementById("lblMoneda").textContent = monLabel(cab.Moneda);
                 
                 document.getElementById("lblTrabajador").textContent = cab.NomAux;
                 document.getElementById("lblDni").textContent = cab.RucDni;
                 document.getElementById("lblTipoRend").textContent = cab.TipoRendicion;
                 
-                document.getElementById("lblSi").textContent = cab.SaldoInicial.toFixed(2);
-                document.getElementById("lblSf").textContent = cab.SaldoFinal.toFixed(2);
+                document.getElementById("lblSi").textContent = sym + ' ' + cab.SaldoInicial.toFixed(2);
+                document.getElementById("lblSf").textContent = sym + ' ' + cab.SaldoFinal.toFixed(2);
                 
                 let totS = 0, totD = 0;
                 
@@ -217,10 +229,10 @@
                 document.getElementById("lblTotSol").textContent = totS.toFixed(2);
                 document.getElementById("lblTotDol").textContent = totD.toFixed(2);
                 
-                document.getElementById("s1").textContent = cab.SaldoInicial.toFixed(2);
-                document.getElementById("s2").textContent = cab.TotalGastado.toFixed(2);
-                document.getElementById("s3").textContent = cab.SaldoFinal < 0 ? "0.00" : cab.SaldoFinal.toFixed(2);
-                document.getElementById("s4").textContent = cab.TotalReembolso.toFixed(2);
+                document.getElementById("s1").textContent = sym + ' ' + cab.SaldoInicial.toFixed(2);
+                document.getElementById("s2").textContent = sym + ' ' + cab.TotalGastado.toFixed(2);
+                document.getElementById("s3").textContent = sym + ' ' + (cab.SaldoFinal < 0 ? "0.00" : cab.SaldoFinal.toFixed(2));
+                document.getElementById("s4").textContent = sym + ' ' + cab.TotalReembolso.toFixed(2);
                 
                 if (cab.AprobadorNombre) {
                     const strFecha = new Date(cab.FechaAprobacion).toLocaleString('es-PE');
