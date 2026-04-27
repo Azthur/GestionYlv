@@ -47,7 +47,11 @@ async function loadCompanies() {
         
         const cached = localStorage.getItem('yelave_codcia');
         const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
-        const defaultCia = cached || cu.codcia || (companies.length > 0 ? companies[0].codcia : '');
+        let fallback = '';
+        if (companies.length > 0) {
+            fallback = companies[0].CodCia || companies[0].codcia || '';
+        }
+        const defaultCia = cached || cu.codcia || fallback;
 
         if (defaultCia) {
             select.value = defaultCia;
@@ -181,7 +185,6 @@ function renderFileList() {
 
 function addFilesToList(fileList) {
     for (let i = 0; i < fileList.length; i++) {
-        if (uploadedFiles.length >= 5) break;
         uploadedFiles.push(fileList[i]);
     }
     renderFilePreview();
@@ -217,6 +220,33 @@ function switchTab(tab) {
     document.getElementById('panelHistorial').style.display = tab === 'historial' ? 'block' : 'none';
 }
 
+// ─── Visor Modal (iframe) ─────────────
+function openVisor(url, titulo) {
+    let overlay = document.getElementById('visorOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'visorOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:12px;width:92%;max-width:1100px;height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1.25rem;border-bottom:1px solid #e2e8f0;">
+                    <h4 id="visorTitle" style="margin:0;font-size:0.95rem;font-weight:700;color:#1e3a5f;"></h4>
+                    <button onclick="closeVisor()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b;" title="Cerrar">✕</button>
+                </div>
+                <iframe id="visorIframe" style="flex:1;border:none;border-radius:0 0 12px 12px;" src="about:blank"></iframe>
+            </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeVisor(); });
+    }
+    document.getElementById('visorTitle').textContent = titulo || 'Visor';
+    document.getElementById('visorIframe').src = url;
+    overlay.style.display = 'flex';
+}
+function closeVisor() {
+    const o = document.getElementById('visorOverlay');
+    if (o) { o.style.display = 'none'; document.getElementById('visorIframe').src = 'about:blank'; }
+}
+
 // ════════════════════════════════════════════════════════════
 //  TAB 1: PENDIENTES DE PAGO
 // ════════════════════════════════════════════════════════════
@@ -237,159 +267,154 @@ async function loadPendientes() {
         let totalPEN = 0, totalUSD = 0;
         items.forEach(i => {
             const monto = parseFloat(i.ImportePrincipal || 0);
-            if (i.Moneda === 'USD') {
-                totalUSD += monto;
-            } else {
-                totalPEN += monto;
-            }
+            if (i.Moneda === 'USD') totalUSD += monto;
+            else totalPEN += monto;
         });
-
         document.getElementById('statPendientes').textContent = items.length;
         let montoTexto = '';
         if (totalPEN > 0) montoTexto += `S/ ${totalPEN.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
-        if (totalUSD > 0) {
-            if (montoTexto) montoTexto += ' + ';
-            montoTexto += `$ ${totalUSD.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
-        }
+        if (totalUSD > 0) { if (montoTexto) montoTexto += ' + '; montoTexto += `$ ${totalUSD.toLocaleString('es-PE', {minimumFractionDigits: 2})}`; }
         if (!montoTexto) montoTexto = 'S/ 0.00';
         document.getElementById('statMontoPend').textContent = montoTexto;
 
         if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="16" style="text-align:center; padding:2rem; color:#94a3b8;">No hay documentos pendientes de pago.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:2rem; color:#94a3b8;">No hay documentos pendientes de pago.</td></tr>';
             return;
         }
 
+        const tipoDocMap = { '01': 'Factura', '03': 'Boleta', '07': 'Nota Crédito', '87': 'NC Especial', '08': 'Nota Débito', '02': 'Rec. Hon.', '00': 'Otros' };
+        const ciaVal = document.getElementById('filterCia').value || '';
+
         const dtData = items.map(c => {
-            // Datos del backend
             const tipoDoc = c.TipoDocDesc || 'OC';
             const moneda = c.Moneda || 'PEN';
             const simbolo = moneda === 'USD' ? '$' : 'S/';
+            const codcia = c.CodCiaOc || ciaVal;
+            const isNC = (c.TipoComprobante === '07' || c.TipoComprobante === '87');
 
-            // Fechas formateadas — limpiar fechas nulas o 1900-01-01
+            // Fechas
             const cleanDate = (d) => {
-                if (!d || d === '-' || d === 'None') return '';
+                if (!d || d === '-' || d === 'None' || d === 'null') return '';
                 const s = String(d).trim();
                 if (s.startsWith('1900') || s.startsWith('0001') || s.startsWith('1899')) return '';
-                return s;
+                return s.substring(0, 10);
             };
-            const fechaOC = cleanDate(c.FechaOC);
-            const fechaEmision = cleanDate(c.FechaEmision);
+            const fechaEmision = cleanDate(c.FechaEmision) || cleanDate(c.FechaOC);
             const fechaVencimiento = cleanDate(c.FechaVencimiento);
-            const fechaRendicion = cleanDate(c.FechaRendicion);
+
+            // Días por vencer
+            let diasVencHtml = '<span style="color:#cbd5e1;">—</span>';
+            if (fechaVencimiento) {
+                const hoy = new Date(); hoy.setHours(0,0,0,0);
+                const fv = new Date(fechaVencimiento + 'T00:00:00');
+                const diff = Math.ceil((fv - hoy) / (1000*60*60*24));
+                let color = '#059669', icon = '🟢';
+                if (diff < 0) { color = '#dc2626'; icon = '🔴'; }
+                else if (diff <= 7) { color = '#f59e0b'; icon = '🟡'; }
+                diasVencHtml = `<span style="font-weight:700; color:${color};">${icon} ${diff}d</span>`;
+            }
 
             // Importes
             const importeOC = parseFloat(c.MontoOC || 0);
             const importeFactura = parseFloat(c.MontoFactura || 0);
             const importeRendicion = parseFloat(c.MontoRendicion || c.TotalReembolso || 0);
+            let importePagar = parseFloat(c.ImportePrincipal || 0);
+            if (isNC) importePagar = -Math.abs(importePagar);
+            const saldo = importePagar; // TODO: restar pagos parciales si los hay
 
-            // Badge color según tipo
+            // Badge
             let tipoClass = 'badge pending';
-            if (tipoDoc === 'Factura') tipoClass = 'badge success';
+            if (tipoDoc === 'Factura' || tipoDoc === 'Boleta') tipoClass = 'badge success';
             if (tipoDoc === 'Rendición') tipoClass = 'badge success';
+            if (isNC || tipoDoc === 'Nota Crédito' || tipoDoc === 'NC Especial') tipoClass = 'badge nc';
+            const tipoLabel = isNC ? (tipoDocMap[c.TipoComprobante] || tipoDoc) : tipoDoc;
 
-            // Enlaces a documentos
-            let linksHtml = '';
-            if (c.FacturaUuid) {
-                linksHtml += ` <a href="javascript:void(0)" onclick="openVisor('/factura_visor.html?uid=${c.FacturaUuid}', 'Factura')" title="Ver Factura" style="color:#2563eb; font-size:0.8rem;">📄</a>`;
-            }
-            if (c.RendicionUuid) {
-                linksHtml += ` <a href="javascript:void(0)" onclick="openVisor('/visor_rendicion.html?uuid=${c.RendicionUuid}', 'Rendición')" title="Ver Rendición" style="color:#059669; font-size:0.8rem;">📋</a>`;
-            }
-
-            // Botón de pago
-            const btnPagar = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible(${c.DetalleId}, '${c.TipoDocumento||'OC'}', '${c.CodCiaOc||''}', '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${(c.Proveedor||'').replace(/'/g,"\\'")}', '${c.NroFactura||''}', ${importeOC}, ${importeFactura}, ${importeRendicion}, '${moneda||'PEN'}')">💸 Pagar</button>`;
-
-            // Formatear importes
-            const fmt = (val) => val > 0 ? `${simbolo} ${val.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-';
-
-            // 9 columnas consolidadas
-            const codcia = c.CodCiaOc || document.getElementById('filterCia').value || '';
-            
-            // 1. Tipo Doc + enlaces — todos abren en visor modal iframe
-            let docPrincipal = `<strong>${c.NroDocPrincipal || '-'}</strong>`;
-            if (tipoDoc === 'Factura' && c.FacturaUuid) {
-                docPrincipal = `<a href="javascript:void(0)" onclick="openVisor('/factura_visor.html?uid=${c.FacturaUuid}', 'Factura ${c.NroDocPrincipal}')" style="color:#2563eb; text-decoration:underline; font-weight:700;" title="Ver Factura">📄 ${c.NroDocPrincipal}</a>`;
-            } else if (tipoDoc === 'Rendición') {
-                if (c.RendicionUuid) {
-                    docPrincipal = `<a href="javascript:void(0)" onclick="openVisor('/visor_rendicion.html?uuid=${c.RendicionUuid}', 'Rendición ${c.NroDocPrincipal}')" style="color:#059669; text-decoration:underline; font-weight:700;" title="Ver Rendición">📋 ${c.NroDocPrincipal || c.NroRendicion}</a>`;
-                } else {
-                    docPrincipal = `<strong>📋 ${c.NroDocPrincipal || c.NroRendicion || '-'}</strong>`;
-                }
+            // Documento principal con enlace
+            let docHtml = `<strong>${c.NroDocPrincipal || '-'}</strong>`;
+            const linkColor = isNC ? '#ef4444' : '#2563eb';
+            if (c.FacturaUuid && tipoDoc !== 'OC' && tipoDoc !== 'Rendición') {
+                docHtml = `<a href="javascript:void(0)" onclick="openVisor('/factura_visor.html?uid=${c.FacturaUuid}', '${tipoLabel} ${c.NroDocPrincipal}')" style="color:${linkColor}; text-decoration:underline; font-weight:700;">📄 ${c.NroDocPrincipal}</a>`;
+            } else if (tipoDoc === 'Rendición' && c.RendicionUuid) {
+                docHtml = `<a href="javascript:void(0)" onclick="openVisor('/visor_rendicion.html?uuid=${c.RendicionUuid}', 'Rendición ${c.NroDocPrincipal}')" style="color:#059669; text-decoration:underline; font-weight:700;">📋 ${c.NroDocPrincipal || c.NroRendicion}</a>`;
             } else if (tipoDoc === 'OC' && c.NroOrdenCompra) {
-                // OC: abrir visor OC en iframe modal
-                const ocUrl = `/oc_visor.html?nrodoc=${encodeURIComponent(c.NroOrdenCompra)}&codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(c.TipoOc || 'O')}`;
-                docPrincipal = `<a href="javascript:void(0)" onclick="openVisor('${ocUrl}', 'OC ${c.NroOrdenCompra}')" style="color:#8b5cf6; text-decoration:underline; font-weight:700;" title="Ver Orden de Compra">📦 ${c.NroDocPrincipal}</a>`;
-            }
-
-            // 2. Fechas — priorizar Emisión y Vencimiento para gestión de pago
-            let fechasHtml = '';
-            if (fechaEmision) fechasHtml += `<div style="font-size:0.72rem;">📅 Em: <b>${fechaEmision}</b></div>`;
-            if (fechaVencimiento) {
-                const hoy = new Date(); hoy.setHours(0,0,0,0);
-                const fv = new Date(fechaVencimiento + 'T00:00:00');
-                const diffDias = Math.ceil((fv - hoy) / (1000*60*60*24));
-                let vcColor = '#64748b'; let vcIcon = '📆';
-                if (diffDias < 0) { vcColor = '#dc2626'; vcIcon = '🔴'; }
-                else if (diffDias <= 7) { vcColor = '#f59e0b'; vcIcon = '🟡'; }
-                else { vcColor = '#059669'; vcIcon = '🟢'; }
-                fechasHtml += `<div style="font-size:0.72rem; color:${vcColor}; font-weight:700;">${vcIcon} Vc: ${fechaVencimiento}</div>`;
-            }
-            if (fechaOC) fechasHtml += `<div style="font-size:0.68rem; color:#94a3b8;">OC: ${fechaOC}</div>`;
-            if (fechaRendicion) fechasHtml += `<div style="font-size:0.68rem; color:#94a3b8;">Rn: ${fechaRendicion}</div>`;
-            if (!fechasHtml) fechasHtml = '<span style="color:#cbd5e1;">—</span>';
-
-            const sortDateVc = fechaVencimiento || '9999-12-31';
-
-            // 3. Proveedor / Beneficiario
-            let proveedorHtml = `${c.Proveedor || '-'}<br><small style="color:#64748b;">${c.RucProveedor || '-'}</small>`;
-
-            // 4. Trazabilidad — con enlaces clickeables en visor iframe
-            let trazaHtml = '';
-            if (tipoDoc === 'Factura' && c.NroOrdenCompra && c.NroOrdenCompra !== '-') {
-                // Factura → ver OC en iframe
-                const ocUrl = `/oc_visor.html?nrodoc=${encodeURIComponent(c.NroOrdenCompra)}&codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(c.TipoOc || 'O')}`;
-                trazaHtml = `<a href="javascript:void(0)" onclick="openVisor('${ocUrl}', 'OC ${c.NroOrdenCompra}')" style="font-size:0.75rem; color:#8b5cf6; text-decoration:underline; cursor:pointer;" title="Ver OC">📦 OC: ${c.NroOrdenCompra}</a>`;
-            } else if (tipoDoc === 'OC' && c.NroFactura && c.NroFactura !== '-') {
-                if (c.FacturaUuid) {
-                    trazaHtml = `<a href="javascript:void(0)" onclick="openVisor('/factura_visor.html?uid=${c.FacturaUuid}', 'Factura ${c.NroFactura}')" style="font-size:0.75rem; color:#2563eb; text-decoration:underline; cursor:pointer;" title="Ver Factura">📄 Fact: ${c.NroFactura}</a>`;
-                } else {
-                    trazaHtml = `<div style="font-size:0.75rem; color:#64748b;">📄 Fact: <b>${c.NroFactura}</b></div>`;
+                const ocUrl = '/oc_visor.html?nrodoc=' + encodeURIComponent(c.NroOrdenCompra) + '&codcia=' + encodeURIComponent(codcia) + '&tipooc=' + encodeURIComponent(c.TipoOc || 'O');
+                docHtml = `<a href="javascript:void(0)" onclick="openVisor('${ocUrl}', 'OC ${c.NroOrdenCompra}')" style="color:#8b5cf6; text-decoration:underline; font-weight:700;">📦 ${c.NroDocPrincipal}</a>`;
+                if (c.FacturaUuid && c.NroFactura) {
+                    docHtml += `<br><a href="javascript:void(0)" onclick="openVisor('/factura_visor.html?uid=${c.FacturaUuid}', 'Factura ${c.NroFactura}')" style="color:#2563eb; font-size:0.72rem; text-decoration:underline;">📄 ${c.NroFactura}</a>`;
                 }
-            } else if (tipoDoc === 'Rendición' && c.NroOrdenCompra) {
-                const ocUrl = `/oc_visor.html?nrodoc=${encodeURIComponent(c.NroOrdenCompra)}&codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(c.TipoOc || 'O')}`;
-                trazaHtml = `<a href="javascript:void(0)" onclick="openVisor('${ocUrl}', 'OC ${c.NroOrdenCompra}')" style="font-size:0.75rem; color:#8b5cf6; text-decoration:underline; cursor:pointer;" title="Ver OC">📦 OC: ${c.NroOrdenCompra}</a>`;
             }
-            if (!trazaHtml) trazaHtml = '<span style="color:#cbd5e1;">—</span>';
 
-            const importePagar = c.ImportePrincipal || 0;
+            // Proveedor
+            const provHtml = `${c.Proveedor || '-'}<br><small style="color:#64748b;">${c.RucProveedor || '-'}</small>`;
 
+            // Trazabilidad
+            let trazaHtml = '<span style="color:#cbd5e1;">—</span>';
+            const nro_oc = (c.NroOrdenCompra || '').trim();
+            const nro_fac = (c.NroFactura || '').trim();
+            if (tipoDoc === 'Factura' && nro_oc && nro_oc !== '-') {
+                const ocUrl2 = '/oc_visor.html?nrodoc=' + encodeURIComponent(nro_oc) + '&codcia=' + encodeURIComponent(codcia) + '&tipooc=' + encodeURIComponent(c.TipoOc || 'O');
+                trazaHtml = `<a href="javascript:void(0)" onclick="openVisor('${ocUrl2}', 'OC ${nro_oc}')" style="font-size:0.75rem; color:#8b5cf6; text-decoration:underline;">📦 OC: ${nro_oc}</a>`;
+            } else if (tipoDoc === 'OC' && nro_fac && nro_fac !== '-') {
+                if (c.FacturaUuid) {
+                    trazaHtml = `<a href="javascript:void(0)" onclick="openVisor('/factura_visor.html?uid=${c.FacturaUuid}', 'Factura ${nro_fac}')" style="font-size:0.75rem; color:#2563eb; text-decoration:underline;">📄 Fact: ${nro_fac}</a>`;
+                } else {
+                    trazaHtml = `<span style="font-size:0.75rem; color:#64748b;">📄 Fact: <b>${nro_fac}</b></span>`;
+                }
+            } else if (tipoDoc === 'Rendición' && nro_oc) {
+                const ocUrl3 = '/oc_visor.html?nrodoc=' + encodeURIComponent(nro_oc) + '&codcia=' + encodeURIComponent(codcia) + '&tipooc=' + encodeURIComponent(c.TipoOc || 'O');
+                trazaHtml = `<a href="javascript:void(0)" onclick="openVisor('${ocUrl3}', 'OC ${nro_oc}')" style="font-size:0.75rem; color:#8b5cf6; text-decoration:underline;">📦 OC: ${nro_oc}</a>`;
+            }
+
+            // Formato importes
+            const fmtMonto = (v) => `<span style="${v < 0 ? 'color:#ef4444; font-weight:700;' : ''}">${simbolo} ${v.toLocaleString('es-PE', {minimumFractionDigits: 2})}</span>`;
+
+            // Botones — escapar comillas simples del proveedor
+            const provEsc = (c.Proveedor || '').replace(/'/g, "\\'");
+            let btnHtml = '';
+            if (isNC) {
+                btnHtml = `<button class="btn-action" style="padding:0.25rem 0.5rem; font-size:0.7rem; background:#ef4444; color:white;" onclick="abrirModalAplicarNC('${c.DetalleId}', '${provEsc}', '${c.NroFactura||''}', ${importePagar}, '${moneda}', '${codcia}')">✅ Aplicar NC</button>`;
+            } else {
+                btnHtml = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${provEsc}', '${c.NroFactura||''}', ${importePagar}, '${moneda}')">💸 Pagar</button>`;
+                btnHtml += `<br><button class="btn-action" style="padding:0.2rem 0.4rem; font-size:0.65rem; background:#10b981; color:white; margin-top:2px;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${provEsc}', '${c.NroFactura||''}', 0, '${moneda}', true)">✅ Aplicar</button>`;
+            }
+
+            // 13 columnas
             return [
-                `<span class="${tipoClass}">${tipoDoc}</span>`,
-                docPrincipal,
-                `<span style="display:none;">${sortDateVc}</span>${fechasHtml}`,
-                proveedorHtml,
-                `<span style="font-weight:700; color:${moneda === 'USD' ? '#d97706' : '#1e40af'}">${moneda}</span>`,
-                fmt(importePagar),
+                `<input type="checkbox" class="chk-pago" data-id="${c.DetalleId}" data-moneda="${moneda}" data-monto="${importePagar}" style="transform:scale(1.2); cursor:pointer;">`,
+                `<span class="${tipoClass}">${tipoLabel}</span>`,
+                docHtml,
+                fechaEmision ? `<span style="font-size:0.78rem;">${fechaEmision}</span>` : '<span style="color:#cbd5e1;">—</span>',
+                fechaVencimiento ? `<span style="font-size:0.78rem;">${fechaVencimiento}</span>` : '<span style="color:#cbd5e1;">—</span>',
+                diasVencHtml,
+                provHtml,
+                `<span style="font-weight:700; color:${moneda === 'USD' ? '#d97706' : '#1e40af'}">${moneda === 'USD' ? 'Dólares' : 'Soles'}</span>`,
+                fmtMonto(importePagar),
+                fmtMonto(saldo),
                 trazaHtml,
                 `<span class="badge pending">${c.NroCargo || '-'}</span>`,
-                btnPagar
+                btnHtml
             ];
         });
 
         pendientesDT = $('#pendientesTable').DataTable({
             data: dtData, destroy: true,
-            deferRender: true, order: [[2, 'asc']], pageLength: 15,
+            deferRender: true, order: [[4, 'asc']], pageLength: 15,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-            dom: 'Bfrtip',
-            buttons: [{ extend: 'excelHtml5', text: '📊 Exportar', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7] } }],
+            dom: '<"top-controls"Bf>rtip',
+            buttons: [
+                { extend: 'excelHtml5', text: '📊 Exportar', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11] } },
+                { text: '💸 Pagar Seleccionados', className: 'dt-button btn-pay-multi', action: function() { abrirPagoMultiple(); } }
+            ],
             columnDefs: [
-                { targets: [8], orderable: false, width: '80px' },
-                { targets: [5], className: 'dt-right font-semibold text-slate-800' }
+                { targets: [0, 12], orderable: false, width: '40px' },
+                { targets: [5], className: 'dt-center' },
+                { targets: [8, 9], className: 'dt-right' }
             ]
         });
+        $('.btn-pay-multi').css({'background': '#10b981', 'color': 'white', 'border': 'none', 'font-weight': '700'});
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="16" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
     }
 }
 
@@ -409,34 +434,59 @@ async function loadHistorialPagos() {
         const res = await axios.get(`/api/cargos/pagos/historial?codcia=${encodeURIComponent(codcia)}`);
         const items = res.data;
 
-        // Stats
+        // Stats — separar por moneda
         document.getElementById('statPagados').textContent = items.length;
-        const montoPagado = items.reduce((s, i) => s + parseFloat(i.MontoPago || 0), 0);
-        document.getElementById('statMontoPagado').textContent = `S/ ${montoPagado.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+        let totalPagPEN = 0, totalPagUSD = 0;
+        items.forEach(i => {
+            const m = parseFloat(i.MontoPago || 0);
+            if (i.Moneda === 'USD') totalPagUSD += m;
+            else totalPagPEN += m;
+        });
+        let montoText = '';
+        if (totalPagPEN !== 0) montoText += `S/ ${totalPagPEN.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+        if (totalPagUSD !== 0) {
+            if (montoText) montoText += ' + ';
+            montoText += `$ ${totalPagUSD.toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+        }
+        if (!montoText) montoText = 'S/ 0.00';
+        document.getElementById('statMontoPagado').textContent = montoText;
 
         if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; color:#94a3b8;">No hay pagos registrados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:2rem; color:#94a3b8;">No hay pagos registrados.</td></tr>';
             return;
         }
+
+        const tipoDocMap = { '01': 'Factura', '03': 'Boleta', '07': 'Nota Crédito', '87': 'NC Especial', '08': 'Nota Débito', '02': 'Rec. Hon.', '00': 'Otros' };
 
         const dtData = items.map(p => {
             let adjBadge = '<span style="color:#94a3b8; font-size:0.75rem;">Sin adjuntos</span>';
             if (p.Adjuntos && p.Adjuntos.length > 0) {
-                const links = p.Adjuntos.map(a => `<a href="/api/cargos/pagos/adjunto/${a.AdjuntoId}" target="_blank" style="color:#2563eb; text-decoration:none;" title="${a.ArchivoNombre}">📄 ${a.ArchivoNombre.substring(0, 15)}${a.ArchivoNombre.length > 15 ? '...' : ''}</a>`).join('<br>');
-                adjBadge = `<div style="font-size:0.7rem;">${links}</div>`;
+                const links = p.Adjuntos.map(a => {
+                    const url = `/api/cargos/pagos/adjunto/${a.AdjuntoId}`;
+                    return `<div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="${a.ArchivoNombre}">📄 ${a.ArchivoNombre}</span>
+                                <a href="javascript:void(0)" onclick="openVisor('${url}', '${a.ArchivoNombre.replace(/'/g, "\\'")}')" style="background:#f1f5f9; color:#2563eb; padding:2px 8px; border-radius:4px; text-decoration:none; font-size:0.7rem; font-weight:600; border:1px solid #cbd5e1;">Ver 👁</a>
+                            </div>`;
+                }).join('');
+                adjBadge = `<div style="font-size:0.75rem;">${links}</div>`;
             }
             const simbolo = p.Moneda === 'USD' ? '$' : 'S/';
+            const isNC = (p.TipoComprobante === '07' || p.TipoComprobante === '87');
+            const tipLabel = tipoDocMap[p.TipoComprobante] || (p.TipoDocumento === 'RENDICION' ? 'Rendición' : 'OC');
+            const montoVal = parseFloat(p.MontoPago || 0);
+            const montoColor = montoVal < 0 ? '#ef4444' : 'inherit';
 
             return [
                 `<strong>${p.NroOrdenCompra || '-'}</strong>`,
                 `${p.Proveedor || '-'}<br><small style="color:#64748b;">${p.RucProveedor || '-'}</small>`,
-                p.NroFactura || '-',
+                `<span style="font-size:0.7rem; color:#64748b;">${tipLabel}</span><br><strong>${p.NroFactura || '-'}</strong>`,
                 `<span style="font-weight:600;">${p.BancoPago || '-'}</span>`,
                 p.TipoPago || '-',
+                `<span style="font-size:0.8rem;">${p.ConceptoPago || '-'}</span>`,
                 `<code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.75rem;">${p.NroOperacion || '-'}</code>`,
                 p.FechaPago || '-',
-                `<span style="font-weight:700; color:${p.Moneda === 'USD' ? '#d97706' : '#1e40af'}">${p.Moneda || 'PEN'}</span>`,
-                `${simbolo} ${parseFloat(p.MontoPago || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`,
+                `<span style="font-weight:700; color:${p.Moneda === 'USD' ? '#d97706' : '#1e40af'}">${p.Moneda === 'USD' ? 'Dólares' : 'Soles'}</span>`,
+                `<span style="font-weight:700; color:${montoColor};">${simbolo} ${montoVal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</span>`,
                 p.UsuarioRegistro || '-',
                 adjBadge
             ];
@@ -444,12 +494,12 @@ async function loadHistorialPagos() {
 
         historialPagosDT = $('#historialPagosTable').DataTable({
             data: dtData, destroy: true,
-            deferRender: true, order: [[6, 'desc']], pageLength: 15,
+            deferRender: true, order: [[7, 'desc']], pageLength: 15,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
             dom: 'Bfrtip',
-            buttons: [{ extend: 'excelHtml5', text: '📊 Exportar Pagos', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9] } }],
+            buttons: [{ extend: 'excelHtml5', text: '📊 Exportar Pagos', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10] } }],
             columnDefs: [
-                { targets: [8], className: 'dt-right font-semibold text-slate-800' }
+                { targets: [9], className: 'dt-right font-semibold text-slate-800' }
             ]
         });
 
@@ -457,6 +507,25 @@ async function loadHistorialPagos() {
         tbody.innerHTML = `<tr><td colspan="10" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
     }
 }
+
+// ════════════════════════════════════════════════════════════
+//  VISOR DE DOCUMENTOS
+// ════════════════════════════════════════════════════════════
+function abrirVisor(url, filename) {
+    const modal = document.getElementById('modalVisor');
+    const iframe = document.getElementById('visorIframe');
+    const title = document.getElementById('modalVisorTitle');
+    
+    if (modal && iframe) {
+        title.textContent = filename ? `Visor - ${filename}` : 'Visor de Documento';
+        
+        // If it's an image, we might want to wrap it or just rely on the browser's default behavior in the iframe.
+        // For simplicity, assigning the URL directly to the iframe works for PDFs and images.
+        iframe.src = url;
+        modal.classList.add('active');
+    }
+}
+
 
 // ════════════════════════════════════════════════════════════
 //  MODAL DE PAGO
@@ -492,12 +561,8 @@ function openModalPago(detalleId, codcia, nrodoc, tipooc, proveedor, factura, mo
 }
 
 async function submitPago() {
-    const detalleId = document.getElementById('pago_idDetalle').value;
-
-    if (uploadedFiles.length > 5) {
-        Swal.fire('Atención', 'Puede subir un máximo de 5 adjuntos.', 'warning');
-        return;
-    }
+    const idDetalle = document.getElementById('pago_idDetalle').value; // puede ser varios IDs por comas
+    const codcia = document.getElementById('filterCia').value;
     if (!document.getElementById('pago_banco').value) {
         Swal.fire('Atención', 'Debe seleccionar una cuenta bancaria.', 'warning');
         return;
@@ -516,17 +581,23 @@ async function submitPago() {
     formData.append('fecha', document.getElementById('pago_fecha').value);
     formData.append('nro_operacion', document.getElementById('pago_nro_operacion').value);
     formData.append('notas', document.getElementById('pago_notas').value);
+    
+    const conceptoEl = document.getElementById('pago_concepto');
+    if(conceptoEl) formData.append('concepto_pago', conceptoEl.value);
 
     // Usar uploadedFiles[] en vez del input file
     for (let i = 0; i < uploadedFiles.length; i++) {
         formData.append('archivos', uploadedFiles[i]);
     }
 
+    formData.append('detalle_ids', idDetalle);
+    formData.append('codcia', codcia);
+
     try {
         document.getElementById('modalPago').classList.remove('active');
         Swal.fire({title: 'Registrando Pago...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
 
-        await axios.post(`/api/cargos/detalle/${detalleId}/pagar_completo`, formData, {
+        await axios.post(`/api/cargos/pagos/registrar_multiples`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
 
@@ -545,8 +616,8 @@ async function submitPago() {
     }
 }
 
-async function openModalPagoFlexible(detalleId, tipoDocumento, codcia, nrodoc, tipooc, proveedor, factura, importeOC, importeFactura, importeRendicion, moneda) {
-    document.getElementById('pago_idDetalle').value = detalleId;
+async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, tipooc, proveedor, factura, montoPagar, moneda, isRegularizacion = false) {
+    document.getElementById('pago_idDetalle').value = detalleIds;
     document.getElementById('pago_codcia').value = codcia;
     document.getElementById('pago_nrodoc').value = nrodoc;
     document.getElementById('pago_tipooc').value = tipooc || 'O';
@@ -583,39 +654,40 @@ async function openModalPagoFlexible(detalleId, tipoDocumento, codcia, nrodoc, t
     const tipoSelect = document.getElementById('pago_tipo');
     if (tipoSelect) tipoSelect.value = 'TRANSFERENCIA';
 
-    // Determinar monto a pagar
-    let montoPagar = 0, docLabel = '', docNro = '';
+    // Determinar label
+    let docLabel = tipoDocumento, docNro = nrodoc;
     const sim = moneda === 'USD' ? '$' : 'S/';
 
-    if (tipoDocumento === 'OC') {
-        montoPagar = importeFactura || importeOC;
-        docLabel = 'OC'; docNro = nrodoc;
-    } else if (tipoDocumento === 'FACTURA_SIN_OC') {
-        montoPagar = importeFactura;
-        docLabel = 'Factura'; docNro = factura;
-    } else if (tipoDocumento === 'RENDICION') {
-        montoPagar = importeRendicion;
-        docLabel = 'Rendición'; docNro = nrodoc;
+    if (tipoDocumento === 'OC') { docLabel = 'OC'; docNro = nrodoc; }
+    else if (tipoDocumento === 'FACTURA_SIN_OC' || tipoDocumento === 'FACTURA') { docLabel = 'Factura'; docNro = factura || nrodoc; }
+    else if (tipoDocumento === 'RENDICION') { docLabel = 'Rendición'; docNro = nrodoc; }
+    else if (tipoDocumento === 'MULTI') { docLabel = 'Múltiples Documentos'; docNro = nrodoc; }
+
+    if (isRegularizacion) {
+        montoPagar = 0;
+        docLabel = 'Regularización';
     }
 
     document.getElementById('pago_monto').value = montoPagar || '';
 
     // Show summary
-    const fmtMonto = (v) => `${sim} ${parseFloat(v||0).toLocaleString('es-PE',{minimumFractionDigits:2})}`;
+    const fmtMonto = (v) => `<span style="${v<0?'color:#ef4444;':''}">${sim} ${parseFloat(v||0).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>`;
     let resumenHtml = `<div style="display:grid; grid-template-columns: 95px 1fr; gap:0.15rem 0.75rem;">`;
     resumenHtml += `<span style="font-weight:600; color:#64748b;">Tipo:</span><span class="badge ${tipoDocumento==='OC'?'pending':'success'}" style="justify-self:start;">${docLabel}</span>`;
     resumenHtml += `<span style="font-weight:600; color:#64748b;">Documento:</span><span style="font-weight:700;">${docNro}</span>`;
     resumenHtml += `<span style="font-weight:600; color:#64748b;">Proveedor:</span><span>${proveedor}</span>`;
-    resumenHtml += `<span style="font-weight:600; color:#64748b;">Moneda:</span><span style="font-weight:700; color:${moneda==='USD'?'#d97706':'#1e40af'};">${moneda}</span>`;
+    const monedaLabel = moneda === 'USD' ? 'Dólares' : 'Soles';
+    resumenHtml += `<span style="font-weight:600; color:#64748b;">Moneda:</span><span style="font-weight:700; color:${moneda==='USD'?'#d97706':'#1e40af'};">${monedaLabel}</span>`;
 
     if (tipoDocumento === 'OC') {
         if (factura) resumenHtml += `<span style="font-weight:600; color:#64748b;">Factura:</span><span>${factura}</span>`;
-        if (importeOC > 0) resumenHtml += `<span style="font-weight:600; color:#64748b;">Imp. OC:</span><span>${fmtMonto(importeOC)}</span>`;
-        if (importeFactura > 0) resumenHtml += `<span style="font-weight:600; color:#64748b;">Imp. Factura:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(importeFactura)}</span>`;
-    } else if (tipoDocumento === 'FACTURA_SIN_OC') {
-        resumenHtml += `<span style="font-weight:600; color:#64748b;">Importe:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(importeFactura)}</span>`;
+        resumenHtml += `<span style="font-weight:600; color:#64748b;">A Pagar:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;
+    } else if (tipoDocumento === 'FACTURA_SIN_OC' || tipoDocumento === 'FACTURA') {
+        resumenHtml += `<span style="font-weight:600; color:#64748b;">Importe:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;
     } else if (tipoDocumento === 'RENDICION') {
-        resumenHtml += `<span style="font-weight:600; color:#64748b;">Reembolso:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(importeRendicion)}</span>`;
+        resumenHtml += `<span style="font-weight:600; color:#64748b;">Reembolso:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;
+    } else {
+        resumenHtml += `<span style="font-weight:600; color:#64748b;">A Pagar:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;
     }
     resumenHtml += `</div>`;
 
@@ -635,6 +707,37 @@ async function openModalPagoFlexible(detalleId, tipoDocumento, codcia, nrodoc, t
     document.getElementById('modalPago').classList.add('active');
 }
 
+function abrirPagoMultiple() {
+    const seleccionados = $('.chk-pago:checked');
+    if (seleccionados.length === 0) {
+        Swal.fire('Atención', 'Seleccione al menos un documento para pagar', 'warning');
+        return;
+    }
+    let monedaUnica = null;
+    let errorMoneda = false;
+    let sumaPagar = 0;
+    let ids = [];
+
+    seleccionados.each(function() {
+        const id = $(this).data('id');
+        const mon = $(this).data('moneda');
+        const monto = parseFloat($(this).data('monto') || 0);
+
+        if (monedaUnica === null) monedaUnica = mon;
+        else if (monedaUnica !== mon) errorMoneda = true;
+
+        ids.push(id);
+        sumaPagar += monto;
+    });
+
+    if (errorMoneda) {
+        Swal.fire('Error', 'Todos los documentos seleccionados deben tener la misma moneda para el pago por lote.', 'error');
+        return;
+    }
+
+    openModalPagoFlexible(ids.join(','), 'MULTI', document.getElementById('filterCia').value, seleccionados.length + ' Docs', 'MULTI', 'Múltiples Proveedores', '', sumaPagar, monedaUnica);
+}
+
 // ════════════════════════════════════════════════════════════
 //  VISOR MODAL (IFRAME)
 // ════════════════════════════════════════════════════════════
@@ -642,4 +745,90 @@ function openVisor(url, title) {
     document.getElementById('modalVisorTitle').textContent = `Visor — ${title}`;
     document.getElementById('visorIframe').src = url;
     document.getElementById('modalVisor').classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════
+//  APLICAR NOTA DE CRÉDITO A FACTURA
+// ════════════════════════════════════════════════════════════
+async function abrirModalAplicarNC(detalleId, proveedor, facturaNC, montoNC, moneda, codcia) {
+    document.getElementById('ncDetalleId').value = detalleId;
+    document.getElementById('ncMonto').value = montoNC;
+    document.getElementById('ncMoneda').value = moneda;
+    document.getElementById('ncCodCia').value = codcia;
+
+    document.getElementById('ncInfoCard').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <span style="font-size:0.75rem; color:#64748b; font-weight:700;">NOTA DE CRÉDITO</span><br>
+                <span style="font-size:1rem; font-weight:700; color:#1e293b;">${facturaNC || 'S/N'}</span>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-size:0.75rem; color:#64748b;">Monto a Favor</span><br>
+                <span style="font-size:1.1rem; font-weight:700; color:#ef4444;">${moneda === 'USD' ? '$' : 'S/'} ${Math.abs(montoNC).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+            </div>
+        </div>
+        <div style="margin-top:0.5rem; font-size:0.8rem; color:#475569;">
+            <strong>Proveedor:</strong> ${proveedor}
+        </div>
+    `;
+
+    document.getElementById('ncFacturasTbody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem; color:#64748b;">Cargando facturas...</td></tr>';
+    document.getElementById('modalAplicarNC').classList.add('active');
+
+    try {
+        const res = await axios.get(`/api/cargos/pagos/pendientes?codcia=${encodeURIComponent(codcia)}`);
+        const items = res.data;
+        
+        let html = '';
+        items.forEach(c => {
+            // Filtrar solo facturas (no NC) del mismo proveedor y misma moneda
+            const isNC = (c.TipoComprobante === '07' || c.TipoComprobante === '87');
+            // Regex to compare provider avoiding escaping issues
+            if (!isNC && c.Proveedor === proveedor && c.Moneda === moneda) {
+                const importeFactura = parseFloat(c.ImportePrincipal || 0);
+                html += `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:0.75rem; text-align:center;">
+                        <input type="checkbox" class="chk-nc-factura" data-id="${c.DetalleId}" data-monto="${importeFactura}" style="transform:scale(1.2); cursor:pointer;">
+                    </td>
+                    <td style="padding:0.75rem;">
+                        <strong>${c.NroDocPrincipal || '-'}</strong><br>
+                        <span style="font-size:0.7rem; color:#64748b;">Factura ${c.NroFactura || ''}</span>
+                    </td>
+                    <td style="padding:0.75rem; color:#475569;">${c.Moneda}</td>
+                    <td style="padding:0.75rem; text-align:right; font-weight:700; color:#1e40af;">
+                        ${moneda === 'USD' ? '$' : 'S/'} ${importeFactura.toLocaleString('es-PE',{minimumFractionDigits:2})}
+                    </td>
+                </tr>
+                `;
+            }
+        });
+        
+        if (!html) html = '<tr><td colspan="4" style="text-align:center; padding:1rem; color:#ef4444;">No se encontraron facturas pendientes para este proveedor.</td></tr>';
+        document.getElementById('ncFacturasTbody').innerHTML = html;
+
+    } catch (err) {
+        document.getElementById('ncFacturasTbody').innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1rem; color:#ef4444;">${err.message}</td></tr>`;
+    }
+}
+
+function confirmarAplicacionNC() {
+    const seleccionados = $('.chk-nc-factura:checked');
+    if (seleccionados.length === 0) {
+        Swal.fire('Atención', 'Seleccione al menos una factura para aplicar la nota de crédito.', 'warning');
+        return;
+    }
+    
+    let sumaPagar = parseFloat(document.getElementById('ncMonto').value);
+    let ids = [document.getElementById('ncDetalleId').value];
+    
+    seleccionados.each(function() {
+        ids.push($(this).data('id'));
+        sumaPagar += parseFloat($(this).data('monto') || 0);
+    });
+    
+    document.getElementById('modalAplicarNC').classList.remove('active');
+    
+    // Abrir el modal flexible con la suma neta para pagar (o 0 si se cancelan)
+    openModalPagoFlexible(ids.join(','), 'MULTI', document.getElementById('ncCodCia').value, seleccionados.length + ' Facturas + NC', 'MULTI', 'Múltiples', '', sumaPagar, document.getElementById('ncMoneda').value, sumaPagar === 0);
 }

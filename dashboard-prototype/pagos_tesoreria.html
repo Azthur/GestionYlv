@@ -78,6 +78,8 @@
         .badge { display: inline-block; font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
         .badge.pending { background: #fef3c7; color: #92400e; }
         .badge.success { background: #d1fae5; color: #065f46; }
+        .badge.nc { background: #fef2f2; color: #dc2626; }
+        .top-controls { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     </style>
     <script src="auth-guard.js"></script>
 </head>
@@ -144,15 +146,19 @@
                         <table id="pendientesTable" class="display nowrap" style="width:100%;">
                             <thead>
                                 <tr>
+                                    <th style="width:30px; text-align:center;"><input type="checkbox" id="chkSelectAll" title="Seleccionar Todos" style="transform:scale(1.2); cursor:pointer;" onclick="$('.chk-pago').prop('checked', this.checked);"></th>
                                     <th>Tipo</th>
-                                    <th>Documento Principal</th>
-                                    <th>Fechas (Venc / Emisión)</th>
+                                    <th>Documento</th>
+                                    <th>Emisión</th>
+                                    <th>Vencimiento</th>
+                                    <th style="text-align:center;">Días Venc.</th>
                                     <th>Proveedor / Beneficiario</th>
                                     <th>Mon</th>
-                                    <th style="text-align:right;">Importe a Pagar</th>
+                                    <th style="text-align:right;">Importe</th>
+                                    <th style="text-align:right;">Saldo</th>
                                     <th>Trazabilidad</th>
-                                    <th>Cargo Origen</th>
-                                    <th style="width:100px; text-align:center;">Acción</th>
+                                    <th>Cargo</th>
+                                    <th style="width:120px; text-align:center;">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="pendientesTbody"></tbody>
@@ -173,7 +179,7 @@
                         <table id="historialPagosTable" class="display nowrap" style="width:100%;">
                             <thead>
                                 <tr>
-                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Tipo</th><th>N° Operación</th><th>Fecha Pago</th><th>Mon</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th>
+                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Medio</th><th>Concepto</th><th>N° Operación</th><th>Fecha Pago</th><th>Mon</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th>
                                 </tr>
                             </thead>
                             <tbody id="historialPagosTbody"></tbody>
@@ -243,23 +249,23 @@
                         </div>
                     </div>
 
-                    <!-- FILA 4: Fecha + Concepto -->
-                    <div style="display:grid; grid-template-columns:180px 1fr; gap:1rem; margin-bottom:1rem;">
-                        <div>
-                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Fecha de Pago</label>
-                            <input type="date" id="pago_fecha" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
-                        </div>
-                        <div>
-                            <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Concepto Pago (CjaMTipo)</label>
-                            <select id="pago_concepto" style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff;">
-                                <option value="">Seleccione concepto...</option>
-                            </select>
-                        </div>
+                    <!-- FILA 3.5: Concepto de Pago -->
+                    <div style="margin-bottom:1rem;">
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Concepto de Pago (CjaMTipo)</label>
+                        <select id="pago_concepto" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff;">
+                            <option value="">Seleccione concepto...</option>
+                        </select>
+                    </div>
+
+                    <!-- FILA 4: Fecha -->
+                    <div style="margin-bottom:1rem;">
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Fecha de Pago</label>
+                        <input type="date" id="pago_fecha" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
                     </div>
 
                     <!-- FILA 5: Archivos Adjuntos — Drag & Drop -->
                     <div style="margin-bottom:1rem;">
-                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">📎 Adjuntos (Vouchers, Comprobantes — máx. 5)</label>
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">📎 Adjuntos (Vouchers, Comprobantes)</label>
                         <div id="dropZone" style="border:2px dashed #94a3b8; border-radius:8px; padding:1rem; text-align:center; cursor:pointer; transition:all 0.2s; background:#fafbfc;"
                              onclick="document.getElementById('pago_adjuntos').click()"
                              ondragover="event.preventDefault(); this.style.borderColor='#2563eb'; this.style.background='#eff6ff';"
@@ -304,6 +310,47 @@
             </div>
             <div class="modal-body" style="padding:0; overflow:hidden; flex:1; height:0;">
                 <iframe id="visorIframe" style="width:100%; height:100%; border:none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: APLICAR NOTA DE CRÉDITO ═══ -->
+    <div class="modal-overlay" id="modalAplicarNC">
+        <div class="modal" style="width:90%; max-width:800px;">
+            <div class="modal-header" style="background:#0f172a; padding:1rem 1.5rem;">
+                <h3 style="color:#fff; font-size:1rem;" id="modalAplicarNCTitle">Aplicar Nota de Crédito</h3>
+                <button class="close-btn" style="color:#fff; opacity:0.8;" onclick="document.getElementById('modalAplicarNC').classList.remove('active')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:1.5rem; background:#f8fafc; overflow-y:auto; max-height:75vh;">
+                <div id="ncInfoCard" style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; margin-bottom:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <!-- Resumen inyectado aquí -->
+                </div>
+                <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem; color:#475569;">Seleccione las Facturas a cancelar:</h4>
+                <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.85rem;" id="ncFacturasTable">
+                        <thead style="background:#f1f5f9; text-align:left; color:#475569;">
+                            <tr>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0; width:40px;">Sel.</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0;">Documento</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0;">Moneda</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0; text-align:right;">Importe a Pagar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ncFacturasTbody">
+                            <!-- Inyectado aquí -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <input type="hidden" id="ncDetalleId">
+                <input type="hidden" id="ncCodCia">
+                
+                <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1.5rem;">
+                    <button class="btn-action outline" onclick="document.getElementById('modalAplicarNC').classList.remove('active')">Cancelar</button>
+                    <button class="btn-action primary" onclick="confirmarAplicacionNC()">✅ Pagar Lote Compensado</button>
+                </div>
             </div>
         </div>
     </div>

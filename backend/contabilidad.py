@@ -17,6 +17,67 @@ from auth import get_current_user
 router = APIRouter(prefix="/api/contabilidad", tags=["Contabilidad"])
 
 
+def _safe_date(val):
+    """Normaliza un valor de fecha a formato YYYY-MM-DD compatible con SQL Server.
+    Maneja formatos: DD/MM/YYYY, YYYY-MM-DD, cadenas vacías, None.
+    Si el día excede el máximo del mes (ej: 31/04), se ajusta al último día válido.
+    Retorna None si no se puede parsear."""
+    import calendar
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s or s.lower() in ('none', 'null', 'undefined', 'nan'):
+        return None
+
+    def _clamp_date(year, month, day):
+        """Ajusta el día al máximo válido del mes si es necesario."""
+        try:
+            y, m, d = int(year), int(month), int(day)
+            max_day = calendar.monthrange(y, m)[1]
+            if d > max_day:
+                d = max_day
+            return date(y, m, d).strftime('%Y-%m-%d')
+        except (ValueError, TypeError):
+            return None
+
+    # Ya está en formato YYYY-MM-DD (from HTML date input)
+    if len(s) >= 10 and s[4] == '-' and s[7] == '-':
+        try:
+            datetime.strptime(s[:10], '%Y-%m-%d')
+            return s[:10]
+        except ValueError:
+            # Intentar corregir día inválido (ej: 2026-04-31)
+            parts = s[:10].split('-')
+            if len(parts) == 3:
+                result = _clamp_date(parts[0], parts[1], parts[2])
+                if result:
+                    return result
+    # Formato DD/MM/YYYY (from SUNAT CPE data)
+    if '/' in s:
+        parts = s.split('/')
+        if len(parts) == 3:
+            try:
+                datetime.strptime(s, '%d/%m/%Y')
+                return f"{parts[2]}-{parts[1]}-{parts[0]}"
+            except ValueError:
+                # Intentar corregir día inválido (ej: 31/04/2026)
+                result = _clamp_date(parts[2], parts[1], parts[0])
+                if result:
+                    return result
+    # Formato DD-MM-YYYY
+    if len(s) >= 10 and s[2] == '-' and s[5] == '-':
+        try:
+            datetime.strptime(s[:10], '%d-%m-%Y')
+            return f"{s[6:10]}-{s[3:5]}-{s[0:2]}"
+        except ValueError:
+            result = _clamp_date(s[6:10], s[3:5], s[0:2])
+            if result:
+                return result
+    # Si nada funciona, retornar None en vez de dejar que SQL Server falle
+    print(f"WARNING _safe_date: No se pudo parsear fecha '{val}', retornando None")
+    return None
+
+
 # ════════════════════════════════════════════════════════════
 #  MODELOS PYDANTIC
 # ════════════════════════════════════════════════════════════
@@ -892,8 +953,9 @@ def crear_factura(data: FacturaCreate):
             if current_status and current_status[0] in ['Cerrado', 'Contabilizado']:
                 raise HTTPException(status_code=403, detail=f"No se puede modificar una factura en estado {current_status[0]}")
 
-            # Si FecVencimiento es null, usar CreditoFecPlazo
-            fec_vencimiento_val = data.fec_vencimiento if data.fec_vencimiento else data.credito_fec_plazo
+            # Si CreditoFecPlazo está presente, usarlo como FecVencimiento principal
+            # Fallback: credito_fec_plazo -> fec_vencimiento -> fec_emision
+            fec_vencimiento_val = _safe_date(data.credito_fec_plazo) or _safe_date(data.fec_vencimiento) or _safe_date(data.fec_emision)
 
             cursor.execute("""
                 UPDATE CntFacturaCab SET
@@ -918,7 +980,7 @@ def crear_factura(data: FacturaCreate):
                 WHERE Id=?
             """, (
                 data.codcia.strip(), data.num_ruc_proveedor, data.nom_proveedor, data.cod_tipo_doc, data.serie, data.numero,
-                data.fec_emision, fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
+                _safe_date(data.fec_emision), fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
                 data.sub_total, data.igv, data.otros_tributos, data.total,
                 data.mto_gravado, data.mto_exonerado, data.mto_inafecto, data.mto_gratuito,
                 data.mto_anticipos, data.mto_isc, data.mto_icbper, data.mto_otros_cargos,
@@ -931,16 +993,17 @@ def crear_factura(data: FacturaCreate):
                 data.cod_tip_transaccion, data.ind_estado_cpe, data.ind_procedencia, data.placa_vehicular,
                 data.mto_exportacion, data.mto_descuentos, data.mto_redondeo,
                 data.cod_tipo_nota, data.des_tipo_nota, data.des_motivo,
-                data.doc_modifica_serie, data.doc_modifica_numero, data.doc_modifica_tipo, data.doc_modifica_fecha,
-                data.credito_mto_pendiente, data.credito_fec_plazo, data.credito_num_cuotas, data.credito_cuotas_json,
+                data.doc_modifica_serie, data.doc_modifica_numero, data.doc_modifica_tipo, _safe_date(data.doc_modifica_fecha),
+                data.credito_mto_pendiente, _safe_date(data.credito_fec_plazo), data.credito_num_cuotas, data.credito_cuotas_json,
                 data.docs_relacionados_json, data.xml_data_json,
                 data.id
             ))
             factura_id = data.id
             cursor.execute("DELETE FROM CntFacturaDet WHERE FacturaCabId=?", (factura_id,))
         else:
-            # Si FecVencimiento es null, usar CreditoFecPlazo
-            fec_vencimiento_val = data.fec_vencimiento if data.fec_vencimiento else data.credito_fec_plazo
+            # Si CreditoFecPlazo está presente, usarlo como FecVencimiento principal
+            # Fallback: credito_fec_plazo -> fec_vencimiento -> fec_emision
+            fec_vencimiento_val = _safe_date(data.credito_fec_plazo) or _safe_date(data.fec_vencimiento) or _safe_date(data.fec_emision)
             
             cursor.execute("""
                 INSERT INTO CntFacturaCab (
@@ -965,7 +1028,7 @@ def crear_factura(data: FacturaCreate):
                 VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 data.codcia.strip(), data.num_ruc_proveedor, data.nom_proveedor, data.cod_tipo_doc, data.serie, data.numero,
-                data.fec_emision, fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
+                _safe_date(data.fec_emision), fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
                 data.sub_total, data.igv, data.otros_tributos, data.total,
                 data.mto_gravado, data.mto_exonerado, data.mto_inafecto, data.mto_gratuito,
                 data.mto_anticipos, data.mto_isc, data.mto_icbper, data.mto_otros_cargos,
@@ -978,8 +1041,8 @@ def crear_factura(data: FacturaCreate):
                 data.cod_tip_transaccion, data.ind_estado_cpe, data.ind_procedencia, data.placa_vehicular,
                 data.mto_exportacion, data.mto_descuentos, data.mto_redondeo,
                 data.cod_tipo_nota, data.des_tipo_nota, data.des_motivo,
-                data.doc_modifica_serie, data.doc_modifica_numero, data.doc_modifica_tipo, data.doc_modifica_fecha,
-                data.credito_mto_pendiente, data.credito_fec_plazo, data.credito_num_cuotas, data.credito_cuotas_json,
+                data.doc_modifica_serie, data.doc_modifica_numero, data.doc_modifica_tipo, _safe_date(data.doc_modifica_fecha),
+                data.credito_mto_pendiente, _safe_date(data.credito_fec_plazo), data.credito_num_cuotas, data.credito_cuotas_json,
                 data.docs_relacionados_json, data.xml_data_json
             ))
             factura_id = int(cursor.fetchone()[0])
@@ -1031,7 +1094,7 @@ def crear_factura(data: FacturaCreate):
                 obs2_val,
                 obs3_val,
                 obs4_val,
-                extra_data.get('fecha_vencimiento') if extra_data else None,
+                _safe_date(extra_data.get('fecha_vencimiento')) if extra_data else None,
                 json.dumps(extra_data) if extra_data else None
             ))
 
@@ -1188,7 +1251,7 @@ def get_factura_detail(factura_id: int):
         cols = [c[0] for c in cursor.description]
         cab = dict(zip(cols, row))
         # Format dates
-        for k in ['FecEmision','FecVencimiento','FecRegistro']:
+        for k in ['FecEmision','FecVencimiento','FecRegistro','CreditoFecPlazo']:
             if cab.get(k):
                 cab[k] = cab[k].strftime("%Y-%m-%d")
         if cab.get('CreatedAt'):
@@ -2331,15 +2394,31 @@ def get_facturas_sin_oc(
                    f.FecEmision, f.FecVencimiento,
                    RTRIM(f.NomProveedor) as NomProveedor, RTRIM(f.NumRucProveedor) as NumRucProveedor,
                    RTRIM(f.CodMoneda) as CodMoneda, f.Total,
-                   f.Estado, f.Uuid, f.CreatedAt
+                   f.Estado, f.Uuid, f.CreatedAt, RTRIM(f.NroOrdenCompra) as NroOrdenCompra
             FROM CntFacturaCab f
             WHERE RTRIM(f.CodCia) = ?
-              AND (f.NroOrdenCompra IS NULL OR RTRIM(f.NroOrdenCompra) = '')
+              AND (
+                  (f.NroOrdenCompra IS NULL OR RTRIM(f.NroOrdenCompra) = '' OR RTRIM(f.NroOrdenCompra) = '-')
+                  OR
+                  (
+                      f.NroOrdenCompra IS NOT NULL AND RTRIM(f.NroOrdenCompra) != '' AND RTRIM(f.NroOrdenCompra) != '-'
+                      AND EXISTS (
+                          SELECT 1 FROM CntCargosDetalle d2 
+                          INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
+                          WHERE RTRIM(d2.NroOrdenCompra) = RTRIM(f.NroOrdenCompra)
+                            AND RTRIM(d2.CodCiaOc) = RTRIM(f.CodCia)
+                            AND (d2.NroFactura IS NULL OR RTRIM(d2.NroFactura) = '' OR RTRIM(d2.NroFactura) = '-')
+                            AND c2.TipoCargo = 'LOG_A_CONT'
+                            AND c2.Estado != 'ANULADO'
+                      )
+                  )
+              )
               AND f.Estado != 'Anulada'
               AND NOT EXISTS (
                   SELECT 1 FROM CntCargosDetalle d
                   WHERE RTRIM(d.NroFactura) = RTRIM(f.Serie) + '-' + RTRIM(f.Numero)
                     AND RTRIM(d.CodCiaOc) = RTRIM(f.CodCia)
+                    AND RTRIM(d.RucProveedor) = RTRIM(f.NumRucProveedor)
               )
               AND NOT EXISTS (
                   SELECT 1 FROM FinRendicionGastosDet rd

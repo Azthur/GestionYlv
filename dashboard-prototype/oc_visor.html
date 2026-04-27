@@ -67,11 +67,13 @@
             return parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
         };
 
+        // Params globales para que renderReport y loadExtras los usen
+        const _params = new URLSearchParams(window.location.search);
+        const nrodoc = _params.get('nrodoc');
+        const codcia = _params.get('codcia');
+        const tipooc = _params.get('tipooc') || 'O';
+
         async function loadOCReport() {
-            const params = new URLSearchParams(window.location.search);
-            const nrodoc = params.get('nrodoc');
-            const codcia = params.get('codcia');
-            const tipooc = params.get('tipooc') || 'O';
             const container = document.getElementById('reportContainer');
 
             if (!nrodoc || !codcia) {
@@ -193,6 +195,12 @@
             if (header.despag) html += `<dt>Cond. de Pago :</dt><dd><strong>${header.despag}</strong></dd>`;
             html += '</dl>';
 
+            html += `<div style="display: flex; gap: 2rem; margin: 1.5rem 0 1rem 0; font-size: 0.8rem; background: #f8fafc; padding: 1rem; border-radius: 6px;">`;
+            html += `<div style="flex:1;"><strong>Generado por:</strong><br><span style="color:#475569;">${header.usuario || 'N/A'}</span></div>`;
+            if (header.aprobado_por) html += `<div style="flex:1;"><strong>Aprobado por:</strong><br><span style="color:#16a34a;">${header.aprobado_por}</span> <span style="font-size:0.7rem;color:#94a3b8;">(${header.fecha_aprobacion})</span></div>`;
+            if (header.cerrado_por) html += `<div style="flex:1;"><strong>Cerrado por:</strong><br><span style="color:#ef4444;">${header.cerrado_por}</span> <span style="font-size:0.7rem;color:#94a3b8;">(${header.fecha_cierre})</span></div>`;
+            html += `</div>`;
+
             html += `<div class="report-disclaimer">
                 A la entrega de la mercadería dejar copia o fotostática de la guía de remisión.<br>
                 En la oficina se recepcionará facturas adjuntando guía y o/c.
@@ -228,15 +236,13 @@
                             const isPreviewable = ['PDF','JPG','PNG','JPEG','WEBP'].includes(ext);
                             const col = ext === 'PDF' ? '#ef4444' : ext === 'XML' ? '#10b981' : '#6366f1';
                             
-                            fl += `<div class="fitem">
-                                <span class="fbadge" style="background:${col}">${ext}</span>
-                                <span class="flink">${a.filename}</span>
-                                <a href="${u}" target="_blank" style="margin-left:auto; color:#64748b; text-decoration:none;" title="${isPreviewable ? 'Ver/Descargar' : 'Descargar'}">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                </a>
+                            fl += `<div class="fitem" style="display:flex; align-items:center; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; margin-bottom:8px;">
+                                <span style="margin-right:10px; font-size:1.1rem; color:#cbd5e1;">📄</span>
+                                <span class="flink" style="flex:1; font-size:0.85rem; color:#475569;">${a.filename}</span>
+                                <a href="${u}" target="_blank" style="margin-left:auto; color:#475569; text-decoration:none; padding:4px 12px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px; background:white;">Virtualizar 👁</a>
                             </div>`;
                         });
-                        archHTML = `<div class="docs"><h3>Documentos Adjuntos (OC Firmada)</h3>${fl}</div>`;
+                        archHTML = `<div class="docs"><h3 style="color:#2563eb;">Orden Firmada - OC</h3>${fl}</div>`;
                     }
                 }
                 
@@ -264,7 +270,29 @@
                     }
                 }
 
-                extrasDiv.innerHTML = trazaHTML + archHTML;
+                // 3. Cargar Adjuntos (Vouchers de Pago)
+                const resVoucher = await fetch(`/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=voucher`, { headers });
+                let voucherHTML = '';
+                if (resVoucher.ok) {
+                    const files = await resVoucher.json();
+                    if (files && files.length > 0) {
+                        let fl = '';
+                        files.forEach(a => {
+                            const ext = (a.filename || '').split('.').pop().toUpperCase();
+                            const u = a.url;
+                            const col = ext === 'PDF' ? '#e2e8f0' : ext === 'XML' ? '#e2e8f0' : '#e2e8f0';
+                            
+                            fl += `<div class="fitem" style="display:flex; align-items:center; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; margin-bottom:8px;">
+                                <span style="margin-right:10px; font-size:1.1rem; color:#cbd5e1;">📄</span>
+                                <span class="flink" style="flex:1; font-size:0.85rem; color:#475569;">${a.filename}</span>
+                                <a href="${u}" target="_blank" style="margin-left:auto; color:#475569; text-decoration:none; padding:4px 12px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px; background:white;">Virtualizar 👁</a>
+                            </div>`;
+                        });
+                        voucherHTML = `<div class="docs"><h3 style="color:#d97706;">Vouchers de Pago (Adjuntos)</h3>${fl}</div>`;
+                    }
+                }
+
+                extrasDiv.innerHTML = trazaHTML + archHTML + voucherHTML;
 
             } catch (err) {
                 console.warn("Error cargando extras:", err);

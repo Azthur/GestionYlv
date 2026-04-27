@@ -122,7 +122,18 @@ def get_purchase_orders(
                 RTRIM(NomCom) as nomcom,
                 RTRIM(Usuario) as usuario,
                 CASE WHEN EXISTS (SELECT 1 FROM LogSolicitudesRecojo sr WHERE sr.nro_oc = o.NroDoc AND sr.codcia = o.codcia AND sr.estado != 'Completada' AND sr.estado != 'Cancelada') THEN 1 ELSE 0 END as has_recojo,
-                (SELECT STUFF((SELECT ', '+RTRIM(f.CodTipoDoc)+'-'+RTRIM(f.Serie)+'-'+RTRIM(f.Numero)+'|'+CAST(f.Id AS VARCHAR(10)) FROM CntFacturaCab f WHERE RTRIM(f.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(f.CodCia) = RTRIM(o.CodCia) AND f.Estado != 'Anulada' FOR XML PATH('')), 1, 2, '')) as facturas_vinculadas
+                (SELECT STUFF((SELECT ', '+RTRIM(f.CodTipoDoc)+'-'+RTRIM(f.Serie)+'-'+RTRIM(f.Numero)+'|'+CAST(f.Id AS VARCHAR(10)) FROM CntFacturaCab f WHERE RTRIM(f.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(f.CodCia) = RTRIM(o.CodCia) AND f.Estado != 'Anulada' FOR XML PATH('')), 1, 2, '')) as facturas_vinculadas,
+                ISNULL((SELECT TOP 1 
+                    CASE 
+                        WHEN RTRIM(cd.EstadoContable) = 'PAGADO' THEN 'CANCELADO'
+                        WHEN c.TipoCargo = 'CONT_A_TES' THEN 'EN TESORERÍA'
+                        WHEN c.TipoCargo = 'LOG_A_CONT' THEN 'EN CONTABILIDAD'
+                        ELSE 'EN LOGÍSTICA'
+                    END
+                 FROM CntCargosDetalle cd
+                 INNER JOIN CntCargosDocumentales c ON cd.CargoId = c.Id
+                 WHERE RTRIM(cd.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(cd.CodCiaOc) = RTRIM(o.CodCia)
+                 ORDER BY cd.Id DESC), 'EN LOGÍSTICA') as estado_proceso
             FROM CmpVOcom o 
             WHERE RTRIM(CodCia) = ?
         """
@@ -373,6 +384,25 @@ def get_purchase_order_report(
             "flgest": h_row.flgest or "",
         }
         
+        # Obtener datos de Trazabilidad de Aprobación y Cierre
+        cursor.execute("""
+            SELECT TOP 1 UsuarioNombre, FechaHora FROM LogOcAcciones 
+            WHERE CodCia = ? AND NroDoc = ? AND Accion = 'APROBACION'
+            ORDER BY FechaHora DESC
+        """, (codcia, nrodoc))
+        row_apr = cursor.fetchone()
+        header["aprobado_por"] = row_apr.UsuarioNombre if row_apr and row_apr.UsuarioNombre else ""
+        header["fecha_aprobacion"] = row_apr.FechaHora.strftime("%d/%m/%Y %H:%M") if row_apr and row_apr.FechaHora else ""
+        
+        cursor.execute("""
+            SELECT TOP 1 UsuarioNombre, FechaHora FROM LogOcAcciones 
+            WHERE CodCia = ? AND NroDoc = ? AND Accion = 'CIERRE_INTEGRAL'
+            ORDER BY FechaHora DESC
+        """, (codcia, nrodoc))
+        row_cierre = cursor.fetchone()
+        header["cerrado_por"] = row_cierre.UsuarioNombre if row_cierre and row_cierre.UsuarioNombre else ""
+        header["fecha_cierre"] = row_cierre.FechaHora.strftime("%d/%m/%Y %H:%M") if row_cierre and row_cierre.FechaHora else ""
+
         # 3. Detalle de ítems (CmpROcom) con ingresos a almacén y facturado agregados
         detail_query = """
             SELECT 

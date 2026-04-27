@@ -135,22 +135,23 @@ def generar_cargo(payload: CargoCreate):
                 print(f"Tamaños: nro_oc={len(nro_oc)}, tipo={len(tipo)}, codcia={len(codcia)}, anos={len(anos)}, nro_fac={len(nro_fac)}, prov={len(prov)}, ruc={len(ruc)}")
                 raise
 
-        # Marcar facturas como CONTABILIZADA si se envía a Tesorería
+        # Marcar facturas como Contabilizado si se envía a Tesorería
         if payload.tipo_cargo == 'CONT_A_TES':
             for item in payload.detalle:
-                if item.tipo_oc in ['OC', 'FACT'] and item.nro_factura and item.nro_factura != '-':
+                if item.nro_factura and item.nro_factura != '-':
                     parts = item.nro_factura.split('-', 1)
                     if len(parts) == 2:
                         serie, numero = parts[0].strip(), parts[1].strip()
                         try:
+                            # Se usa CodCia + NumRucProveedor + Serie + Numero
                             cursor.execute("""
                                 UPDATE CntFacturaCab
-                                SET Estado = 'CONTABILIZADA'
-                                WHERE RTRIM(CodCia) = ? AND RTRIM(Serie) = ? AND RTRIM(Numero) = ?
+                                SET Estado = 'Contabilizado'
+                                WHERE RTRIM(CodCia) = ? AND NumRucProveedor = ? AND RTRIM(Serie) = ? AND RTRIM(Numero) = ?
                                   AND Estado != 'Anulada'
-                            """, (str(item.codcia_oc or '').strip(), serie, numero))
+                            """, (str(item.codcia_oc or '').strip(), str(item.ruc_proveedor or '').strip(), serie, numero))
                         except Exception as e:
-                            print(f"ERROR actualizando estado de factura a CONTABILIZADA: {e}")
+                            print(f"ERROR actualizando estado de factura a Contabilizado: {e}")
 
         conn.commit()
         return {"status": "success", "nro_cargo": nro_cargo, "cargo_id": cargo_id}
@@ -205,7 +206,7 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
         vals = [(d,) for d in nrodocs_set]
         cursor.executemany("INSERT INTO #TempOcs (nrodoc) VALUES (?)", vals)
 
-        cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid) FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc WHERE f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra''')
+        cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid) FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra''', (codcia.strip(),))
         factura_map = {r[0].strip(): {'factura': r[1], 'uuid': r[2]} for r in cursor.fetchall()}
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
@@ -482,8 +483,8 @@ def get_ocs_disponibles_ssr(request: Request):
         cursor.execute('''
             SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), SUM(f.Total), MAX(f.FecEmision), MIN(f.Uuid), MIN(f.Id)
             FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc 
-            WHERE f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra
-        ''')
+            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra
+        ''', (codcia.strip(),))
         factura_map = {}
         for r in cursor.fetchall():
             factura_map[r[0].strip()] = {'factura': r[1], 'total_factura': r[2], 'fec_factura': r[3], 'factura_uuid': r[4], 'fac_id': r[5]}
@@ -717,8 +718,8 @@ def get_cargos_detallado(
         cursor.execute('''
             SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.Id)
             FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc 
-            WHERE f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra
-        ''')
+            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra
+        ''', (codcia.strip(),))
         factura_map = {r[0].strip(): {'factura': r[1], 'uuid': r[2], 'fac_id': r[3]} for r in cursor.fetchall()}
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
@@ -884,8 +885,8 @@ def get_ocs_disponibles(
         cursor.execute('''
             SELECT RTRIM(NroOrdenCompra), RTRIM(Serie) + '-' + RTRIM(Numero), Total, FecEmision, Uuid, Id
             FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc 
-            WHERE f.Estado != 'Anulada'
-        ''')
+            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada'
+        ''', (codcia.strip(),))
         factura_map = {}
         for r in cursor.fetchall():
             factura_map[r[0].strip()] = {'factura': r[1], 'total_factura': r[2], 'fec_factura': r[3], 'factura_uuid': r[4], 'fac_id': r[5]}
@@ -1023,13 +1024,14 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                 RTRIM(d.Proveedor) as Proveedor,
                 RTRIM(d.RucProveedor) as RucProveedor,
                 d.MontoOC,
-                d.MontoFactura, RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.Moneda) as Moneda,
+                d.MontoFactura,
+                RTRIM(d.EstadoContable) as EstadoContable,
                 ISNULL(d.TipoDocumento, 'OC') as TipoDocumento,
                 ISNULL(d.TipoComprobante, '') as TipoComprobante,
                 ISNULL(d.FechaEmision, '') as FechaEmision,
                 ISNULL(d.FechaVencimiento, '') as FechaVencimiento,
                 ISNULL(d.MontoRendicion, 0) as MontoRendicion,
-                ISNULL(d.Moneda, 'PEN') as Moneda
+                RTRIM(ISNULL(d.Moneda, '')) as Moneda
             FROM CntCargosDocumentales c
             INNER JOIN CntCargosDetalle d ON c.Id = d.CargoId
             WHERE RTRIM(c.CodCia) = ?
@@ -1062,20 +1064,23 @@ def get_pagos_pendientes(codcia: str = Query(...)):
             try:
                 cursor.execute(f"""
                     SELECT RTRIM(NroOrdenCompra), RTRIM(Serie)+'-'+RTRIM(Numero), RTRIM(Uuid),
-                           FechaEmision, FechaVencimiento
+                           FecEmision, FecVencimiento, ISNULL(CodTipoDoc,'01'), Total, RTRIM(CodMoneda)
                     FROM CntFacturaCab
-                    WHERE RTRIM(NroOrdenCompra) IN ({ph}) AND Estado != 'Anulada'
-                """, tuple(chunk))
+                    WHERE RTRIM(CodCia) = ? AND RTRIM(NroOrdenCompra) IN ({ph}) AND Estado != 'Anulada'
+                """, (codcia.strip(), *chunk))
                 for row in cursor.fetchall():
                     serie_num = row[1]
                     factura_map[(row[0], serie_num)] = row[2]
                     factura_fechas_map[serie_num] = {
                         'FechaEmision': row[3],
                         'FechaVencimiento': row[4],
-                        'Uuid': row[2]
+                        'Uuid': row[2],
+                        'CodTipoDoc': row[5],
+                        'Total': float(row[6]) if row[6] else 0,
+                        'CodMoneda': row[7]
                     }
-            except:
-                pass
+            except Exception as e:
+                import traceback; traceback.print_exc()
 
         def strip_fac(nf):
             if not nf or '-' not in nf: return nf
@@ -1100,10 +1105,11 @@ def get_pagos_pendientes(codcia: str = Query(...)):
             try:
                 cursor.execute(f"""
                     SELECT RTRIM(Serie)+'-'+RTRIM(Numero), RTRIM(Uuid), 
-                           FechaEmision, FechaVencimiento, RTRIM(NroOrdenCompra)
+                           FecEmision, FecVencimiento, RTRIM(NroOrdenCompra),
+                           ISNULL(CodTipoDoc,'01'), Total, RTRIM(CodMoneda)
                     FROM CntFacturaCab
-                    WHERE RTRIM(Serie)+'-'+RTRIM(Numero) IN ({ph}) AND Estado != 'Anulada'
-                """, tuple(chunk))
+                    WHERE RTRIM(CodCia) = ? AND RTRIM(Serie)+'-'+RTRIM(Numero) IN ({ph}) AND Estado != 'Anulada'
+                """, (codcia.strip(), *chunk))
                 for row in cursor.fetchall():
                     serie_num = row[0]
                     stripped_sn = strip_fac(serie_num)
@@ -1111,23 +1117,28 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                         factura_fechas_map[stripped_sn] = {
                             'FechaEmision': row[2],
                             'FechaVencimiento': row[3],
-                            'Uuid': row[1]
+                            'Uuid': row[1],
+                            'CodTipoDoc': row[5],
+                            'Total': float(row[6]) if row[6] else 0,
+                            'CodMoneda': row[7]
                         }
-                    # Agregar al factura_map con OC vacía para fallback
                     oc = (row[4] or '').strip()
                     if (oc, stripped_sn) not in factura_map:
                         factura_map[(oc, stripped_sn)] = row[1]
                     if ('', stripped_sn) not in factura_map:
                         factura_map[('', stripped_sn)] = row[1]
-            except:
-                pass
-            
+            except Exception as e:
+                import traceback; traceback.print_exc()
+
+        # Buscar info de OC (fecha, moneda) desde CmpVOcom — loop SEPARADO sobre nrodocs
+        for chunk in chunked(nrodocs, CHUNK):
+            ph = ",".join(["?"] * len(chunk))
             try:
                 cursor.execute(f"""
                     SELECT RTRIM(NroDoc), Fchdoc, RTRIM(CodMon), RTRIM(Anos), RTRIM(TipoOc)
                     FROM CmpVOcom
-                    WHERE RTRIM(NroDoc) IN ({ph})
-                """, tuple(chunk))
+                    WHERE RTRIM(CodCia) = ? AND RTRIM(NroDoc) IN ({ph})
+                """, (codcia.strip(), *chunk))
                 for row in cursor.fetchall():
                     ocom_map[(row[0].strip(), row[3].strip(), row[4].strip())] = {'Fchdoc': row[1], 'CodMon': row[2]}
             except:
@@ -1166,35 +1177,78 @@ def get_pagos_pendientes(codcia: str = Query(...)):
             
             r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac_stripped), None)
             if not r['FacturaUuid'] and nro_fac_stripped:
+                # Intentar con nro_fac original (sin strip)
+                r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac), None)
+            if not r['FacturaUuid'] and nro_fac_stripped:
                 r['FacturaUuid'] = factura_map.get(('', nro_fac_stripped), None)
-                # También buscar sin importar la OC
+            if not r['FacturaUuid'] and nro_fac:
+                r['FacturaUuid'] = factura_map.get(('', nro_fac), None)
+            if not r['FacturaUuid'] and (nro_fac_stripped or nro_fac):
+                # Buscar sin importar la OC
+                search_vals = set(filter(None, [nro_fac, nro_fac_stripped]))
                 for k, v in factura_map.items():
-                    if k[1] == nro_fac_stripped and v:
+                    if k[1] in search_vals and v:
                         r['FacturaUuid'] = v
                         break
+            # También intentar desde factura_fechas_map
+            if not r['FacturaUuid'] and nro_fac_stripped:
+                fac_entry = factura_fechas_map.get(nro_fac_stripped) or factura_fechas_map.get(nro_fac)
+                if fac_entry and fac_entry.get('Uuid'):
+                    r['FacturaUuid'] = fac_entry['Uuid']
 
             # Fechas de factura desde CntFacturaCab
             fac_info = factura_fechas_map.get(nro_fac_stripped, {})
+            if not fac_info and nro_fac:
+                fac_info = factura_fechas_map.get(nro_fac, {})
             if fac_info:
-                if not r.get('FechaEmision') or str(r.get('FechaEmision','')).strip() in ('', 'None'):
-                    r['FechaEmision'] = fac_info.get('FechaEmision')
-                if not r.get('FechaVencimiento') or str(r.get('FechaVencimiento','')).strip() in ('', 'None'):
-                    r['FechaVencimiento'] = fac_info.get('FechaVencimiento')
+                fe = fac_info.get('FechaEmision')
+                fv = fac_info.get('FechaVencimiento')
+                if fe and hasattr(fe, 'strftime'):
+                    fe = fe.strftime("%Y-%m-%d")
+                if fv and hasattr(fv, 'strftime'):
+                    fv = fv.strftime("%Y-%m-%d")
+                cur_fe = r.get('FechaEmision')
+                cur_fv = r.get('FechaVencimiento')
+                if not cur_fe or str(cur_fe).strip() in ('', 'None') or str(cur_fe).startswith('1900'):
+                    r['FechaEmision'] = fe
+                if not cur_fv or str(cur_fv).strip() in ('', 'None') or str(cur_fv).startswith('1900'):
+                    r['FechaVencimiento'] = fv
+                # Enriquecer tipo comprobante si no existe
+                if not r.get('TipoComprobante'):
+                    r['TipoComprobante'] = fac_info.get('CodTipoDoc', '')
+                # TipoDocumento descriptivo
+                tipo_doc_map = {'01': 'FACTURA', '03': 'BOLETA', '07': 'NC', '87': 'NC', '08': 'ND', '02': 'RH'}
+                cod_tipo = fac_info.get('CodTipoDoc', '')
+                if cod_tipo and not r.get('TipoDocumento'):
+                    r['TipoDocumento'] = tipo_doc_map.get(cod_tipo, 'OC')
+                    
+                # Enriquecer MontoFactura si está en 0
+                if fac_info.get('Total') and (not r.get('MontoFactura') or float(r.get('MontoFactura', 0)) == 0):
+                    r['MontoFactura'] = fac_info.get('Total')
 
-
-            # Formatear fechas
+            # Formatear fechas restantes y limpiar 1900-01-01
             for fcol in ('FechaEmision', 'FechaVencimiento'):
                 val = r.get(fcol)
                 if val and hasattr(val, 'strftime'):
                     r[fcol] = val.strftime("%Y-%m-%d")
+                valStr = str(r.get(fcol) or '').strip()
+                if not valStr or valStr.startswith('1900') or valStr.startswith('0001') or valStr.startswith('1899') or valStr == 'None':
+                    r[fcol] = None
 
-            # Info OC
+            # Info OC — buscar con fallback flexible
             anos_oc = (r.get('AnosOc') or '').strip()
             tipo_oc = (r.get('TipoOc') or '').strip()
             ocom_data = ocom_map.get((nro_oc, anos_oc, tipo_oc))
             if not ocom_data:
+                # Fallback: buscar por nro_oc + anos
                 for k, v in ocom_map.items():
-                    if k[0] == nro_oc and k[1] == anos_oc:
+                    if k[0] == nro_oc and (not anos_oc or k[1] == anos_oc):
+                        ocom_data = v
+                        break
+            if not ocom_data:
+                # Fallback: buscar solo por nro_oc
+                for k, v in ocom_map.items():
+                    if k[0] == nro_oc:
                         ocom_data = v
                         break
             if not ocom_data:
@@ -1245,25 +1299,29 @@ def get_pagos_pendientes(codcia: str = Query(...)):
             if nro_oc.upper().startswith('RG-') or nro_oc.upper().startswith('RG0'):
                 tipo_doc = 'RENDICION'
 
-            if tipo_doc == 'FACTURA_SIN_OC':
-                r['TipoDocDesc'] = 'Factura'
-                r['NroDocPrincipal'] = r.get('NroFactura', '')
-                r['ImportePrincipal'] = float(r.get('MontoFactura', 0))
-                r['TipoDocumento'] = 'FACTURA_SIN_OC'
-            elif tipo_doc == 'RENDICION':
+            # Tipo comprobante del detalle
+            tipo_comp = (r.get('TipoComprobante') or '').strip()
+            is_nc = tipo_comp in ('07', '87')
+            tipo_comp_map = {'01': 'Factura', '03': 'Boleta', '07': 'Nota Crédito', '87': 'NC Especial', '08': 'Nota Débito', '02': 'Rec. Honorarios', '00': 'Otros'}
+
+            if tipo_doc == 'RENDICION':
                 r['TipoDocDesc'] = 'Rendición'
                 r['NroDocPrincipal'] = nro_oc
                 r['TipoDocumento'] = 'RENDICION'
                 r['ImportePrincipal'] = float(r.get('TotalReembolso', 0) or r.get('MontoRendicion', 0))
                 # NroRendicion para mostrar
                 r['NroRendicion'] = nro_oc
-            else:
-                r['TipoDocDesc'] = 'OC'
-                r['NroDocPrincipal'] = nro_oc
-                if r.get('MontoFactura') and r.get('MontoFactura') > 0:
+            elif nro_fac and nro_fac != '-':
+                r['TipoDocDesc'] = tipo_comp_map.get(tipo_comp, 'Factura')
+                r['NroDocPrincipal'] = nro_fac
+                if r.get('MontoFactura') and float(r.get('MontoFactura', 0)) != 0:
                     r['ImportePrincipal'] = float(r.get('MontoFactura', 0))
                 else:
                     r['ImportePrincipal'] = float(r.get('MontoOC', 0))
+            else:
+                r['TipoDocDesc'] = tipo_comp_map.get(tipo_comp, 'OC') if tipo_comp else 'OC'
+                r['NroDocPrincipal'] = nro_oc
+                r['ImportePrincipal'] = float(r.get('MontoOC', 0))
 
             # Formatear importes
             r['MontoOC'] = float(r.get('MontoOC', 0))
@@ -1293,15 +1351,21 @@ def get_pagos_historial(codcia: str = Query(...)):
                 p.MontoPago,
                 p.FechaPago,
                 p.BancoPago,
-                p.Moneda,
+                RTRIM(ISNULL(p.Moneda, '1')) as Moneda,
                 p.TipoPago,
+                p.ConceptoPago,
                 p.NroOperacion,
                 p.Notas,
                 p.UsuarioRegistro,
                 p.FechaRegistro,
-                d.NroFactura,
-                RTRIM(d.Proveedor) as Proveedor,
-                RTRIM(d.RucProveedor) as RucProveedor,
+                ISNULL(p.NroFactura, d.NroFactura) as NroFactura,
+                RTRIM(ISNULL(p.Proveedor, d.Proveedor)) as Proveedor,
+                RTRIM(ISNULL(p.RucProveedor, d.RucProveedor)) as RucProveedor,
+                ISNULL(p.TipoComprobante, d.TipoComprobante) as TipoComprobante,
+                ISNULL(p.FechaEmision, d.FechaEmision) as FechaEmisionFactura,
+                p.Serie,
+                p.Numero,
+                ISNULL(d.TipoDocumento, 'OC') as TipoDocumento,
                 a.Id as AdjuntoId,
                 a.ArchivoNombre,
                 a.ArchivoRuta
@@ -1323,8 +1387,19 @@ def get_pagos_historial(codcia: str = Query(...)):
                     row['FechaPago'] = row['FechaPago'].strftime("%Y-%m-%d")
                 if row.get('FechaRegistro') and hasattr(row['FechaRegistro'], 'strftime'):
                     row['FechaRegistro'] = row['FechaRegistro'].strftime("%Y-%m-%d %H:%M")
+                if row.get('FechaEmisionFactura') and hasattr(row['FechaEmisionFactura'], 'strftime'):
+                    row['FechaEmisionFactura'] = row['FechaEmisionFactura'].strftime("%Y-%m-%d")
                 if row.get('MontoPago'):
                     row['MontoPago'] = float(row['MontoPago'])
+
+                # Normalizar moneda
+                mon = (row.get('Moneda') or '1').strip()
+                if mon == '1' or mon == 'PEN':
+                    row['Moneda'] = 'PEN'
+                elif mon == '2' or mon == 'USD':
+                    row['Moneda'] = 'USD'
+                else:
+                    row['Moneda'] = 'PEN'
 
                 pagos_map[pago_id] = {
                     'PagoId': pago_id,
@@ -1334,6 +1409,7 @@ def get_pagos_historial(codcia: str = Query(...)):
                     'BancoPago': row['BancoPago'],
                     'Moneda': row['Moneda'],
                     'TipoPago': row['TipoPago'],
+                    'ConceptoPago': row.get('ConceptoPago', ''),
                     'NroOperacion': row['NroOperacion'],
                     'Notas': row['Notas'],
                     'UsuarioRegistro': row['UsuarioRegistro'],
@@ -1341,6 +1417,11 @@ def get_pagos_historial(codcia: str = Query(...)):
                     'NroFactura': row['NroFactura'],
                     'Proveedor': row['Proveedor'],
                     'RucProveedor': row['RucProveedor'],
+                    'TipoComprobante': row.get('TipoComprobante', ''),
+                    'FechaEmisionFactura': row.get('FechaEmisionFactura'),
+                    'Serie': row.get('Serie'),
+                    'Numero': row.get('Numero'),
+                    'TipoDocumento': row.get('TipoDocumento', 'OC'),
                     'Adjuntos': []
                 }
 
@@ -1651,6 +1732,7 @@ def get_facturas_disponibles_tesoreria(codcia: str = Query(...)):
                 f.FecEmision,
                 f.FecVencimiento,
                 f.Total as MontoFactura,
+                RTRIM(f.CodTipoDoc) as CodTipoDoc,
                 RTRIM(f.CodMoneda) as Moneda,
                 RTRIM(f.NomProveedor) as Proveedor,
                 RTRIM(f.NumRucProveedor) as RucProveedor,
@@ -1660,6 +1742,8 @@ def get_facturas_disponibles_tesoreria(codcia: str = Query(...)):
                 c.FechaCargo
             FROM CntFacturaCab f
             INNER JOIN CntCargosDetalle d ON RTRIM(d.NroFactura) = RTRIM(f.Serie) + '-' + RTRIM(f.Numero)
+                                          AND RTRIM(d.CodCiaOc) = RTRIM(f.CodCia)
+                                          AND RTRIM(d.RucProveedor) = RTRIM(f.NumRucProveedor)
             INNER JOIN CntCargosDocumentales c ON d.CargoId = c.Id
             WHERE c.TipoCargo = 'LOG_A_CONT'
               AND c.Estado != 'ANULADO'
@@ -1671,6 +1755,8 @@ def get_facturas_disponibles_tesoreria(codcia: str = Query(...)):
                   SELECT 1 FROM CntCargosDetalle d2
                   INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
                   WHERE RTRIM(d2.NroFactura) = RTRIM(f.Serie) + '-' + RTRIM(f.Numero)
+                    AND RTRIM(d2.CodCiaOc) = RTRIM(f.CodCia)
+                    AND RTRIM(d2.RucProveedor) = RTRIM(f.NumRucProveedor)
                     AND d2.TipoOc = 'FACT'
                     AND c2.TipoCargo = 'CONT_A_TES'
                     AND c2.Estado != 'ANULADO'
@@ -1796,6 +1882,7 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
                 f.Uuid as FacturaUuid,
                 f.FecEmision as FchFactura,
                 f.Total as TotalFactura,
+                f.CodTipoDoc as TipoDocFactura,
                 -- Rendicion info
                 r.Fecha as FchRendicion,
                 r.TotalGastado as TotalRendicion,
@@ -1820,9 +1907,11 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
             ) o
             -- Factura join
             OUTER APPLY (
-                SELECT TOP 1 f2.Uuid, f2.FecEmision, f2.Total
+                SELECT TOP 1 f2.Uuid, f2.FecEmision, f2.Total, RTRIM(f2.CodTipoDoc) as CodTipoDoc
                 FROM CntFacturaCab f2
                 WHERE RTRIM(f2.Serie) + '-' + RTRIM(f2.Numero) = RTRIM(d.NroFactura)
+                  AND RTRIM(f2.CodCia) = RTRIM(d.CodCiaOc)
+                  AND RTRIM(f2.NumRucProveedor) = RTRIM(d.RucProveedor)
                   AND f2.Estado != 'Anulada'
             ) f
             -- Rendicion join (por NroOrdenCompra o buscar la más reciente si está vacío)
@@ -1847,7 +1936,11 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
               AND NOT EXISTS (
                   SELECT 1 FROM CntCargosDetalle d2
                   INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
-                  WHERE (RTRIM(d2.NroOrdenCompra) = RTRIM(d.NroOrdenCompra) OR RTRIM(d2.NroFactura) = RTRIM(d.NroFactura))
+                  WHERE (
+                        (RTRIM(d.NroOrdenCompra) != '' AND RTRIM(d2.NroOrdenCompra) = RTRIM(d.NroOrdenCompra))
+                        OR 
+                        (RTRIM(d.NroFactura) != '' AND RTRIM(d.NroFactura) != '-' AND RTRIM(d2.NroFactura) = RTRIM(d.NroFactura))
+                  )
                     AND d2.TipoOc = d.TipoOc
                     AND c2.TipoCargo = 'CONT_A_TES'
                     AND c2.Estado != 'ANULADO'
@@ -1920,6 +2013,7 @@ def get_cargo_detalle(cargo_id: int):
                    f.FecEmision as fch_factura,
                    f.FecVencimiento as fch_venc_factura,
                    f.Total as total_factura,
+                   f.CodTipoDoc as tipo_doc_factura,
                    f.CreditoFecPlazo as credito_plazo,
                    -- OC info
                    o.Fchdoc as fch_oc,
@@ -1965,9 +2059,11 @@ def get_cargo_detalle(cargo_id: int):
             ) o
             -- Factura join (busca por Serie-Numero para todas las facturas incluidas)
             OUTER APPLY (
-                SELECT TOP 1 f2.Uuid, f2.FecEmision, f2.FecVencimiento, f2.Serie, f2.Numero, f2.Total, f2.CreditoFecPlazo
+                SELECT TOP 1 f2.Uuid, f2.FecEmision, f2.FecVencimiento, f2.Serie, f2.Numero, f2.Total, f2.CreditoFecPlazo, RTRIM(f2.CodTipoDoc) as CodTipoDoc
                 FROM CntFacturaCab f2
                 WHERE RTRIM(f2.Serie) + '-' + RTRIM(f2.Numero) = RTRIM(d.NroFactura)
+                  AND RTRIM(f2.CodCia) = RTRIM(d.CodCiaOc)
+                  AND RTRIM(f2.NumRucProveedor) = RTRIM(d.RucProveedor)
                   AND f2.Estado != 'Anulada'
             ) f
             -- Rendicion join (por NroOrdenCompra que guarda el NroRendicion, o buscar la más reciente si está vacío)
@@ -2203,19 +2299,27 @@ async def pagar_cargo_completo(
         cursor = conn.cursor()
 
         # 1. Obtener Info de OC para FinPagos
-        cursor.execute("SELECT CargoId, CodCiaOc, NroOrdenCompra, TipoDocumento FROM CntCargosDetalle WHERE Id = ?", (detalle_id,))
+        cursor.execute("SELECT CargoId, CodCiaOc, NroOrdenCompra, TipoDocumento, Proveedor, RucProveedor, TipoComprobante, FechaEmision, NroFactura FROM CntCargosDetalle WHERE Id = ?", (detalle_id,))
         detRow = cursor.fetchone()
         if not detRow:
             raise HTTPException(status_code=404, detail="Detalle no encontrado")
-        cargo_id, codcia, nrodoc, tipo_documento = detRow
+        cargo_id, codcia, nrodoc, tipo_documento, proveedor, ruc, tipo_comp, fec_emi, nro_factura = detRow
 
-        # 2. Registrar en FinPagos (con TipoDocumento)
+        serie, numero = None, None
+        if nro_factura and '-' in nro_factura:
+            parts = nro_factura.split('-', 1)
+            serie = parts[0]
+            numero = parts[1]
+
+        mon_val = '1' if moneda in ('PEN', '1') else '2'
+
+        # 2. Registrar en FinPagos (con todos los datos)
         cursor.execute("""
             INSERT INTO FinPagos
-            (CodCia, NroOrdenCompra, DetalleId, MontoPago, FechaPago, BancoPago, Moneda, TipoPago, NroOperacion, Notas, UsuarioRegistro, TipoDocumento)
+            (CodCia, NroOrdenCompra, DetalleId, MontoPago, FechaPago, BancoPago, Moneda, TipoPago, NroOperacion, Notas, UsuarioRegistro, TipoDocumento, Proveedor, RucProveedor, TipoComprobante, FechaEmision, Serie, Numero, NroFactura)
             OUTPUT INSERTED.Id
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (codcia, nrodoc, detalle_id, monto, fecha, banco, moneda, tipo, nro_operacion, notas, usuario, tipo_documento or 'OC'))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (codcia, nrodoc, detalle_id, monto, fecha, banco, mon_val, tipo, nro_operacion, notas, usuario, tipo_documento or 'OC', proveedor, ruc, tipo_comp, fec_emi, serie, numero, nro_factura))
 
         pago_id = cursor.fetchone()[0]
 
@@ -2258,6 +2362,124 @@ async def pagar_cargo_completo(
     finally:
         conn.close()
 
+
+@router.post("/pagos/registrar_multiples")
+async def pagar_cargo_multiples(
+    detalle_ids: str = Form(...),
+    usuario: str = Form(...),
+    moneda: str = Form(...),
+    monto: float = Form(...),
+    banco: str = Form(...),
+    tipo: str = Form(...),
+    fecha: str = Form(...),
+    nro_operacion: str = Form(...),
+    notas: str = Form(""),
+    concepto_pago: str = Form(""),
+    archivos: List[UploadFile] = File(default=[])
+):
+    """Marcar multiples lineas como PAGADAS y registrarlas en FinPagos con archivos"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+
+    global PAGOS_UPLOAD_DIR
+    os.makedirs(PAGOS_UPLOAD_DIR, exist_ok=True)
+
+    try:
+        cursor = conn.cursor()
+        ids = [int(x.strip()) for x in detalle_ids.split(',') if x.strip()]
+        if not ids:
+            raise HTTPException(status_code=400, detail="No hay detalles seleccionados")
+
+        mon_val = '1' if moneda in ('PEN', '1') else '2'
+
+        pagos_creados = []
+        orders_to_voucher = set()
+        # Para evitar problemas con el monto total, dividimos equitativamente O usamos el de la BD (mejor usar el monto individual de BD)
+        for det_id in ids:
+            cursor.execute("SELECT CargoId, CodCiaOc, NroOrdenCompra, TipoDocumento, Proveedor, RucProveedor, TipoComprobante, FechaEmision, NroFactura, MontoOC, MontoFactura, MontoRendicion, TipoOc FROM CntCargosDetalle WHERE Id = ?", (det_id,))
+            detRow = cursor.fetchone()
+            if not detRow:
+                continue
+            
+            cargo_id, codcia, nrodoc, tipo_documento, proveedor, ruc, tipo_comp, fec_emi, nro_factura, mOC, mFac, mRen, tipo_oc = detRow
+            
+            if codcia and nrodoc and tipo_oc and tipo_oc.strip() != '':
+                orders_to_voucher.add((codcia.strip(), tipo_oc.strip(), nrodoc.strip()))
+            
+            serie, numero = None, None
+            if nro_factura and '-' in nro_factura:
+                parts = nro_factura.split('-', 1)
+                serie = parts[0]
+                numero = parts[1]
+
+            # Si es regularizacion o tiene monto 0 desde UI, tomamos el que mandó si fue unico. Si son varios, usamos su propio monto (con logica isNC)
+            is_nc = tipo_comp in ('07', '87')
+            mult = -1 if is_nc else 1
+            
+            monto_ind = 0
+            if tipo_documento == 'FACTURA_SIN_OC':
+                monto_ind = float(mFac or 0) * mult
+            elif tipo_documento == 'RENDICION':
+                monto_ind = float(mRen or 0) * mult
+            else: # OC
+                monto_ind = float(mFac or mOC or 0) * mult
+            
+            # No sobreescribir monto_ind a 0. Se retiene el valor exacto (positivo para facturas, negativo para NC)
+            # para reflejar correctamente el "offsetting" o cruce de documentos.
+            cursor.execute("""
+                INSERT INTO FinPagos
+                (CodCia, NroOrdenCompra, TipoOc, DetalleId, MontoPago, FechaPago, BancoPago, Moneda, TipoPago, NroOperacion, Notas, ConceptoPago, UsuarioRegistro, Proveedor, RucProveedor, TipoComprobante, FechaEmision, Serie, Numero, NroFactura)
+                OUTPUT INSERTED.Id
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (codcia, nrodoc, tipo_oc, det_id, monto_ind, fecha, banco, mon_val, tipo, nro_operacion, notas, concepto_pago, usuario, proveedor, ruc, tipo_comp, fec_emi, serie, numero, nro_factura))
+            
+            p_id = cursor.fetchone()[0]
+            pagos_creados.append(p_id)
+
+            cursor.execute("UPDATE CntCargosDetalle SET EstadoContable = 'PAGADO' WHERE Id = ?", (det_id,))
+            
+            # Check global fulfillment for each cargo
+            cursor.execute("SELECT COUNT(*) FROM CntCargosDetalle WHERE CargoId = ? AND ISNULL(EstadoContable, '') NOT IN ('PAGADO', 'RECHAZADO')", (cargo_id,))
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("UPDATE CntCargosDocumentales SET Estado = 'PROCESADO' WHERE Id = ?", (cargo_id,))
+
+        # Guardar Archivos y asociarlos a TODOS los pagos creados
+        for file in archivos:
+            if file.filename:
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                sys_filename = f"batch_{timestamp}_{file.filename}"
+                file_path = os.path.join(PAGOS_UPLOAD_DIR, sys_filename)
+
+                with open(file_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+
+                file_size = os.path.getsize(file_path)
+                
+                for p_id in pagos_creados:
+                    cursor.execute("""
+                        INSERT INTO FinPagosAdjuntos
+                        (PagoId, ArchivoNombre, ArchivoRuta, TipoMime, TamanoBytes)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (p_id, sys_filename, file_path, file.content_type, file_size))
+                
+                # Integración con Logística (Vouchers de Pago)
+                try:
+                    att_root = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
+                    for (c_cia, t_oc, n_doc) in orders_to_voucher:
+                        target_dir = os.path.join(att_root, c_cia, t_oc, n_doc, "voucher")
+                        os.makedirs(target_dir, exist_ok=True)
+                        shutil.copy2(file_path, os.path.join(target_dir, sys_filename))
+                except Exception as e:
+                    print(f"Error copiando voucher a logistics: {e}")
+        
+        conn.commit()
+        return {"status": "success", "pagos": len(pagos_creados)}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
 
 @router.put("/{cargo_id}/procesar")
 def procesar_cargo(cargo_id: int, usuario: str = Query(...)):
@@ -2305,6 +2527,38 @@ def eliminar_cargo(cargo_id: int):
         return {"status": "success", "message": "Cargo eliminado"}
     except Exception as e:
         conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+from fastapi.responses import FileResponse
+import mimetypes
+
+@router.get("/pagos/adjunto/{adjunto_id}")
+def ver_adjunto_pago(adjunto_id: int):
+    """Ver o descargar un archivo adjunto de un pago"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT ArchivoNombre, ArchivoRuta, TipoMime FROM FinPagosAdjuntos WHERE Id = ?", (adjunto_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+            
+        file_path = row[1]
+        file_name = row[0]
+        mime_type = row[2] or mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="El archivo físico no existe en el servidor")
+            
+        headers = {"Content-Disposition": f'inline; filename="{file_name}"'}
+        return FileResponse(path=file_path, headers=headers, media_type=mime_type)
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()

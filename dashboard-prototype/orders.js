@@ -129,7 +129,10 @@ async function loadOrders() {
             const mon = String(o.moneda || '1').trim();
             const sym = (mon === '2') ? 'USD' : 'S/';
             const total = parseFloat(o.total) || 0;
-            const tipoLabel = formatTipo(o.tipooc);
+            const t = String(o.tipooc || '').trim().toUpperCase();
+            let tipoLabel = '<span class="badge" style="background:#f1f5f9; color:#475569;">📦 Mercadería</span>';
+            if (t === 'S') tipoLabel = '<span class="badge" style="background:#f1f5f9; color:#475569;">⚙️ Servicios</span>';
+            else if (t === 'T') tipoLabel = '<span class="badge" style="background:#f1f5f9; color:#475569;">🗂️ Contable</span>';
             
             // Build actions dropdown
             const isLogistics = currentRole === 'LOGISTICA' || currentRole === 'ADMIN';
@@ -152,7 +155,7 @@ async function loadOrders() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                         Trazabilidad OC
                     </button>
-                    ${((o.estado || '').trim().toUpperCase() === 'R') ? `
+                    ${ (((o.tipooc || '').trim().toUpperCase() === 'M' && (o.estado || '').trim().toUpperCase() === 'R') || (['S', 'T'].includes((o.tipooc || '').trim().toUpperCase()) && (o.estado || '').trim().toUpperCase() === 'P')) ? `
                     <div class="action-dropdown-divider"></div>
                     <button class="action-dropdown-item" onclick="aprobarOc('${cia}','${o.nrodoc}','${o.tipooc}','${o.anos}')" style="color:var(--success);">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
@@ -175,6 +178,7 @@ async function loadOrders() {
             return [
                 btnHtml,
                 statusInfo.badge,
+                `<span style="font-size:0.75rem; font-weight:600; padding:3px 6px; border-radius:4px; background:#f1f5f9; color:#475569;">${o.estado_proceso || 'EN LOGÍSTICA'}</span>`,
                 o.nrodoc || '',
                 o.fchdoc || '',
                 tipoLabel,
@@ -189,8 +193,8 @@ async function loadOrders() {
                 (o.nomdep || '').substring(0, 20),
                 (o.nomcom || '').substring(0, 20),
                 o.usuario || '',
-                statusInfo.watermark, // Hidden col 16
-                o.tipooc || ''        // Hidden col 17
+                statusInfo.watermark, // Hidden col 17
+                o.tipooc || ''        // Hidden col 18
             ];
         });
 
@@ -199,7 +203,11 @@ async function loadOrders() {
             data: dtData,
             destroy: true,
             deferRender: true,
-            order: [[2, 'desc']],
+            dom: '<"top-controls"Bf>rtip',
+            buttons: [
+                { extend: 'excelHtml5', text: '📊 Exportar Excel', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] } }
+            ],
+            order: [[3, 'desc']],
             pageLength: 10,
             scrollX: true,
             language: {
@@ -208,17 +216,10 @@ async function loadOrders() {
                 info: 'Mostrando _START_ a _END_ de _TOTAL_ órdenes',
                 paginate: { first: '«', previous: '‹', next: '›', last: '»' }
             },
-            createdRow: function(row, data, dataIndex) {
-                // Add type coloring
-                const t = String(data[17] || '').trim().toUpperCase();
-                if (t === 'S') $(row).addClass('oc-type-s');
-                else if (t === 'T') $(row).addClass('oc-type-t');
-                else $(row).addClass('oc-type-m');
-            },
             columnDefs: [
                 { targets: 0, className: 'dt-body-center sticky-col-left', orderable: false },
-                { targets: 8, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
-                { targets: [16, 17], visible: false } // Hide helper columns
+                { targets: 9, className: 'dt-body-right', render: (d) => `<strong>${fmtNum(d)}</strong>` },
+                { targets: [17, 18], visible: false } // Hide helper columns
             ]
         });
 
@@ -1659,5 +1660,158 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+// ─── Attachments Modal ─────────────────────────
+function openAttachmentModal(codcia, tipooc, nrodoc, docType) {
+    currentAttachmentContext = { codcia, tipooc, nrodoc, docType };
+    
+    let title = 'Adjuntos';
+    if(docType === 'signed_order') title = 'Orden Firmada';
+    if(docType === 'voucher') title = 'Voucher de Pago';
+    
+    document.getElementById('attachmentModalTitle').textContent = title;
+    document.getElementById('attachmentOcNro').textContent = nrodoc;
+    document.getElementById('attachmentModal').classList.add('active');
+    
+    loadAttachmentList();
+}
+
+function closeAttachmentModal() {
+    document.getElementById('attachmentModal').classList.remove('active');
+    currentAttachmentContext = null;
+}
+
+async function loadAttachmentList() {
+    if(!currentAttachmentContext) return;
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    const container = document.getElementById('attachmentList');
+    container.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando...</div>';
+    
+    try {
+        const res = await fetch(`/api/logistics/attachments/list?codcia=${encodeURIComponent(codcia)}&tipooc=${encodeURIComponent(tipooc)}&nrodoc=${encodeURIComponent(nrodoc)}&doc_type=${encodeURIComponent(docType)}`);
+        if(!res.ok) throw new Error('Error al cargar adjuntos');
+        const files = await res.json();
+        
+        if(files.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.875rem;">No hay archivos guardados</div>';
+            return;
+        }
+        
+        container.innerHTML = files.map(f => {
+            const isImg = f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+            const icon = isImg ? '🖼️' : '📄';
+            return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:0.75rem; overflow:hidden;">
+                    <div style="font-size:1.5rem;">${icon}</div>
+                    <div style="display:flex; flex-direction:column; overflow:hidden;">
+                        <span style="font-size:0.875rem; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.filename}">${f.filename}</span>
+                        <span style="font-size:0.7rem; color:#64748b;">${(f.size/1024).toFixed(1)} KB</span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+                    <button class="btn btn-outline" style="padding:0.35rem 0.6rem; font-size:0.75rem;" onclick="openPreviewModal('${f.url}', '${f.filename}')">Ver</button>
+                    <button class="btn" style="background:#fee2e2; color:#ef4444; border:1px solid #fecaca; padding:0.35rem 0.6rem; font-size:0.75rem;" onclick="deleteAttachment('${f.filename}')">❌</button>
+                </div>
+            </div>`;
+        }).join('');
+        
+    } catch(err) {
+        container.innerHTML = `<div style="text-align:center; padding:2rem; color:#ef4444; font-size:0.875rem;">${err.message}</div>`;
+    }
+}
+
+async function handleAttachmentUpload() {
+    const input = document.getElementById('attachmentFileInput');
+    if(!input.files || input.files.length === 0) return;
+    
+    if(!currentAttachmentContext) return;
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    const file = input.files[0];
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('codcia', codcia);
+    formData.append('tipooc', tipooc);
+    formData.append('nrodoc', nrodoc);
+    formData.append('doc_type', docType);
+    
+    try {
+        Swal.fire({title: 'Subiendo archivo...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+        
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/logistics/attachments/upload', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        
+        if(!res.ok) throw new Error('Error al subir el archivo');
+        
+        Swal.fire({ icon: 'success', title: 'Archivo subido', timer: 1500, showConfirmButton: false });
+        input.value = ''; // clear
+        loadAttachmentList(); // refresh list
+        loadOrders(); // refresh main table flags
+    } catch(err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    }
+}
+
+async function deleteAttachment(filename) {
+    const result = await Swal.fire({
+        title: '¿Eliminar archivo?',
+        text: filename,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if(!result.isConfirmed || !currentAttachmentContext) return;
+    const { codcia, tipooc, nrodoc, docType } = currentAttachmentContext;
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/logistics/attachments/delete', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                codcia, tipooc, nrodoc, doc_type: docType, filename
+            })
+        });
+        
+        if(!res.ok) throw new Error('Error al eliminar');
+        loadAttachmentList();
+        loadOrders();
+    } catch(err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    }
+}
+
+function openPreviewModal(url, filename) {
+    document.getElementById('previewModalTitle').textContent = filename;
+    document.getElementById('previewModalDownloadBtn').href = url;
+    document.getElementById('previewModalDownloadBtn').setAttribute('download', filename);
+    
+    const body = document.getElementById('previewModalBody');
+    const isImg = filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    
+    if(isImg) {
+        body.innerHTML = `<img src="${url}" style="max-width:100%; max-height:100%; object-fit:contain; padding:1rem;" />`;
+    } else {
+        body.innerHTML = `<iframe src="${url}" style="width:100%; height:100%; border:none;"></iframe>`;
+    }
+    
+    document.getElementById('previewModal').classList.add('active');
+}
+
+function closePreviewModal() {
+    document.getElementById('previewModal').classList.remove('active');
+    document.getElementById('previewModalBody').innerHTML = '<div style="color:var(--text-muted);">Cargando previsualización...</div>';
+}
+
 });
 

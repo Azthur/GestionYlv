@@ -298,7 +298,7 @@ creation_scripts = [
         MontoPago DECIMAL(18,2) NOT NULL,
         FechaPago DATE NOT NULL,
         BancoPago VARCHAR(100),
-        Moneda CHAR(3) DEFAULT 'PEN',
+        Moneda CHAR(3) DEFAULT '1',
         TipoPago VARCHAR(50),
         NroOperacion VARCHAR(50),
         Notas TEXT,
@@ -307,6 +307,25 @@ creation_scripts = [
         TipoDocumento VARCHAR(20) NULL,
         Estado VARCHAR(20) DEFAULT 'ACTIVO'
     );
+    """,
+    """
+    IF EXISTS (SELECT * FROM sysobjects WHERE name='FinPagos' AND xtype='U')
+    BEGIN
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='RucProveedor' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD RucProveedor VARCHAR(15) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='Proveedor' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD Proveedor VARCHAR(200) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='TipoComprobante' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD TipoComprobante VARCHAR(2) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='FechaEmision' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD FechaEmision DATE NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='Serie' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD Serie VARCHAR(10) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='Numero' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD Numero VARCHAR(20) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='NroFactura' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD NroFactura VARCHAR(30) NULL;
+    END
     """,
 
     # ─── 12. Tabla de Adjuntos de Pagos ─────────────────────

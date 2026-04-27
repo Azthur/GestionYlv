@@ -1653,7 +1653,7 @@ function setSummaryFromSUNAT(data) {
     
     if (!data.informacionCreditos || data.informacionCreditos.length === 0) {
         // Si no trae información de crédito, poner 1 cuota con fecha de vencimiento (o emisión) y monto total
-        setInput('invCreditoNumCuota', '1');
+        setInput('invCreditoNumCuotas', '1');
         setInput('invCreditoMontoCuota', fmtNum(total));
         // Usar fecha de vencimiento si existe, si no usar fecha de emisión
         const fecPlazo = sunatRow.FecVencPag ? sunatRow.FecVencPag.substring(0,10) : fecEmision;
@@ -1785,7 +1785,13 @@ function setSummaryFromCPE(cpeData, sunatRow) {
         if (cred.fecPlazoPago) {
             const parts = cred.fecPlazoPago.split('/');
             if (parts.length === 3) {
-                fecPlazo = parts[2] + '-' + parts[1] + '-' + parts[0];
+                let d = parseInt(parts[0], 10);
+                let m = parseInt(parts[1], 10);
+                let y = parseInt(parts[2], 10);
+                // Clamp day to max days in month
+                const maxDays = new Date(y, m, 0).getDate();
+                if (d > maxDays) d = maxDays;
+                fecPlazo = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             }
         }
         setInput('invCreditoFecPlazo', fecPlazo);
@@ -1798,7 +1804,19 @@ function setSummaryFromCPE(cpeData, sunatRow) {
             html += '<table style="width:100%; font-size:0.78rem; border-collapse:collapse;">';
             html += '<tr style="background:#f8fafc;"><th style="padding:0.4rem; text-align:left; font-weight:600; border-bottom:1px solid var(--border-soft);">Cuota</th><th style="padding:0.4rem; text-align:right; font-weight:600; border-bottom:1px solid var(--border-soft);">Monto</th><th style="padding:0.4rem; text-align:right; font-weight:600; border-bottom:1px solid var(--border-soft);">Vencimiento</th></tr>';
             cred.numCuotasList.forEach(cuota => {
-                html += '<tr><td style="padding:0.35rem 0.4rem;">Cuota ' + cuota.numcuota + '</td><td style="padding:0.35rem 0.4rem; text-align:right; font-weight:600;">' + fmtNum(cuota.mtoCuota) + '</td><td style="padding:0.35rem 0.4rem; text-align:right; color:var(--text-muted);">' + (cuota.fecVencimiento || '') + '</td></tr>';
+                let cuotaDate = cuota.fecVencimiento || '';
+                if (cuotaDate.includes('/')) {
+                    const parts = cuotaDate.split('/');
+                    if (parts.length === 3) {
+                        let d = parseInt(parts[0], 10);
+                        let m = parseInt(parts[1], 10);
+                        let y = parseInt(parts[2], 10);
+                        const maxDays = new Date(y, m, 0).getDate();
+                        if (d > maxDays) d = maxDays;
+                        cuotaDate = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+                    }
+                }
+                html += '<tr><td style="padding:0.35rem 0.4rem;">Cuota ' + cuota.numcuota + '</td><td style="padding:0.35rem 0.4rem; text-align:right; font-weight:600;">' + fmtNum(cuota.mtoCuota) + '</td><td style="padding:0.35rem 0.4rem; text-align:right; color:var(--text-muted);">' + cuotaDate + '</td></tr>';
             });
             html += '</table></div>';
             cuotasDiv.innerHTML = html;
@@ -1927,7 +1945,7 @@ async function registrarFactura() {
 
     // Validar Información de Pago/Créditos
     const creditoFecPlazo = document.getElementById('invCreditoFecPlazo')?.value;
-    const creditoNumCuotas = document.getElementById('invCreditoNumCuota')?.value;
+    const creditoNumCuotas = document.getElementById('invCreditoNumCuotas')?.value;
     if (!creditoFecPlazo && !creditoNumCuotas) {
         Swal.fire({icon:'warning', title:'Atención', text:'Información de Pago/Créditos es obligatoria. Por favor complete la fecha de plazo o el número de cuotas.'});
         return;
@@ -1993,7 +2011,7 @@ async function registrarFactura() {
         serie: document.getElementById('invSerie')?.value.trim().toUpperCase(),
         numero: document.getElementById('invNumero')?.value.trim(),
         fec_emision: document.getElementById('invFecEmision')?.value || null,
-        fec_vencimiento: document.getElementById('invFecVenc')?.value || null,
+        fec_vencimiento: document.getElementById('invFecVenc')?.value || document.getElementById('invCreditoFecPlazo')?.value || document.getElementById('invFecEmision')?.value || null,
         cod_moneda: normMoneda(document.getElementById('invMoneda')?.value),
         tipo_cambio: parseFloat(document.getElementById('invTipoCambio')?.value) || 1.0,
         sub_total: subTotalCalc,
@@ -2043,8 +2061,28 @@ async function registrarFactura() {
         doc_modifica_fecha: document.getElementById('invDocModificaFecha')?.value || null,
         // Créditos - leer del formulario o de CPE data
         credito_mto_pendiente: parseFloat((document.getElementById('invCreditoMtoPendiente')?.value || '0').replace(/,/g, '')) || parseFloat(window.currentCpeData?.informacionCreditos?.[0]?.mtoPagoPendiente) || 0,
-        credito_fec_plazo: document.getElementById('invCreditoFecPlazo')?.value || window.currentCpeData?.informacionCreditos?.[0]?.fecPlazoPago || null,
-        credito_num_cuotas: parseInt(document.getElementById('invCreditoNumCuota')?.value) || parseInt(window.currentCpeData?.informacionCreditos?.[0]?.numCuotas) || 1,
+        credito_fec_plazo: (() => {
+            let fp = document.getElementById('invCreditoFecPlazo')?.value || '';
+            if (!fp && window.currentCpeData?.informacionCreditos?.[0]?.fecPlazoPago) {
+                // Convert DD/MM/YYYY to YYYY-MM-DD
+                const raw = window.currentCpeData.informacionCreditos[0].fecPlazoPago;
+                const parts = raw.split('/');
+                if (parts.length === 3) {
+                    let d = parseInt(parts[0], 10);
+                    let m = parseInt(parts[1], 10);
+                    let y = parseInt(parts[2], 10);
+                    const maxDays = new Date(y, m, 0).getDate();
+                    if (d > maxDays) d = maxDays;
+                    fp = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                } else {
+                    fp = raw;
+                }
+            }
+            // Fallback: si no hay fecha plazo, usar fecha de emisión
+            if (!fp) fp = document.getElementById('invFecEmision')?.value || '';
+            return fp || null;
+        })(),
+        credito_num_cuotas: parseInt(document.getElementById('invCreditoNumCuotas')?.value) || parseInt(window.currentCpeData?.informacionCreditos?.[0]?.numCuotas) || 1,
         credito_cuotas_json: window.currentCpeData?.informacionCreditos?.[0]?.numCuotasList ? JSON.stringify(window.currentCpeData.informacionCreditos[0].numCuotasList) : null,
         // Docs relacionados
         docs_relacionados_json: window.currentCpeData?.informacionDocumentosRelacionados ? JSON.stringify(window.currentCpeData.informacionDocumentosRelacionados) : null,
@@ -2185,12 +2223,14 @@ async function loadFacturas() {
         const list = await res.json();
 
         const data = list.map(f => {
-            const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota Crédito', '08': '08-Nota Débito' };
+            const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota Crédito', '08': '08-Nota Débito', '87': '87-Nota Crédito Esp.', '00': '00-Otros' };
             const tipoComprobante = tipoMap[f.CodTipoDoc] || `${f.CodTipoDoc}-Otro`;
             const fechaRegistro = f.CreatedAt ? f.CreatedAt.substring(0,10) : '-';
-            // Debug fecha de vencimiento
-            console.log('loadFacturas - factura:', f.Serie + '-' + f.Numero, 'CreditoFecPlazo:', f.CreditoFecPlazo, 'FecVencimiento:', f.FecVencimiento);
-            const fechaVencimiento = f.CreditoFecPlazo ? f.CreditoFecPlazo.substring(0,10) : (f.FecVencimiento ? f.FecVencimiento.substring(0,10) : '-');
+            const fechaVencimiento = f.FecVencimiento ? f.FecVencimiento.substring(0,10) : (f.CreditoFecPlazo ? f.CreditoFecPlazo.substring(0,10) : '-');
+            
+            const isNC = (f.CodTipoDoc === '07' || f.CodTipoDoc === '87');
+            const modifier = isNC ? -1 : 1;
+            const amtDisplay = isNC ? `<span style="color:#ef4444; font-weight:600;">${fmtNum(f.Total * modifier)}</span>` : fmtNum(f.Total);
             
             return [
                 f.Id,
@@ -2202,7 +2242,7 @@ async function loadFacturas() {
                 (f.NomProveedor||'').substring(0,35),
                 f.NumRucProveedor || '-',
                 monLabel(f.CodMoneda),
-                fmtNum(f.Total),
+                amtDisplay,
                 f.NroOrdenCompra ? `${f.TipoOc||''}${f.NroOrdenCompra}` : '-',
                 f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
                 f.CreatedBy || 'SISTEMA',
@@ -2663,9 +2703,10 @@ async function openEditRegistro(id) {
         }
 
         // Fill credit data
-        setVal('invCreditoNumCuota', cab.CreditoNumCuotas);
+        setVal('invCreditoNumCuotas', cab.CreditoNumCuotas);
         setVal('invCreditoMontoCuota', cab.CreditoMontoCuota);
-        setVal('invCreditoFecPlazo', cab.CreditoFecPlazo);
+        // Usar CreditoFecPlazo o FecVencimiento o FecEmision como fallback
+        setVal('invCreditoFecPlazo', cab.CreditoFecPlazo || cab.FecVencimiento || cab.FecEmision);
         setVal('invCreditoMtoPendiente', cab.CreditoMtoPendiente);
 
         // Fill items
