@@ -96,7 +96,21 @@
         } else {
             fetch('/api/contabilidad/facturas/public/' + uid)
                 .then(function(r) { if(!r.ok) throw new Error('Factura no encontrada'); return r.json(); })
-                .then(function(d) { render(d); })
+                .then(function(d) { 
+                    if (d.CodCia) {
+                        fetch('/api/contabilidad/tipos-comprobante?codcia=' + encodeURIComponent(d.CodCia.trim()))
+                            .then(r => r.json())
+                            .then(tipos => {
+                                var tm = {};
+                                tipos.forEach(function(t) { tm[t.codigo] = t.nombre; });
+                                var tipoStr = (d.CodTipoDoc || '') + ' - ' + (tm[d.CodTipoDoc] || 'Otro');
+                                render(d, tipoStr);
+                            })
+                            .catch(function(e) { render(d, null); });
+                    } else {
+                        render(d, null);
+                    }
+                })
                 .catch(function(e) { document.getElementById('content').innerHTML = '<div class="error"><h2>Error</h2><p>' + e.message + '</p></div>'; });
         }
         function fmt(n) { return (n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -143,9 +157,9 @@
             }
         }
 
-        function render(d) {
+        function render(d, tipoNombre) {
             var tm = {'01':'Factura','03':'Boleta de Venta','07':'Nota de Crédito','08':'Nota de Débito'};
-            var tipo = tm[d.CodTipoDoc] || d.CodTipoDoc;
+            var tipo = tipoNombre || ((d.CodTipoDoc || '') + ' - ' + (tm[d.CodTipoDoc] || 'Otro'));
             
             // Badge de estado
             var estadoBadge = '';

@@ -402,14 +402,6 @@ async function loadOCsDisponibles() {
                     }
                 },
                 { 
-                    data: 'estado_almacen',
-                    render: data => {
-                        if (data === 'COMPLETO') return '<span class="badge approved">Completo</span>';
-                        if (data === 'PARCIAL') return '<span class="badge pending" style="background:#fed7aa; color:#9a3412;">Parcial</span>';
-                        return '<span class="badge" style="background:#e5e7eb; color:#4b5563;">Sin Ingreso</span>';
-                    }
-                },
-                { 
                     data: 'factura',
                     render: (data, t, row) => {
                         if (data && row.factura_uuid) return `<a href="/factura_visor.html?uid=${row.factura_uuid}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">${data}</a>`;
@@ -417,6 +409,10 @@ async function loadOCsDisponibles() {
                         return '<span class="badge" style="background:#fee2e2; color:#991b1b;">Sin factura</span>';
                     }
                 },
+                { data: 'tipo_doc', render: data => data || '-' },
+                { data: 'tipo_comprobante', render: data => data || '-' },
+                { data: 'fec_factura', render: data => data || '-' },
+                { data: 'fecha_vencimiento', render: data => data || '-' },
                 { 
                     data: 'total_factura',
                     className: 'dt-right',
@@ -424,6 +420,14 @@ async function loadOCsDisponibles() {
                         if (!row.factura) return '-';
                         const m = isUsdCurrency(row.moneda) ? '$' : 'S/';
                         return `${m} ${parseFloat(data || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`
+                    }
+                },
+                { 
+                    data: 'estado_almacen',
+                    render: data => {
+                        if (data === 'COMPLETO') return '<span class="badge approved">Completo</span>';
+                        if (data === 'PARCIAL') return '<span class="badge pending" style="background:#fed7aa; color:#9a3412;">Parcial</span>';
+                        return '<span class="badge" style="background:#e5e7eb; color:#4b5563;">Sin Ingreso</span>';
                     }
                 },
                 {
@@ -482,7 +486,7 @@ async function generarCargo() {
                     if (oc) {
                         selected.push({
                             nro_orden_compra: oc.nrodoc || '',
-                            tipo_oc: oc.tipooc || 'M',  // Tipo real: M, S, T
+                            tipo_oc: oc.tipooc || 'M',
                             codcia_oc: document.getElementById('filterCia').value || '',
                             anos_oc: oc.anos || '',
                             nro_factura: oc.factura || '',
@@ -490,7 +494,12 @@ async function generarCargo() {
                             monto_factura: parseFloat(oc.total_factura || 0) || 0,
                             proveedor: oc.proveedor || '',
                             ruc_proveedor: String(oc.ruc || ''),
-                            moneda: String(oc.moneda || '1')  // 1=PEN, 2=USD
+                            moneda: String(oc.moneda || '1'),
+                            tipo_documento: oc.tipo_doc || '',
+                            tipo_comprobante: oc.tipo_comprobante || '',
+                            fecha_emision: oc.fec_factura || null,
+                            fecha_vencimiento: oc.fecha_vencimiento || null,
+                            monto_rendicion: null
                         });
                     }
                 }
@@ -522,7 +531,12 @@ async function generarCargo() {
                         monto_factura: parseFloat(montoFactura || 0) || 0,
                         proveedor: proveedor || '',
                         ruc_proveedor: String(ruc || ''),
-                        moneda: String(moneda || '1')
+                        moneda: String(moneda || '1'),
+                        tipo_documento: chk.data('tipodoc') || '',
+                        tipo_comprobante: chk.data('tipocomprobante') || '',
+                        fecha_emision: chk.data('fechaemision') || null,
+                        fecha_vencimiento: chk.data('fechavencimiento') || null,
+                        monto_rendicion: null
                     });
                 }
             });
@@ -546,7 +560,6 @@ async function generarCargo() {
                         selected.push({
                             nro_orden_compra: nrooc,  // Puede tener OC si ya se envió la OC sola antes
                             tipo_oc: 'FACT',  // Código corto para factura
-
                             codcia_oc: document.getElementById('filterCia').value || '',
                             anos_oc: '',
                             nro_factura: `${serie}-${numero}`,
@@ -554,7 +567,12 @@ async function generarCargo() {
                             monto_factura: parseFloat(total || 0) || 0,
                             proveedor: nomProveedor || '',
                             ruc_proveedor: String(numRuc || ''),
-                            moneda: String(moneda || '1')
+                            moneda: String(moneda || '1'),
+                            tipo_documento: 'FACTURA_SIN_OC',
+                            tipo_comprobante: chk.data('tipodoc') || '', // e.g. '01'
+                            fecha_emision: chk.data('fechaemision') || null,
+                            fecha_vencimiento: chk.data('fechavencimiento') || null,
+                            monto_rendicion: null
                         });
                     }
                 }
@@ -566,16 +584,17 @@ async function generarCargo() {
             rendicionesAprobadas_DT.rows().nodes().each(function(row) {
                 const chk = $(row).find('.rendicion-aprobada-chk');
                 if (chk.is(':checked')) {
-                    // Obtener datos de los atributos data del checkbox
                     const nroRendicion = chk.data('nrorendicion');
                     const nomAux = chk.data('nomaux');
                     const total = chk.data('total');
                     const codAux = chk.data('codaux');
+                    const monedaRend = String(chk.data('moneda') || '1');
+                    const fechaRend = chk.data('fecha') || '';
                     
                     if (nroRendicion) {
                         selected.push({
-                            nro_orden_compra: nroRendicion || '',  // Usar NroRendicion como referencia
-                            tipo_oc: 'REND',  // Código corto para rendición
+                            nro_orden_compra: nroRendicion || '',
+                            tipo_oc: 'REND',
                             codcia_oc: document.getElementById('filterCia').value || '',
                             anos_oc: '',
                             nro_factura: '',
@@ -583,7 +602,12 @@ async function generarCargo() {
                             monto_factura: parseFloat(total || 0) || 0,
                             proveedor: nomAux || '',
                             ruc_proveedor: String(codAux || ''),
-                            moneda: '1'
+                            moneda: monedaRend,
+                            tipo_documento: 'RG',
+                            tipo_comprobante: 'Rendición de Gastos',
+                            fecha_emision: fechaRend || null,
+                            fecha_vencimiento: null,
+                            monto_rendicion: parseFloat(total || 0) || 0
                         });
                     }
                 }
@@ -712,7 +736,7 @@ async function loadCargosRecibidos() {
         } else {
             thead.html(`<tr>
                 <th style="width:40px; text-align:center;"><input type="checkbox" id="chkAllRecibidos" onchange="toggleAllRecibidos()"></th>
-                <th>Estado İtem</th><th>N° Cargo</th><th>Generado</th><th>Origen</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
+                <th>Estado İtem</th><th>N° Cargo</th><th>Generado</th><th>Origen</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Tipo Doc.</th><th>Tipo Comp.</th><th>F. Emisión</th><th>F. Venc.</th><th>Almacén</th><th style="text-align:right;">Monto Fac.</th><th style="width:120px;">Acciones</th>
             </tr>`);
         }
 
@@ -739,13 +763,26 @@ async function loadCargosRecibidos() {
                 mapCargo[c.CargoId].Items++;
                 const isUsd = isUsdCurrency(c.Moneda);
                 
-                // Acumular según TipoOc y Moneda
-                if (['M', 'S', 'T'].includes(c.TipoOc) || c.TipoOc === 'OC') {
-                    if (isUsd) mapCargo[c.CargoId].MontoOC_USD += parseFloat(c.MontoOC || 0);
-                    else mapCargo[c.CargoId].MontoOC_PEN += parseFloat(c.MontoOC || 0);
-                } else if (c.TipoOc === 'FACT') {
-                    if (isUsd) mapCargo[c.CargoId].MontoFactura_USD += parseFloat(c.MontoFactura || 0);
-                    else mapCargo[c.CargoId].MontoFactura_PEN += parseFloat(c.MontoFactura || 0);
+                if (!mapCargo[c.CargoId]._uniqueOCs) mapCargo[c.CargoId]._uniqueOCs = new Set();
+                
+                const isNC = (c.TipoComprobante || '').startsWith('07') || (c.TipoComprobante || '').startsWith('87');
+                const multiplier = isNC ? -1 : 1;
+                const mFacVal = parseFloat(c.MontoFactura || 0) * multiplier;
+                
+                if (c.TipoOc !== 'REND') {
+                    if (isUsd) {
+                        if (c.NroOrdenCompra && !mapCargo[c.CargoId]._uniqueOCs.has(c.NroOrdenCompra)) {
+                            mapCargo[c.CargoId].MontoOC_USD += parseFloat(c.MontoOC || 0);
+                            mapCargo[c.CargoId]._uniqueOCs.add(c.NroOrdenCompra);
+                        }
+                        mapCargo[c.CargoId].MontoFactura_USD += mFacVal;
+                    } else {
+                        if (c.NroOrdenCompra && !mapCargo[c.CargoId]._uniqueOCs.has(c.NroOrdenCompra)) {
+                            mapCargo[c.CargoId].MontoOC_PEN += parseFloat(c.MontoOC || 0);
+                            mapCargo[c.CargoId]._uniqueOCs.add(c.NroOrdenCompra);
+                        }
+                        mapCargo[c.CargoId].MontoFactura_PEN += mFacVal;
+                    }
                 } else if (c.TipoOc === 'REND') {
                     if (isUsd) mapCargo[c.CargoId].MontoRend_USD += parseFloat(c.MontoFactura || 0);
                     else mapCargo[c.CargoId].MontoRend_PEN += parseFloat(c.MontoFactura || 0);
@@ -843,7 +880,7 @@ async function loadCargosRecibidos() {
                 return [
                     `<input type="checkbox" class="rec-chk no-print" data-cargoid="${c.CargoId}">`,
                     estadoItem, `<strong>${c.NroCargo}</strong>`, c.FechaCargo || '-', tipoLabel, `<strong>${c.NroOrdenCompra || '-'}</strong>`,
-                    c.Proveedor || '-', facturaCell, c.EstadoAlmacen || '-', `${sym} ${parseFloat(montoCell || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                    c.Proveedor || '-', facturaCell, c.TipoDocumento || '-', c.TipoComprobante || '-', c.FechaEmision || '-', c.FechaVencimiento || '-', c.EstadoAlmacen || '-', `${sym} ${parseFloat(montoCell || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
                 ];
             });
 
@@ -1105,7 +1142,7 @@ async function loadHistorial() {
             </tr>`);
         } else {
             thead.html(`<tr>
-                <th>Estado İtem</th><th>N° Cargo</th><th>Fecha Cargo</th><th>Flujo</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Almacén</th><th style="text-align:right;">Monto</th><th style="width:120px;">Acciones</th>
+                <th>Estado İtem</th><th>N° Cargo</th><th>Fecha Cargo</th><th>Flujo</th><th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Tipo Doc.</th><th>Tipo Comp.</th><th>F. Emisión</th><th>F. Venc.</th><th>Almacén</th><th style="text-align:right;">Monto Fac.</th><th style="width:120px;">Acciones</th>
             </tr>`);
         }
 
@@ -1131,17 +1168,25 @@ async function loadHistorial() {
                 mapCargo[c.CargoId].Items++;
                 const isUsd = isUsdCurrency(c.Moneda);
                 
-                // Acumular según TipoOc y Moneda
-                if (c.TipoOc === 'FACT') {
-                    if (isUsd) mapCargo[c.CargoId].MontoFactura_USD += parseFloat(c.MontoFactura || 0);
-                    else mapCargo[c.CargoId].MontoFactura_PEN += parseFloat(c.MontoFactura || 0);
+                if (!mapCargo[c.CargoId]._uniqueOCs) mapCargo[c.CargoId]._uniqueOCs = new Set();
+                
+                if (c.TipoOc !== 'REND') {
+                    if (isUsd) {
+                        if (c.NroOrdenCompra && !mapCargo[c.CargoId]._uniqueOCs.has(c.NroOrdenCompra)) {
+                            mapCargo[c.CargoId].MontoOC_USD += parseFloat(c.MontoOC || 0);
+                            mapCargo[c.CargoId]._uniqueOCs.add(c.NroOrdenCompra);
+                        }
+                        mapCargo[c.CargoId].MontoFactura_USD += parseFloat(c.MontoFactura || 0);
+                    } else {
+                        if (c.NroOrdenCompra && !mapCargo[c.CargoId]._uniqueOCs.has(c.NroOrdenCompra)) {
+                            mapCargo[c.CargoId].MontoOC_PEN += parseFloat(c.MontoOC || 0);
+                            mapCargo[c.CargoId]._uniqueOCs.add(c.NroOrdenCompra);
+                        }
+                        mapCargo[c.CargoId].MontoFactura_PEN += parseFloat(c.MontoFactura || 0);
+                    }
                 } else if (c.TipoOc === 'REND') {
                     if (isUsd) mapCargo[c.CargoId].MontoRend_USD += parseFloat(c.MontoFactura || 0);
                     else mapCargo[c.CargoId].MontoRend_PEN += parseFloat(c.MontoFactura || 0);
-                } else {
-                    // M, S, T, o OC
-                    if (isUsd) mapCargo[c.CargoId].MontoOC_USD += parseFloat(c.MontoOC || 0);
-                    else mapCargo[c.CargoId].MontoOC_PEN += parseFloat(c.MontoOC || 0);
                 }
             });
 
@@ -1220,7 +1265,7 @@ async function loadHistorial() {
                 return [
                     estadoItem, `<strong>${c.NroCargo}</strong><br><span style="font-size:0.65rem; color:#64748b;">${c.EstadoCargo}</span>`,
                     c.FechaCargo || '-', tipoLabel, `<strong>${c.NroOrdenCompra || '-'}</strong>`, c.Proveedor || '-',
-                    facturaCell, c.EstadoAlmacen || '-', `${sym} ${montoMostrar.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
+                    facturaCell, c.TipoDocumento || '-', c.TipoComprobante || '-', c.FechaEmision || '-', c.FechaVencimiento || '-', c.EstadoAlmacen || '-', `${sym} ${montoMostrar.toLocaleString('es-PE', {minimumFractionDigits: 2})}`, actionsHtml
                 ];
             });
 
@@ -1369,7 +1414,7 @@ async function openCargoDetail(cargoId) {
                     fHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:${color}; text-decoration:underline; font-weight:600;">${d.NroFactura}</a>`;
                 }
                 if ((d.NroFactura && d.NroFactura !== '-') || Math.abs(mFact) > 0) {
-                    mapOC[key].FacturasList.push({ fHtml, fch: d.fch_factura || '-', monto: mFact, moneda: d.Moneda, isNC: tmap.isNC });
+                    mapOC[key].FacturasList.push({ fHtml, fch: d.fch_factura || '-', monto: mFact, moneda: d.Moneda, isNC: tmap.isNC, tipoDesc: d.TipoCompDesc || d.tipo_doc_factura || '' });
                 }
             }
         });
@@ -1399,7 +1444,7 @@ async function openCargoDetail(cargoId) {
                 fchEmision = d.fch_factura || '-';
                 fchVencimiento = d.fch_venc_factura || '-';
                 const tmap = getFacturaTypeMap(d.tipo_doc_factura);
-                tipoDoc = tmap.label;
+                tipoDoc = d.TipoCompDesc || d.tipo_doc_factura || tmap.label;
                 montoOC = 0;
                 if (d.FacturaUuid) enlacesHtml += `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:#2563eb; text-decoration:none; margin-right:4px;">📄Fact</a>`;
             } else if (d.TipoOc === 'REND') {
@@ -1438,14 +1483,22 @@ async function openCargoDetail(cargoId) {
                 facturasList.forEach(fact => {
                     const fsym = getCurrSym(fact.moneda || d.Moneda);
                     const colorAmt = fact.isNC ? '#ef4444' : 'inherit';
-                    facturasHtml += `<div style="margin-bottom:2px;">${fact.fHtml} <span style="color:#64748b;">(${fact.fch||'-'})</span> <b style="color:${colorAmt};">${fsym} ${fact.monto.toLocaleString('es-PE',{minimumFractionDigits:2})}</b></div>`;
+                    const docName = fact.tipoDesc ? `<span style="font-size:0.6rem; color:#64748b; margin-right:4px;">[${fact.tipoDesc}]</span>` : '';
+                    facturasHtml += `<div style="margin-bottom:2px;">${docName}${fact.fHtml} <span style="color:#64748b;">(${fact.fch||'-'})</span> <b style="color:${colorAmt};">${fsym} ${fact.monto.toLocaleString('es-PE',{minimumFractionDigits:2})}</b></div>`;
                 });
-            } else if (d.FacturaUuid || Math.abs(parseFloat(d.MontoFactura||0)) > 0) {
+            } else if (d.TipoOc !== 'REND' && (d.FacturaUuid || Math.abs(parseFloat(d.MontoFactura||0)) > 0)) {
                 const amt = parseFloat(d.MontoFactura||0);
                 const tmap = getFacturaTypeMap(d.tipo_doc_factura);
                 const colorAmt = tmap.isNC ? '#ef4444' : 'inherit';
                 const colorLnk = tmap.isNC ? '#ef4444' : '#2563eb';
-                facturasHtml = `<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:${colorLnk};">${d.NroFactura||'Doc'}</a> <b style="color:${colorAmt};">${dsym} ${amt.toLocaleString('es-PE',{minimumFractionDigits:2})}</b>`;
+                const fNro = (d.NroFactura && d.NroFactura !== '-') ? d.NroFactura : (d.TipoOc === 'FACT' ? 'Factura' : 'Doc');
+                const docName = d.TipoCompDesc ? `<span style="font-size:0.6rem; color:#64748b; margin-right:4px;">[${d.TipoCompDesc}]</span>` : '';
+                
+                if (d.FacturaUuid) {
+                    facturasHtml = `${docName}<a href="/factura_visor.html?uid=${d.FacturaUuid}" target="_blank" style="color:${colorLnk};">${fNro}</a> <b style="color:${colorAmt};">${dsym} ${amt.toLocaleString('es-PE',{minimumFractionDigits:2})}</b>`;
+                } else {
+                    facturasHtml = `${docName}<span style="color:${colorLnk};">${fNro}</span> <b style="color:${colorAmt};">${dsym} ${amt.toLocaleString('es-PE',{minimumFractionDigits:2})}</b>`;
+                }
             }
 
             return `<tr>
@@ -1492,33 +1545,32 @@ async function openCargoDetail(cargoId) {
                 .report-card-info {
                     background: white;
                     border: 1px solid #e2e8f0;
-                    border-radius: 10px;
-                    padding: 1.5rem;
-                    margin-bottom: 1.5rem;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                    border-radius: 6px;
+                    padding: 0.75rem 1rem;
+                    margin-bottom: 1rem;
                 }
                 .info-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    display: flex;
+                    flex-wrap: wrap;
                     gap: 1.5rem;
                 }
                 .info-item {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.25rem;
+                    gap: 0.15rem;
                 }
-                .info-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
-                .info-value { font-size: 0.95rem; font-weight: 600; color: #0f172a; }
+                .info-label { font-size: 0.65rem; font-weight: 600; color: #64748b; text-transform: uppercase; }
+                .info-value { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
             </style>
             
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.75rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
                 <div>
-                    <h2 style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0 0 0.25rem; letter-spacing:-0.02em;">CORPORACIÓN Y.L.V S.A.C</h2>
-                    <p style="font-size:0.85rem; color:#64748b; margin:0;">RUC: 20601234567 | CARGO DE ENTREGA DOCUMENTAL</p>
+                    <h2 style="font-size:1.1rem; font-weight:800; color:#0f172a; margin:0; letter-spacing:-0.02em;">CORPORACIÓN Y.L.V S.A.C</h2>
+                    <p style="font-size:0.75rem; color:#64748b; margin:0;">RUC: 20601234567 | CARGO DE ENTREGA DOCUMENTAL</p>
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-size: 1.5rem; font-weight: 800; color: #2563eb; letter-spacing: 1px;">${h.NroCargo}</div>
-                    <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Generado: ${h.FechaCargo || '-'}</div>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: #2563eb;">${h.NroCargo}</div>
+                    <div style="font-size: 0.7rem; color: #64748b;">Generado: ${h.FechaCargo || '-'}</div>
                 </div>
             </div>
 
@@ -1845,8 +1897,9 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
     </div>`;
 
     // ── Items Table ──
-    const colCantLabel = isGoods ? 'Cant' : 'Cantidad';
-    const statusColLabel = isGoods ? 'Recibido' : 'Facturado';
+    const isService = (t === 'S' || t === 'T');
+    const colCantLabel = isService ? 'Monto OC' : (isGoods ? 'Cant' : 'Cantidad');
+    const facturadoLabel = isService ? 'Monto Fac.' : 'Facturado';
 
     html += `
     <table class="report-table" style="position:relative; z-index:1;">
@@ -1857,7 +1910,7 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
             <th style="width:35px;text-align:center;">Und</th>
             <th style="width:65px;text-align:right;">${colCantLabel}</th>
             ${isGoods ? '<th style="width:65px;text-align:right;">Recibido</th>' : ''}
-            <th style="width:65px;text-align:right;">Facturado</th>
+            <th style="width:65px;text-align:right;">${facturadoLabel}</th>
             <th style="width:65px;text-align:center;">Estado</th>
             <th style="width:70px;text-align:right;">Precio</th>
             <th style="width:80px;text-align:right;">Total</th>
@@ -1874,9 +1927,9 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
                 <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
                 <td style="font-weight:500;">${it.desmat}</td>
                 <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
-                <td style="text-align:right;">${fmtNum(it.candes)}</td>
+                <td style="text-align:right;">${fmtNum(isService ? it.imptot : it.candes)}</td>
                 ${isGoods ? `<td style="text-align:right;font-weight:600;color:#22c55e;">${fmtNum(it.cant_ingresada)}</td>` : ''}
-                <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(it.cant_facturada)}</td>
+                <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(isService ? (it.monto_facturado || 0) : it.cant_facturada)}</td>
                 <td style="text-align:center;font-size:0.7rem;${rowColor}">${it.estado_ingreso}</td>
                 <td style="text-align:right;">${fmtNum(it.preuni)}</td>
                 <td style="text-align:right;font-weight:600;color:var(--primary);">${sym} ${fmtNum(it.imptot)}</td>
@@ -2449,12 +2502,20 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
         const r = data.resumen;
         const fmtN = (v) => v != null ? parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0.00';
 
+        const isService = tipooc === 'S' || tipooc === 'T';
+
         let html = `
         <div class="traza-summary">
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_items_oc}</div><div class="tlabel">Items OC</div></div>
-            <div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>
+            ${!isService 
+                ? `<div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>`
+                : `<div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.monto_oc)}</div><div class="tlabel">Monto Pedido</div></div>`
+            }
             ${tipooc === 'M' ? `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#22c55e;">${fmtN(r.total_almacen)}</div><div class="tlabel">Cant. Almacén</div></div>` : ''}
-            <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>
+            ${!isService
+                ? `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>`
+                : `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.monto_facturado)}</div><div class="tlabel">Monto Facturado</div></div>`
+            }
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_facturas}</div><div class="tlabel">Facturas</div></div>
         </div>`;
 
@@ -2502,9 +2563,9 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">#</th>
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Código</th>
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Descripción</th>
-                    <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Cant. OC</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">${!isService ? 'Cant. OC' : 'Monto OC'}</th>
                     ${tipooc === 'M' ? `<th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#22c55e; border-bottom:2px solid #cbd5e1;">Almacén</th>` : ''}
-                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">Facturado</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">${!isService ? 'Cant. Facturada' : 'Monto Facturado'}</th>
                 </tr>
             </thead><tbody>`;
 
@@ -2529,13 +2590,13 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
                     <td style="padding:0.5rem; text-align:center; color:#64748b;">${it.nroitm}</td>
                     <td style="padding:0.5rem; font-family:monospace; font-size:0.725rem;">${it.codmat}</td>
                     <td style="padding:0.5rem;">${(it.desmat || '').substring(0, 50)}</td>
-                    <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(it.candes)}</td>
+                    <td style="padding:0.5rem; text-align:right; font-weight:600;">${!isService ? fmtN(it.candes) : fmtN(it.monto_oc)}</td>
                     ${tipooc === 'M' ? `<td style="padding:0.5rem; text-align:center;">
                         <div style="font-weight:600; ${almClass === 'complete' ? 'color:#22c55e;' : almClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_almacen)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_almacen}%)</span></div>
                         <div class="traza-bar"><div class="traza-bar-fill ${almClass}" style="width:${Math.min(it.pct_almacen, 100)}%;"></div></div>
                     </td>` : ''}
                     <td style="padding:0.5rem; text-align:center;">
-                        <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_facturada)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
+                        <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${!isService ? fmtN(it.cant_facturada) : fmtN(it.monto_facturado)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
                         <div class="traza-bar"><div class="traza-bar-fill ${facClass}" style="width:${Math.min(it.pct_facturado, 100)}%;"></div></div>
                     </td>
                 </tr>${trWarning}`;
@@ -2733,11 +2794,11 @@ async function loadFacturasSinOC() {
                     orderable: false,
                     className: 'dt-center',
                     render: function(data, type, row, meta) {
-                        return `<input type="checkbox" class="factura-sin-oc-chk" data-id="${row.Id}" data-nrooc="${row.NroOrdenCompra || ''}" data-serie="${row.Serie || ''}" data-numero="${row.Numero || ''}" data-total="${row.Total || 0}" data-moneda="${row.CodMoneda || '1'}" data-nomproveedor="${(row.NomProveedor || '').replace(/"/g, '&quot;')}" data-numruc="${row.NumRucProveedor || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#f59e0b;">`;
+                        return `<input type="checkbox" class="factura-sin-oc-chk" data-id="${row.Id}" data-nrooc="${row.NroOrdenCompra || ''}" data-serie="${row.Serie || ''}" data-numero="${row.Numero || ''}" data-total="${row.Total || 0}" data-moneda="${row.CodMoneda || '1'}" data-nomproveedor="${(row.NomProveedor || '').replace(/"/g, '&quot;')}" data-numruc="${row.NumRucProveedor || ''}" data-tipodoc="${row.CodTipoDoc || ''}" data-tipocomprobante="${row.TipoCompDesc || row.CodTipoDoc || ''}" data-fechaemision="${row.FecEmision || ''}" data-fechavencimiento="${row.FecVencimiento || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#f59e0b;">`;
                     }
                 },
                 { data: null, render: function(data, type, row) { return `${row.CodTipoDoc||''} ${row.Serie||''}-${row.Numero||''}`; } },
-                { data: 'CodTipoDoc' },
+                { data: 'TipoCompDesc', render: function(data, type, row) { return data || row.CodTipoDoc || ''; } },
                 { data: 'FecEmision' },
                 { data: 'FecVencimiento' },
                 { data: 'NomProveedor', render: function(data) { return (data || '').substring(0, 30); } },
@@ -2808,12 +2869,12 @@ async function loadRendicionesAprobadas() {
         }
 
         const dtData = items.map(r => [
-            `<input type="checkbox" class="rendicion-aprobada-chk" data-id="${r.Id}" data-nrorendicion="${r.NroRendicion || ''}" data-nomaux="${(r.NomAux || '').replace(/"/g, '&quot;')}" data-total="${r.TotalGastado || 0}" data-codaux="${r.CodAux || ''}" data-uuidlink="${r.UuidLink || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;">`,
+            `<input type="checkbox" class="rendicion-aprobada-chk" data-id="${r.Id}" data-nrorendicion="${r.NroRendicion || ''}" data-nomaux="${(r.NomAux || '').replace(/"/g, '&quot;')}" data-total="${r.TotalGastado || 0}" data-codaux="${r.CodAux || ''}" data-uuidlink="${r.UuidLink || ''}" data-moneda="${r.Moneda || '1'}" data-fecha="${r.Fecha || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;">`,
             `<strong>${r.NroRendicion || '-'}</strong>`,
             r.NomAux || '-',
             r.Fecha || '-',
-            r.Moneda || 'PEN',
-            fmtNum(r.TotalGastado || 0),
+            getCurrSym(r.Moneda) === '$' ? '<span style="color:#f59e0b;font-weight:600;">USD</span>' : '<span style="color:#10b981;font-weight:600;">PEN</span>',
+            `${getCurrSym(r.Moneda)} ${fmtNum(r.TotalGastado || 0)}`,
             `<span class="badge success" style="background:#d1fae5; color:#065f46;">${r.Estado || '-'}</span>`,
             r.UuidLink ? `<a href="/visor_rendicion.html?uuid=${r.UuidLink}" target="_blank" class="btn-action outline" style="padding:0.25rem 0.5rem; font-size:0.7rem; text-decoration:none; display:inline-block;">📄 Ver PDF</a>` : '-'
         ]);
@@ -2997,17 +3058,21 @@ async function loadDocumentosAceptadosTesoreria() {
                 if (factCell === '-') factCell = '<span style="color:#94a3b8; font-size:0.8rem;">Sin factura</span>';
 
                 return [
-                    `<input type="checkbox" class="doc-aceptado-chk" data-id="${d.Id}" data-nrooc="${d.NroOrdenCompra || ''}" data-tipooc="${d.TipoOc || ''}" data-codciaoc="${d.CodCiaOc || ''}" data-nrofactura="${d.NroFactura || ''}" data-montooc="${montoOC}" data-montofactura="${montoFactura}" data-proveedor="${(proveedor || '').replace(/"/g, '&quot;')}" data-ruc="${ruc || ''}" data-moneda="${d.Moneda || '1'}" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;">`,
-                    docDisplay,
-                    fecha,
-                    proveedor,
-                    ruc,
-                    tipoBadge,
-                    montoOC > 0 ? `${getCurrSym(d.Moneda)} ${montoOC.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-',
-                    estAlmacen,
-                    factCell,
-                    montoFactura > 0 ? `${getCurrSym(d.Moneda)} ${montoFactura.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-',
-                    actionsHtml
+                    `<input type="checkbox" class="doc-aceptado-chk" data-id="${d.Id}" data-nrooc="${d.NroOrdenCompra || ''}" data-tipooc="${d.TipoOc || ''}" data-codciaoc="${d.CodCiaOc || ''}" data-nrofactura="${d.NroFactura || ''}" data-montooc="${montoOC}" data-montofactura="${montoFactura}" data-proveedor="${(proveedor || '').replace(/"/g, '&quot;')}" data-ruc="${ruc || ''}" data-moneda="${d.Moneda || '1'}" data-tipodoc="${d.TipoDocumento || ''}" data-tipocomprobante="${d.TipoComprobante || ''}" data-fechaemision="${d.FechaEmision || ''}" data-fechavencimiento="${d.FechaVencimiento || ''}" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;">`,
+                    docDisplay, // 1: N° OC
+                    fecha, // 2: Fecha OC
+                    proveedor, // 3: Proveedor
+                    ruc, // 4: RUC
+                    tipoBadge, // 5: Tipo
+                    montoOC > 0 ? `${getCurrSym(d.Moneda)} ${montoOC.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-', // 6: Monto OC
+                    factCell, // 7: N° Factura
+                    d.TipoDocumento || d.TipoDocFactura || '-', // 8: Tipo Doc
+                    d.TipoCompDesc || d.TipoComprobante || '-', // 9: Tipo Comp
+                    d.FechaEmision || d.FchFactura || '-', // 10: F Emisión
+                    d.FechaVencimiento || d.FchVencFactura || '-', // 11: F Venc
+                    montoFactura > 0 ? `${getCurrSym(d.Moneda)} ${montoFactura.toLocaleString('es-PE', {minimumFractionDigits: 2})}` : '-', // 12: Total Fac
+                    estAlmacen, // 13: Almacén
+                    actionsHtml // 14: Acc
                 ];
             });
 
@@ -3016,11 +3081,12 @@ async function loadDocumentosAceptadosTesoreria() {
             if (tableElement) {
                 docsAceptadosDT = $('#ocsDisponiblesTable').DataTable({
                     data: dtData, destroy: true,
-                    deferRender: true, order: [[5, 'desc']], pageLength: 15,
+                    deferRender: true, order: [[2, 'desc']], pageLength: 15,
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     columnDefs: [
-                        { targets: [0], orderable: false },
-                        { targets: [4], className: 'dt-right font-semibold' }
+                        { targets: [0, 14], orderable: false },
+                        { targets: [6, 12], className: 'dt-right font-semibold' },
+                        { targets: [0, 13, 14], className: 'dt-center' }
                     ]
                 });
             }

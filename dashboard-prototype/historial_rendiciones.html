@@ -42,7 +42,9 @@
                             <th>FECHA EMISIÓN</th>
                             <th>NRO RENDICIÓN</th>
                             <th>TRABAJADOR/SOCIO</th>
+                            <th>MON</th>
                             <th>TOTAL GASTADO</th>
+                            <th>TOTAL REEMBOLSO</th>
                             <th>USUARIO</th>
                             <th>ESTADO</th>
                             <th>ACCIONES</th>
@@ -110,11 +112,14 @@
                         actionHtml += ` <a href="/rendicion_gastos.html?id=${h.Id}" style="color:#059669; font-weight:bold; border:1px solid #059669; padding:4px 8px; border-radius:4px; text-decoration:none;">✏️ Editar</a>`;
                     }
                     
+                    const sym = monSym(h.Moneda);
                     tbl.row.add([
                         h.Fecha || '',
                         h.NroRendicion || '',
                         h.NomAux || '',
-                        `${monSym(h.Moneda)} ${(h.TotalGastado || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
+                        sym === '$' ? 'USD' : 'PEN',
+                        `${sym} ${(h.TotalGastado || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
+                        `${sym} ${(h.TotalReembolso || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
                         h.UsuarioRegistro || '',
                         badge,
                         actionHtml

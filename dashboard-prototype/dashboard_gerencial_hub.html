@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub Gerencial — Yelave ERP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        [data-theme="dark"]{--bg:#0a0f1e;--surface:#141b2d;--card:#1a2236;--border:#2a3550;--text:#f0f4ff;--text2:#c8d6e5;--text3:#8899aa;--accent:#3b82f6;--accent2:#8b5cf6;--glow:rgba(59,130,246,.15)}
+        [data-theme="light"]{--bg:#f0f2f5;--surface:#ffffff;--card:#ffffff;--border:#dde2ea;--text:#0f172a;--text2:#334155;--text3:#64748b;--accent:#3b82f6;--accent2:#8b5cf6;--glow:rgba(59,130,246,.08)}
+        html,body{height:100%;overflow:hidden}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh}
+
+        /* SIDEBAR NAV */
+        .hub-sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:all .3s}
+        .hub-logo{padding:1rem;text-align:center;border-bottom:1px solid var(--border)}
+        .hub-logo h1{font-size:.95rem;font-weight:900;background:linear-gradient(135deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hub-logo p{font-size:.65rem;color:var(--text3);margin-top:.2rem}
+
+        .hub-nav{flex:1;overflow-y:auto;padding:.5rem}
+        .nav-area{margin-bottom:.35rem}
+        .nav-area-header{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;color:var(--text2);transition:all .2s;user-select:none}
+        .nav-area-header:hover{background:var(--glow);color:var(--text)}
+        .nav-area-header.active{background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(139,92,246,.1));color:var(--text);border:1px solid rgba(59,130,246,.2)}
+        .nav-area-header .icon{font-size:1rem;width:24px;text-align:center}
+        .nav-area-header .arrow{margin-left:auto;font-size:.6rem;transition:transform .2s;color:var(--text3)}
+        .nav-area-header.expanded .arrow{transform:rotate(90deg)}
+
+        .nav-sub{max-height:0;overflow:hidden;transition:max-height .3s ease}
+        .nav-sub.open{max-height:200px}
+        .nav-sub-item{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem .4rem 2.2rem;font-size:.7rem;color:var(--text3);cursor:pointer;border-radius:6px;transition:all .2s;font-weight:500}
+        .nav-sub-item:hover{background:var(--glow);color:var(--text)}
+        .nav-sub-item.active{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(139,92,246,.12));color:#60a5fa;font-weight:700}
+        .nav-sub-item .dot{width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0}
+        .nav-sub-item.active .dot{background:#3b82f6;box-shadow:0 0 6px rgba(59,130,246,.5)}
+
+        .nav-intranet{margin-top:auto;padding:.6rem;border-top:1px solid var(--border)}
+        .nav-intranet a{display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;border-radius:8px;font-size:.75rem;font-weight:700;color:#f59e0b;text-decoration:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);transition:all .2s}
+        .nav-intranet a:hover{background:rgba(245,158,11,.15);transform:translateY(-1px)}
+
+        /* CONTROLS BAR */
+        .hub-controls{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-top:1px solid var(--border);font-size:.65rem}
+        .hub-controls button{border:none;padding:.3rem .5rem;border-radius:5px;font-size:.65rem;font-weight:600;cursor:pointer;transition:all .2s;color:#fff}
+        .btn-play{background:linear-gradient(135deg,#10b981,#059669)}
+        .btn-pause{background:linear-gradient(135deg,#f59e0b,#d97706)}
+        .btn-theme2{background:linear-gradient(135deg,#6366f1,#8b5cf6);font-size:.75rem;padding:.3rem .4rem}
+        .hub-controls button:hover{transform:translateY(-1px);filter:brightness(1.1)}
+        .auto-dot{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pulse2 2s infinite}
+        @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.3}}
+
+        /* MAIN CONTENT */
+        .hub-main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+        .hub-main iframe{flex:1;border:none;width:100%;height:100%}
+
+        /* BREADCRUMB */
+        .hub-breadcrumb{background:var(--surface);border-bottom:1px solid var(--border);padding:.35rem 1rem;font-size:.7rem;color:var(--text2);display:flex;align-items:center;gap:.4rem;flex-shrink:0}
+        .hub-breadcrumb .sep{color:var(--text3)}
+        .hub-breadcrumb .current{color:var(--accent);font-weight:700}
+
+        /* PLACEHOLDER */
+        .placeholder-page{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;color:var(--text3)}
+        .placeholder-page .icon-big{font-size:3rem;opacity:.5}
+        .placeholder-page h2{font-size:1.1rem;font-weight:700;color:var(--text2)}
+        .placeholder-page p{font-size:.8rem;max-width:400px;text-align:center;line-height:1.5}
+
+        /* INTRANET OVERLAY */
+        .intranet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;flex-direction:column}
+        .intranet-overlay.visible{display:flex}
+        .intranet-bar{background:var(--surface);padding:.5rem 1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+        .intranet-bar h3{font-size:.85rem;font-weight:700;color:var(--text)}
+        .intranet-close{border:none;background:#ef4444;color:#fff;padding:.35rem .7rem;border-radius:6px;font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s}
+        .intranet-close:hover{background:#dc2626}
+        .intranet-overlay iframe{flex:1;border:none;width:100%;height:100%;background:#fff}
+    </style>
+    <script>window.__YELAVE_DASHBOARD_KEEP_ALIVE__=true;</script>
+</head>
+<body>
+
+<div class="hub-sidebar">
+    <div class="hub-logo">
+        <h1>📊 Dashboard Gerencial</h1>
+        <p>Centro de Mando Ejecutivo</p>
+    </div>
+    <div class="hub-nav" id="hubNav"></div>
+    <div class="nav-intranet">
+        <a href="#" onclick="openIntranet();return false">🌐 Intranet Corporativo</a>
+    </div>
+    <div class="hub-controls">
+        <div class="auto-dot" id="autoDot"></div>
+        <span id="autoLabel" style="color:var(--text3)">Auto-rotación</span>
+        <button class="btn-play" id="btnAutoToggle" onclick="toggleAutoRotate()">⏸</button>
+        <button class="btn-theme2" onclick="toggleTheme()" id="btnTheme" title="Modo claro/oscuro">🌙</button>
+    </div>
+</div>
+
+<div class="hub-main">
+    <div class="hub-breadcrumb">
+        <span>🏢</span>
+        <span id="bcArea">—</span>
+        <span class="sep">›</span>
+        <span class="current" id="bcPage">—</span>
+    </div>
+    <iframe id="contentFrame" src="dashboard_gerencial.html"></iframe>
+    <div class="placeholder-page" id="placeholderPage" style="display:none">
+        <div class="icon-big" id="phIcon">🚧</div>
+        <h2 id="phTitle">Próximamente</h2>
+        <p id="phDesc">Este dashboard está en desarrollo y estará disponible pronto.</p>
+    </div>
+</div>
+
+<div class="intranet-overlay" id="intranetOverlay">
+    <div class="intranet-bar">
+        <h3>🌐 Intranet Corporativo — Yelave</h3>
+        <button class="intranet-close" onclick="closeIntranet()">✕ Cerrar</button>
+    </div>
+    <iframe id="intranetFrame" src="about:blank"></iframe>
+</div>
+
+<script>
+const AREAS = [
+    {id:'comercial', icon:'💼', name:'Área Comercial', subs:[
+        {id:'ventas', name:'Dashboard Ventas', url:'dashboard_gerencial.html', ready:true},
+        {id:'cxc', name:'Dashboard Cuentas por Cobrar', url:'dashboard_cxc.html', ready:true}
+    ]},
+    {id:'contabilidad', icon:'📒', name:'Área Contabilidad', subs:[]},
+    {id:'logistica', icon:'📦', name:'Área Logística', subs:[
+        {id:'inventario', name:'Dashboard Inventario', url:null, ready:false}
+    ]},
+    {id:'tesoreria', icon:'🏦', name:'Área Tesorería', subs:[
+        {id:'cxp', name:'Dashboard Cuentas por Pagar', url:null, ready:false}
+    ]},
+    {id:'rrhh', icon:'👥', name:'Área RRHH', subs:[]},
+    {id:'produccion', icon:'🏭', name:'Área Producción', subs:[]},
+    {id:'sistemas', icon:'💻', name:'Área Sistemas', subs:[]}
+];
+
+let currentArea = 'comercial';
+let currentSub = 'ventas';
+let autoRotate = true;
+let rotateTimer = null;
+const ROTATE_INTERVAL = 30000; // 30s per slide
+
+function buildNav() {
+    const nav = document.getElementById('hubNav');
+    let html = '';
+    AREAS.forEach(a => {
+        const hasSubs = a.subs.length > 0;
+        const isActive = a.id === currentArea;
+        html += `<div class="nav-area">
+            <div class="nav-area-header ${isActive?'active expanded':''}" onclick="toggleArea('${a.id}')" data-area="${a.id}">
+                <span class="icon">${a.icon}</span>
+                <span>${a.name}</span>
+                ${hasSubs ? '<span class="arrow">▶</span>' : ''}
+            </div>`;
+        if (hasSubs) {
+            html += `<div class="nav-sub ${isActive?'open':''}" data-area-sub="${a.id}">`;
+            a.subs.forEach(s => {
+                const isSub = a.id === currentArea && s.id === currentSub;
+                html += `<div class="nav-sub-item ${isSub?'active':''}" onclick="navigateTo('${a.id}','${s.id}')" data-sub="${a.id}-${s.id}">
+                    <span class="dot"></span>
+                    <span>${s.name}</span>
+                    ${!s.ready ? '<span style="font-size:.55rem;color:var(--text3);margin-left:auto">🔜</span>' : ''}
+                </div>`;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+    });
+    nav.innerHTML = html;
+}
+
+function toggleArea(areaId) {
+    const header = document.querySelector(`[data-area="${areaId}"]`);
+    const sub = document.querySelector(`[data-area-sub="${areaId}"]`);
+    if (!sub) {
+        // Area without subs — navigate to placeholder
+        navigateTo(areaId, null);
+        return;
+    }
+    const isOpen = sub.classList.contains('open');
+    // Close all
+    document.querySelectorAll('.nav-sub').forEach(s => s.classList.remove('open'));
+    document.querySelectorAll('.nav-area-header').forEach(h => h.classList.remove('expanded'));
+    if (!isOpen) {
+        sub.classList.add('open');
+        header.classList.add('expanded');
+    }
+}
+
+function navigateTo(areaId, subId) {
+    currentArea = areaId;
+    currentSub = subId;
+    const area = AREAS.find(a => a.id === areaId);
+    if (!area) return;
+    const sub = subId ? area.subs.find(s => s.id === subId) : null;
+
+    // Update breadcrumb
+    document.getElementById('bcArea').textContent = area.name;
+    document.getElementById('bcPage').textContent = sub ? sub.name : area.name;
+
+    // Update nav highlights
+    document.querySelectorAll('.nav-area-header').forEach(h => h.classList.remove('active'));
+    document.querySelectorAll('.nav-sub-item').forEach(s => s.classList.remove('active'));
+    const hdr = document.querySelector(`[data-area="${areaId}"]`);
+    if (hdr) hdr.classList.add('active');
+    if (subId) {
+        const si = document.querySelector(`[data-sub="${areaId}-${subId}"]`);
+        if (si) si.classList.add('active');
+    }
+
+    // Load content
+    const frame = document.getElementById('contentFrame');
+    const placeholder = document.getElementById('placeholderPage');
+    if (sub && sub.ready && sub.url) {
+        frame.style.display = 'block';
+        placeholder.style.display = 'none';
+        frame.src = sub.url;
+    } else {
+        frame.style.display = 'none';
+        placeholder.style.display = 'flex';
+        document.getElementById('phIcon').textContent = area.icon;
+        document.getElementById('phTitle').textContent = sub ? sub.name : area.name;
+        document.getElementById('phDesc').textContent = 'Este dashboard está en desarrollo y estará disponible próximamente.';
+    }
+
+    // Expand area
+    toggleArea(areaId);
+}
+
+// Auto-rotate through ready pages
+function getReadyPages() {
+    const pages = [];
+    AREAS.forEach(a => {
+        a.subs.forEach(s => {
+            if (s.ready) pages.push({area: a.id, sub: s.id});
+        });
+    });
+    return pages;
+}
+
+function startAutoRotate() {
+    stopAutoRotate();
+    rotateTimer = setInterval(() => {
+        const pages = getReadyPages();
+        if (pages.length <= 1) return;
+        let idx = pages.findIndex(p => p.area === currentArea && p.sub === currentSub);
+        idx = (idx + 1) % pages.length;
+        navigateTo(pages[idx].area, pages[idx].sub);
+    }, ROTATE_INTERVAL);
+}
+
+function stopAutoRotate() {
+    if (rotateTimer) { clearInterval(rotateTimer); rotateTimer = null; }
+}
+
+function toggleAutoRotate() {
+    autoRotate = !autoRotate;
+    const btn = document.getElementById('btnAutoToggle');
+    const dot = document.getElementById('autoDot');
+    const label = document.getElementById('autoLabel');
+    if (autoRotate) {
+        btn.textContent = '⏸'; btn.className = 'btn-play';
+        dot.style.background = '#10b981'; dot.style.animationPlayState = 'running';
+        label.textContent = 'Auto-rotación';
+        startAutoRotate();
+    } else {
+        btn.textContent = '▶'; btn.className = 'btn-pause';
+        dot.style.background = '#f59e0b'; dot.style.animationPlayState = 'paused';
+        label.textContent = 'Pausado';
+        stopAutoRotate();
+    }
+}
+
+function openIntranet() {
+    // SharePoint bloquea iframes — abrir en ventana popup como navegador
+    const url = 'https://yelave.sharepoint.com/sites/IntranetGlobal/IntranetFiles/index.aspx';
+    const w = screen.width * 0.9, h = screen.height * 0.9;
+    const left = (screen.width - w) / 2, top = (screen.height - h) / 2;
+    window.open(url, 'IntranetYelave', `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=yes,location=yes,status=no,scrollbars=yes,resizable=yes`);
+}
+function closeIntranet() {
+    // No-op since we use popup now
+}
+
+function toggleTheme() {
+    const h = document.documentElement;
+    const n = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    h.setAttribute('data-theme', n);
+    localStorage.setItem('yelave_theme', n);
+    document.getElementById('btnTheme').textContent = n === 'dark' ? '🌙' : '☀️';
+    // Sync theme to iframe
+    const frame = document.getElementById('contentFrame');
+    try { frame.contentDocument.documentElement.setAttribute('data-theme', n); } catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const sv = localStorage.getItem('yelave_theme');
+    if (sv) {
+        document.documentElement.setAttribute('data-theme', sv);
+        document.getElementById('btnTheme').textContent = sv === 'dark' ? '🌙' : '☀️';
+    }
+    buildNav();
+    navigateTo('comercial', 'ventas');
+    if (autoRotate) startAutoRotate();
+});
+</script>
+</body>
+</html>

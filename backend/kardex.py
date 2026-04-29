@@ -44,10 +44,23 @@ def get_base_kardex_data(
                 r.candes,
                 r.preuni,
                 r.impcto,
-                RTRIM(t.desmov) as desmov
+                RTRIM(t.desmov) as desmov,
+                RTRIM(v.ordcmp) as ordcmp,
+                RTRIM(v.nroref1) as nroref1,
+                RTRIM(v.nroref2) as nroref2,
+                RTRIM(v.nroref3) as nroref3,
+                RTRIM(v.Glodoc) as glosa,
+                RTRIM(v.usuario) as usuario,
+                RTRIM(v.codcli) as codcli,
+                RTRIM(v.codpro) as codpro,
+                RTRIM(cli.nomaux) as descli,
+                RTRIM(pro.nomaux) as despro
             FROM AlmRMovm r
             LEFT JOIN almmmatg m ON r.codcia = m.codcia AND r.codmat = m.codmat
             LEFT JOIN almTmovm t ON r.codcia = t.codcia AND r.tipmov = t.tipmov AND r.codmov = t.codmov
+            LEFT JOIN AlmVMovm v ON r.codcia = v.codcia AND r.tipmov = v.tipmov AND r.codmov = v.codmov AND r.nrodoc = v.nrodoc
+            LEFT JOIN CbdMauxi cli ON v.codcia = cli.codcia AND v.codcli = cli.codaux
+            LEFT JOIN CbdMauxi pro ON v.codcia = pro.codcia AND v.codpro = pro.codaux
             WHERE RTRIM(r.codcia) = ? 
         """
         params_movs = [codcia.strip()]
@@ -111,6 +124,16 @@ def get_base_kardex_data(
                     "entradas_costo_total": impcto if is_ingreso else 0.0,
                     "salidas_costo_uni": preuni if is_salida else 0.0,
                     "salidas_costo_total": impcto if is_salida else 0.0,
+                    "ordcmp": row.ordcmp if row.ordcmp else "",
+                    "nroref1": row.nroref1 if row.nroref1 else "",
+                    "nroref2": row.nroref2 if row.nroref2 else "",
+                    "nroref3": row.nroref3 if row.nroref3 else "",
+                    "glosa": row.glosa if row.glosa else "",
+                    "usuario": row.usuario if row.usuario else "",
+                    "codcli": row.codcli if row.codcli else "",
+                    "codpro": row.codpro if row.codpro else "",
+                    "descli": row.descli if row.descli else "",
+                    "despro": row.despro if row.despro else ""
                 }
                 materials[mat_cod]["movimientos"].append(mov_dict)
                 
@@ -267,26 +290,140 @@ def get_traceability(
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT fchdoc, nroref1, nroref2, Glodoc, usuario, fchemi, ordcmp 
+            SELECT 
+                RTRIM(almcen) as almcen, fchdoc, codmon, tpocmb,
+                RTRIM(codpro) as codpro, RTRIM(codcli) as codcli,
+                RTRIM(glodoc) as glodoc, RTRIM(usuario) as usuario,
+                RTRIM(nroref1) as nroref1, RTRIM(nroref2) as nroref2, RTRIM(nroref3) as nroref3,
+                RTRIM(flgest) as flgest, RTRIM(ordcmp) as ordcmp
             FROM AlmVMovm 
             WHERE RTRIM(codcia)=? AND RTRIM(nrodoc)=? AND RTRIM(tipmov)=? AND RTRIM(codmov)=?
         """, [codcia.strip(), nrodoc.strip(), tipmov.strip(), codmov.strip()])
         
-        row = cursor.fetchone()
-        if not row:
-            return {"status": "error", "message": "No se encontró el sustento de la operación en las cabeceras de almacén."}
+        h_row = cursor.fetchone()
+        
+        almcen = h_row.almcen if h_row and h_row.almcen else ""
+        
+        # Des almacén
+        des_almacen = ""
+        if almcen:
+            cursor.execute("SELECT RTRIM(nombre) FROM AlmTabla WHERE RTRIM(codcia)=? AND RTRIM(tabla)='ALMC' AND RTRIM(codigo)=?", (codcia.strip(), almcen))
+            arow = cursor.fetchone()
+            if arow: des_almacen = arow[0]
             
+        # Des movimiento y referencias
+        des_movimiento = ""
+        refs = []
+        cursor.execute("SELECT RTRIM(desmov), RTRIM(gloref1), RTRIM(gloref2), RTRIM(gloref3) FROM almTmovm WHERE RTRIM(codcia)=? AND RTRIM(tipmov)=? AND RTRIM(codmov)=?", (codcia.strip(), tipmov.strip(), codmov.strip()))
+        mrow = cursor.fetchone()
+        if mrow:
+            des_movimiento = mrow[0]
+            for i in range(1, 4):
+                glo = getattr(mrow, f'gloref{i}', None)
+                nro = getattr(h_row, f'nroref{i}', None) if h_row else None
+                if glo and glo.strip() and nro and nro.strip():
+                    refs.append(f"{glo.strip()} - {nro.strip()}")
+        
+        # Auxiliar (Proveedor/Cliente)
+        nom_aux = ""
+        ruc_aux = ""
+        codaux = (h_row.codpro if tipmov.strip().upper() == 'I' else h_row.codcli) if h_row else ""
+        if codaux and codaux.strip():
+            cursor.execute("SELECT RTRIM(nomaux), RTRIM(codaux) FROM CbdMauxi WHERE RTRIM(codcia)=? AND RTRIM(codaux)=?", (codcia.strip(), codaux.strip()))
+            prow = cursor.fetchone()
+            if prow:
+                nom_aux = prow[0]
+                ruc_aux = prow[1]
+                
+        # Moneda
+        moneda_str = "S/."
+        if h_row and str(h_row.codmon).strip() == "2": moneda_str = "US$"
+        elif h_row and str(h_row.codmon).strip() == "3": moneda_str = "Eu$"
+        
+        # Items
+        cursor.execute("""
+            SELECT nroitm, RTRIM(codmat) as codmat, RTRIM(desmat) as desmat,
+                   RTRIM(undstk) as undstk, candes, preuni, impcto,
+                   RTRIM(nrolote) as nrolote, fchlote, fchdoc
+            FROM AlmRMovm
+            WHERE RTRIM(codcia)=? AND RTRIM(nrodoc)=? AND RTRIM(tipmov)=? AND RTRIM(codmov)=?
+            ORDER BY nroitm
+        """, (codcia.strip(), nrodoc.strip(), tipmov.strip(), codmov.strip()))
+        
+        items_rows = cursor.fetchall()
+        if not h_row and not items_rows:
+            return {"status": "error", "message": "No se encontraron detalles del movimiento ni en cabeceras ni en el detalle de almacén."}
+            
+        items = []
+        total_cant = 0.0
+        total_prec = 0.0
+        total_imp = 0.0
+        
+        for it in items_rows:
+            c = float(it.candes) if it.candes else 0.0
+            p = float(it.preuni) if it.preuni else 0.0
+            i = float(it.impcto) if it.impcto else c*p
+            total_cant += c
+            total_prec += p
+            total_imp += i
+            
+            fchlote_str = ""
+            if getattr(it, 'fchlote', None):
+                try:
+                    fchlote_str = it.fchlote.strftime("%d/%m/%Y")
+                except:
+                    pass
+            
+            items.append({
+                "nroitm": int(it.nroitm) if it.nroitm else 0,
+                "codmat": it.codmat or "",
+                "desmat": it.desmat or "",
+                "undstk": it.undstk or "",
+                "nrolote": it.nrolote or "",
+                "fchlote": fchlote_str,
+                "candes": c,
+                "preuni": p,
+                "impcto": i
+            })
+            
+        fchdoc_str = ""
+        if h_row and h_row.fchdoc:
+            fchdoc_str = h_row.fchdoc.strftime("%d/%m/%Y")
+        elif items_rows and getattr(items_rows[0], 'fchdoc', None):
+            try:
+                fchdoc_str = items_rows[0].fchdoc.strftime("%d/%m/%Y")
+            except:
+                pass
+            
+        header = {
+            "almacen": almcen,
+            "des_almacen": des_almacen,
+            "tipmov": tipmov.strip(),
+            "codmov": codmov.strip(),
+            "des_movimiento": des_movimiento,
+            "nrodoc": nrodoc.strip(),
+            "fchdoc": fchdoc_str,
+            "moneda": moneda_str,
+            "tipo_cambio": float(h_row.tpocmb) if h_row and h_row.tpocmb else 0,
+            "proveedor": nom_aux,
+            "ruc_proveedor": ruc_aux,
+            "observacion": h_row.glodoc if h_row else "",
+            "usuario": h_row.usuario if h_row else "",
+            "ordcmp": h_row.ordcmp if h_row else "",
+            "referencias": refs,
+            "estado": h_row.flgest if h_row else "",
+            "total_cantidad": total_cant,
+            "total_precio": total_prec,
+            "total_importe": total_imp
+        }
+        
         return {
             "status": "success",
-            "data": {
-                "fchdoc": row.fchdoc.strftime("%Y-%m-%d") if row.fchdoc else "",
-                "nroref1": row.nroref1.strip() if row.nroref1 else "",
-                "nroref2": row.nroref2.strip() if row.nroref2 else "",
-                "glosa": row.Glodoc.strip() if row.Glodoc else "",
-                "usuario": row.usuario.strip() if row.usuario else "",
-                "fchemi": row.fchemi.strftime("%Y-%m-%d %H:%M:%S") if row.fchemi else "",
-                "ordcmp": row.ordcmp.strip() if row.ordcmp else ""
-            }
+            "company": {"nomcia": "EMPRESA", "dircia": ""}, # Can fetch real company later if needed
+            "vouchers": [{
+                "header": header,
+                "items": items
+            }]
         }
     finally:
         conn.close()

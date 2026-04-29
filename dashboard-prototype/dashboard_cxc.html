@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Cuentas por Cobrar — Yelave ERP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        [data-theme="dark"]{--bg:#0f172a;--surface:#1e293b;--card:#1e293b;--border:#334155;--text:#f0f4ff;--text2:#cbd5e1;--text3:#94a3b8;--chart-grid:rgba(51,65,85,.25);--input-bg:#0f172a;--topbar-bg:linear-gradient(135deg,#1e293b,#0f172a);--shadow:0 2px 12px rgba(0,0,0,.3);--info-alpha:.06}
+        [data-theme="light"]{--bg:#f1f5f9;--surface:#fff;--card:#fff;--border:#e2e8f0;--text:#0f172a;--text2:#1e293b;--text3:#475569;--chart-grid:rgba(0,0,0,.06);--input-bg:#fff;--topbar-bg:linear-gradient(135deg,#fff,#f8fafc);--shadow:0 2px 12px rgba(0,0,0,.08);--info-alpha:.08}
+        html,body{height:100%;overflow:hidden}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;transition:background .3s,color .3s}
+
+        .topbar{background:var(--topbar-bg);border-bottom:1px solid var(--border);padding:.3rem 1rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:40px}
+        .topbar-left{display:flex;align-items:center;gap:.75rem}
+        .topbar h1{font-size:.85rem;font-weight:800;background:linear-gradient(135deg,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+        .company-label{font-size:.82rem;font-weight:700;color:var(--text);padding:.2rem .7rem;border-radius:6px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);white-space:nowrap}
+        .filters{display:flex;gap:.35rem;align-items:center}
+        .topbar select,.topbar input{background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:.22rem .4rem;border-radius:5px;font-size:.68rem;font-family:inherit}
+        .btn-sm{border:none;padding:.22rem .55rem;border-radius:5px;font-weight:600;font-size:.65rem;cursor:pointer;transition:all .2s;color:#fff}
+        .btn-apply{background:linear-gradient(135deg,#ef4444,#f59e0b)}
+        .btn-fs{background:linear-gradient(135deg,#8b5cf6,#a855f7)}
+        .btn-theme{background:linear-gradient(135deg,#f59e0b,#f97316);font-size:.75rem;padding:.22rem .4rem}
+        .btn-sm:hover{transform:translateY(-1px);filter:brightness(1.15)}
+        .auto-info{font-size:.5rem;color:var(--text3);display:flex;align-items:center;gap:3px}
+        .auto-info .dot{width:5px;height:5px;border-radius:50%;background:#ef4444;animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+        .dashboard{flex:1;overflow:hidden;display:grid;grid-template-rows:auto 5fr 5fr 4fr;padding:.35rem .6rem;gap:.35rem}
+        .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem}
+        .kpi{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:.4rem .55rem;position:relative;overflow:hidden}
+        .kpi:hover{box-shadow:var(--shadow)}
+        .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .kpi.c1::before{background:linear-gradient(90deg,#ef4444,#f87171)}
+        .kpi.c2::before{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+        .kpi.c3::before{background:linear-gradient(90deg,#10b981,#34d399)}
+        .kpi.c4::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+        .kpi.c5::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
+        .kpi-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);font-weight:700}
+        .kpi-value{font-size:1.25rem;font-weight:800;margin:.1rem 0;line-height:1}
+        .kpi-sub{font-size:.65rem;color:var(--text2);line-height:1.3}
+
+        .charts-row{display:grid;gap:.35rem;overflow:hidden;min-height:0}
+        .row-top{grid-template-columns:2fr 1fr 1fr}
+        .row-mid{grid-template-columns:1fr 1fr 1fr 1fr}
+        .row-bot{grid-template-columns:1fr 1fr 1fr}
+        .chart-card{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:.4rem .55rem;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+        .chart-card:hover{box-shadow:var(--shadow)}
+        .chart-card h3{font-size:.75rem;font-weight:700;margin-bottom:.25rem;display:flex;align-items:center;gap:.25rem;flex-shrink:0;color:var(--text)}
+        .chart-card h3 span{font-size:.85rem}
+        .chart-body{flex:1;position:relative;min-height:0}
+        .chart-body canvas{position:absolute;top:0;left:0;width:100%!important;height:100%!important}
+
+        .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;height:100%;overflow:hidden;align-content:start}
+        .info-box{padding:.35rem .45rem;border-radius:5px}
+        .info-box.rd{background:rgba(239,68,68,var(--info-alpha));border:1px solid rgba(239,68,68,.12)}
+        .info-box.bl{background:rgba(59,130,246,var(--info-alpha));border:1px solid rgba(59,130,246,.12)}
+        .info-box.gr{background:rgba(16,185,129,var(--info-alpha));border:1px solid rgba(16,185,129,.12)}
+        .info-box.or{background:rgba(245,158,11,var(--info-alpha));border:1px solid rgba(245,158,11,.12)}
+        .info-box .lbl{font-size:.6rem;color:var(--text2);text-transform:uppercase;font-weight:700}
+        .info-box .val{font-size:.9rem;font-weight:800;margin-top:.05rem}
+        .bar-mini{height:3px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:.15rem}
+        .bar-mini .fill{height:100%;border-radius:2px;transition:width .6s ease}
+
+        .flatpickr-calendar{background:var(--card)!important;border:1px solid var(--border)!important;box-shadow:var(--shadow)!important;font-family:'Inter',sans-serif!important;font-size:.75rem!important}
+        .flatpickr-day{color:var(--text)!important;border-radius:4px!important}
+        .flatpickr-day:hover{background:rgba(239,68,68,.15)!important;border-color:transparent!important}
+        .flatpickr-day.selected{background:#ef4444!important;border-color:#ef4444!important;color:#fff!important}
+        .flatpickr-day.today{border-color:#ef4444!important}
+        .flatpickr-months .flatpickr-month{color:var(--text)!important;fill:var(--text)!important;background:transparent!important}
+        .flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--card)!important;color:var(--text)!important}
+        .flatpickr-current-month input.cur-year{color:var(--text)!important}
+        span.flatpickr-weekday{color:var(--text3)!important}
+    </style>
+    <script>window.__YELAVE_DASHBOARD_KEEP_ALIVE__=true;</script>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+<div class="topbar">
+    <div class="topbar-left">
+        <h1>💳 Cuentas por Cobrar</h1>
+        <div class="company-label" id="companyLabel">—</div>
+    </div>
+    <div class="filters">
+        <div class="auto-info"><div class="dot"></div><span id="autoStatus">Auto 5min</span></div>
+        <select id="filterCia" onchange="onCiaChange()" style="max-width:90px"></select>
+        <input type="text" id="fechaIni" placeholder="Desde" style="width:90px;cursor:pointer" readonly>
+        <input type="text" id="fechaFin" placeholder="Hasta" style="width:90px;cursor:pointer" readonly>
+        <button class="btn-sm btn-apply" onclick="applyFilters()">🔍</button>
+        <button class="btn-sm btn-theme" onclick="toggleTheme()" id="btnTheme" title="Modo claro/oscuro">🌙</button>
+        <button class="btn-sm btn-fs" onclick="toggleFullscreen()" title="Pantalla completa">⛶</button>
+    </div>
+</div>
+<div class="dashboard">
+    <!-- KPIs -->
+    <div class="kpi-row">
+        <div class="kpi c1"><div class="kpi-label">🔴 Saldo Total</div><div class="kpi-value" id="kSaldo">—</div><div class="kpi-sub" id="kSaldoSub"></div></div>
+        <div class="kpi c2"><div class="kpi-label">📄 Importe Total</div><div class="kpi-value" id="kImporte">—</div><div class="kpi-sub" id="kImporteSub"></div></div>
+        <div class="kpi c3"><div class="kpi-label">✅ Total Cobrado</div><div class="kpi-value" id="kCobrado">—</div><div class="kpi-sub" id="kCobradoSub"></div></div>
+        <div class="kpi c4"><div class="kpi-label">📋 Documentos</div><div class="kpi-value" id="kDocs">—</div><div class="kpi-sub" id="kDocsSub"></div></div>
+        <div class="kpi c5"><div class="kpi-label">📈 % Cobranza</div><div class="kpi-value" id="kPct">—</div><div class="kpi-sub" id="kPctSub"></div></div>
+    </div>
+    <!-- Row 1: Saldos por Mes | Tipo Documento | Resumen -->
+    <div class="charts-row row-top">
+        <div class="chart-card"><h3><span>📈</span>Saldo Pendiente por Mes</h3><div class="chart-body"><canvas id="chartMes"></canvas></div></div>
+        <div class="chart-card"><h3><span>🗂️</span>Por Tipo Documento</h3><div class="chart-body"><canvas id="chartTipoDoc"></canvas></div></div>
+        <div class="chart-card"><h3><span>💳</span>Resumen General</h3><div id="resumenPanel" style="flex:1;overflow:hidden"></div></div>
+    </div>
+    <!-- Row 2: Top Clientes | Vendedores | Forma de Pago | Tiendas -->
+    <div class="charts-row row-mid">
+        <div class="chart-card"><h3><span>🏆</span>Top Clientes — Saldo</h3><div class="chart-body"><canvas id="chartClientes"></canvas></div></div>
+        <div class="chart-card"><h3><span>👥</span>Saldo por Vendedor</h3><div class="chart-body"><canvas id="chartVendedor"></canvas></div></div>
+        <div class="chart-card"><h3><span>💰</span>Por Forma de Pago</h3><div class="chart-body"><canvas id="chartPago"></canvas></div></div>
+        <div class="chart-card"><h3><span>🏪</span>Por Tienda</h3><div class="chart-body"><canvas id="chartTienda"></canvas></div></div>
+    </div>
+    <!-- Row 3: Cobranza vs Saldo | Concentración | Indicadores -->
+    <div class="charts-row row-bot">
+        <div class="chart-card"><h3><span>📊</span>Cobrado vs Pendiente</h3><div class="chart-body"><canvas id="chartCobrado"></canvas></div></div>
+        <div class="chart-card"><h3><span>🎯</span>Concentración de Deuda</h3><div class="chart-body"><canvas id="chartConcentra"></canvas></div></div>
+        <div class="chart-card"><h3><span>📋</span>Indicadores Clave</h3><div id="indicadoresPanel" style="flex:1;overflow:hidden"></div></div>
+    </div>
+</div>
+<script src="dashboard_cxc.js?v=3"></script>
+</body>
+</html>

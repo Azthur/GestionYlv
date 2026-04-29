@@ -2232,6 +2232,15 @@ async function loadFacturas() {
             const modifier = isNC ? -1 : 1;
             const amtDisplay = isNC ? `<span style="color:#ef4444; font-weight:600;">${fmtNum(f.Total * modifier)}</span>` : fmtNum(f.Total);
             
+            const estadoRaw = (f.Estado || '').trim().toUpperCase();
+            const estadoBadge = 
+                (estadoRaw === 'ANULADA' || estadoRaw === 'ELIMINADO') ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : 
+                (estadoRaw === 'CERRADO') ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">🔒 CERRADO</span>' :
+                (estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">📘 CONTABILIZADA</span>' :
+                (estadoRaw === 'REGISTRADA' || estadoRaw === 'REGISTRADO') ? '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADA</span>' :
+                `<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">${f.Estado || 'SIN ESTADO'}</span>`;
+            const isLocked = (estadoRaw === 'CERRADO' || estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA');
+
             return [
                 f.Id,
                 `${f.Serie||''}-${f.Numero||''}`,
@@ -2246,13 +2255,10 @@ async function loadFacturas() {
                 f.NroOrdenCompra ? `${f.TipoOc||''}${f.NroOrdenCompra}` : '-',
                 f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
                 f.CreatedBy || 'SISTEMA',
-                f.Estado === 'Anulada' ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : 
-                f.Estado === 'Cerrado' ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">🔒 CERRADO</span>' :
-                f.Estado === 'Contabilizado' ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">📘 CONTABILIZADO</span>' :
-                '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADO</span>',
+                estadoBadge,
                 `<div style="display:flex; justify-content:center; gap:4px; white-space:nowrap;">
                     <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="viewFacturaDetail(${f.Id})" title="Ver Detalle"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                    ${(f.Estado === 'Cerrado' || f.Estado === 'Contabilizado') 
+                    ${isLocked 
                         ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Editar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
                           `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
                         : `<button class="btn-flat" style="padding:4px; color:#f59e0b;" onclick="openEditRegistro(${f.Id})" title="Editar / Adjuntar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
@@ -2862,14 +2868,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(e.target.value) {
             currentCodCia = e.target.value;
             clearInvoiceForm();
+            loadTiposComprobante(currentCodCia);
             loadFacturas();
         }
     });
 
     if (currentCodCia) {
+        loadTiposComprobante(currentCodCia);
         loadFacturas();
     }
 });
+
+async function loadTiposComprobante(codcia) {
+    const select = document.getElementById('invTipoDoc');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Cargando...</option>';
+    try {
+        const res = await fetch(`/api/contabilidad/tipos-comprobante?codcia=${codcia}`);
+        if (!res.ok) throw new Error('Error al cargar tipos');
+        const tipos = await res.json();
+        
+        let html = '<option value="">Seleccione...</option>';
+        tipos.forEach(t => {
+            html += `<option value="${t.codigo}">${t.codigo} - ${t.nombre}</option>`;
+        });
+        select.innerHTML = html;
+        
+        // Auto-seleccionar Factura (01) si existe
+        if (tipos.find(t => t.codigo === '01')) {
+            select.value = '01';
+        }
+    } catch(err) {
+        console.error('Error loadTiposComprobante:', err);
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
 
 function filterTable(tbodyId, filterText) {
     const tbody = document.getElementById(tbodyId);

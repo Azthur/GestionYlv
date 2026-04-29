@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor de Pago</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#f1f5f9; --surface:#ffffff; --primary:#10b981; --text:#0f172a; --muted:#64748b; --border:#e2e8f0; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { background:var(--bg); font-family:'Inter',sans-serif; color:var(--text); min-height:100vh; }
+        .container { max-width:900px; margin:2rem auto; padding:0 1rem; }
+        .page { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2.5rem; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+        .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2rem; border-bottom:2px solid #e2e8f0; padding-bottom:1.5rem; }
+        .header h1 { font-size:1.2rem; color:#0f172a; text-transform:uppercase; letter-spacing:1px; }
+        .header .sub { color:var(--muted); font-size:0.8rem; margin-top:0.25rem; }
+        .header .right { text-align:right; }
+        .header .pago-num { font-size:1.4rem; color:var(--primary); font-weight:800; }
+        .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:2rem; }
+        .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-bottom:2rem; }
+        .panel { background:#f8fafc; padding:1.25rem; border-radius:8px; border:1px solid #f1f5f9; }
+        .panel h3 { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:#94a3b8; margin:0 0 0.75rem 0; font-weight:700; }
+        .row { display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.82rem; }
+        .row strong { color:#334155; min-width:40%; }
+        .row span { color:#475569; text-align:right; }
+        .total-box { background:linear-gradient(135deg, #059669 0%, #10b981 100%); color:white; padding:1.5rem; border-radius:12px; text-align:center; margin-bottom:2rem; }
+        .total-box .label { font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8; }
+        .total-box .amount { font-size:2rem; font-weight:800; margin-top:0.25rem; }
+        .badge { padding:0.3rem 1rem; border-radius:999px; font-size:0.78rem; font-weight:600; display:inline-block; margin-bottom:0.75rem; }
+        .badge-activo { background:#dcfce7; color:#166534; }
+        .badge-anulado { background:#fee2e2; color:#991b1b; }
+        .docs { margin-top:1.5rem; padding-top:1.25rem; border-top:1px dashed #cbd5e1; }
+        .docs h3 { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:#94a3b8; margin:0 0 0.75rem 0; font-weight:700; }
+        .fitem { display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.5rem; border-bottom:1px dashed #e2e8f0; border-radius:4px; transition:background 0.15s; }
+        .fitem:hover { background:#f0fdf4; }
+        .fbadge { padding:2px 8px; border-radius:4px; font-size:0.68rem; font-weight:600; color:white; }
+        .flink { color:var(--primary); text-decoration:none; font-size:0.82rem; font-weight:500; }
+        .loading { text-align:center; padding:4rem; color:var(--muted); }
+        .error { text-align:center; padding:4rem; color:#ef4444; }
+        .footer { text-align:center; color:#94a3b8; font-size:0.72rem; margin-top:2.5rem; padding-top:1.25rem; border-top:1px solid #f1f5f9; }
+        .link-card { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:0.75rem 1rem; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.75rem; transition: all 0.2s; cursor:pointer; text-decoration:none; }
+        .link-card:hover { background:#dbeafe; transform:translateY(-1px); }
+        .link-card .icon { font-size:1.2rem; }
+        .link-card .info { flex:1; }
+        .link-card .info .title { font-size:0.82rem; font-weight:600; color:#1e40af; }
+        .link-card .info .desc { font-size:0.7rem; color:#64748b; }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @media print { body{background:white} .page{box-shadow:none;border:none;padding:1.5rem} }
+        @media(max-width:768px) { .grid2{grid-template-columns:1fr} .grid3{grid-template-columns:1fr} .page{padding:1.5rem} .header{flex-direction:column;gap:1rem} }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <main class="main-content">
+    <div id="content">
+        <div class="loading">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+            <div style="margin-top:1rem;font-weight:500;">Cargando datos del pago...</div>
+        </div>
+    </div>
+    <script>
+        var params = new URLSearchParams(window.location.search);
+        var uid = params.get('uid');
+        if (!uid) {
+            document.getElementById('content').innerHTML = '<div class="error"><h2>URL inválida</h2><p>No se proporcionó un identificador de pago.</p></div>';
+        } else {
+            fetch('/api/cargos/pagos/public/' + uid)
+                .then(function(r) { if(!r.ok) throw new Error('Pago no encontrado'); return r.json(); })
+                .then(function(d) { render(d); })
+                .catch(function(e) { document.getElementById('content').innerHTML = '<div class="error"><h2>Error</h2><p>' + e.message + '</p></div>'; });
+        }
+
+        function fmt(n) { return (n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+        function monSym(m) {
+            var v = String(m || '1').trim();
+            if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return '$';
+            return 'S/';
+        }
+        function monLabel(m) {
+            var v = String(m || '1').trim();
+            if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return 'USD — Dólares Americanos';
+            return 'PEN — Soles';
+        }
+        function cleanDate(d) {
+            if (!d || d === '-' || d === 'None' || d === 'null') return '-';
+            var s = String(d).trim();
+            if (s.startsWith('1900') || s.startsWith('0001')) return '-';
+            return s.substring(0, 10);
+        }
+
+        function render(d) {
+            var sym = monSym(d.Moneda);
+            var monto = parseFloat(d.MontoPago || 0);
+            var isNeg = monto < 0;
+
+            // Badge de estado
+            var estadoBadge = d.Estado === 'ANULADO' 
+                ? '<span class="badge badge-anulado">ANULADO</span>' 
+                : '<span class="badge badge-activo">✅ PAGO REGISTRADO</span>';
+
+            // Tipo documento
+            var tipoDoc = d.TipoComprobanteDesc || d.TipoComprobante || '-';
+
+            // Medio de pago map  
+            var medioMap = { 'TRANSFERENCIA':'Transferencia Bancaria', 'CHEQUE':'Cheque', 'EFECTIVO':'Efectivo', 'DEPOSITO':'Depósito', 'TARJETA':'Tarjeta' };
+            var tipoPago = medioMap[d.TipoPago] || d.TipoPago || '-';
+
+            // Adjuntos
+            var adjHTML = '';
+            var adjuntos = d.Adjuntos || [];
+            if (adjuntos.length > 0) {
+                var fl = '';
+                for (var j = 0; j < adjuntos.length; j++) {
+                    var a = adjuntos[j];
+                    var ext = (a.ArchivoNombre || '').split('.').pop().toUpperCase();
+                    var col = ext === 'PDF' ? '#ef4444' : ext === 'XML' ? '#10b981' : '#6366f1';
+                    var url = '/api/cargos/pagos/adjunto/' + a.AdjuntoId;
+                    fl += '<div class="fitem"><span class="fbadge" style="background:' + col + '">' + ext + '</span>' +
+                          '<a href="' + url + '" target="_blank" class="flink">' + a.ArchivoNombre + '</a></div>';
+                }
+                adjHTML = '<div class="docs"><h3>📎 Comprobantes Adjuntos</h3>' + fl + '</div>';
+            } else {
+                adjHTML = '<div class="docs"><h3>📎 Comprobantes Adjuntos</h3><div style="color:#94a3b8;font-size:0.82rem;padding:0.5rem 0;">Sin documentos adjuntos.</div></div>';
+            }
+
+            // Enlaces a documentos relacionados
+            var linksHTML = '';
+            if (d.FacturaUuid) {
+                linksHTML += '<a href="/factura_visor.html?uid=' + d.FacturaUuid + '" target="_blank" class="link-card">' +
+                    '<span class="icon">📄</span><div class="info"><div class="title">Ver Comprobante ' + (d.NroFactura || '') + '</div><div class="desc">Factura / Boleta vinculada</div></div></a>';
+            }
+            var det = d.Detalle || {};
+            if (det.NroCargo) {
+                linksHTML += '<div class="link-card" style="cursor:default;"><span class="icon">📋</span><div class="info"><div class="title">Cargo: ' + det.NroCargo + '</div><div class="desc">' + (det.TipoCargo || '') + ' — ' + (det.AreaOrigen || '') + ' → ' + (det.AreaDestino || '') + '</div></div></div>';
+            }
+
+            // Notas
+            var notasHTML = '';
+            if (d.Notas && d.Notas.trim()) {
+                notasHTML = '<div style="background:#eff6ff; border-left:4px solid #3b82f6; padding:1rem; border-radius:0 8px 8px 0; margin-bottom:1.5rem;">' +
+                    '<h3 style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:#2563eb; margin:0 0 0.35rem 0; font-weight:700;">Notas del Pago</h3>' +
+                    '<p style="margin:0;font-size:0.85rem;color:#1e40af;line-height:1.5;">' + d.Notas + '</p></div>';
+            }
+
+            // Total box color
+            var totalColor = isNeg ? 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)' : 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+
+            var html = '<div class="container"><div class="page">' +
+                estadoBadge +
+                // HEADER
+                '<div class="header">' +
+                    '<div><h1>CONSTANCIA DE PAGO</h1><div class="sub">Tesorería — Corporación Y.L.V S.A.C</div></div>' +
+                    '<div class="right">' +
+                        '<div class="pago-num">PAGO #' + d.Id + '</div>' +
+                        '<div style="font-size:0.75rem; color:#64748b;">Registrado: ' + cleanDate(d.FechaRegistro) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                // TOTAL BOX
+                '<div class="total-box" style="background:' + totalColor + ';">' +
+                    '<div class="label">' + (isNeg ? 'Nota de Crédito Aplicada' : 'Monto Pagado') + '</div>' +
+                    '<div class="amount">' + sym + ' ' + fmt(monto) + '</div>' +
+                    '<div style="font-size:0.78rem; opacity:0.85; margin-top:0.25rem;">' + monLabel(d.Moneda) + '</div>' +
+                '</div>' +
+                // DATOS GRID
+                '<div class="grid2">' +
+                    '<div class="panel" style="border-top:3px solid #10b981;">' +
+                        '<h3>💳 Datos del Pago</h3>' +
+                        '<div class="row"><strong>Fecha Pago:</strong><span style="font-weight:700;">' + cleanDate(d.FechaPago) + '</span></div>' +
+                        '<div class="row"><strong>Banco/Cuenta:</strong><span>' + (d.BancoDisplay || d.BancoPago || '-') + '</span></div>' +
+                        '<div class="row"><strong>Medio de Pago:</strong><span>' + tipoPago + '</span></div>' +
+                        '<div class="row"><strong>N° Operación:</strong><span style="font-family:monospace; background:#f1f5f9; padding:2px 8px; border-radius:4px;">' + (d.NroOperacion || '-') + '</span></div>' +
+                        '<div class="row"><strong>Concepto:</strong><span>' + (d.ConceptoDisplay || d.ConceptoPago || '-') + '</span></div>' +
+                        '<div class="row"><strong>Registrado por:</strong><span>' + (d.UsuarioRegistro || '-') + '</span></div>' +
+                    '</div>' +
+                    '<div class="panel" style="border-top:3px solid #2563eb;">' +
+                        '<h3>📦 Datos del Documento</h3>' +
+                        '<div class="row"><strong>Proveedor:</strong><span>' + (d.Proveedor || '-') + '</span></div>' +
+                        '<div class="row"><strong>RUC:</strong><span>' + (d.RucProveedor || '-') + '</span></div>' +
+                        '<div class="row"><strong>Tipo Doc:</strong><span>' + tipoDoc + '</span></div>' +
+                        '<div class="row"><strong>N° Factura:</strong><span style="font-weight:700;">' + (d.NroFactura || '-') + '</span></div>' +
+                        '<div class="row"><strong>Fecha Emisión:</strong><span>' + cleanDate(d.FechaEmision) + '</span></div>' +
+                        '<div class="row"><strong>Nro OC/Doc:</strong><span>' + (d.NroOrdenCompra || '-') + '</span></div>' +
+                    '</div>' +
+                '</div>' +
+                // Detalle del cargo
+                (det.NroCargo ? '<div class="panel" style="margin-bottom:1.5rem; border-left:3px solid #f59e0b;">' +
+                    '<h3 style="color:#b45309;">📋 Trazabilidad — Cargo Documental</h3>' +
+                    '<div class="row"><strong>N° Cargo:</strong><span style="font-weight:700;">' + det.NroCargo + '</span></div>' +
+                    '<div class="row"><strong>Tipo:</strong><span>' + (det.TipoCargo || '-') + '</span></div>' +
+                    '<div class="row"><strong>Flujo:</strong><span>' + (det.AreaOrigen || '') + ' → ' + (det.AreaDestino || '') + '</span></div>' +
+                    '<div class="row"><strong>Fecha Cargo:</strong><span>' + cleanDate(det.FechaCargo) + '</span></div>' +
+                    (det.MontoOC ? '<div class="row"><strong>Monto OC:</strong><span>' + sym + ' ' + fmt(det.MontoOC) + '</span></div>' : '') +
+                    (det.MontoFactura ? '<div class="row"><strong>Monto Factura:</strong><span>' + sym + ' ' + fmt(det.MontoFactura) + '</span></div>' : '') +
+                    (det.MontoRendicion ? '<div class="row"><strong>Monto Rendición:</strong><span style="color:#7c3aed; font-weight:700;">' + sym + ' ' + fmt(det.MontoRendicion) + '</span></div>' : '') +
+                '</div>' : '') +
+                // Notas
+                notasHTML +
+                // Enlaces
+                (linksHTML ? '<div style="margin-bottom:1.5rem;"><h3 style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:#94a3b8; margin:0 0 0.75rem 0; font-weight:700;">🔗 Documentos Relacionados</h3>' + linksHTML + '</div>' : '') +
+                // Adjuntos
+                adjHTML +
+                // Footer
+                '<div class="footer">Constancia de Pago generada por ERP Yelave &bull; ' + new Date().toLocaleString('es-PE') + '</div>' +
+            '</div></div>';
+
+            document.getElementById('content').innerHTML = html;
+        }
+    </script>
+    <script src="sidebar.js"></script>
+        </main>
+    </div>
+</body>
+</html>

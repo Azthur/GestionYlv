@@ -133,7 +133,14 @@ def get_purchase_orders(
                  FROM CntCargosDetalle cd
                  INNER JOIN CntCargosDocumentales c ON cd.CargoId = c.Id
                  WHERE RTRIM(cd.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(cd.CodCiaOc) = RTRIM(o.CodCia)
-                 ORDER BY cd.Id DESC), 'EN LOGÍSTICA') as estado_proceso
+                 ORDER BY cd.Id DESC), 'EN LOGÍSTICA') as estado_proceso,
+                (SELECT TOP 1 ISNULL(RTRIM(UsuarioLogin), 'SISTEMA') FROM LogOcAcciones l WHERE RTRIM(l.CodCia) = RTRIM(o.CodCia) AND RTRIM(l.NroDoc) = RTRIM(o.NroDoc) AND RTRIM(l.TipoOc) = RTRIM(o.TipoOc) AND l.Accion = 'APROBACION' ORDER BY l.FechaHora DESC) as usuario_aprobado,
+                CASE 
+                    WHEN RTRIM(o.TipoOc) = 'M' AND RTRIM(o.FlgEst) = 'P' THEN 1
+                    WHEN RTRIM(o.TipoOc) IN ('S','T') AND EXISTS (SELECT 1 FROM LogOcAcciones l2 WHERE RTRIM(l2.CodCia) = RTRIM(o.CodCia) AND RTRIM(l2.NroDoc) = RTRIM(o.NroDoc) AND RTRIM(l2.TipoOc) = RTRIM(o.TipoOc) AND l2.Accion = 'APROBACION') THEN 1
+                    WHEN RTRIM(o.TipoOc) IN ('S','T') AND RTRIM(ISNULL(o.digita,'')) != '' AND RTRIM(ISNULL(o.digita,'')) != RTRIM(ISNULL(o.Usuario,'')) THEN 1
+                    ELSE 0
+                END as es_aprobado
             FROM CmpVOcom o 
             WHERE RTRIM(CodCia) = ?
         """
@@ -438,7 +445,16 @@ def get_purchase_order_report(
                       AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
                       AND fc.Estado != 'Anulada'
-                ), 0) as cant_facturada
+                ), 0) as cant_facturada,
+                COALESCE((
+                    SELECT SUM(fd.Cantidad * fd.PrecioUnitario)
+                    FROM CntFacturaDet fd
+                    INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
+                    WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
+                      AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
+                      AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
+                      AND fc.Estado != 'Anulada'
+                ), 0) as monto_facturado
             FROM CmpROcom r
             WHERE RTRIM(r.CodCia) = ? AND RTRIM(r.NroDoc) = ?
         """
@@ -475,16 +491,24 @@ def get_purchase_order_report(
             req_qty = float(row.candes) if row.candes else 0
             rec_qty = float(row.cant_ingresada) if row.cant_ingresada else 0
             invoiced_qty = float(row.cant_facturada) if row.cant_facturada else 0
+            invoiced_monto = float(row.monto_facturado) if hasattr(row, 'monto_facturado') and row.monto_facturado else 0
+            monto_req = req_qty * float(row.preuni) if row.preuni else 0
             
-            total_requested += req_qty
-            total_received += rec_qty
-            total_invoiced += invoiced_qty
+            total_requested += req_qty if t_oc == 'M' else monto_req
+            total_received += rec_qty if t_oc == 'M' else invoiced_monto
+            total_invoiced += invoiced_qty if t_oc == 'M' else invoiced_monto
             
             # Line item status
             line_status = "Pendiente"
             # Decide base for "status" based on type
-            compare_qty = rec_qty if t_oc == 'M' else invoiced_qty
-            if compare_qty >= req_qty and req_qty > 0:
+            if t_oc == 'M':
+                compare_qty = rec_qty
+                target_qty = req_qty
+            else:
+                compare_qty = invoiced_monto
+                target_qty = monto_req
+                
+            if compare_qty >= target_qty and target_qty > 0:
                 line_status = "Completo"
             elif compare_qty > 0:
                 line_status = "Parcial"
@@ -498,6 +522,7 @@ def get_purchase_order_report(
                 "candes": req_qty,
                 "cant_ingresada": rec_qty,
                 "cant_facturada": invoiced_qty,
+                "monto_facturado": invoiced_monto,
                 "estado_ingreso": line_status,
                 "preuni": float(row.preuni) if row.preuni else 0,
                 "impigv": float(row.impigv) if row.impigv else 0,
@@ -839,8 +864,13 @@ def aprobar_oc(nrodoc: str, req: OcActionRequest, user: dict = Depends(get_curre
             raise HTTPException(status_code=404, detail="OC no encontrada")
             
         estado = row.flgest or 'R'
-        if estado != 'R':
-            raise HTTPException(status_code=400, detail=f"Solo se puede aprobar OC en estado REGISTRADO (R). Estado actual: {estado}")
+        t_oc = req.tipo_oc.strip().upper()
+        if t_oc == 'M':
+            if estado != 'R':
+                raise HTTPException(status_code=400, detail=f"Solo se puede aprobar OC tipo M en estado REGISTRADO (R). Estado actual: {estado}")
+        else:
+            if estado != 'P':
+                raise HTTPException(status_code=400, detail=f"Solo se puede aprobar OC tipo {t_oc} en estado PENDIENTE (P). Estado actual: {estado}")
             
         usuario_login = user.get("login", "")
         usuario_nombre = user.get("nombre", "")

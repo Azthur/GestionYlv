@@ -1762,7 +1762,8 @@ def get_trazabilidad(
         if factura_ids:
             placeholders = ",".join(["?" for _ in factura_ids])
             cursor.execute(f"""
-                SELECT fd.CodMaterial, SUM(fd.Cantidad) as total_facturado, MAX(fd.PrecioUnitario) as p_unitario, MAX(fc.CodMoneda) as cod_moneda
+                SELECT fd.CodMaterial, SUM(fd.Cantidad) as total_facturado, MAX(fd.PrecioUnitario) as p_unitario, MAX(fc.CodMoneda) as cod_moneda,
+                       SUM(fd.Cantidad * fd.PrecioUnitario) as total_monto
                 FROM CntFacturaDet fd
                 INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
                 WHERE fd.FacturaCabId IN ({placeholders})
@@ -1773,7 +1774,8 @@ def get_trazabilidad(
                     facturado_by_mat[row.CodMaterial.strip()] = {
                         "cant": float(row.total_facturado) if row.total_facturado else 0,
                         "preuni": float(row.p_unitario) if row.p_unitario else 0,
-                        "cod_moneda": str(row.cod_moneda).strip() if row.cod_moneda else ""
+                        "cod_moneda": str(row.cod_moneda).strip() if row.cod_moneda else "",
+                        "monto": float(row.total_monto) if row.total_monto else 0
                     }
 
         # 5. Build response
@@ -1809,21 +1811,39 @@ def get_trazabilidad(
             fac_p = f_info.get("preuni", 0)
             alm_p = a_info.get("preuni", 0) if isinstance(a_info, dict) else 0
 
-            if (fac_p > 0 and abs(fac_p - oc_preuni) > 0.05) or (alm_p > 0 and abs(alm_p - oc_preuni) > 0.05):
-                w = f"Precio unitario difiere en {cod}: OC({oc_preuni})"
-                if fac_p > 0 and abs(fac_p - oc_preuni) > 0.05: w += f", Fac({fac_p})"
-                if alm_p > 0 and abs(alm_p - oc_preuni) > 0.05: w += f", Almacén({alm_p})"
-                warnings.append(w)
-                global_warnings.add(w)
+            # Para Servicios (S) o Contabilidad (T), el control es por MONTO, no por cantidad
+            is_service = tipo_oc in ['S', 'T']
+            monto_oc = cant_oc * oc_preuni
+            monto_facturado = f_info.get("monto", 0)
+            
+            if not is_service:
+                if (fac_p > 0 and abs(fac_p - oc_preuni) > 0.05) or (alm_p > 0 and abs(alm_p - oc_preuni) > 0.05):
+                    w = f"Precio unitario difiere en {cod}: OC({oc_preuni})"
+                    if fac_p > 0 and abs(fac_p - oc_preuni) > 0.05: w += f", Fac({fac_p})"
+                    if alm_p > 0 and abs(alm_p - oc_preuni) > 0.05: w += f", Almacén({alm_p})"
+                    warnings.append(w)
+                    global_warnings.add(w)
+            else:
+                # Para servicios, alertar si el monto total facturado excede el de la OC
+                if monto_facturado > monto_oc and abs(monto_facturado - monto_oc) > 0.05:
+                    w = f"El monto facturado de {cod} excede la OC: OC({monto_oc}), Fac({monto_facturado})"
+                    warnings.append(w)
+                    global_warnings.add(w)
 
             pct_almacen = (cant_almacen / cant_oc * 100) if cant_oc > 0 else 0
-            pct_facturado = (cant_facturada / cant_oc * 100) if cant_oc > 0 else 0
+            
+            if is_service:
+                pct_facturado = (monto_facturado / monto_oc * 100) if monto_oc > 0 else 0
+            else:
+                pct_facturado = (cant_facturada / cant_oc * 100) if cant_oc > 0 else 0
 
             trazabilidad_items.append({
                 **it,
                 "cant_oc": cant_oc,
                 "cant_almacen": cant_almacen,
                 "cant_facturada": cant_facturada,
+                "monto_oc": monto_oc,
+                "monto_facturado": monto_facturado,
                 "pct_almacen": round(pct_almacen, 1),
                 "pct_facturado": round(pct_facturado, 1),
                 "estado_almacen": "Completo" if pct_almacen >= 100 else ("Parcial" if pct_almacen > 0 else "Pendiente"),
@@ -1867,6 +1887,8 @@ def get_trazabilidad(
                 "total_oc": sum(it["candes"] for it in trazabilidad_items),
                 "total_almacen": sum(it["cant_almacen"] for it in trazabilidad_items),
                 "total_facturado": sum(it["cant_facturada"] for it in trazabilidad_items),
+                "monto_oc": sum(it["monto_oc"] for it in trazabilidad_items),
+                "monto_facturado": sum(it["monto_facturado"] for it in trazabilidad_items),
             }
         }
 
@@ -2394,8 +2416,10 @@ def get_facturas_sin_oc(
                    f.FecEmision, f.FecVencimiento,
                    RTRIM(f.NomProveedor) as NomProveedor, RTRIM(f.NumRucProveedor) as NumRucProveedor,
                    RTRIM(f.CodMoneda) as CodMoneda, f.Total,
-                   f.Estado, f.Uuid, f.CreatedAt, RTRIM(f.NroOrdenCompra) as NroOrdenCompra
+                   f.Estado, f.Uuid, f.CreatedAt, RTRIM(f.NroOrdenCompra) as NroOrdenCompra,
+                   ISNULL(RTRIM(tbl.Nombre), RTRIM(f.CodTipoDoc)) as TipoCompDesc
             FROM CntFacturaCab f
+            LEFT JOIN AlmTabla tbl ON tbl.CodCia = f.CodCia AND tbl.Tabla = '0006' AND tbl.Codigo = f.CodTipoDoc
             WHERE RTRIM(f.CodCia) = ?
               AND (
                   (f.NroOrdenCompra IS NULL OR RTRIM(f.NroOrdenCompra) = '' OR RTRIM(f.NroOrdenCompra) = '-')
@@ -2482,6 +2506,31 @@ def get_facturas_sin_oc(
         }
     except Exception as e:
         print(f"Error en facturas-sin-oc: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ════════════════════════════════════════════════════════════
+#  TIPOS DE COMPROBANTE DESDE AlmTabla (tabla=0006)
+# ════════════════════════════════════════════════════════════
+@router.get("/tipos-comprobante")
+def get_tipos_comprobante(codcia: str = Query(...)):
+    """Obtiene los tipos de comprobante desde AlmTabla WHERE tabla='0006'"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT RTRIM(codigo) as codigo, RTRIM(nombre) as nombre
+            FROM AlmTabla
+            WHERE RTRIM(codcia) = ? AND tabla = '0006'
+            ORDER BY codigo
+        """, (codcia.strip(),))
+        cols = [c[0] for c in cursor.description]
+        return [dict(zip(cols, r)) for r in cursor.fetchall()]
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()

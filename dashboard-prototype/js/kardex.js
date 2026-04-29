@@ -198,7 +198,17 @@ function renderizarKardex(data, formato) {
                         </tr>
         `;
 
+        let totEntradasCant = 0;
+        let totEntradasTotal = 0;
+        let totSalidasCant = 0;
+        let totSalidasTotal = 0;
+
         mat.movimientos.forEach(mov => {
+            totEntradasCant += (mov.entradas_cant || 0);
+            totEntradasTotal += (mov.entradas_costo_total || 0);
+            totSalidasCant += (mov.salidas_cant || 0);
+            totSalidasTotal += (mov.salidas_costo_total || 0);
+
             let traceBtn = `<button class="btn btn-sm btn-outline-primary" style="padding: 2px 6px; font-size:10px;" onclick="verTrazabilidad('${emp.codcia}', '${mov.numero_doc}', '${mov.tipo_operacion}', '${mov.serie_doc}')">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                             </button>`;
@@ -233,6 +243,25 @@ function renderizarKardex(data, formato) {
         });
 
         tableHtml += `
+                        <tr class="table-light border-dark fw-bold">
+                            <td colspan="5" class="text-end">TOTALES DEL PERIODO:</td>
+                            ${isValorizado ? `
+                            <td class="text-end text-primary">${formatNum(totEntradasCant)}</td>
+                            <td></td>
+                            <td class="text-end text-primary">${formatNum(totEntradasTotal)}</td>
+                            
+                            <td class="text-end text-danger">${formatNum(totSalidasCant)}</td>
+                            <td></td>
+                            <td class="text-end text-danger">${formatNum(totSalidasTotal)}</td>
+                            
+                            <td colspan="3"></td>
+                            ` : `
+                            <td class="text-end text-primary">${formatNum(totEntradasCant)}</td>
+                            <td class="text-end text-danger">${formatNum(totSalidasCant)}</td>
+                            <td></td>
+                            `}
+                            <td></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -283,7 +312,13 @@ function renderizarStock(data) {
     }
 
     let i = 1;
+    let totCantidad = 0;
+    let totCostoTotal = 0;
+
     resultados.forEach(r => {
+        totCantidad += (r.cantidad || 0);
+        totCostoTotal += (r.costo_total || 0);
+
         html += `
             <tr>
                 <td class="text-center">${i++}</td>
@@ -301,6 +336,18 @@ function renderizarStock(data) {
             </tr>
         `;
     });
+
+    if (resultados.length > 0) {
+        html += `
+            <tr class="table-light border-dark fw-bold">
+                <td colspan="4" class="text-end">TOTAL STOCK GENERAL:</td>
+                <td class="text-end text-primary">${formatNum(totCantidad)}</td>
+                <td></td>
+                <td class="text-end text-primary">${formatNum(totCostoTotal)}</td>
+                <td></td>
+            </tr>
+        `;
+    }
     
     html += `</tbody></table></div></div>`;
     document.getElementById('stockContent').innerHTML = html;
@@ -396,53 +443,133 @@ function verMovimientosMaterial(codmat) {
     document.getElementById('kardexForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); // Auto-submit
 }
 
+function closeTraceModal() {
+    const traceOverlay = document.getElementById('traceModal');
+    if(traceOverlay) traceOverlay.classList.remove('active');
+}
+
 async function verTrazabilidad(codcia, nrodoc, tipmov, codmov) {
-    if(!nrodoc) {
+    if (!nrodoc || nrodoc.trim() === '') {
         alert("Ese movimiento no tiene documento asociado.");
         return;
     }
-    const traceModal = new bootstrap.Modal(document.getElementById('traceModal'));
-    traceModal.show();
-    
-    document.getElementById('traceLoader').style.display = 'block';
+    const traceOverlay = document.getElementById('traceModal');
+    traceOverlay.classList.add('active');
     document.getElementById('traceData').innerHTML = '';
+    document.getElementById('traceLoader').style.display = 'block';
     
     try {
         const url = `/api/kardex/traceability?codcia=${codcia}&nrodoc=${nrodoc}&tipmov=${tipmov}&codmov=${codmov}`;
         const response = await fetch(url);
         const result = await response.json();
         
-        if (result.status === 'success') {
-            const d = result.data;
-            let html = `
-                <div class="card bg-transparent border-secondary text-white">
-                    <div class="card-header border-secondary text-info fw-bold">
-                        Sustento del Movimiento
-                    </div>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item bg-transparent text-white border-secondary">
-                            <small class="text-muted d-block">Documento de Referencia 1</small>
-                            ${d.nroref1 || 'N/A'}
-                        </li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">
-                            <small class="text-muted d-block">Documento de Referencia 2</small>
-                            ${d.nroref2 || 'N/A'}
-                        </li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">
-                            <small class="text-muted d-block">Glosa / Observación</small>
-                            ${d.glosa || 'Sin observaciones'}
-                        </li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">
-                            <small class="text-muted d-block">Órden de Compra Relacionada</small>
-                            ${d.ordcmp || 'Ninguna'}
-                        </li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">
-                            <small class="text-muted d-block">Generado por</small>
-                            <span class="badge bg-primary text-white">${d.usuario}</span> el ${d.fchemi}
-                        </li>
-                    </ul>
+        if (result.status === 'success' && result.vouchers && result.vouchers.length > 0) {
+            let html = '';
+            const co = result.company;
+            
+            result.vouchers.forEach((v, idx) => {
+                const h = v.header;
+                const isAnulado = h.estado && h.estado.trim().toUpperCase() === 'A';
+                
+                html += `<div style="padding:1.5rem; background:#fff; font-family:'Inter',Arial,sans-serif; color:#1a1a1a; font-size:0.8125rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); ${idx > 0 ? 'margin-top:1.5rem;' : ''}">`;
+                
+                // Header Band
+                html += `
+                <div style="text-align:center; font-weight:bold; font-size:1.1rem; color:var(--primary); margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px;">
+                    📦 Detalle de Movimientos Almacén
                 </div>
-            `;
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:1rem; margin-bottom:1rem; border-bottom:3px solid #1e3a5f;">
+                    <div>
+                        <h2 style="font-size:1.15rem; font-weight:700; color:#1e3a5f; margin:0 0 0.15rem 0;">${co.nomcia || 'EMPRESA'}</h2>
+                        <p style="font-size:0.75rem; color:#6b7280; margin:0;">${co.dircia || ''}</p>
+                    </div>
+                    <div style="text-align:right; background:#1e3a5f; color:#fff; padding:0.75rem 1.25rem; border-radius:8px; min-width:180px;">
+                        <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Documento N°</div>
+                        <div style="font-size:1.4rem; font-weight:700;">${h.nrodoc}</div>
+                        <div style="font-size:0.8rem; opacity:0.9;">${h.fchdoc}</div>
+                    </div>
+                </div>`;
+                
+                // Info Box
+                html += `
+                <div style="font-size:0.8rem; margin-bottom:1rem; font-weight:600; color:#1e3a5f;">
+                    ${h.almacen} &nbsp; ${h.des_almacen}
+                </div>
+                <div style="display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0.3rem 0.5rem; font-size:0.75rem; padding:0.85rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:0.75rem;">
+                    <span style="font-weight:600; color:#64748b;">Movimiento :</span><span style="color:#0f172a;">${h.tipmov} &nbsp; ${h.codmov} &nbsp; ${h.des_movimiento}</span>
+                    <span style="font-weight:600; color:#64748b;">Documento :</span><span style="color:#0f172a; font-weight:bold;">${h.nrodoc}</span>
+                    ${h.proveedor ? `<span style="font-weight:600; color:#64748b;">Prov / Cli :</span><span style="color:#0f172a;">${h.ruc_proveedor} &nbsp; ${h.proveedor}</span>` : ''}
+                    <span style="font-weight:600; color:#64748b;">Moneda :</span><span style="color:#0f172a;">${h.moneda}</span>
+                    <span style="font-weight:600; color:#64748b;">T.Cambio :</span><span style="color:#0f172a;">${formatNum(h.tipo_cambio)}</span>
+                    <span style="font-weight:600; color:#64748b;">Fecha :</span><span style="color:#0f172a;">${h.fchdoc}</span>
+                    <span style="font-weight:600; color:#64748b;">USUARIO :</span><span style="color:#0f172a; font-weight:bold;">${h.usuario}</span>
+                    ${h.ordcmp ? `<span style="font-weight:600; color:#64748b;">O. Compra :</span><span style="color:#0f172a;">${h.ordcmp}</span>` : ''}
+                </div>`;
+                
+                if (h.referencias && h.referencias.length > 0) {
+                    html += `<div style="font-size:0.775rem; padding:0.5rem 1rem; background:#f0f4ff; border:1px solid #c7d2fe; border-radius:6px; margin-bottom:0.75rem;">
+                        <strong>Documentos de Referencia:</strong><br>`;
+                    h.referencias.forEach(r => { html += `<span style="margin-right:1.5rem; color:#1e40af;">${r}</span>`; });
+                    html += `</div>`;
+                }
+                
+                if (h.observacion) {
+                    html += `<div style="font-size:0.775rem; margin-bottom:0.75rem; color:#334155;"><strong>Observación:</strong> ${h.observacion}</div>`;
+                }
+                
+                if (isAnulado) {
+                    html += `<div style="text-align:center; padding:0.75rem; background:#fee2e2; border:2px solid #ef4444; border-radius:8px; margin-bottom:1rem; font-weight:700; color:#991b1b; font-size:1rem;">** A N U L A D O **</div>`;
+                }
+                
+                // Items Table
+                html += `
+                <table style="width:100%; border-collapse:collapse; margin-top:0.25rem;">
+                    <thead><tr>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:30px; text-align:center;">Ite</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:80px;">Artículo</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1;">Descripción</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:45px; text-align:center;">Unidad</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:80px;">NROLOTE</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:75px;">Fch. Vto</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:80px; text-align:right;">Cantidad</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:80px; text-align:right;">Precio</th>
+                        <th style="background:#e2e8f0; font-weight:700; font-size:0.65rem; color:#334155; padding:0.4rem; border:1px solid #cbd5e1; width:90px; text-align:right;">Total</th>
+                    </tr></thead><tbody>`;
+                    
+                if (v.items.length === 0) {
+                    html += '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:1.5rem; border:1px solid #e2e8f0;">Sin ítems</td></tr>';
+                } else {
+                    v.items.forEach(it => {
+                        html += `<tr>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; text-align:center; font-weight:600;">${it.nroitm}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; font-family:monospace; font-size:0.725rem;">${it.codmat}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; font-weight:500;">${it.desmat}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; text-align:center; font-size:0.75rem;">${it.undstk}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; font-family:monospace; font-size:0.725rem;">${it.nrolote || ''}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; font-size:0.75rem;">${it.fchlote || ''}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; text-align:right; font-weight:600;">${formatNum(it.candes)}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; text-align:right;">${formatNum(it.preuni)}</td>
+                            <td style="border:1px solid #e2e8f0; padding:0.35rem; text-align:right; font-weight:600; color:var(--primary);">${formatNum(it.impcto)}</td>
+                        </tr>`;
+                    });
+                }
+                html += '</tbody></table>';
+                
+                // Totals
+                html += `
+                <div style="display:flex; justify-content:flex-end; margin-top:0.5rem;">
+                    <table>
+                        <tr>
+                            <td style="text-align:right; font-weight:700; font-size:0.875rem; padding:0.5rem 1rem;">TOTAL :</td>
+                            <td style="text-align:right; min-width:90px; font-weight:600; padding:0.3rem 0.5rem;">${formatNum(h.total_cantidad)}</td>
+                            <td style="text-align:right; min-width:90px; font-weight:600; padding:0.3rem 0.5rem;">${formatNum(h.total_precio)}</td>
+                            <td style="text-align:right; min-width:100px; font-weight:700; color:var(--primary); font-size:0.9rem; padding:0.3rem 0.5rem;">${formatNum(h.total_importe)}</td>
+                        </tr>
+                    </table>
+                </div>`;
+                
+                html += '</div>';
+            });
             document.getElementById('traceData').innerHTML = html;
         } else {
             document.getElementById('traceData').innerHTML = `<div class="alert alert-warning">${result.message}</div>`;
@@ -451,5 +578,112 @@ async function verTrazabilidad(codcia, nrodoc, tipmov, codmov) {
         document.getElementById('traceData').innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
     } finally {
         document.getElementById('traceLoader').style.display = 'none';
+    }
+}
+
+// EXPORT TO EXCEL LOGIC
+function exportKardexToExcel() {
+    let activeTabId = '';
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    tabPanes.forEach(pane => {
+        if (pane.classList.contains('active')) activeTabId = pane.id;
+    });
+
+    if (!activeTabId) {
+        alert("No hay ningún reporte activo para exportar.");
+        return;
+    }
+
+    try {
+        if (typeof XLSX === 'undefined') {
+            alert("La librería de Excel no ha terminado de cargar.");
+            return;
+        }
+
+        let wb = XLSX.utils.book_new();
+
+        if (activeTabId === 'tab-kardex' || activeTabId === 'tab-costo') {
+            // Both Kardex and Costo have multiple materials, each with its own header and table
+            const container = document.getElementById(activeTabId === 'tab-kardex' ? 'reporteContent' : 'costoContent');
+            const sections = container.querySelectorAll('.mb-5'); // each material section
+            
+            if (sections.length === 0) {
+                alert("No hay datos para exportar."); return;
+            }
+
+            let aoa = [];
+            
+            sections.forEach(sec => {
+                // Parse header info
+                const title = sec.querySelector('h6')?.innerText || '';
+                aoa.push([title]);
+                
+                // The metadata (RUC, Empresa, etc) is inside a table-borderless
+                const metaTable = sec.querySelector('table.table-borderless');
+                if (metaTable) {
+                    metaTable.querySelectorAll('tr').forEach(tr => {
+                        let rowData = [];
+                        tr.querySelectorAll('td').forEach(td => rowData.push(td.innerText.trim()));
+                        if(rowData.length > 0) aoa.push(rowData);
+                    });
+                }
+                
+                aoa.push([]); // blank row
+                
+                // Parse main report table
+                const table = sec.querySelector('table.report-table, table.table-bordered:not(.table-borderless)');
+                if (table) {
+                    const rows = table.querySelectorAll('tr');
+                    rows.forEach(tr => {
+                        let rowData = [];
+                        tr.querySelectorAll('th, td').forEach(cell => {
+                            rowData.push(cell.innerText.trim());
+                        });
+                        aoa.push(rowData);
+                    });
+                }
+                
+                aoa.push([]); // blank row between materials
+                aoa.push([]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+            XLSX.writeFile(wb, activeTabId === 'tab-kardex' ? 'Reporte_Kardex.xlsx' : 'Reporte_Costo_Ventas.xlsx');
+            
+        } else if (activeTabId === 'tab-stock') {
+            const table = document.querySelector('#stockContent table');
+            if (!table) { alert("No hay datos para exportar."); return; }
+            
+            let aoa = [];
+            // Get stock header info
+            const headerDiv = document.querySelector('#stockContent .d-flex.justify-content-between');
+            if (headerDiv) {
+                const lines = headerDiv.innerText.split('\n');
+                lines.forEach(line => {
+                    if (line.trim()) aoa.push([line.trim()]);
+                });
+                aoa.push([]);
+            }
+            
+            const rows = table.querySelectorAll('tr');
+            rows.forEach(tr => {
+                let rowData = [];
+                tr.querySelectorAll('th, td').forEach(cell => {
+                    // Ignore the last "ACCIÓN" column
+                    if (cell.innerText.trim() !== 'ACCIÓN' && !cell.querySelector('button')) {
+                        rowData.push(cell.innerText.trim());
+                    }
+                });
+                if (rowData.length > 0) aoa.push(rowData);
+            });
+            
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            XLSX.utils.book_append_sheet(wb, ws, "Stock");
+            XLSX.writeFile(wb, 'Reporte_Stock.xlsx');
+        }
+
+    } catch (e) {
+        alert("Error al exportar a Excel: " + e.message);
     }
 }

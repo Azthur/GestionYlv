@@ -1,8 +1,8 @@
-import os, pyodbc, json
+from database import get_db_connection
+import json
 
 try:
-    conn_str = os.environ.get("DB_CONNECTION_STRING")
-    conn = pyodbc.connect(conn_str)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'FinPagos'")
     cols = cursor.fetchall()

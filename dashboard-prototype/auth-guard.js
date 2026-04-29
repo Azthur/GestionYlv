@@ -45,7 +45,7 @@
     const isAlwaysAllowed = alwaysAllowed.some(p => currentPath.includes(p));
     
     // Public viewers (no auth needed at all)
-    const publicPages = ['visor_planilla.html', 'visor_rendicion.html', 'factura_visor.html'];
+    const publicPages = ['visor_planilla.html', 'visor_rendicion.html', 'factura_visor.html', 'pago_visor.html', 'dashboard_gerencial_hub.html', 'dashboard_gerencial.html', 'dashboard_cxc.html'];
     const isPublicPage = publicPages.some(p => currentPath.includes(p));
 
     if (isPublicPage) {
@@ -127,26 +127,47 @@
         return; // skip inactivity setup
     }
 
-    let inactivityTimer;
-    const INACTIVITY_LIMIT_MS = 10 * 60 * 1000;
+    const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutos
+    let lastUpdate = 0;
 
-    function resetInactivityTimer() {
-        clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(logoutDueToInactivity, INACTIVITY_LIMIT_MS);
+    function updateSharedActivity() {
+        const now = Date.now();
+        // Evitar escribir en localStorage en cada milisegundo (throttling de 5 segundos)
+        if (now - lastUpdate > 5000) {
+            localStorage.setItem('yelave_last_activity', now.toString());
+            lastUpdate = now;
+        }
     }
 
-    function logoutDueToInactivity() {
-        localStorage.removeItem('yelave_token');
-        localStorage.removeItem('yelave_user');
-        alert("Su sesión ha expirado por inactividad (10 minutos). Será redirigido al inicio de sesión.");
-        window.location.href = 'login.html';
+    function checkInactivity() {
+        const lastActivityStr = localStorage.getItem('yelave_last_activity');
+        if (!lastActivityStr) return;
+        
+        const lastActivity = parseInt(lastActivityStr, 10);
+        const now = Date.now();
+        
+        // Si han pasado más de 10 minutos desde la ÚLTIMA actividad en CUALQUIER pestaña
+        if (now - lastActivity > INACTIVITY_LIMIT_MS) {
+            // Prevenir loops de logout
+            localStorage.removeItem('yelave_last_activity');
+            localStorage.removeItem('yelave_token');
+            localStorage.removeItem('yelave_user');
+            
+            alert("Su sesión ha expirado por inactividad (10 minutos). Será redirigido al inicio de sesión.");
+            window.location.href = 'login.html';
+        }
     }
 
-    window.addEventListener('mousemove', resetInactivityTimer);
-    window.addEventListener('keypress', resetInactivityTimer);
-    window.addEventListener('click', resetInactivityTimer);
-    window.addEventListener('scroll', resetInactivityTimer);
-    window.addEventListener('touchstart', resetInactivityTimer);
+    // Inicializar el timer compartido
+    updateSharedActivity();
+    
+    // Revisar la inactividad cada 10 segundos
+    setInterval(checkInactivity, 10000);
 
-    resetInactivityTimer();
+    // Escuchar eventos en ESTA pestaña para actualizar el timer global
+    window.addEventListener('mousemove', updateSharedActivity);
+    window.addEventListener('keypress', updateSharedActivity);
+    window.addEventListener('click', updateSharedActivity);
+    window.addEventListener('scroll', updateSharedActivity);
+    window.addEventListener('touchstart', updateSharedActivity);
 })();

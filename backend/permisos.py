@@ -354,6 +354,23 @@ def get_my_empresas(current_user: dict = Depends(get_current_user)):
         conn.close()
 
 
+@router.get("/permisos/empresas/all")
+def get_all_empresas():
+    """Devuelve todas las empresas (sin auth). Usado por dashboard gerencial público."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT RTRIM(codcia) as codcia, RTRIM(nomcia) as nomcia FROM AdmMcias ORDER BY codcia")
+        cols = [c[0] for c in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 # ══════════════════════════════════════════════════════
 #  ADMIN: CRUD de Roles
 # ══════════════════════════════════════════════════════

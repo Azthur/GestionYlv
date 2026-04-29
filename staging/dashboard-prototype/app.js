@@ -5,7 +5,7 @@ function checkAuth() {
         window.location.href = 'login.html';
         return null;
     }
-    
+
     try {
         const user = JSON.parse(localStorage.getItem('yelave_user'));
         return user;
@@ -20,9 +20,9 @@ function renderUserInfo(user) {
     const nameEl = document.getElementById('userNameDisplay');
     const roleEl = document.getElementById('userRoleDisplay');
     const avatarEl = document.getElementById('userAvatar');
-    
+
     if (nameEl) nameEl.textContent = user.nombre || user.login;
-    
+
     // Role display
     let roleLabel = 'Consultor';
     if (user.login === '71941916JL' || user.rol === 'ADMIN') {
@@ -31,7 +31,7 @@ function renderUserInfo(user) {
         roleLabel = user.rol;
     }
     if (roleEl) roleEl.textContent = roleLabel;
-    
+
     if (avatarEl) avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre || user.login)}&background=2b3954&color=fff`;
 
     // Access Control (Superuser or Admin)
@@ -47,7 +47,7 @@ function renderUserInfo(user) {
     // Role-based navigation visibility
     document.querySelectorAll('.nav-item, .nav-group').forEach(el => {
         const href = (el.getAttribute('href') || '').toLowerCase();
-        
+
         // Dashboard and Profile are always visible
         if (href.includes('index.html') || href.includes('profile.html')) {
             el.style.display = 'flex';
@@ -104,7 +104,7 @@ function renderLandingPage(user, ctx) {
     }
 
     if (heroTitle) {
-        heroTitle.innerHTML = `Plataforma de Gestión<br><span style="font-size:0.85em;opacity:0.85;">YELAVE Skincare</span>`;
+        heroTitle.innerHTML = `Plataforma de Gestión<br><span style="font-size:0.85em;opacity:0.85;">YELAVE </span>`;
     }
 
     if (heroDate) {

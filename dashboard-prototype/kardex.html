@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,34 +8,71 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
-        }
-        
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
+        /* ── Kardex page: theme-adaptive styles ── */
+        .kardex-page {
+            background-color: var(--bg-app);
+            color: var(--text-secondary);
             min-height: 100vh;
         }
 
         .glass-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 1rem;
+            box-shadow: var(--shadow-sm);
         }
 
-        .navbar-glass {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--glass-border);
+        /* ── Form inputs: inherit theme ── */
+        .kardex-page .form-select,
+        .kardex-page .form-control {
+            background-color: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-dark) !important;
+        }
+        .kardex-page .form-select:focus,
+        .kardex-page .form-control:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+        }
+        .kardex-page .form-label {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .table-dark-glass {
-            --bs-table-bg: transparent;
-            --bs-table-color: #f8fafc;
-            --bs-table-border-color: var(--glass-border);
+        /* ── Tabs: theme-adaptive ── */
+        .kardex-page .nav-tabs {
+            border-bottom-color: var(--border);
+        }
+        .kardex-page .nav-tabs .nav-link {
+            color: var(--text-muted);
+            border-color: transparent;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .kardex-page .nav-tabs .nav-link:hover {
+            color: var(--primary);
+            border-color: var(--border) var(--border) transparent;
+        }
+        .kardex-page .nav-tabs .nav-link.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--border) var(--border) var(--bg-app);
+        }
+
+        /* ── SUNAT column highlights ── */
+        .col-fisico { background-color: rgba(59, 130, 246, 0.08) !important; }
+        .col-valorizado { background-color: rgba(16, 185, 129, 0.08) !important; }
+        .col-saldos { background-color: rgba(245, 158, 11, 0.08) !important; }
+
+        .table-responsive {
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: auto;
+            width: 100%;
         }
 
         .btn-custom {
@@ -44,74 +81,169 @@
             color: white;
             transition: all 0.3s ease;
         }
-
         .btn-custom:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
             color: white;
         }
 
-        /* SUNAT FORMATS CSS */
-        .col-fisico { background-color: rgba(59, 130, 246, 0.1) !important; }
-        .col-valorizado { background-color: rgba(16, 185, 129, 0.1) !important; }
-        .col-saldos { background-color: rgba(245, 158, 11, 0.1) !important; }
-        
-        .table-responsive {
-            max-height: 70vh;
-            overflow-y: auto;
+        /* ── Header section ── */
+        .kardex-page h2 {
+            color: var(--text-primary);
+        }
+        .kardex-page .text-secondary-custom {
+            color: var(--text-muted);
+        }
+
+        /* ── Result container ── */
+        .resultado-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0 1rem 1rem 1rem;
+        }
+
+        /* ── Print button ── */
+        .btn-print {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .btn-print:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary-border);
+        }
+
+        /* ── Modal: theme-adaptive ── */
+        .kardex-page .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .kardex-page .modal-header {
+            border-bottom-color: var(--border);
+        }
+        .kardex-page .modal-title {
+            color: #a855f7;
+        }
+
+        /* ── Loader text ── */
+        .loader-text {
+            color: var(--text-muted);
+        }
+
+        /* ── Export button ── */
+        .btn-export {
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid currentColor;
+            font-size: 0.8rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .btn-export:hover {
+            background: var(--success);
+            color: #fff;
+        }
+
+        /* ── Dark theme overrides ── */
+        [data-theme="dark"] .kardex-page {
+            background-color: var(--bg-app);
+        }
+        [data-theme="dark"] .kardex-page .form-select,
+        [data-theme="dark"] .kardex-page .form-control {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border-color: rgba(255, 255, 255, 0.12) !important;
+            color: #e2e8f0 !important;
+        }
+        [data-theme="dark"] .kardex-page .nav-tabs .nav-link.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border-color: rgba(255, 255, 255, 0.1) rgba(255, 255, 255, 0.1) var(--bg-app);
+        }
+        [data-theme="dark"] .kardex-page .nav-tabs .nav-link {
+            color: #94a3b8;
+        }
+        [data-theme="dark"] .kardex-page .nav-tabs .nav-link:hover {
+            color: #818cf8;
+        }
+        [data-theme="dark"] .resultado-container {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="dark"] .btn-print {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.12);
+            color: #e2e8f0;
+        }
+        [data-theme="dark"] .btn-close {
+            filter: invert(1);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-overlay .modal {
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+            display: block; /* Overrides bootstrap .modal */
+            position: relative;
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
         }
     </style>
     <script src="auth-guard.js"></script>
 </head>
 <body>
-    <div class="app-container">
-        <main class="main-content">
-
     <!-- Traceability Modal -->
-    <div class="modal fade" id="traceModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content glass-panel" style="background: rgba(15, 17, 30, 0.95); border: 1px solid rgba(255,255,255,0.1);">
-                <div class="modal-header border-bottom-0">
-                    <h5 class="modal-title" style="color: #a855f7;">Trazabilidad del Movimiento</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="traceModalContent">
-                    <div class="loader" id="traceLoader" style="display:none; margin: 20px auto;"></div>
-                    <div id="traceData"></div>
-                </div>
+    <div class="modal-overlay" id="traceModal">
+        <div class="modal glass-modal" style="max-width:950px; width:95%; background: white; border-radius: 8px;">
+            <div class="modal-header border-bottom-0 pb-0" style="justify-content:flex-end; padding: 1rem 1.5rem 0;">
+                <button type="button" class="btn-close" onclick="closeTraceModal()"></button>
+            </div>
+            <div class="modal-body" id="traceModalContent" style="padding: 0; max-height: 85vh; overflow-y: auto;">
+                <div class="loader" id="traceLoader" style="display:none; margin: 20px auto;"></div>
+                <div id="traceData"></div>
             </div>
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-glass sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">
-                <i class="fas fa-layer-group me-2"></i>YELAVE ERP
-            </a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">Inicio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="kardex.html">Kardex</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <div class="app-container">
+        <main class="main-content">
 
+
+
+    <div class="kardex-page">
     <div class="container-fluid py-4">
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h2 class="mb-0">
-                    <i class="fas fa-boxes me-2 text-primary"></i>Reportes Kardex
+                    <i class="fas fa-boxes me-2" style="color: var(--primary);"></i>Reportes Kardex
                 </h2>
-                <p class="text-secondary mb-0">Generador de Formatos SUNAT 12.1 y 13.1</p>
+                <p class="text-secondary-custom mb-0" style="font-size: 0.85rem;">Generador de Formatos SUNAT 12.1 y 13.1</p>
             </div>
             <div>
-                <button class="btn btn-outline-light me-2" onclick="window.print()">
+                <button class="btn btn-print" onclick="window.print()">
                     <i class="fas fa-print me-2"></i>Imprimir
                 </button>
             </div>
@@ -122,14 +254,14 @@
             <form id="kardexForm" class="row g-3">
                 <div class="col-md-2">
                     <label class="form-label">Empresa</label>
-                    <select class="form-select bg-dark text-light" id="empresa" required>
+                    <select class="form-select" id="empresa" required>
                         <!-- Cargado por JS -->
                     </select>
                 </div>
                 
                 <div class="col-md-2">
                     <label class="form-label">Formato SUNAT</label>
-                    <select class="form-select bg-dark text-light" id="formato" required>
+                    <select class="form-select" id="formato" required>
                         <option value="12.1">12.1 (Físico)</option>
                         <option value="13.1">13.1 (Valorizado)</option>
                     </select>
@@ -137,22 +269,22 @@
 
                 <div class="col-md-2">
                     <label class="form-label">Fecha Inicio</label>
-                    <input type="date" class="form-control bg-dark text-light" id="fechaInicio" required>
+                    <input type="date" class="form-control" id="fechaInicio" required>
                 </div>
                 
                 <div class="col-md-2">
                     <label class="form-label">Fecha Fin</label>
-                    <input type="date" class="form-control bg-dark text-light" id="fechaFin" required>
+                    <input type="date" class="form-control" id="fechaFin" required>
                 </div>
 
                 <div class="col-md-2">
                     <label class="form-label">Cód. Mat. (Desde)</label>
-                    <input type="text" class="form-control bg-dark text-light" id="codMatDesde" placeholder="Opcional">
+                    <input type="text" class="form-control" id="codMatDesde" placeholder="Opcional">
                 </div>
 
                 <div class="col-md-2">
                     <label class="form-label">Cód. Mat. (Hasta)</label>
-                    <input type="text" class="form-control bg-dark text-light" id="codMatHasta" placeholder="Opcional">
+                    <input type="text" class="form-control" id="codMatHasta" placeholder="Opcional">
                 </div>
 
                 <div class="col-12 d-flex justify-content-end">
@@ -164,33 +296,33 @@
         </div>
 
         <!-- Tabs -->
-        <div class="mb-2">
-            <ul class="nav nav-tabs border-bottom-0" id="reportesTabs" role="tablist">
+        <div class="mb-0">
+            <ul class="nav nav-tabs" id="reportesTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active rounded-top fw-bold" style="color:#fff; background: rgba(59, 130, 246, 0.2); border-color: rgba(255,255,255,0.1);" id="kardex-tab" data-bs-toggle="tab" data-bs-target="#tab-kardex" type="button" role="tab">Kardex SUNAT</button>
+                    <button class="nav-link active" id="kardex-tab" data-bs-toggle="tab" data-bs-target="#tab-kardex" type="button" role="tab">Kardex SUNAT</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link rounded-top text-white" style="border-color: transparent;" id="stock-tab" data-bs-toggle="tab" data-bs-target="#tab-stock" type="button" role="tab">Reporte Stock</button>
+                    <button class="nav-link" id="stock-tab" data-bs-toggle="tab" data-bs-target="#tab-stock" type="button" role="tab">Reporte Stock</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link rounded-top text-white" style="border-color: transparent;" id="costo-tab" data-bs-toggle="tab" data-bs-target="#tab-costo" type="button" role="tab">Costo de Ventas</button>
+                    <button class="nav-link" id="costo-tab" data-bs-toggle="tab" data-bs-target="#tab-costo" type="button" role="tab">Costo de Ventas</button>
                 </li>
             </ul>
         </div>
 
         <!-- Resultados -->
-        <div class="glass-card p-4 rounded-end rounded-bottom" id="resultadosContainer" style="display: none; animation: slideUp 0.5s ease-out; background: rgba(59, 130, 246, 0.05);">
+        <div class="resultado-container p-4" id="resultadosContainer" style="display: none; animation: slideUp 0.5s ease-out;">
             <div class="d-flex justify-content-end mb-3">
-                <button class="btn btn-outline-success btn-sm" onclick="exportKardexToExcel()">
+                <button class="btn btn-export" onclick="exportKardexToExcel()">
                     <i class="fas fa-file-excel me-2"></i>Exportar a Excel
                 </button>
             </div>
             
             <div id="loader" class="text-center py-5" style="display: none;">
-                <div class="spinner-border text-primary" role="status">
+                <div class="spinner-border" style="color: var(--primary);" role="status">
                     <span class="visually-hidden">Cargando...</span>
                 </div>
-                <p class="mt-2 text-light">Procesando movimientos...</p>
+                <p class="mt-2 loader-text">Procesando movimientos...</p>
             </div>
 
             <div class="tab-content" id="reportesTabsContent">
@@ -211,13 +343,15 @@
             </div>
         </div>
     </div>
+    </div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/kardex.js?v=3.0"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js/kardex.js?v=4.0"></script>
     <script src="sidebar.js"></script>
         </main>
     </div>
 </body>
 </html>
-

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import os
+import sys
 import pyodbc
 from dotenv import load_dotenv, set_key, find_dotenv
 
@@ -100,7 +101,10 @@ def update_db_config(config: DBConfigUpdate):
 def test_db_connection(config: DBTestRequest):
     """Prueba la conexión a la base de datos con las credenciales proporcionadas."""
     try:
-        odbc_driver = os.getenv("ODBC_DRIVER", "{SQL Server}")
+        default_driver = "{SQL Server}" if sys.platform == "win32" else "{ODBC Driver 18 for SQL Server}"
+        odbc_driver = os.getenv("ODBC_DRIVER", default_driver)
+        if sys.platform != "win32" and "ODBC Driver" not in odbc_driver:
+            odbc_driver = "{ODBC Driver 18 for SQL Server}"
         conn_str = (
             f"DRIVER={odbc_driver};"
             f"SERVER={config.db_server};"
@@ -166,7 +170,10 @@ def db_status():
     """Verifica el estado actual de la conexión con la configuración del .env."""
     load_dotenv(override=True)
     try:
-        odbc_driver = os.getenv("ODBC_DRIVER", "{SQL Server}")
+        default_driver = "{SQL Server}" if sys.platform == "win32" else "{ODBC Driver 18 for SQL Server}"
+        odbc_driver = os.getenv("ODBC_DRIVER", default_driver)
+        if sys.platform != "win32" and "ODBC Driver" not in odbc_driver:
+            odbc_driver = "{ODBC Driver 18 for SQL Server}"
         conn_str = (
             f"DRIVER={odbc_driver};"
             f"SERVER={os.getenv('DB_SERVER')};"

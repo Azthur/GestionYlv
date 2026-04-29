@@ -325,6 +325,12 @@ creation_scripts = [
             ALTER TABLE FinPagos ADD Numero VARCHAR(20) NULL;
         IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='NroFactura' AND object_id = OBJECT_ID('FinPagos'))
             ALTER TABLE FinPagos ADD NroFactura VARCHAR(30) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='Uuid' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD Uuid VARCHAR(50) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='TipoOc' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD TipoOc VARCHAR(5) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='ConceptoPago' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD ConceptoPago VARCHAR(100) NULL;
     END
     """,
 

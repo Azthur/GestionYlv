@@ -5,8 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YELAVE - Plataforma Corporativa</title>
-    <meta name="description" content="YELAVE Skincare - Plataforma de Gestión Corporativa. Belleza, innovación y excelencia en productos de cuidado de la piel.">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="description"
+        content="YELAVE Skincare - Plataforma de Gestión Corporativa. Belleza, innovación y excelencia en productos de cuidado de la piel.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
         /* ============================================
@@ -57,10 +60,23 @@
         }
 
         @keyframes floatOrb {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(60px, -40px) scale(1.1); }
-            50% { transform: translate(-30px, 60px) scale(0.95); }
-            75% { transform: translate(50px, 20px) scale(1.05); }
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(60px, -40px) scale(1.1);
+            }
+
+            50% {
+                transform: translate(-30px, 60px) scale(0.95);
+            }
+
+            75% {
+                transform: translate(50px, 20px) scale(1.05);
+            }
         }
 
         /* Extra floating orb */
@@ -71,6 +87,7 @@
             pointer-events: none;
             z-index: 0;
         }
+
         .orb-1 {
             top: 20%;
             right: 15%;
@@ -79,6 +96,7 @@
             background: rgba(99, 102, 241, 0.07);
             animation: floatOrb 15s ease-in-out infinite 2s;
         }
+
         .orb-2 {
             bottom: 10%;
             left: 30%;
@@ -87,6 +105,7 @@
             background: rgba(244, 114, 182, 0.05);
             animation: floatOrb 20s ease-in-out infinite 5s;
         }
+
         .orb-3 {
             top: 60%;
             right: 40%;
@@ -110,6 +129,7 @@
             backdrop-filter: blur(20px) !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
         }
+
         .top-bar h2 {
             color: rgba(255, 255, 255, 0.9) !important;
             font-family: 'Outfit', sans-serif !important;
@@ -161,6 +181,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -233,6 +254,7 @@
             color: rgba(192, 132, 252, 0.9);
             margin-top: 1.5rem;
         }
+
         .hero-badge .dot {
             width: 6px;
             height: 6px;
@@ -240,9 +262,19 @@
             background: #a855f7;
             animation: pulse 2s ease-in-out infinite;
         }
+
         @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.8); }
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
         }
 
         /* ── Quick Access Portal ─────────────────── */
@@ -278,16 +310,28 @@
             animation: cardSlideIn 0.6s ease-out both;
         }
 
-        .portal-card:nth-child(1) { animation-delay: 0.1s; }
-        .portal-card:nth-child(2) { animation-delay: 0.2s; }
-        .portal-card:nth-child(3) { animation-delay: 0.3s; }
-        .portal-card:nth-child(4) { animation-delay: 0.4s; }
+        .portal-card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .portal-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .portal-card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .portal-card:nth-child(4) {
+            animation-delay: 0.4s;
+        }
 
         @keyframes cardSlideIn {
             from {
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -311,7 +355,7 @@
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.4),
-                        0 0 40px -20px var(--card-accent);
+                0 0 40px -20px var(--card-accent);
         }
 
         .portal-card:hover::before {
@@ -385,14 +429,17 @@
             --card-accent: #6366f1;
             --card-icon-bg: rgba(99, 102, 241, 0.1);
         }
+
         .portal-card.card-finance {
             --card-accent: #a855f7;
             --card-icon-bg: rgba(168, 85, 247, 0.1);
         }
+
         .portal-card.card-users {
             --card-accent: #ec4899;
             --card-icon-bg: rgba(236, 72, 153, 0.1);
         }
+
         .portal-card.card-profile {
             --card-accent: #14b8a6;
             --card-icon-bg: rgba(20, 184, 166, 0.1);
@@ -414,10 +461,22 @@
             text-align: center;
             animation: cardSlideIn 0.6s ease-out both;
         }
-        .vision-card:nth-child(1) { animation-delay: 0.5s; }
-        .vision-card:nth-child(2) { animation-delay: 0.6s; }
-        .vision-card:nth-child(3) { animation-delay: 0.7s; }
-        .vision-card:nth-child(4) { animation-delay: 0.8s; }
+
+        .vision-card:nth-child(1) {
+            animation-delay: 0.5s;
+        }
+
+        .vision-card:nth-child(2) {
+            animation-delay: 0.6s;
+        }
+
+        .vision-card:nth-child(3) {
+            animation-delay: 0.7s;
+        }
+
+        .vision-card:nth-child(4) {
+            animation-delay: 0.8s;
+        }
 
         .vision-number {
             font-family: 'Outfit', sans-serif;
@@ -468,18 +527,23 @@
             .landing-bg {
                 left: 0;
             }
+
             .landing-wrapper {
                 padding: 1rem;
             }
+
             .hero-section {
                 padding: 2rem 1.5rem;
             }
+
             .hero-title {
                 font-size: 1.6rem;
             }
+
             .portal-grid {
                 grid-template-columns: 1fr;
             }
+
             .vision-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -501,18 +565,23 @@
             <nav class="nav-menu">
                 <a href="/index.html" class="nav-item active">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
                     </svg>Dashboard
                 </a>
                 <a href="/logistics.html" class="nav-item">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                        </path>
                     </svg>Centro Logístico
                 </a>
                 <a href="/orders.html" class="nav-item">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                     </svg>Compras (Legacy)
                 </a>
@@ -523,13 +592,17 @@
                 </a>
                 <a href="/reparto.html" class="nav-item">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                        <circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
                     </svg>Reparto y Rutas
                 </a>
                 <a href="/kardex.html" class="nav-item">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                        </path>
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                         <line x1="12" y1="22.08" x2="12" y2="12"></line>
                     </svg>Reportes Kardex
@@ -545,18 +618,22 @@
                 </a>
                 <a href="/conciliacion.html" class="nav-item">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                     </svg>Finanzas (Conciliación)
                 </a>
                 <a href="/db-config.html" class="nav-item">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                     </svg>Mantenimiento BD
                 </a>
             </nav>
             <div class="user-profile" onclick="window.location.href='/profile.html'" style="cursor:pointer;">
                 <div class="avatar">
-                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=U&background=2b3954&color=fff" alt="User Avatar">
+                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=U&background=2b3954&color=fff"
+                        alt="User Avatar">
                 </div>
                 <div class="user-info">
                     <span class="user-name" id="userNameDisplay">Cargando...</span>
@@ -579,8 +656,12 @@
                     <h2>Plataforma Corporativa</h2>
                 </div>
                 <div class="actions" style="display:flex; gap:0.5rem;">
-                    <a href="/profile.html" style="text-decoration:none; padding:8px 18px; border-radius:8px; font-size:0.8rem; font-weight:500; color:rgba(255,255,255,0.7); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); transition:all 0.3s; cursor:pointer;">Mi Perfil</a>
-                    <button onclick="logout()" style="padding:8px 18px; border-radius:8px; font-size:0.8rem; font-weight:500; color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); transition:all 0.3s; cursor:pointer;">Cerrar Sesión</button>
+                    <a href="/profile.html"
+                        style="text-decoration:none; padding:8px 18px; border-radius:8px; font-size:0.8rem; font-weight:500; color:rgba(255,255,255,0.7); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); transition:all 0.3s; cursor:pointer;">Mi
+                        Perfil</a>
+                    <button onclick="logout()"
+                        style="padding:8px 18px; border-radius:8px; font-size:0.8rem; font-weight:500; color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); transition:all 0.3s; cursor:pointer;">Cerrar
+                        Sesión</button>
                 </div>
             </header>
 
@@ -596,8 +677,9 @@
                 <!-- ── Hero Section ──────────────── -->
                 <section class="hero-section">
                     <div class="hero-greeting" id="heroGreeting">Bienvenido de nuevo</div>
-                    <h1 class="hero-title" id="heroTitle">Plataforma de Gestión<br>YELAVE Skincare</h1>
-                    <p class="hero-subtitle">Centro de operaciones integral para la gestión corporativa, logística, financiera y productiva de nuestra línea de cuidado de la piel.</p>
+                    <h1 class="hero-title" id="heroTitle">Plataforma de Gestión<br>YELAVE </h1>
+                    <p class="hero-subtitle">Centro de operaciones integral para la gestión corporativa, logística,
+                        financiera y productiva de nuestra línea de cuidado de la piel.</p>
                     <div class="hero-meta">
                         <div class="hero-meta-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -656,8 +738,9 @@
 
                 <!-- ── Footer Quote ──────────────── -->
                 <div class="landing-footer">
-                    <p class="footer-quote">"La belleza es la promesa de felicidad. Cada producto que creamos es una promesa cumplida."</p>
-                    <div class="footer-brand">YELAVE SKINCARE © 2026</div>
+                    <p class="footer-quote">"La belleza es la promesa de felicidad. Cada producto que creamos es una
+                        promesa cumplida."</p>
+                    <div class="footer-brand">YELAVE © 2026</div>
                 </div>
 
             </div>

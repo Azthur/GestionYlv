@@ -43,7 +43,10 @@
                             <th>FECHA REG.</th>
                             <th>NRO RENDICIÓN</th>
                             <th>TRABAJADOR</th>
-                            <th>REEMBOLSO</th>
+                            <th>MON</th>
+                            <th>TOTAL GASTADO</th>
+                            <th>TOTAL REEMBOLSO</th>
+                            <th>USUARIO</th>
                             <th>ESTADO</th>
                             <th>PDF</th>
                             <th>ACCIÓN</th>
@@ -58,6 +61,12 @@
     <script>
         const API_URL = "http://localhost:8000/api";
         let tbl;
+
+        function monSym(m) {
+            const v = String(m || '1').trim();
+            if (v === '2' || v === 'USD' || v === 'US$' || v === '$') return '$';
+            return 'S/';
+        }
 
         document.addEventListener("DOMContentLoaded", async () => {
             // Cargar Empresas del Filtro
@@ -75,7 +84,8 @@
             // Iniciar DataTable
             tbl = $('#tablaRevision').DataTable({
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-                order: [[1, "desc"]]
+                order: [[1, "desc"]],
+                pageLength: 25
             });
 
             cargarBandeja();
@@ -102,12 +112,16 @@
                         ? `<button disabled style="background:#e2e8f0; color:#94a3b8; border:none; padding:4px 8px; border-radius:4px; font-weight:600;">Ya Aprobado</button>`
                         : `<button onclick="aprobarRendicion(${r.Id})" style="background:#10b981; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:600;">✔ APROBAR</button>`;
 
+                    const sym = monSym(r.Moneda);
                     tbl.row.add([
                         r.nomcia || r.CodCia,
                         r.FechaRegistro,
                         r.NroRendicion,
                         r.NomAux,
-                        `S/ ${r.TotalReembolso.toFixed(2)}`,
+                        sym === '$' ? 'USD' : 'PEN',
+                        `${sym} ${(parseFloat(r.TotalGastado) || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
+                        `${sym} ${(parseFloat(r.TotalReembolso) || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
+                        r.UsuarioRegistro || '',
                         badge,
                         btnPdf,
                         btnAccion

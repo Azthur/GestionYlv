@@ -179,7 +179,7 @@
                         <table id="historialPagosTable" class="display nowrap" style="width:100%;">
                             <thead>
                                 <tr>
-                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Medio</th><th>Concepto</th><th>N° Operación</th><th>Fecha Pago</th><th>Mon</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th>
+                                    <th>N° OC</th><th>Proveedor</th><th>N° Factura</th><th>Banco</th><th>Medio</th><th>Concepto</th><th>N° Operación</th><th>Fecha Pago</th><th>Mon</th><th style="text-align:right;">Monto</th><th>Usuario</th><th>Adjuntos</th><th>Visor</th>
                                 </tr>
                             </thead>
                             <tbody id="historialPagosTbody"></tbody>
@@ -354,6 +354,40 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal: Trazabilidad OC → Almacén → Factura -->
+    <div class="modal-overlay" id="trazaModal">
+        <div class="modal glass-modal" style="max-width:1050px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between;">
+                <h3>Trazabilidad - OC <span id="trazaOcNro" style="color:var(--primary)"></span></h3>
+                <button class="close-btn" onclick="closeTrazaModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height:80vh; overflow-y:auto;">
+                <div id="trazaContent" style="padding:0.5rem;">
+                    <div style="text-align:center; padding:3rem; color:var(--text-muted);">Cargando trazabilidad...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .traza-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+        .traza-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+        .traza-bar-fill.complete { background: #22c55e; }
+        .traza-bar-fill.partial { background: #f59e0b; }
+        .traza-bar-fill.pending { background: #e2e8f0; }
+        .traza-summary { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding: 1rem; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .traza-summary-item { text-align: center; }
+        .traza-summary-item .tval { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
+        .traza-summary-item .tlabel { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .traza-factura-list { margin-top: 1rem; }
+        .traza-factura-card { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.8rem; }
+    </style>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

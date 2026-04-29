@@ -34,8 +34,9 @@ const formatCurrency = (val, sym = 'S/') => (val === null || val === undefined) 
 const TIPO_OC_MAP = { 'M': 'Mercadería', 'S': 'Servicios', 'T': 'Contable' };
 const formatTipo = (t) => TIPO_OC_MAP[t] || t || '-';
 
-function formatStatus(status) {
+function formatStatus(status, isApproved, tipoOc) {
     const s = String(status || '').trim().toUpperCase();
+    const t = String(tipoOc || '').trim().toUpperCase();
     let watermark = '';
     let badge = '';
 
@@ -46,7 +47,11 @@ function formatStatus(status) {
         watermark = '<div class="watermark-text wm-completo">CERRADO</div>';
         badge = '<span class="badge approved" style="background:#f0fdf4; color:#16a34a;"><i class="fas fa-check-double"></i> CERRADO</span>';
     } else if (s === 'P') {
-        badge = '<span class="badge" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-clock"></i> PENDIENTE</span>';
+        if (isApproved) {
+            badge = '<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;"><i class="fas fa-check-circle"></i> APROBADO</span>';
+        } else {
+            badge = '<span class="badge" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-clock"></i> PENDIENTE</span>';
+        }
     } else if (s === 'R') {
         badge = '<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fas fa-file-signature"></i> REGISTRADO</span>';
     } else {
@@ -125,7 +130,8 @@ async function loadOrders() {
 
         // Build DataTable data array
         const dtData = orders.map(o => {
-            const statusInfo = formatStatus(o.estado);
+            const isApproved = !!(o.es_aprobado || o.usuario_aprobado);
+            const statusInfo = formatStatus(o.estado, isApproved, o.tipooc);
             const mon = String(o.moneda || '1').trim();
             const sym = (mon === '2') ? 'USD' : 'S/';
             const total = parseFloat(o.total) || 0;
@@ -134,6 +140,17 @@ async function loadOrders() {
             if (t === 'S') tipoLabel = '<span class="badge" style="background:#f1f5f9; color:#475569;">⚙️ Servicios</span>';
             else if (t === 'T') tipoLabel = '<span class="badge" style="background:#f1f5f9; color:#475569;">🗂️ Contable</span>';
             
+            let procesoBg = '#f1f5f9';
+            let procesoColor = '#475569';
+            let procesoIcon = '📦';
+            const proc = (o.estado_proceso || 'EN LOGÍSTICA').toUpperCase();
+            if (proc === 'EN TESORERÍA') { procesoBg = '#fef3c7'; procesoColor = '#b45309'; procesoIcon = '💸'; }
+            else if (proc === 'EN CONTABILIDAD') { procesoBg = '#f3e8ff'; procesoColor = '#7e22ce'; procesoIcon = '🗂️'; }
+            else if (proc === 'CANCELADO') { procesoBg = '#dcfce7'; procesoColor = '#15803d'; procesoIcon = '✅'; }
+            else if (proc === 'EN LOGÍSTICA') { procesoBg = '#e0f2fe'; procesoColor = '#0369a1'; procesoIcon = '🚚'; }
+            
+            const procesoBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; font-weight:600; padding:3px 6px; border-radius:4px; background:${procesoBg}; color:${procesoColor};" title="${proc}">${procesoIcon} ${proc}</span>`;
+
             // Build actions dropdown
             const isLogistics = currentRole === 'LOGISTICA' || currentRole === 'ADMIN';
             const isTreasury = currentRole === 'TESORERIA' || currentRole === 'ADMIN';
@@ -178,7 +195,7 @@ async function loadOrders() {
             return [
                 btnHtml,
                 statusInfo.badge,
-                `<span style="font-size:0.75rem; font-weight:600; padding:3px 6px; border-radius:4px; background:#f1f5f9; color:#475569;">${o.estado_proceso || 'EN LOGÍSTICA'}</span>`,
+                procesoBadge,
                 o.nrodoc || '',
                 o.fchdoc || '',
                 tipoLabel,
@@ -393,8 +410,9 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
 
     // ── Items Table ──
     const isGoods = (t === 'M');
-    const colCantLabel = isGoods ? 'Cant' : 'Cantidad';
-    const statusColLabel = isGoods ? 'Recibido' : 'Facturado';
+    const isService = (t === 'S' || t === 'T');
+    const colCantLabel = isService ? 'Monto OC' : (isGoods ? 'Cant' : 'Cantidad');
+    const facturadoLabel = isService ? 'Monto Fac.' : 'Facturado';
 
     html += `
     <table class="report-table" style="position:relative; z-index:1;">
@@ -405,7 +423,7 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
             <th style="width:35px;text-align:center;">Und</th>
             <th style="width:65px;text-align:right;">${colCantLabel}</th>
             ${isGoods ? '<th style="width:65px;text-align:right;">Recibido</th>' : ''}
-            <th style="width:65px;text-align:right;">Facturado</th>
+            <th style="width:65px;text-align:right;">${facturadoLabel}</th>
             <th style="width:65px;text-align:center;">Estado</th>
             <th style="width:70px;text-align:right;">Precio</th>
             <th style="width:80px;text-align:right;">Total</th>
@@ -422,9 +440,9 @@ function renderReport(data, acciones = [], attachedDocs = { signed: [], voucher:
                 <td style="font-family:monospace;font-size:0.725rem;">${it.codmat}</td>
                 <td style="font-weight:500;">${it.desmat}</td>
                 <td style="text-align:center;font-size:0.75rem;">${it.undstk}</td>
-                <td style="text-align:right;">${fmtNum(it.candes)}</td>
+                <td style="text-align:right;">${fmtNum(isService ? it.imptot : it.candes)}</td>
                 ${isGoods ? `<td style="text-align:right;font-weight:600;color:#22c55e;">${fmtNum(it.cant_ingresada)}</td>` : ''}
-                <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(it.cant_facturada)}</td>
+                <td style="text-align:right;font-weight:600;color:#8b5cf6;">${fmtNum(isService ? (it.monto_facturado || 0) : it.cant_facturada)}</td>
                 <td style="text-align:center;font-size:0.7rem;${rowColor}">${it.estado_ingreso}</td>
                 <td style="text-align:right;">${fmtNum(it.preuni)}</td>
                 <td style="text-align:right;font-weight:600;color:var(--primary);">${sym} ${fmtNum(it.imptot)}</td>
@@ -665,9 +683,9 @@ function closeReportViewer() {
 async function openWarehouseModal(codcia, nrodoc) {
     document.getElementById('warehouseOcNro').textContent = nrodoc;
     document.getElementById('warehouseModal').classList.add('active');
-    const tbody = document.getElementById('warehouse-tbody');
-    // Use the modal body directly for a richer layout
-    const modalBody = tbody.closest('.modal-body');
+    
+    // Select the modal body directly so we don't depend on inner elements that might have been overwritten
+    const modalBody = document.querySelector('#warehouseModal .modal-body');
     modalBody.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">Consultando ingresos a almacén...</div>';
 
     try {
@@ -694,6 +712,9 @@ async function openWarehouseModal(codcia, nrodoc) {
 
             // ── Header Band ──
             html += `
+            <div style="text-align:center; font-weight:bold; font-size:1.1rem; color:var(--primary); margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px;">
+                📦 Detalle de Movimientos Almacén
+            </div>
             <div class="report-header-band">
                 <div class="report-company-info">
                     <h2>${co.nomcia || 'EMPRESA'}</h2>
@@ -1220,12 +1241,20 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
         const r = data.resumen;
         const fmtN = (v) => v != null ? parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0.00';
 
+        const isService = tipooc === 'S' || tipooc === 'T';
+        
         let html = `
         <div class="traza-summary">
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_items_oc}</div><div class="tlabel">Items OC</div></div>
-            <div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>
+            ${!isService 
+                ? `<div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.total_oc)}</div><div class="tlabel">Cant. Pedida</div></div>`
+                : `<div class="traza-summary-item" style="flex:1;"><div class="tval">${fmtN(r.monto_oc)}</div><div class="tlabel">Monto Pedido</div></div>`
+            }
             ${tipooc === 'M' ? `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#22c55e;">${fmtN(r.total_almacen)}</div><div class="tlabel">Cant. Almacén</div></div>` : ''}
-            <div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>
+            ${!isService
+                ? `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.total_facturado)}</div><div class="tlabel">Cant. Facturada</div></div>`
+                : `<div class="traza-summary-item" style="flex:1;"><div class="tval" style="color:#8b5cf6;">${fmtN(r.monto_facturado)}</div><div class="tlabel">Monto Facturado</div></div>`
+            }
             <div class="traza-summary-item" style="flex:1;"><div class="tval">${r.total_facturas}</div><div class="tlabel">Facturas</div></div>
         </div>`;
 
@@ -1273,9 +1302,9 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">#</th>
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Código</th>
                     <th style="padding:0.6rem 0.5rem; text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Descripción</th>
-                    <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">Cant. OC</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:right; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#334155; border-bottom:2px solid #cbd5e1;">${!isService ? 'Cant. OC' : 'Monto OC'}</th>
                     ${tipooc === 'M' ? `<th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#22c55e; border-bottom:2px solid #cbd5e1;">Almacén</th>` : ''}
-                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">Facturado</th>
+                    <th style="padding:0.6rem 0.5rem; text-align:center; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; color:#8b5cf6; border-bottom:2px solid #cbd5e1;">${!isService ? 'Cant. Facturada' : 'Monto Facturado'}</th>
                 </tr>
             </thead><tbody>`;
 
@@ -1300,13 +1329,13 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
                     <td style="padding:0.5rem; text-align:center; color:#64748b;">${it.nroitm}</td>
                     <td style="padding:0.5rem; font-family:monospace; font-size:0.725rem;">${it.codmat}</td>
                     <td style="padding:0.5rem;">${(it.desmat || '').substring(0, 50)}</td>
-                    <td style="padding:0.5rem; text-align:right; font-weight:600;">${fmtN(it.candes)}</td>
+                    <td style="padding:0.5rem; text-align:right; font-weight:600;">${!isService ? fmtN(it.candes) : fmtN(it.monto_oc)}</td>
                     ${tipooc === 'M' ? `<td style="padding:0.5rem; text-align:center;">
                         <div style="font-weight:600; ${almClass === 'complete' ? 'color:#22c55e;' : almClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_almacen)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_almacen}%)</span></div>
                         <div class="traza-bar"><div class="traza-bar-fill ${almClass}" style="width:${Math.min(it.pct_almacen, 100)}%;"></div></div>
                     </td>` : ''}
                     <td style="padding:0.5rem; text-align:center;">
-                        <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${fmtN(it.cant_facturada)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
+                        <div style="font-weight:600; ${facClass === 'complete' ? 'color:#8b5cf6;' : facClass === 'partial' ? 'color:#f59e0b;' : 'color:#94a3b8;'}">${!isService ? fmtN(it.cant_facturada) : fmtN(it.monto_facturado)} <span style="font-size:0.65rem; font-weight:400;">(${it.pct_facturado}%)</span></div>
                         <div class="traza-bar"><div class="traza-bar-fill ${facClass}" style="width:${Math.min(it.pct_facturado, 100)}%;"></div></div>
                     </td>
                 </tr>${trWarning}`;
