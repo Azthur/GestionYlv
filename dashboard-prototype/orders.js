@@ -172,6 +172,11 @@ async function loadOrders() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                         Trazabilidad OC
                     </button>
+                    ${['M', 'O'].includes(String(o.tipooc || '').trim().toUpperCase()) ? `
+                    <button class="action-dropdown-item" onclick="openRecojoModal('${cia}','${o.tipooc}','${o.nrodoc}','${o.anos || year || ''}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                        Solicitud de Recojo
+                    </button>` : ''}
                     ${ (((o.tipooc || '').trim().toUpperCase() === 'M' && (o.estado || '').trim().toUpperCase() === 'R') || (['S', 'T'].includes((o.tipooc || '').trim().toUpperCase()) && (o.estado || '').trim().toUpperCase() === 'P')) ? `
                     <div class="action-dropdown-divider"></div>
                     <button class="action-dropdown-item" onclick="aprobarOc('${cia}','${o.nrodoc}','${o.tipooc}','${o.anos}')" style="color:var(--success);">
@@ -1014,10 +1019,21 @@ async function openRecojoModal(codcia, tipooc, nrodoc, year) {
     document.getElementById('recCodCia').value = codcia;
     document.getElementById('recTipoOc').value = tipooc;
     document.getElementById('recYear').value = year;
-    document.getElementById('recojoItemsTbody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando detalles...</td></tr>';
+    document.getElementById('recojoItemsTbody').innerHTML = '<tr><td colspan="8" style="text-align:center;">Cargando detalles...</td></tr>';
     
     try {
         const token = localStorage.getItem('yelave_token');
+        
+        // 1. Obtener ya solicitado para recojo (filtrando por Cia + Nro + Tipo)
+        let yaSolicitado = {};
+        try {
+            const resSol = await fetch(`/api/reparto/solicitudes/cantidades-recojo/${encodeURIComponent(nrodoc)}?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (resSol.ok) yaSolicitado = await resSol.json();
+        } catch(e) { console.warn("Error cargando ya solicitado", e); }
+
+        // 2. Obtener reporte OC
         let url = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/report?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}&year=${encodeURIComponent(year)}`;
         const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         if (!res.ok) throw new Error('Error al cargar reporte OC');
@@ -1034,6 +1050,7 @@ async function openRecojoModal(codcia, tipooc, nrodoc, year) {
 
         // Populate fields
         document.getElementById('recProveedor').value = data.header.nomaux || '';
+        document.getElementById('recProveedor').dataset.ruc = data.header.codaux || '';
         document.getElementById('recOrigen').value = data.header.diraux || '';
         document.getElementById('recDestino').value = data.header.lugent || '';
         document.getElementById('recContacto').value = data.header.contacto || data.header.nomaux || '';
@@ -1044,19 +1061,36 @@ async function openRecojoModal(codcia, tipooc, nrodoc, year) {
         // Populate items
         let html = '';
         data.items.forEach((it, idx) => {
-            const pendiente = it.candes - it.cant_ingresada;
-            if (pendiente > 0 || (it.candes === 0)) {
+            const key = String(it.codmat || '').trim();
+            const yaSol = yaSolicitado[key] || 0;
+            // El pendiente real es la cantidad de la OC - lo ya ingresado a almacén - lo ya solicitado para recojo
+            const pendienteReal = it.candes - it.cant_ingresada - yaSol;
+            
+            if (it.candes > 0) {
                 html += `<tr>
-                    <td style="text-align:center;"><input type="checkbox" class="chk-recojo-item" data-codmat="${it.codmat || ''}" data-desc="${it.desmat || ''}" data-unidad="${it.undstk || ''}"></td>
+                    <td style="text-align:center;"><input type="checkbox" class="chk-recojo-item" 
+                        data-codmat="${it.codmat || ''}" 
+                        data-desc="${it.desmat || ''}" 
+                        data-unidad="${it.undstk || ''}"
+                        data-pendiente="${pendienteReal}"></td>
                     <td style="font-size:0.75rem; font-family:monospace;">${it.codmat || '-'}</td>
                     <td style="font-size:0.75rem;">${it.desmat || ''}</td>
                     <td style="text-align:center; font-size:0.75rem;">${it.undstk || ''}</td>
-                    <td style="text-align:right;">${fmtNum(pendiente, 2)}</td>
-                    <td style="text-align:right;"><input type="number" step="0.01" class="recojo-qty" value="${pendiente}" max="${pendiente}" min="0.01" style="width:70px; padding:0.15rem 0.35rem; font-size:0.75rem;"></td>
+                    <td style="text-align:right;">${fmtNum(it.candes, 2)}</td>
+                    <td style="text-align:right; color:#64748b;">${fmtNum(yaSol, 2)}</td>
+                    <td style="text-align:right; font-weight:700; color:${pendienteReal > 0 ? 'var(--primary)' : '#94a3b8'};">${fmtNum(pendienteReal, 2)}</td>
+                    <td style="text-align:right;">
+                        <input type="number" step="0.01" class="recojo-qty" 
+                            value="${pendienteReal > 0 ? pendienteReal : 0}" 
+                            max="${pendienteReal > 0 ? pendienteReal : 0}" 
+                            min="0.01" 
+                            ${pendienteReal <= 0 ? 'disabled' : ''}
+                            style="width:75px; padding:0.15rem 0.35rem; font-size:0.75rem;">
+                    </td>
                 </tr>`;
             }
         });
-        if (html === '') html = '<tr><td colspan="6" style="text-align:center; color:#94a3b8;">No hay ítems pendientes de recoger.</td></tr>';
+        if (html === '') html = '<tr><td colspan="8" style="text-align:center; color:#94a3b8; padding:2rem;">No hay ítems con saldo pendiente de recoger.</td></tr>';
         document.getElementById('recojoItemsTbody').innerHTML = html;
         
     } catch (err) {
@@ -1081,18 +1115,34 @@ async function submitSolicitudRecojo() {
     }
     
     const itemsSelected = [];
+    let validationError = null;
+
     document.querySelectorAll('.chk-recojo-item').forEach(chk => {
         if (chk.checked) {
             const tr = chk.closest('tr');
             const qtyInput = tr.querySelector('.recojo-qty');
+            const qty = parseFloat(qtyInput.value) || 0;
+            const max = parseFloat(chk.dataset.pendiente) || 0;
+
+            if (qty <= 0) {
+                validationError = `La cantidad para el ítem ${chk.dataset.desc} debe ser mayor a 0.`;
+            } else if (qty > (max + 0.0001)) { // Tolerancia decimal
+                validationError = `La cantidad para el ítem ${chk.dataset.desc} (${qty}) excede el pendiente actual (${max}).`;
+            }
+
             itemsSelected.push({
                 codmat: chk.dataset.codmat,
                 descripcion: chk.dataset.desc,
-                cantidad: parseFloat(qtyInput.value),
+                cantidad: qty,
                 unidad: chk.dataset.unidad
             });
         }
     });
+
+    if (validationError) {
+        Swal.fire({ icon: 'error', title: 'Error de Validación', text: validationError });
+        return;
+    }
     
     if (itemsSelected.length === 0) {
         Swal.fire({icon: 'warning', title: 'Atención', text: 'Seleccione al menos un ítem para recoger'});
@@ -1100,7 +1150,7 @@ async function submitSolicitudRecojo() {
     }
     
     const payload = {
-        tipo: 'OC',
+        tipo: document.getElementById('recTipoOc').value || 'OC',
         codcia: document.getElementById('recCodCia').value,
         nro_oc: document.getElementById('recojoOcNro').textContent,
         fecha_recojo: document.getElementById('recFecha').value,
@@ -1109,6 +1159,7 @@ async function submitSolicitudRecojo() {
         destino: document.getElementById('recDestino').value,
         contacto: document.getElementById('recContacto').value,
         responsable: document.getElementById('userNameDisplay').textContent,
+        proveedor_ruc: document.getElementById('recProveedor').dataset.ruc || '',
         proveedor_nombre: document.getElementById('recProveedor').value,
         celular_contacto: document.getElementById('recCelular').value,
         observaciones: document.getElementById('recObservaciones').value,
@@ -1661,12 +1712,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const seek_oc = urlParams.get('seek_oc');
             const seek_oc_report = urlParams.get('seek_oc_report');
             const seek_wh = urlParams.get('seek_warehouse');
+            const action = urlParams.get('action');
             const cia = urlParams.get('cia');
 
             if (seek_oc_report && cia) {
                 setTimeout(() => openReportModal(cia, seek_oc_report, 'O', new Date().getFullYear().toString()), 600);
             } else if (seek_oc && cia) {
-                setTimeout(() => openAttachmentModal(cia, 'O', seek_oc, 'signed_order'), 600);
+                if (action === 'recojo') {
+                    setTimeout(() => openRecojoModal(cia, 'M', seek_oc, new Date().getFullYear().toString()), 600);
+                } else {
+                    setTimeout(() => openAttachmentModal(cia, 'O', seek_oc, 'signed_order'), 600);
+                }
             } else if (seek_wh && cia) {
                 setTimeout(() => openWarehouseModal(cia, seek_wh), 600);
             }

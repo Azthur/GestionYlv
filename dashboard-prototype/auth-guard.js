@@ -65,7 +65,7 @@
     }
 
     // Server-side validation (async, non-blocking for admin/allowed)
-    fetch('http://localhost:8000/api/auth/verify', {
+    fetch('/api/auth/verify', {
         headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => {
@@ -90,7 +90,7 @@
 
         // For non-admin, non-always-allowed pages, check permissions
         if (!isAdmin && !isAlwaysAllowed) {
-            return fetch('http://localhost:8000/api/permisos/me', {
+            return fetch('/api/permisos/me', {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(r => r.json()).then(permData => {
                 const modulos = permData.modulos || [];

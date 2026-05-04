@@ -397,7 +397,23 @@ function renderizarCostoVentas(data) {
         html += `<tr><td colspan="11">No hay datos en el periodo.</td></tr>`;
     }
 
+    let totIniCant = 0, totIniTotal = 0;
+    let totEntCant = 0, totEntTotal = 0;
+    let totSalCant = 0, totSalTotal = 0;
+    let totFinCant = 0, totFinTotal = 0;
+    let totCostoVentaTotal = 0;
+
     resultados.forEach(r => {
+        totIniCant += (r.inventario_inicial_cant || 0);
+        totIniTotal += (r.inventario_inicial_total || 0);
+        totEntCant += (r.entradas_cant || 0);
+        totEntTotal += (r.entradas_total || 0);
+        totSalCant += (r.salidas_cant || 0);
+        totSalTotal += (r.salidas_total || 0);
+        totFinCant += (r.saldo_final_cant || 0);
+        totFinTotal += (r.saldo_final_total || 0);
+        totCostoVentaTotal += (r.costo_venta_total || 0);
+
         html += `
             <tr>
                 <td class="text-start">${r.codmat} - ${r.desmat}</td>
@@ -423,6 +439,25 @@ function renderizarCostoVentas(data) {
             </tr>
         `;
     });
+
+    if (resultados.length > 0) {
+        html += `
+            <tr class="table-light border-dark fw-bold">
+                <td class="text-end">TOTAL GENERAL:</td>
+                <td class="text-end">${formatNum(totIniCant)}</td>
+                <td class="text-end">${formatNum(totIniTotal)}</td>
+                <td class="text-end text-primary">${formatNum(totEntCant)}</td>
+                <td class="text-end text-primary">${formatNum(totEntTotal)}</td>
+                <td class="text-end text-danger">${formatNum(totSalCant)}</td>
+                <td class="text-end text-danger">${formatNum(totSalTotal)}</td>
+                <td class="text-end">${formatNum(totFinCant)}</td>
+                <td class="text-end">${formatNum(totFinTotal)}</td>
+                <td></td>
+                <td class="text-end text-success">${formatNum(totCostoVentaTotal)}</td>
+                <td></td>
+            </tr>
+        `;
+    }
     
     html += `</tbody></table></div></div>`;
     document.getElementById('costoContent').innerHTML = html;
@@ -600,90 +635,59 @@ function exportKardexToExcel() {
             return;
         }
 
-        let wb = XLSX.utils.book_new();
+        const container = document.getElementById(
+            activeTabId === 'tab-kardex' ? 'reporteContent' : 
+            (activeTabId === 'tab-costo' ? 'costoContent' : 'stockContent')
+        );
 
-        if (activeTabId === 'tab-kardex' || activeTabId === 'tab-costo') {
-            // Both Kardex and Costo have multiple materials, each with its own header and table
-            const container = document.getElementById(activeTabId === 'tab-kardex' ? 'reporteContent' : 'costoContent');
-            const sections = container.querySelectorAll('.mb-5'); // each material section
-            
-            if (sections.length === 0) {
-                alert("No hay datos para exportar."); return;
-            }
-
-            let aoa = [];
-            
-            sections.forEach(sec => {
-                // Parse header info
-                const title = sec.querySelector('h6')?.innerText || '';
-                aoa.push([title]);
-                
-                // The metadata (RUC, Empresa, etc) is inside a table-borderless
-                const metaTable = sec.querySelector('table.table-borderless');
-                if (metaTable) {
-                    metaTable.querySelectorAll('tr').forEach(tr => {
-                        let rowData = [];
-                        tr.querySelectorAll('td').forEach(td => rowData.push(td.innerText.trim()));
-                        if(rowData.length > 0) aoa.push(rowData);
-                    });
-                }
-                
-                aoa.push([]); // blank row
-                
-                // Parse main report table
-                const table = sec.querySelector('table.report-table, table.table-bordered:not(.table-borderless)');
-                if (table) {
-                    const rows = table.querySelectorAll('tr');
-                    rows.forEach(tr => {
-                        let rowData = [];
-                        tr.querySelectorAll('th, td').forEach(cell => {
-                            rowData.push(cell.innerText.trim());
-                        });
-                        aoa.push(rowData);
-                    });
-                }
-                
-                aoa.push([]); // blank row between materials
-                aoa.push([]);
-            });
-
-            const ws = XLSX.utils.aoa_to_sheet(aoa);
-            XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-            XLSX.writeFile(wb, activeTabId === 'tab-kardex' ? 'Reporte_Kardex.xlsx' : 'Reporte_Costo_Ventas.xlsx');
-            
-        } else if (activeTabId === 'tab-stock') {
-            const table = document.querySelector('#stockContent table');
-            if (!table) { alert("No hay datos para exportar."); return; }
-            
-            let aoa = [];
-            // Get stock header info
-            const headerDiv = document.querySelector('#stockContent .d-flex.justify-content-between');
-            if (headerDiv) {
-                const lines = headerDiv.innerText.split('\n');
-                lines.forEach(line => {
-                    if (line.trim()) aoa.push([line.trim()]);
-                });
-                aoa.push([]);
-            }
-            
-            const rows = table.querySelectorAll('tr');
-            rows.forEach(tr => {
-                let rowData = [];
-                tr.querySelectorAll('th, td').forEach(cell => {
-                    // Ignore the last "ACCIÓN" column
-                    if (cell.innerText.trim() !== 'ACCIÓN' && !cell.querySelector('button')) {
-                        rowData.push(cell.innerText.trim());
-                    }
-                });
-                if (rowData.length > 0) aoa.push(rowData);
-            });
-            
-            const ws = XLSX.utils.aoa_to_sheet(aoa);
-            XLSX.utils.book_append_sheet(wb, ws, "Stock");
-            XLSX.writeFile(wb, 'Reporte_Stock.xlsx');
+        if (!container || container.innerHTML.trim() === "" || container.querySelector('.alert')) {
+            alert("No hay datos para exportar.");
+            return;
         }
 
+        // Create a temporary hidden container to prepare the export data
+        const tempDiv = document.createElement('div');
+        tempDiv.style.display = 'none';
+        tempDiv.innerHTML = container.innerHTML;
+        document.body.appendChild(tempDiv);
+
+        // CLEANUP: Remove buttons and UI elements from the export
+        const buttons = tempDiv.querySelectorAll('button, .btn, .no-export');
+        buttons.forEach(btn => btn.remove());
+
+        // For Kardex and Costo, we have multiple sections. 
+        // Let's create one big table to export.
+        const workbook = XLSX.utils.book_new();
+        let ws;
+
+        if (activeTabId === 'tab-kardex' || activeTabId === 'tab-costo') {
+            // We use table_to_sheet on the whole container to preserve colspans/rowspans
+            ws = XLSX.utils.table_to_sheet(tempDiv, { raw: true });
+        } else {
+            // Stock report is simpler
+            const stockTable = tempDiv.querySelector('table');
+            ws = XLSX.utils.table_to_sheet(stockTable, { raw: true });
+        }
+
+        // Set column widths (approximate)
+        const wscols = [
+            {wch: 12}, {wch: 8}, {wch: 8}, {wch: 15}, {wch: 10}, 
+            {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}
+        ];
+        ws['!cols'] = wscols;
+
+        XLSX.utils.book_append_sheet(workbook, ws, "Reporte");
+        
+        const filename = activeTabId === 'tab-kardex' ? 'Kardex_SUNAT.xlsx' : 
+                         (activeTabId === 'tab-costo' ? 'Costo_Ventas.xlsx' : 'Stock_Almacen.xlsx');
+        
+        XLSX.writeFile(workbook, filename);
+        
+        // Cleanup
+        document.body.removeChild(tempDiv);
+
     } catch (e) {
+        console.error(e);
         alert("Error al exportar a Excel: " + e.message);
     }
 }

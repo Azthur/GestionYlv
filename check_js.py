@@ -1,9 +1,8 @@
-from pyjsparser import parse
-import sys
+with open('dashboard-prototype/reparto.js', 'r', encoding='utf-8') as f:
+    text = f.read()
 
-try:
-    content = open('dashboard-prototype/orders.js', encoding='utf-8').read()
-    parse(content)
-    print('Syntax OK')
-except Exception as e:
-    print(f'Syntax Error: {e}')
+single_quotes = text.count("'")
+double_quotes = text.count('"')
+backticks = text.count('`')
+print('Single:', single_quotes, 'Double:', double_quotes, 'Backticks:', backticks)
+if backticks % 2 != 0: print('ERROR: Odd number of backticks')

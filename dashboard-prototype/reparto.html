@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -36,23 +36,68 @@
         table.dataTable thead th { background: #f1f5f9; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #334155; }
         .card-panel { background: #fff; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-dark); box-shadow: var(--shadow-sm); }
         
+        .main-content {
+            width: 100% !important;
+            flex: 1 !important;
+        }
+        .content {
+            max-width: none !important;
+            width: 100% !important;
+        }
         .asignacion-box {
             background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid #cbd5e1;
-            margin-bottom: 1.5rem; display: flex; gap: 1.5rem; align-items: flex-end;
+            margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;
+        }
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        
+        @media (max-width: 1024px) {
+            .filter-bar { gap: 0.75rem; }
+            .asignacion-box { gap: 0.75rem; }
+        }
+
+        @media (max-width: 768px) {
+            .asignacion-box { flex-direction: column; align-items: stretch; }
+            .asignacion-box > div { width: 100%; }
+            .asignacion-box .btn { width: 100%; margin-top: 0.5rem; }
+            .tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; }
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .filter-group { width: 100%; }
+            .content { padding: 0.75rem !important; }
+        }
+
+        @media print {
+            .sidebar, .top-bar, .tabs, .filter-bar, .asignacion-box, .no-print, .btn, .close-btn { display: none !important; }
+            .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            .content { padding: 0 !important; margin: 0 !important; }
+            .modal-overlay { position: static !important; display: block !important; background: none !important; padding: 0 !important; }
+            .modal { position: static !important; width: 100% !important; max-width: none !important; box-shadow: none !important; border: none !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
+            .modal-header { display: none !important; }
+            body { background: white !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
     <script src="auth-guard.js"></script>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container" style="display:flex; flex-direction:row; width:100%; height:100vh; overflow:hidden;">
 <!-- Sidebar -->
 <!-- Main Content -->
         <main class="main-content">
-<section class="content fade-in">
+            <section class="content fade-in">
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label>Empresa</label>
+                        <select id="filterCia" onchange="loadRepartoData()">
+                            <option value="" disabled selected>Selecciona Empresa...</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="tabs">
                     <div class="tab active" onclick="switchTab('pendientes', this)">Solicitudes Pendientes</div>
                     <div class="tab" onclick="switchTab('hojas-ruta', this)">Hojas de Ruta</div>
                     <div class="tab" onclick="switchTab('crear-manual', this)">Crear Solicitud Manual</div>
+                    <div class="tab" onclick="switchTab('historial-detallado', this)">Historial Detallado</div>
                 </div>
 
                 <!-- Tab 1: Pendientes -->
@@ -84,15 +129,12 @@
                             <thead>
                                 <tr>
                                     <th style="width: 40px; text-align:center;"><input type="checkbox" id="chkAllSol" onchange="toggleAllSol()"></th>
-                                    <th>ID</th>
-                                    <th>Tipo</th>
-                                    <th>Proveedor</th>
-                                    <th>Celular</th>
-                                    <th>Origen</th>
-                                    <th>Destino</th>
-                                    <th>Fecha/Hora</th>
-                                    <th>Observaciones</th>
-                                    <th>OC / Ãtems</th>
+                                    <th>Tipo / OC</th>
+                                    <th>Empresa / Contacto</th>
+                                    <th>Ruta (Origen/Destino)</th>
+                                    <th>Detalle de Ítems</th>
+                                    <th>Programación</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -108,10 +150,38 @@
                                 <tr>
                                     <th>Acciones</th>
                                     <th>ID Hoja</th>
+                                    <th>Empresa</th>
                                     <th>Fecha Ruta</th>
                                     <th>Chofer</th>
                                     <th>Movilidad / Placa</th>
                                     <th>NÂ° Solicitudes</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Historial Detallado -->
+                <div id="tab-historial-detallado" class="tab-content">
+                    <div class="card-panel table-responsive">
+                        <table id="historialDetalladoTable" class="display nowrap" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Hoja Ruta</th>
+                                    <th>Acciones</th>
+                                    <th>Fecha Ruta</th>
+                                    <th>Empresa</th>
+                                    <th>OC / Tipo</th>
+                                    <th>Programación</th>
+                                    <th>Contacto</th>
+                                    <th>Chofer / Unidad</th>
+                                    <th>Parada</th>
+                                    <th>Proveedor</th>
+                                    <th>Ítem</th>
+                                    <th>Cant.</th>
+                                    <th>Obs Chofer</th>
                                     <th>Estado</th>
                                 </tr>
                             </thead>
@@ -195,7 +265,12 @@
                             <polyline points="6 9 6 2 18 2 18 9"></polyline>
                             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                             <rect x="6" y="14" width="12" height="8"></rect>
-                        </svg>Imprimir
+                        </svg>Exportar a PDF
+                    </button>
+                    <button class="btn btn-primary" onclick="exportHojaRutaHTML()" style="padding:0.35rem 0.75rem; font-size:0.775rem; background:#25d366; border-color:#25d366;">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" style="margin-right:0.3rem">
+                            <path d="M12.031 6.172c-2.277 0-4.125 1.848-4.125 4.125 0 .736.196 1.428.537 2.02l-.568 2.074 2.12-.556c.568.309 1.218.486 1.91.486 2.277 0 4.125-1.848 4.125-4.125s-1.848-4.125-4.125-4.125zm2.523 5.867c-.104.29-.604.568-.834.604-.23.036-.45.14-.856-.036-.33-.14-.736-.31-1.228-.52-.614-.26-1.12-.66-1.52-1.07-.403-.412-.665-.89-.785-1.393-.12-.503.116-.84.22-.943.104-.103.228-.12.304-.12s.15.016.224.016c.074 0 .17-.03.266.196.104.227.352.857.382.92.03.064.05.137.006.223-.044.086-.067.14-.134.223-.067.08-.14.18-.2.23-.067.054-.137.113-.06.244.076.13.34.56.732.91.503.447 1.05.617 1.344.757.294.14.412.116.51-.006.096-.123.412-.486.52-.65s.216-.137.362-.084c.146.054 1.05.496 1.23.585.18.087.3.13.344.207.043.076.043.44-.06.73zm-2.523-9.539c-5.114 0-9.27 4.157-9.27 9.27 0 1.636.425 3.173 1.168 4.51l-1.24 4.53 4.636-1.216c1.3.702 2.784 1.104 4.364 1.104 5.114 0 9.27-4.157 9.27-9.27s-4.156-9.27-9.27-9.27z"/>
+                        </svg>WhatsApp (HTML)
                     </button>
                     <button class="close-btn" onclick="closeHojaRutaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 </div>
@@ -217,7 +292,8 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="reparto.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="reparto.js?v=6"></script>
     <script src="sidebar.js"></script>
 </body>
 </html>
