@@ -815,7 +815,7 @@
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
-<main class="main-content" style="background-color: var(--bg-page);">
+        <main class="main-content" style="background-color: var(--bg-page);">
             <!-- ─── TOP HEADER ─── -->
             <nav class="glass-nav">
                 <div class="nav-title">Registro de Compras</div>
@@ -939,9 +939,9 @@
                                 <label>Serie - Número</label>
                                 <div style="display:flex; gap:0.4rem;">
                                     <input type="text" id="invSerie" class="modern-input"
-                                        style="flex:1; text-transform:uppercase;" maxlength="4" placeholder="F001">
+                                        style="flex:1; text-transform:uppercase;" maxlength="4" placeholder="0000">
                                     <input type="text" id="invNumero" class="modern-input" style="flex:2;"
-                                        placeholder="00012345">
+                                        placeholder="00000000">
                                 </div>
                             </div>
 
@@ -1046,15 +1046,18 @@
                                         <div
                                             style="display:flex; justify-content:space-between; gap:1.5rem; font-size:0.8rem; color:var(--text-muted);">
                                             <span>Op. Gravada:</span> <span id="invGravadoDisplay"
-                                                style="color:var(--text-main); font-weight:500;">0.00</span></div>
+                                                style="color:var(--text-main); font-weight:500;">0.00</span>
+                                        </div>
                                         <div
                                             style="display:flex; justify-content:space-between; gap:1.5rem; font-size:0.8rem; color:var(--text-muted);">
                                             <span>Op. Inafecta:</span> <span id="invInafectoDisplay"
-                                                style="color:var(--text-main); font-weight:500;">0.00</span></div>
+                                                style="color:var(--text-main); font-weight:500;">0.00</span>
+                                        </div>
                                         <div
                                             style="display:flex; justify-content:space-between; gap:1.5rem; font-size:0.8rem; color:var(--text-muted);">
                                             <span>Op. Exonerada:</span> <span id="invExoneradoDisplay"
-                                                style="color:var(--text-main); font-weight:500;">0.00</span></div>
+                                                style="color:var(--text-main); font-weight:500;">0.00</span>
+                                        </div>
                                         <div style="display:none;"><span id="invAnticiposDisplay">0.00</span><span
                                                 id="invISCDisplay">0.00</span><span
                                                 id="invICBPERDisplay">0.00</span><span
@@ -1135,8 +1138,10 @@
                             </summary>
                             <div class="info-accordion-body">
                                 <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
-                                    <input type="text" id="invGuiaManual" class="modern-input" placeholder="Nro. Guía de Remisión" style="flex:1;">
-                                    <button class="btn-sec" onclick="agregarGuiaManual()" style="padding:0.4rem 0.8rem;">Agregar</button>
+                                    <input type="text" id="invGuiaManual" class="modern-input"
+                                        placeholder="Nro. Guía de Remisión" style="flex:1;">
+                                    <button class="btn-sec" onclick="agregarGuiaManual()"
+                                        style="padding:0.4rem 0.8rem;">Agregar</button>
                                 </div>
                                 <div id="docsRelacionadosList" style="font-size:0.82rem; color:var(--text-muted);">Sin
                                     documentos relacionados</div>
@@ -1211,7 +1216,8 @@
                                 <div class="input-group">
                                     <label>Notas / Observaciones</label>
                                     <input type="text" id="invObservaciones" class="modern-input"
-                                        placeholder="Notas adicionales..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
+                                        placeholder="Notas adicionales..." style="text-transform: uppercase;"
+                                        oninput="this.value = this.value.toUpperCase()">
                                 </div>
                             </div>
                         </details>

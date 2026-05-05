@@ -44,6 +44,18 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPage = 1;
         renderTable();
     });
+
+    // Watch for theme changes to re-render charts
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'data-theme') {
+                if (document.getElementById('resultsContainer').style.display !== 'none' && Object.keys(chartInstances).length > 0) {
+                    renderCharts();
+                }
+            }
+        });
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 });
 
 function debounce(fn, ms) {
@@ -344,6 +356,13 @@ function goPage(p) {
 
 // ─── Charts ──────────────────────────────────────────────────────
 function renderCharts() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#475569' : 'rgba(255,255,255,0.6)';
+    const textColorMuted = isLight ? '#64748b' : 'rgba(255,255,255,0.4)';
+    const gridColor = isLight ? '#e2e8f0' : 'rgba(255,255,255,0.04)';
+    const tooltipBg = isLight ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)';
+    const tooltipColor = isLight ? '#1e293b' : '#fff';
+
     const colors = ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
 
     // Destroy existing
@@ -359,7 +378,7 @@ function renderCharts() {
             datasets: [{
                 data: vendData.map(v => v.saldo),
                 backgroundColor: colors,
-                borderColor: 'rgba(10,10,15,0.8)',
+                borderColor: isLight ? '#fff' : 'rgba(10,10,15,0.8)',
                 borderWidth: 2,
             }]
         },
@@ -367,8 +386,8 @@ function renderCharts() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'right', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 }, padding: 10 } },
-                tooltip: { callbacks: { label: ctx => `${ctx.label}: S/ ${fmt(ctx.raw)}` } }
+                legend: { position: 'right', labels: { color: textColor, font: { size: 11 }, padding: 10 } },
+                tooltip: { backgroundColor: tooltipBg, titleColor: tooltipColor, bodyColor: tooltipColor, callbacks: { label: ctx => `${ctx.label}: S/ ${fmt(ctx.raw)}` } }
             }
         }
     });
@@ -394,11 +413,11 @@ function renderCharts() {
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: ctx => `S/ ${fmt(ctx.raw)}` } }
+                tooltip: { backgroundColor: tooltipBg, titleColor: tooltipColor, bodyColor: tooltipColor, callbacks: { label: ctx => `S/ ${fmt(ctx.raw)}` } }
             },
             scales: {
-                x: { ticks: { color: 'rgba(255,255,255,0.4)', callback: v => `S/ ${(v/1000).toFixed(0)}K` }, grid: { color: 'rgba(255,255,255,0.04)' } },
-                y: { ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } }, grid: { display: false } }
+                x: { ticks: { color: textColorMuted, callback: v => `S/ ${(v/1000).toFixed(0)}K` }, grid: { color: gridColor } },
+                y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
             }
         }
     });
@@ -412,7 +431,7 @@ function renderCharts() {
             datasets: [{
                 data: fpData.map(f => f.saldo),
                 backgroundColor: colors.slice(0, fpData.length),
-                borderColor: 'rgba(10,10,15,0.8)',
+                borderColor: isLight ? '#fff' : 'rgba(10,10,15,0.8)',
                 borderWidth: 2,
             }]
         },
@@ -420,8 +439,8 @@ function renderCharts() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'right', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 }, padding: 10 } },
-                tooltip: { callbacks: { label: ctx => `${ctx.label}: S/ ${fmt(ctx.raw)}` } }
+                legend: { position: 'right', labels: { color: textColor, font: { size: 11 }, padding: 10 } },
+                tooltip: { backgroundColor: tooltipBg, titleColor: tooltipColor, bodyColor: tooltipColor, callbacks: { label: ctx => `${ctx.label}: S/ ${fmt(ctx.raw)}` } }
             }
         }
     });
@@ -449,11 +468,11 @@ function renderCharts() {
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: ctx => `S/ ${fmt(ctx.raw)}` } }
+                tooltip: { backgroundColor: tooltipBg, titleColor: tooltipColor, bodyColor: tooltipColor, callbacks: { label: ctx => `S/ ${fmt(ctx.raw)}` } }
             },
             scales: {
-                x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.04)' } },
-                y: { ticks: { color: 'rgba(255,255,255,0.4)', callback: v => `S/${(v/1000).toFixed(0)}K` }, grid: { color: 'rgba(255,255,255,0.04)' } }
+                x: { ticks: { color: textColorMuted, font: { size: 10 }, maxRotation: 45 }, grid: { color: gridColor } },
+                y: { ticks: { color: textColorMuted, callback: v => `S/${(v/1000).toFixed(0)}K` }, grid: { color: gridColor } }
             }
         }
     });

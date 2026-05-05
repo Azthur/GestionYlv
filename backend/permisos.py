@@ -170,6 +170,7 @@ def _seed_initial_data(cursor, conn):
         ('cargo_area_tes',      '    [Sub] Área: Tesorería',        None,                   'Contabilidad',   3,  'cargos_documentales'),
 
         ('registro_facturas',   'Registro Facturas',    '/registro_facturas.html',  'Contabilidad',   22, None),
+        ('trazabilidad_global', 'Trazabilidad Global',  '/trazabilidad_global.html','Contabilidad',   23, None),
         ('conciliacion',        'Conciliación Bancaria','/conciliacion.html',       'Finanzas',       30, None),
         ('cuentas_cobrar',      'Cuentas por Cobrar',   '/cuentas-cobrar.html',     'Finanzas',       31, None),
         ('pagos_tesoreria',     'Pagos Tesorería',      '/pagos_tesoreria.html',    'Finanzas',       32, None),
@@ -184,6 +185,7 @@ def _seed_initial_data(cursor, conn):
         ('users',               'Gestión de Usuarios',  '/users.html',              'Sistema',        90, None),
         ('db_config',           'Mantenimiento BD',     '/db-config.html',          'Sistema',        91, None),
         ('profile',             'Mi Perfil',            '/profile.html',            'Sistema',        92, None),
+        ('manual',              'Manual de Usuario',    '/manual.html',             'Sistema',        93, None),
     ]
 
     for m in modulos:
@@ -259,10 +261,16 @@ def get_my_permissions(current_user: dict = Depends(get_current_user)):
     try:
         cursor = conn.cursor()
         login = current_user["login"]
-        rol = current_user.get("rol", "USER")
         
         # Superuser override
         is_super = login.strip().upper() == "71941916JL"
+        
+        # IMPORTANTE: Leer el rol ACTUAL de la BD, no del JWT (que puede estar desactualizado)
+        rol = current_user.get("rol", "USER")
+        cursor.execute("SELECT rol FROM WebUsers WHERE login = ?", (login,))
+        db_row = cursor.fetchone()
+        if db_row and db_row[0]:
+            rol = db_row[0].strip()
         
         if is_super or rol == "ADMIN":
             # Admin ve todo
@@ -323,12 +331,19 @@ def get_my_empresas(current_user: dict = Depends(get_current_user)):
     try:
         cursor = conn.cursor()
         login = current_user["login"]
+        
+        # Leer rol ACTUAL de la BD, no del JWT
         rol = current_user.get("rol", "USER")
+        cursor.execute("SELECT rol FROM WebUsers WHERE login = ?", (login,))
+        db_row = cursor.fetchone()
+        if db_row and db_row[0]:
+            rol = db_row[0].strip()
+        
         is_super = login.strip().upper() == "71941916JL"
 
         if is_super or rol == "ADMIN":
             # Admin ve todas las empresas
-            cursor.execute("SELECT RTRIM(codcia) as codcia, RTRIM(nomcia) as nomcia FROM AdmMcias ORDER BY codcia")
+            cursor.execute("SELECT RTRIM(codcia) as codcia, RTRIM(nomcia) as nomcia, RTRIM(ruccia) as ruccia FROM AdmMcias ORDER BY codcia")
         else:
             # Verificar si tiene empresas asignadas
             cursor.execute("SELECT COUNT(*) FROM WebUsuarioEmpresa WHERE Login = ?", (login,))
@@ -339,7 +354,7 @@ def get_my_empresas(current_user: dict = Depends(get_current_user)):
                 return []
             else:
                 cursor.execute("""
-                    SELECT RTRIM(e.codcia) as codcia, RTRIM(e.nomcia) as nomcia
+                    SELECT RTRIM(e.codcia) as codcia, RTRIM(e.nomcia) as nomcia, RTRIM(e.ruccia) as ruccia
                     FROM AdmMcias e
                     INNER JOIN WebUsuarioEmpresa ue ON RTRIM(e.codcia) = RTRIM(ue.CodCia)
                     WHERE ue.Login = ?
@@ -362,7 +377,7 @@ def get_all_empresas():
         raise HTTPException(status_code=500, detail="Error DB")
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT RTRIM(codcia) as codcia, RTRIM(nomcia) as nomcia FROM AdmMcias ORDER BY codcia")
+        cursor.execute("SELECT RTRIM(codcia) as codcia, RTRIM(nomcia) as nomcia, RTRIM(ruccia) as ruccia FROM AdmMcias ORDER BY codcia")
         cols = [c[0] for c in cursor.description]
         return [dict(zip(cols, row)) for row in cursor.fetchall()]
     except Exception as e:

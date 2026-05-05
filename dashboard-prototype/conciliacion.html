@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -296,6 +296,13 @@
                                     <input type="checkbox" id="chkCrossCompanyTodas" onchange="loadAllCobranzas()"
                                         style="accent-color:var(--primary);">
                                     Cross-Company
+                                </label>
+                                <label
+                                    style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer; padding:0.4rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:#fff;">
+                                    <input type="checkbox" id="chkDocAplicados" checked
+                                        onchange="applyDocAplicadosFilter()"
+                                        style="accent-color:var(--primary);">
+                                    Documentos Aplicados y redondeo
                                 </label>
                                 <button class="btn btn-outline" onclick="openReport()">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"

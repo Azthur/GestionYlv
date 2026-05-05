@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 import urllib.parse
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Singleton SQLAlchemy Engine
 engine = None

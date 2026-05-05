@@ -320,7 +320,8 @@ async function loadPendientes() {
             const importeRendicion = parseFloat(c.MontoRendicion || c.TotalReembolso || 0);
             let importePagar = parseFloat(c.ImportePrincipal || 0);
             if (isNC) importePagar = -Math.abs(importePagar);
-            const saldo = importePagar; // TODO: restar pagos parciales si los hay
+            const montoPagado = parseFloat(c.MontoPagado || 0);
+            const saldo = importePagar - montoPagado;
 
             // Tipo OC Label
             let tipoOcBadge = '';
@@ -399,15 +400,15 @@ async function loadPendientes() {
             const provEsc = (c.Proveedor || '').replace(/'/g, "\'");
             let btnHtml = '';
             if (isNC) {
-                btnHtml = `<button class="btn-action" style="padding:0.25rem 0.5rem; font-size:0.7rem; background:#ef4444; color:white;" onclick="abrirModalAplicarNC('${c.DetalleId}', '${provEsc}', '${c.NroFactura||''}', ${importePagar}, '${moneda}', '${codcia}')">✅ Aplicar NC</button>`;
+                btnHtml = `<button class="btn-action" style="padding:0.25rem 0.5rem; font-size:0.7rem; background:#ef4444; color:white;" onclick="abrirModalAplicarNC('${c.DetalleId}', '${provEsc}', '${c.NroFactura||''}', ${saldo}, '${moneda}', '${codcia}')">✅ Aplicar NC</button>`;
             } else {
-                btnHtml = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${tOc||''}', '${provEsc}', '${c.NroFactura||''}', ${importePagar}, '${moneda}')">💸 Pagar</button>`;
+                btnHtml = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${tOc||''}', '${provEsc}', '${c.NroFactura||''}', ${saldo}, '${moneda}')">💸 Pagar</button>`;
                 btnHtml += `<br><button class="btn-action" style="padding:0.2rem 0.4rem; font-size:0.65rem; background:#10b981; color:white; margin-top:2px;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${tOc||''}', '${provEsc}', '${c.NroFactura||''}', 0, '${moneda}', true)">✅ Aplicar</button>`;
             }
 
             // 13 columnas
             return [
-                `<input type="checkbox" class="chk-pago" data-id="${c.DetalleId}" data-moneda="${moneda}" data-monto="${importePagar}" style="transform:scale(1.2); cursor:pointer;">`,
+                `<input type="checkbox" class="chk-pago" data-id="${c.DetalleId}" data-moneda="${moneda}" data-monto="${saldo}" data-tipo-comp="${c.TipoComprobante || ''}" data-proveedor="${(c.Proveedor || '').replace(/"/g, '&quot;')}" data-ruc="${c.RucProveedor || ''}" data-nro-doc="${c.NroDocPrincipal || ''}" style="transform:scale(1.2); cursor:pointer;">`,
                 `<span class="${tipoClass}">${tipoLabel}</span>${tipoOcBadge ? '<br>'+tipoOcBadge : ''}`,
                 docHtml,
                 fechaEmision ? `<span style="font-size:0.78rem;">${fechaEmision}</span>` : '<span style="color:#cbd5e1;">—</span>',
@@ -430,7 +431,8 @@ async function loadPendientes() {
             dom: '<"top-controls"Bf>rtip',
             buttons: [
                 { extend: 'excelHtml5', text: '📊 Exportar', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9,10,11] } },
-                { text: '💸 Pagar Seleccionados', className: 'dt-button btn-pay-multi', action: function() { abrirPagoMultiple(); } }
+                { text: '💸 Pagar Seleccionados', className: 'dt-button btn-pay-multi', action: function() { abrirPagoMultiple(); } },
+                { text: '🔄 Aplicar Seleccionados', className: 'dt-button btn-apply-multi', action: function() { abrirAplicarSeleccionados(); } }
             ],
             columnDefs: [
                 { targets: [0, 12], orderable: false, width: '40px' },
@@ -439,6 +441,7 @@ async function loadPendientes() {
             ]
         });
         $('.btn-pay-multi').css({'background': '#10b981', 'color': 'white', 'border': 'none', 'font-weight': '700'});
+        $('.btn-apply-multi').css({'background': '#8b5cf6', 'color': 'white', 'border': 'none', 'font-weight': '700'});
 
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="13" style="color:#ef4444; text-align:center; padding:2rem;">${err}</td></tr>`;
@@ -448,6 +451,23 @@ async function loadPendientes() {
 // ════════════════════════════════════════════════════════════
 //  TAB 2: HISTORIAL DE PAGOS
 // ════════════════════════════════════════════════════════════
+
+window.filtrarPorLote = function(grupo) {
+    if (historialPagosDT) {
+        historialPagosDT.search(grupo).draw();
+        
+        // Agregar un mensaje de limpieza de filtro visual
+        Swal.fire({
+            toast: true,
+            position: 'bottom-end',
+            icon: 'info',
+            title: 'Filtrando por Lote de Aplicación',
+            text: 'Borra el texto en el buscador de la tabla para ver todos los pagos.',
+            showConfirmButton: false,
+            timer: 4000
+        });
+    }
+};
 
 async function loadHistorialPagos() {
     const codcia = document.getElementById('filterCia').value;
@@ -525,7 +545,7 @@ async function loadHistorialPagos() {
             return [
                 `<div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">#${pagoId}</div><strong>${p.NroOrdenCompra || '-'}</strong>`,
                 `${p.Proveedor || '-'}<br><small style="color:#64748b;">${p.RucProveedor || '-'}</small>`,
-                `<span style="font-size:0.7rem; color:#64748b;">${tipLabel}</span><br><strong>${p.NroFactura || '-'}</strong>`,
+                `<span style="font-size:0.7rem; color:#64748b;">${tipLabel}</span><br><strong>${p.NroFactura || '-'}</strong>${p.GrupoAplicacion ? '<br><div style="display:flex;gap:4px;margin-top:2px;align-items:center;"><a href="/pago_visor.html?uid='+p.PagoUuid+'" target="_blank" style="font-size:0.65rem; background:#8b5cf6; color:white; padding:2px 5px; border-radius:4px; text-decoration:none;" title="Ver constancia de aplicación conjunta">🔗 Constancia</a><button onclick="filtrarPorLote(\''+p.GrupoAplicacion+'\')" style="font-size:0.65rem; background:#f3f4f6; color:#4b5563; padding:2px 5px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer;" title="Filtrar tabla por este lote">🔍 Filtrar Tabla</button><span style="display:none;">' + p.GrupoAplicacion + '</span></div>' : ''}`,
                 bancoHtml,
                 p.TipoPago || '-',
                 conceptoHtml,
@@ -907,6 +927,335 @@ function abrirPagoMultiple() {
 
     openModalPagoFlexible(ids.join(','), 'MULTI', document.getElementById('filterCia').value, seleccionados.length + ' Docs', 'MULTI', 'Múltiples Proveedores', '', sumaPagar, monedaUnica);
 }
+
+// ════════════════════════════════════════════════════════════
+//  APLICAR SELECCIONADOS (NC/Anticipo + Facturas)
+// ════════════════════════════════════════════════════════════
+
+let aplicarDocsData = { docsNC: [], docsFact: [], allDocs: [], ids: [], moneda: 'PEN', neto: 0 };
+let aplicarDocsFiles = [];
+
+function addAplicarFiles(fileList) {
+    for (let i = 0; i < fileList.length; i++) {
+        aplicarDocsFiles.push(fileList[i]);
+    }
+    renderAplicarFileList();
+}
+
+function removeAplicarFile(idx) {
+    aplicarDocsFiles.splice(idx, 1);
+    renderAplicarFileList();
+}
+
+function renderAplicarFileList() {
+    const container = document.getElementById('aplicarDocsFileList');
+    if (!container) return;
+    if (aplicarDocsFiles.length === 0) { container.innerHTML = ''; return; }
+    container.innerHTML = aplicarDocsFiles.map((f, i) => {
+        const sizeKB = (f.size / 1024).toFixed(1);
+        const icon = f.type.includes('pdf') ? '📄' : f.type.includes('image') ? '🖼️' : '📎';
+        return `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.35rem 0.5rem; background:#f1f5f9; border-radius:6px; margin-bottom:0.25rem; font-size:0.75rem;">
+            <span>${icon}</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f.name}</span>
+            <span style="color:#94a3b8;">${sizeKB} KB</span>
+            <button type="button" onclick="removeAplicarFile(${i})" style="background:none; border:none; cursor:pointer; color:#ef4444; font-weight:700; font-size:0.85rem;" title="Quitar">✕</button>
+        </div>`;
+    }).join('');
+}
+
+function recalcularAplicarNeto() {
+    const sim = aplicarDocsData.moneda === 'USD' ? '$' : 'S/';
+    let sumaNC = 0, sumaFact = 0;
+    
+    // Re-classify based on anticipo toggles
+    aplicarDocsData.docsNC = [];
+    aplicarDocsData.docsFact = [];
+    
+    aplicarDocsData.allDocs.forEach(d => {
+        const toggleEl = document.getElementById(`anticipo_toggle_${d.id}`);
+        const isAnticipo = toggleEl ? toggleEl.checked : false;
+        const isNCOriginal = d.isNCOriginal;
+        
+        // Es NC/Anticipo si: es NC original O fue marcado como anticipo
+        if (isNCOriginal || isAnticipo) {
+            const montoNeg = isAnticipo ? -Math.abs(d.monto) : d.monto;
+            aplicarDocsData.docsNC.push({ ...d, monto: montoNeg, esAnticipo: isAnticipo });
+            sumaNC += montoNeg;
+        } else {
+            aplicarDocsData.docsFact.push(d);
+            sumaFact += d.monto;
+        }
+    });
+    
+    const neto = sumaNC + sumaFact;
+    aplicarDocsData.neto = neto;
+    
+    const netoColor = neto <= 0 ? '#10b981' : '#f59e0b';
+    const netoLabel = neto <= 0 ? 'Se compensa totalmente (saldo a favor o cero)' : 'Queda un saldo pendiente por pagar';
+    
+    document.getElementById('aplicarDocsResumen').innerHTML = `
+        <div style="display:flex; justify-content:space-around; margin-bottom:0.5rem;">
+            <div><span style="font-size:0.7rem; color:#dc2626;">NC/Anticipos</span><br><strong style="color:#dc2626;">${sim} ${Math.abs(sumaNC).toLocaleString('es-PE', {minimumFractionDigits: 2})}</strong></div>
+            <div style="font-size:1.2rem; color:#64748b; align-self:center;">→</div>
+            <div><span style="font-size:0.7rem; color:#059669;">Facturas</span><br><strong style="color:#059669;">${sim} ${sumaFact.toLocaleString('es-PE', {minimumFractionDigits: 2})}</strong></div>
+        </div>
+        <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Monto Neto Resultante</div>
+        <div style="font-size:1.3rem; font-weight:800; color:${netoColor};">${sim} ${neto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</div>
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.25rem;">${netoLabel}</div>
+    `;
+    
+    // Update document lists visual
+    renderAplicarDocsLists();
+}
+
+function renderAplicarDocsLists() {
+    const sim = aplicarDocsData.moneda === 'USD' ? '$' : 'S/';
+    const fmtM = (v) => `${sim} ${Math.abs(v).toLocaleString('es-PE', {minimumFractionDigits: 2})}`;
+    
+    // NC List
+    let ncHtml = '';
+    if (aplicarDocsData.docsNC.length === 0) {
+        ncHtml = '<div style="padding:0.5rem; text-align:center; color:#94a3b8; font-size:0.8rem; background:#fef2f2; border-radius:6px;">Sin documentos a favor. Active el toggle "Anticipo" en los documentos que desee usar como abono.</div>';
+    } else {
+        aplicarDocsData.docsNC.forEach(d => {
+            const label = d.esAnticipo ? '⚡ ANTICIPO' : '📄 NC';
+            const labelColor = d.esAnticipo ? '#d97706' : '#dc2626';
+            ncHtml += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.6rem; background:#fef2f2; border-radius:6px; margin-bottom:4px; font-size:0.8rem;">
+                <span style="font-weight:600; color:${labelColor};">${label}: ${d.nroDoc}</span>
+                <span style="font-weight:700; color:#dc2626;">- ${fmtM(d.monto)}</span>
+            </div>`;
+        });
+    }
+    document.getElementById('aplicarDocsNCList').innerHTML = ncHtml;
+    
+    // Fact List
+    let factHtml = '';
+    if (aplicarDocsData.docsFact.length === 0) {
+        factHtml = '<div style="padding:0.5rem; text-align:center; color:#94a3b8; font-size:0.8rem; background:#f0fdf4; border-radius:6px;">No hay facturas para compensar.</div>';
+    } else {
+        aplicarDocsData.docsFact.forEach(d => {
+            factHtml += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.6rem; background:#f0fdf4; border-radius:6px; margin-bottom:4px; font-size:0.8rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-weight:600; color:#059669;">📄 ${d.nroDoc}</span>
+                    ${!d.isNCOriginal ? `<label class="anticipo-toggle" title="Marcar como anticipo">
+                        <input type="checkbox" id="anticipo_toggle_${d.id}" onchange="recalcularAplicarNeto()">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="font-size:0.65rem; color:#d97706;">Anticipo?</span>` : ''}
+                </div>
+                <span style="font-weight:700; color:#059669;">${fmtM(d.monto)}</span>
+            </div>`;
+        });
+    }
+    document.getElementById('aplicarDocsFactList').innerHTML = factHtml;
+}
+
+function abrirAplicarSeleccionados() {
+    const seleccionados = $('.chk-pago:checked');
+    if (seleccionados.length < 2) {
+        Swal.fire('Atención', 'Seleccione al menos 2 documentos para aplicar.', 'warning');
+        return;
+    }
+
+    let monedaUnica = null;
+    let rucUnico = null;
+    let errorMoneda = false;
+    let errorRuc = false;
+    let allDocs = [];
+
+    seleccionados.each(function() {
+        const id = $(this).data('id');
+        const mon = $(this).data('moneda');
+        const monto = parseFloat($(this).data('monto') || 0);
+        const tipoComp = String($(this).data('tipo-comp') || '').trim();
+        const proveedor = $(this).data('proveedor') || '';
+        const ruc = String($(this).data('ruc') || '').trim();
+        const nroDoc = $(this).data('nro-doc') || '';
+
+        if (monedaUnica === null) monedaUnica = mon;
+        else if (monedaUnica !== mon) errorMoneda = true;
+
+        if (rucUnico === null && ruc !== '') rucUnico = ruc;
+        else if (ruc !== '' && rucUnico !== ruc) errorRuc = true;
+
+        // Detectar NC por código, texto descriptivo, o monto negativo
+        const isNCOriginal = (tipoComp === '07' || tipoComp === '87' 
+                     || tipoComp.toUpperCase().includes('CREDITO') 
+                     || tipoComp.toUpperCase().includes('NC')
+                     || monto < 0);
+
+        allDocs.push({ id, monto, proveedor, ruc, nroDoc, tipoComp, isNCOriginal });
+    });
+
+    if (errorMoneda) {
+        Swal.fire('Error', 'Todos los documentos seleccionados deben tener la misma moneda.', 'error');
+        return;
+    }
+
+    if (errorRuc) {
+        Swal.fire('Error', 'Todos los documentos seleccionados deben pertenecer al mismo Proveedor (Mismo RUC/Documento).', 'error');
+        return;
+    }
+
+    // Store data for the modal
+    aplicarDocsData = {
+        docsNC: [],
+        docsFact: [],
+        allDocs: allDocs,
+        ids: allDocs.map(d => d.id),
+        moneda: monedaUnica,
+        neto: 0
+    };
+    
+    // Reset files and notes
+    aplicarDocsFiles = [];
+    renderAplicarFileList();
+    document.getElementById('aplicarDocsNotas').value = '';
+    
+    // Open modal and populate
+    document.getElementById('modalAplicarDocs').classList.add('active');
+    
+    // Initial classification and render
+    recalcularAplicarNeto();
+}
+
+async function confirmarAplicarDocs() {
+    const { docsNC, docsFact, ids, moneda, neto } = aplicarDocsData;
+    const codcia = document.getElementById('filterCia').value;
+    const notas = document.getElementById('aplicarDocsNotas').value || '';
+    
+    // Calcular el monto a aplicar a cada documento (distribuir NC a Facturas)
+    let totalNC = Math.abs(docsNC.reduce((sum, d) => sum + parseFloat(d.monto), 0));
+    const montosMap = {};
+    
+    // NCs/Anticipos se aplican completos
+    docsNC.forEach(d => {
+        montosMap[d.id] = -Math.abs(d.monto);
+    });
+    
+    // Distribuir el totalNC entre las facturas
+    let saldoAbono = totalNC;
+    docsFact.forEach(d => {
+        const deuda = parseFloat(d.monto);
+        if (saldoAbono >= deuda) {
+            montosMap[d.id] = deuda;
+            saldoAbono -= deuda;
+        } else if (saldoAbono > 0) {
+            montosMap[d.id] = saldoAbono;
+            saldoAbono = 0;
+        } else {
+            montosMap[d.id] = 0;
+        }
+    });
+
+    const execApply = async (irAPago = false) => {
+        try {
+            document.getElementById('modalAplicarDocs').classList.remove('active');
+            
+            if (irAPago) {
+                // Si va a pagar, cerramos el modal actual y abrimos el de pago para el NETO
+                // Como va a pagar todo, NO le pasamos montos_aplicados para que se pague la totalidad de una vez
+                openModalPagoFlexible(
+                    ids.join(','),
+                    'MULTI',
+                    codcia,
+                    `${docsNC.length} NC/Ant + ${docsFact.length} Fact`,
+                    'MULTI',
+                    'Aplicación NC/Factura',
+                    '',
+                    neto,
+                    moneda
+                );
+                return;
+            }
+
+            Swal.fire({ title: 'Registrando aplicación...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            const formData = new FormData();
+            formData.append('detalle_ids', ids.join(','));
+            formData.append('codcia', codcia);
+            formData.append('usuario', currentUser);
+            formData.append('moneda', moneda);
+            formData.append('monto', '0');
+            formData.append('banco', '');
+            
+            // Determinar tipo según si hay anticipos
+            const tieneAnticipos = docsNC.some(d => d.esAnticipo);
+            formData.append('tipo', tieneAnticipos ? 'APLICACION_ANTICIPO' : 'APLICACION_NC');
+            
+            formData.append('fecha', new Date().toISOString().split('T')[0]);
+            formData.append('nro_operacion', '');
+            formData.append('concepto_pago', '');
+            
+            // Adjuntar el JSON de montos a aplicar parcialmente
+            formData.append('montos_aplicados', JSON.stringify(montosMap));
+
+            // Build descriptive note
+            const ncDesc = docsNC.map(d => `${d.esAnticipo ? 'ANT' : 'NC'}:${d.nroDoc}(${d.monto})`).join(', ');
+            const factDesc = docsFact.map(d => `FACT:${d.nroDoc}(${d.monto})`).join(', ');
+            const notaFull = notas ? `${notas} | Aplicación Parcial: ${ncDesc} → ${factDesc}` : `Aplicación Parcial: ${ncDesc} → ${factDesc}`;
+            formData.append('notas', notaFull);
+            
+            // Grupo de aplicación para relacionar documentos
+            formData.append('grupo_aplicacion', '');
+
+            // Adjuntos
+            for (let i = 0; i < aplicarDocsFiles.length; i++) {
+                formData.append('archivos', aplicarDocsFiles[i]);
+            }
+
+            await axios.post('/api/cargos/pagos/registrar_multiples', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            Swal.fire({
+                icon: 'success',
+                title: '¡Aplicación Registrada!',
+                html: `Se aplicaron <strong>${docsNC.length}</strong> NC/Anticipos con <strong>${docsFact.length}</strong> Facturas correctamente.<br>
+                       <span style="font-size:0.8rem; color:#64748b;">El saldo pendiente de la factura ha sido actualizado.</span>`,
+                timer: 3500,
+                showConfirmButton: false
+            });
+
+            aplicarDocsFiles = [];
+            loadPendientes();
+            loadHistorialPagos();
+        } catch (err) {
+            Swal.fire('Error', String(err), 'error');
+        }
+    };
+    
+    // Si el neto es positivo, preguntar qué desea hacer
+    if (neto > 0) {
+        document.getElementById('modalAplicarDocs').classList.remove('active');
+        
+        const sim = moneda === 'USD' ? '$' : 'S/';
+        Swal.fire({
+            title: 'Saldo Pendiente',
+            html: `Queda un saldo de <strong>${sim} ${neto.toLocaleString('es-PE', {minimumFractionDigits:2})}</strong>.<br><br>¿Qué desea hacer con los documentos seleccionados?`,
+            icon: 'question',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: '💸 Aplicar Anticipo y Pagar Saldo',
+            denyButtonText: '✅ Solo Aplicar Anticipo (Dejar Pendiente)',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#2563eb',
+            denyButtonColor: '#10b981',
+            width: 500
+        }).then((result) => {
+            if (result.isConfirmed) {
+                execApply(true); // Pagar todo
+            } else if (result.isDenied) {
+                execApply(false); // Solo aplicar
+            }
+        });
+        return;
+    }
+
+    // Neto <= 0: registrar directamente como aplicación parcial/total
+    execApply(false);
+}
+
 
 // ════════════════════════════════════════════════════════════
 //  VISOR MODAL (IFRAME)

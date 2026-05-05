@@ -389,3 +389,27 @@ def get_comparativo(codcia: str = Query(...), fecha_ini_actual: str = Query(...)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+
+# ═══════════════════════════════════════════════════════════
+#  10. TOP CLIENTES (por venta total)
+# ═══════════════════════════════════════════════════════════
+@router.get("/top-clientes")
+def get_top_clientes(codcia: str = Query(...), fecha_ini: str = Query(...), fecha_fin: str = Query(...), limit: int = Query(10)):
+    conn = get_db_connection()
+    cursor = _get_cursor(conn)
+    fi, ff = _parse_date(fecha_ini), _parse_date(fecha_fin)
+    try:
+        cursor.execute("""
+            SELECT TOP(?) RTRIM(codaux) as CodCliente, RTRIM(nomaux) as Cliente, COUNT(*) as CantDocs,
+                SUM(CASE WHEN RTRIM(coddoc)='N/A' THEN -ABS(imptot) ELSE imptot END) as VentaTotal
+            FROM CCBRGDOC WHERE RTRIM(codcia)=? AND fchdoc BETWEEN ? AND ? AND RTRIM(flgest)!='E'
+            GROUP BY RTRIM(codaux), RTRIM(nomaux)
+            HAVING SUM(CASE WHEN RTRIM(coddoc)='N/A' THEN -ABS(imptot) ELSE imptot END) > 0
+            ORDER BY VentaTotal DESC
+        """, (limit, codcia.strip(), fi, ff))
+        return [{"CodCliente":r[0],"Cliente":r[1],"CantDocs":r[2],"VentaTotal":_safe_float(r[3])} for r in cursor.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

@@ -136,6 +136,33 @@
                 linksHTML += '<div class="link-card" style="cursor:default;"><span class="icon">📋</span><div class="info"><div class="title">Cargo: ' + det.NroCargo + '</div><div class="desc">' + (det.TipoCargo || '') + ' — ' + (det.AreaOrigen || '') + ' → ' + (det.AreaDestino || '') + '</div></div></div>';
             }
 
+            // Lote de aplicación (GrupoAplicacion)
+            var loteHTML = '';
+            if (d.GrupoDocumentos && d.GrupoDocumentos.length > 1) {
+                loteHTML = '<div class="panel" style="margin-bottom:1.5rem; border-left:3px solid #8b5cf6;">' +
+                    '<h3 style="color:#6d28d9;">🔗 Lote de Aplicación Conjunta</h3>' +
+                    '<div style="font-size:0.75rem; color:#64748b; margin-bottom:0.75rem;">Este movimiento se aplicó o pagó junto con los siguientes documentos:</div>';
+                
+                for (var g=0; g<d.GrupoDocumentos.length; g++) {
+                    var gdoc = d.GrupoDocumentos[g];
+                    var isCurrent = (gdoc.Id === d.Id);
+                    var monto_val = parseFloat(gdoc.MontoPago || 0);
+                    var icon = monto_val < 0 ? '🔴' : '🟢';
+                    var textColor = monto_val < 0 ? '#ef4444' : '#10b981';
+                    
+                    loteHTML += '<a ' + (isCurrent ? '' : 'href="/pago_visor.html?uid=' + gdoc.Uuid + '" target="_blank"') + ' class="link-card" ' + (isCurrent ? 'style="background:#f8fafc; cursor:default; border-color:#e2e8f0; opacity:0.8;"' : '') + '>' +
+                        '<span class="icon">' + icon + '</span>' +
+                        '<div class="info">' +
+                            '<div class="title" style="display:flex; justify-content:space-between; align-items:center;">' +
+                                '<span>' + (gdoc.TipoComprobante || 'DOC') + ' ' + (gdoc.NroFactura || gdoc.NroOrdenCompra || '-') + (isCurrent ? ' <span style="font-size:0.6rem;background:#e2e8f0;padding:2px 4px;border-radius:4px;">ESTE DOC</span>' : '') + '</span>' +
+                                '<span style="color:' + textColor + ';">' + sym + ' ' + fmt(monto_val) + '</span>' +
+                            '</div>' +
+                            '<div class="desc">ID Interno de Pago: ' + gdoc.Id + '</div>' +
+                        '</div></a>';
+                }
+                loteHTML += '</div>';
+            }
+
             // Notas
             var notasHTML = '';
             if (d.Notas && d.Notas.trim()) {
@@ -197,6 +224,8 @@
                 '</div>' : '') +
                 // Notas
                 notasHTML +
+                // Lote de documentos
+                loteHTML +
                 // Enlaces
                 (linksHTML ? '<div style="margin-bottom:1.5rem;"><h3 style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:#94a3b8; margin:0 0 0.75rem 0; font-weight:700;">🔗 Documentos Relacionados</h3>' + linksHTML + '</div>' : '') +
                 // Adjuntos

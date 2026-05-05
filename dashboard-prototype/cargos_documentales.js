@@ -165,7 +165,8 @@ async function loadCompanies() {
             companies.map(c => {
                 const cod = (c.CodCia || c.codcia || '').trim();
                 const desc = c.nomcia || c.NomCia || '';
-                return `<option value="${cod}">${cod} - ${desc}</option>`;
+                const ruc = c.ruccia || c.RucCia || '';
+                return `<option value="${cod}" data-ruc="${ruc}" data-nomcia="${desc}">${cod} - ${desc}</option>`;
             }).join('');
         
         const cached = localStorage.getItem('yelave_codcia');
@@ -1522,6 +1523,10 @@ async function openCargoDetail(cargoId) {
             </tr>`;
         }).join('');
 
+        const selOption = document.getElementById('filterCia')?.selectedOptions[0];
+        const empresaNombre = selOption?.dataset?.nomcia || 'CORPORACIÓN Y.L.V S.A.C';
+        const empresaRuc = selOption?.dataset?.ruc || '20601234567';
+
         content.innerHTML = `
             <style>
                 @media print {
@@ -1565,8 +1570,8 @@ async function openCargoDetail(cargoId) {
             
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.75rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
                 <div>
-                    <h2 style="font-size:1.1rem; font-weight:800; color:#0f172a; margin:0; letter-spacing:-0.02em;">CORPORACIÓN Y.L.V S.A.C</h2>
-                    <p style="font-size:0.75rem; color:#64748b; margin:0;">RUC: 20601234567 | CARGO DE ENTREGA DOCUMENTAL</p>
+                    <h2 style="font-size:1.1rem; font-weight:800; color:#0f172a; margin:0; letter-spacing:-0.02em;">${empresaNombre}</h2>
+                    <p style="font-size:0.75rem; color:#64748b; margin:0;">RUC: ${empresaRuc} | CARGO DE ENTREGA DOCUMENTAL</p>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 1.2rem; font-weight: 800; color: #2563eb;">${h.NroCargo}</div>

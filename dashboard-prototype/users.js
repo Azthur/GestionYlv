@@ -69,13 +69,47 @@ function toggleSidebar() {
 }
 
 // ─── Modals ──────────────────────────────────
+// Cache de roles cargados para el select del modal de edición
+let _editRolOptionsLoaded = false;
+
+async function loadEditRolOptions(selectedRol) {
+    const sel = document.getElementById('editRol');
+    // Recargar siempre para incluir roles recién creados
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/admin/roles', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Error cargando roles');
+        const roles = await res.json();
+        
+        sel.innerHTML = '';
+        roles.forEach(r => {
+            if (r.Activo) {
+                const opt = document.createElement('option');
+                opt.value = r.Codigo;
+                opt.textContent = `${r.Nombre} (${r.Codigo})`;
+                sel.appendChild(opt);
+            }
+        });
+        _editRolOptionsLoaded = true;
+    } catch(err) {
+        console.error('Error cargando roles para select:', err);
+        // Fallback: si falla, al menos dejar la opción actual
+        if (sel.options.length === 0 || (sel.options.length === 1 && sel.options[0].value === 'USER')) {
+            sel.innerHTML = `<option value="${selectedRol || 'USER'}">${selectedRol || 'USER'}</option>`;
+        }
+    }
+    // Seleccionar el rol indicado
+    if (selectedRol) sel.value = selectedRol;
+}
+
 async function openEditModal(login, nombre, correo, celular, rol, activo, puedeVerTodo) {
     document.getElementById('editModalTitle').textContent = `Editar Usuario: ${login}`;
     document.getElementById('editLoginId').value = login;
     document.getElementById('editNombre').value = nombre || login;
     document.getElementById('editCorreo').value = correo || '';
     document.getElementById('editCelular').value = celular || '';
-    document.getElementById('editRol').value = rol || 'USER';
     document.getElementById('editActivo').checked = activo;
     document.getElementById('editPuedeVerTodo').checked = !!puedeVerTodo;
 
@@ -85,6 +119,9 @@ async function openEditModal(login, nombre, correo, celular, rol, activo, puedeV
     document.getElementById('editTipoT').checked = false;
 
     document.getElementById('editModal').classList.add('active');
+
+    // Cargar roles dinámicamente desde API y seleccionar el rol actual
+    await loadEditRolOptions(rol || 'USER');
 
     // Cargar permisos de Tipo de OC asíncronamente
     try {
@@ -324,9 +361,13 @@ function switchTab(tabId, btn) {
 }
 
 // ─── Permisos ────────────────────────────────
-async function loadRolesForSelect() {
+async function loadRolesForSelect(forceReload) {
     const sel = document.getElementById('selPermisoRol');
-    if (sel.options.length > 1) return; // Already loaded
+    if (!forceReload && sel.options.length > 1) return; // Already loaded
+    
+    // Keep current selection if reloading
+    const prevVal = sel.value;
+    sel.innerHTML = '<option value="">-- Seleccionar Rol --</option>';
     
     try {
         const token = localStorage.getItem('yelave_token');
@@ -337,10 +378,13 @@ async function loadRolesForSelect() {
         const roles = await res.json();
         
         roles.forEach(r => {
-            if (r.Codigo !== 'ADMIN') { // Admin always has full access
+            if (r.Codigo !== 'ADMIN' && r.Activo) { // Admin always has full access
                 sel.insertAdjacentHTML('beforeend', `<option value="${r.Codigo}">${r.Nombre} (${r.Codigo})</option>`);
             }
         });
+        
+        // Restore previous selection if it still exists
+        if (prevVal) sel.value = prevVal;
     } catch (e) { console.error('Error loading roles for select', e); }
 }
 
@@ -538,7 +582,9 @@ async function submitRoleForm() {
                 throw new Error(errData.detail || 'Error al crear rol');
             }
             showToast('Rol creado exitosamente', 'success');
-            document.getElementById('selPermisoRol').innerHTML = '<option value="">-- Seleccionar Rol --</option>';
+            // Forzar recarga de roles en todos los selects
+            loadRolesForSelect(true);
+            _editRolOptionsLoaded = false; // Reset cache del modal de edición
         } else {
             const editCodigo = document.getElementById('roleModal').dataset.editCodigo;
             const res = await fetch(`/api/admin/roles/${editCodigo}`, {

@@ -245,6 +245,10 @@ creation_scripts = [
 
     # ─── 10. Detalle de Cargos Documentales ────────────────
     """
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('CntCargosDocumentales') AND name = 'Estado')
+    ALTER TABLE CntCargosDocumentales ADD Estado VARCHAR(20) DEFAULT 'PENDIENTE';
+    """,
+    """
     IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='CntCargosDetalle' AND xtype='U')
     CREATE TABLE CntCargosDetalle (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -331,6 +335,8 @@ creation_scripts = [
             ALTER TABLE FinPagos ADD TipoOc VARCHAR(5) NULL;
         IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='ConceptoPago' AND object_id = OBJECT_ID('FinPagos'))
             ALTER TABLE FinPagos ADD ConceptoPago VARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE name='GrupoAplicacion' AND object_id = OBJECT_ID('FinPagos'))
+            ALTER TABLE FinPagos ADD GrupoAplicacion VARCHAR(36) NULL;
     END
     """,
 

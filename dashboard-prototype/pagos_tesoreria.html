@@ -346,6 +346,8 @@
                 
                 <input type="hidden" id="ncDetalleId">
                 <input type="hidden" id="ncCodCia">
+                <input type="hidden" id="ncMonto">
+                <input type="hidden" id="ncMoneda">
                 
                 <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1.5rem;">
                     <button class="btn-action outline" onclick="document.getElementById('modalAplicarNC').classList.remove('active')">Cancelar</button>
@@ -374,7 +376,66 @@
             </div>
         </div>
     </div>
-    
+    <!-- Modal: Aplicar Documentos (NC / Anticipo + Facturas) -->
+    <div class="modal-overlay" id="modalAplicarDocs">
+        <div class="modal glass-modal" style="max-width:720px; width:95%;">
+            <div class="modal-header" style="justify-content:space-between; background:linear-gradient(135deg, #7c3aed, #8b5cf6); color:white; border-radius:12px 12px 0 0; padding:1rem 1.5rem;">
+                <h3 style="margin:0; font-size:1rem;">🔄 Aplicar Documentos</h3>
+                <button class="close-btn" onclick="document.getElementById('modalAplicarDocs').classList.remove('active')" style="color:white;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height:75vh; overflow-y:auto; padding:1.25rem;">
+                <!-- Documentos a favor (NC / Anticipos) -->
+                <div style="margin-bottom:1rem;">
+                    <h4 style="margin:0 0 0.5rem 0; font-size:0.85rem; color:#991b1b; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+                        <span style="background:#fef2f2; padding:3px 8px; border-radius:6px;">📉</span> Documentos a Favor (NC / Anticipos)
+                    </h4>
+                    <div id="aplicarDocsNCList" style="max-height:180px; overflow-y:auto;"></div>
+                </div>
+                
+                <!-- Documentos a pagar (Facturas) -->
+                <div style="margin-bottom:1rem;">
+                    <h4 style="margin:0 0 0.5rem 0; font-size:0.85rem; color:#065f46; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+                        <span style="background:#f0fdf4; padding:3px 8px; border-radius:6px;">📈</span> Facturas a Compensar
+                    </h4>
+                    <div id="aplicarDocsFactList" style="max-height:180px; overflow-y:auto;"></div>
+                </div>
+
+                <!-- Resumen neto -->
+                <div id="aplicarDocsResumen" style="padding:0.75rem 1rem; background:linear-gradient(135deg, #f8fafc, #e8f0fe); border:1px solid #c7d2fe; border-radius:8px; text-align:center; margin-bottom:1rem;"></div>
+
+                <!-- Adjuntos -->
+                <div style="margin-bottom:1rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:#334155; display:block; margin-bottom:0.4rem;">📎 Adjuntar Documentos (opcional)</label>
+                    <div style="border:2px dashed #cbd5e1; border-radius:8px; padding:1rem; text-align:center; cursor:pointer; transition:border-color 0.2s;"
+                         onclick="document.getElementById('aplicarDocsAdjuntos').click()"
+                         ondragover="event.preventDefault(); this.style.borderColor='#8b5cf6';"
+                         ondragleave="this.style.borderColor='#cbd5e1';"
+                         ondrop="event.preventDefault(); this.style.borderColor='#cbd5e1'; addAplicarFiles(event.dataTransfer.files);">
+                        <span style="font-size:0.8rem; color:#64748b;">Arrastra archivos aquí o haz clic para seleccionar</span>
+                        <input type="file" id="aplicarDocsAdjuntos" multiple style="display:none;" onchange="addAplicarFiles(this.files); this.value='';">
+                    </div>
+                    <div id="aplicarDocsFileList" style="margin-top:0.5rem;"></div>
+                </div>
+
+                <!-- Notas -->
+                <div style="margin-bottom:1rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:#334155; display:block; margin-bottom:0.4rem;">📝 Notas / Observaciones</label>
+                    <textarea id="aplicarDocsNotas" rows="2" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:0.5rem; font-size:0.8rem; resize:vertical;" placeholder="Observaciones de la aplicación..."></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1rem;">
+                    <button class="btn-action outline" onclick="document.getElementById('modalAplicarDocs').classList.remove('active')">Cancelar</button>
+                    <button class="btn-action" style="background:linear-gradient(135deg, #7c3aed, #8b5cf6); color:white; font-weight:700;" onclick="confirmarAplicarDocs()">✅ Confirmar Aplicación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <style>
         .traza-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 2px; }
         .traza-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
@@ -387,6 +448,13 @@
         .traza-summary-item .tlabel { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         .traza-factura-list { margin-top: 1rem; }
         .traza-factura-card { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.8rem; }
+        /* Toggle switch for anticipo */
+        .anticipo-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+        .anticipo-toggle input { opacity: 0; width: 0; height: 0; }
+        .anticipo-toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #cbd5e1; border-radius: 20px; transition: 0.3s; }
+        .anticipo-toggle .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .anticipo-toggle input:checked + .slider { background: #f59e0b; }
+        .anticipo-toggle input:checked + .slider:before { transform: translateX(16px); }
     </style>
 
     <!-- Scripts -->

@@ -70,18 +70,26 @@ async function loadCompanies() {
     const filterCia = document.getElementById('filterCia');
     try {
         const token = localStorage.getItem('yelave_token');
-        const res = await fetch('http://localhost:8000/api/logistics/companies', {
+        const res = await fetch('/api/permisos/empresas/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Error cargando empresas');
         
         const data = await res.json();
-        const storedCia = localStorage.getItem('last_cia') || data[0].codcia;
+        
+        if (!data || data.length === 0) {
+            filterCia.innerHTML = '<option value="">Sin empresas asignadas</option>';
+            return;
+        }
+        
+        const storedCia = localStorage.getItem('last_cia') || (data[0].codcia || '').trim();
 
         let options = '';
         data.forEach(c => {
-            const selected = c.codcia === storedCia ? 'selected' : '';
-            options += `<option value="${c.codcia}" ${selected}>${c.codcia} - ${c.nomcia}</option>`;
+            const codcia = (c.codcia || '').trim();
+            const nomcia = (c.nomcia || '').trim();
+            const selected = codcia === storedCia ? 'selected' : '';
+            options += `<option value="${codcia}" ${selected}>${codcia} - ${nomcia}</option>`;
         });
         filterCia.innerHTML = options;
 

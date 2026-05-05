@@ -11,6 +11,9 @@ const fmt=v=>`S/ ${parseFloat(v||0).toLocaleString('es-PE',{minimumFractionDigit
 const fmtK=v=>{const n=parseFloat(v||0);if(n>=1e6)return`S/ ${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`S/ ${(n/1e3).toFixed(1)}K`;return fmt(v)};
 const fmtU=v=>`$ ${parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2})}`;
 const fmtUK=v=>{const n=parseFloat(v||0);if(n>=1e6)return`$ ${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`$ ${(n/1e3).toFixed(1)}K`;return fmtU(v)};
+// Neutral formatters (no currency symbol) for multi-currency totals
+const fmtN=v=>parseFloat(v||0).toLocaleString('es-PE',{minimumFractionDigits:2});
+const fmtNK=v=>{const n=parseFloat(v||0);if(n>=1e6)return`${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`${(n/1e3).toFixed(1)}K`;return fmtN(v)};
 const COLORS=['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899','#ef4444','#14b8a6','#a855f7','#f97316','#6366f1','#22d3ee','#84cc16','#e879f9','#fb923c'];
 const MONTHS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 let charts={};
@@ -43,8 +46,11 @@ let fpIni, fpFin;
 document.addEventListener('DOMContentLoaded',async()=>{
     const sv=localStorage.getItem('yelave_theme');if(sv){document.documentElement.setAttribute('data-theme',sv);document.getElementById('btnTheme').textContent=sv==='dark'?'🌙':'☀️';setDefaults()}
     const fpOpts={locale:'es',dateFormat:'Y-m-d',altInput:true,altFormat:'d/m/Y',disableMobile:true};
-    fpIni=flatpickr('#fechaIni',{...fpOpts,defaultDate:'2026-01-01'});
-    fpFin=flatpickr('#fechaFin',{...fpOpts,defaultDate:'2026-01-31'});
+    const now=new Date();
+    const firstDay=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+    const lastDay=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);
+    fpIni=flatpickr('#fechaIni',{...fpOpts,defaultDate:firstDay});
+    fpFin=flatpickr('#fechaFin',{...fpOpts,defaultDate:lastDay});
     await loadCias();
     const sel=document.getElementById('filterCia');
     document.getElementById('companyLabel').textContent=sel.options[sel.selectedIndex]?.text||'';
@@ -67,7 +73,7 @@ async function applyFilters(){
     const dI=new Date(fi),dF=new Date(ff),dm=dF-dI,pF=new Date(dI.getTime()-864e5),pI=new Date(pF.getTime()-dm);
     const aA=dF.getFullYear().toString(),aP=(dF.getFullYear()-1).toString();
     const g=u=>axios.get(u).catch(()=>({data:null}));
-    const [r1,r2,r3,r4,r5,r6,r7,r8,r9,r10]=await Promise.all([
+    const [r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11]=await Promise.all([
         g(`${API}/resumen?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}`),
         g(`${API}/ventas-diarias?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}`),
         g(`${API}/ventas-mensuales?codcia=${codcia}&ano_actual=${aA}&ano_anterior=${aP}`),
@@ -77,13 +83,15 @@ async function applyFilters(){
         g(`${API}/distribucion-geografica?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}&limit=8`),
         g(`${API}/analisis-pedidos?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}`),
         g(`${API}/comparativo?codcia=${codcia}&fecha_ini_actual=${fi}&fecha_fin_actual=${ff}&fecha_ini_anterior=${iso(pI)}&fecha_fin_anterior=${iso(pF)}`),
-        g(`${API}/descuentos-evolucion?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}`)
+        g(`${API}/descuentos-evolucion?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}`),
+        g(`${API}/top-clientes?codcia=${codcia}&fecha_ini=${fi}&fecha_fin=${ff}&limit=8`)
     ]);
     renderKPIs(r1.data,r9.data);
     renderDiarias(r2.data);
     renderMensuales(r3.data,aA,aP);
     renderTipoDocs(r1.data);
-    if(r4.data){renderTopImp(r4.data.TopImporte);renderTopCant(r4.data.TopCantidad)}
+    if(r4.data){renderTopProd(r4.data.TopImporte, r4.data.TopCantidad)}
+    renderTopClientes(r11.data);
     renderVend(r5.data);
     renderPrecios(r6.data);
     renderGeo(r7.data);
@@ -94,16 +102,16 @@ async function applyFilters(){
 // ═══ 1+9. KPIs ═══
 function renderKPIs(d,comp){
     if(!d)return;const v=d.Ventas||{},p=d.Pedidos||{},g=d.Guias||{};
-    document.getElementById('kVentaTotal').textContent=fmtK(v.VentaTotal);
+    document.getElementById('kVentaTotal').textContent=fmtNK(v.VentaTotal);
     let sub=`PEN: ${fmtK(v.VentaPEN)}`;if(v.VentaUSD>0)sub+=` · USD: ${fmtUK(v.VentaUSD)}`;
     document.getElementById('kVentaSub').textContent=sub;
     document.getElementById('kDocs').textContent=(v.TotalDocs||0).toLocaleString();
     document.getElementById('kDocsSub').textContent=(d.TipoDocumentos||[]).slice(0,3).map(t=>`${t.TipoDoc}:${t.Cantidad}`).join(' · ');
-    document.getElementById('kTicket').textContent=fmt(v.TicketPromedio);
+    document.getElementById('kTicket').textContent=fmtN(v.TicketPromedio);
     document.getElementById('kPedidos').textContent=(p.TotalPedidos||0).toLocaleString();
-    document.getElementById('kPedidosSub').textContent=`${fmtK(p.MontoPedidos)}`;
+    document.getElementById('kPedidosSub').textContent=`${fmtNK(p.MontoPedidos)}`;
     document.getElementById('kGuias').textContent=(g.TotalGuias||0).toLocaleString();
-    if(comp){const vp=comp.Variacion||0;const el=document.getElementById('kVariacion');el.textContent=`${vp>0?'+':''}${vp}%`;el.style.color=vp>=0?'#34d399':'#f87171';document.getElementById('kVariacionSub').textContent=`Ant: ${fmtK(comp.Anterior?.VentaTotal)}`}
+    if(comp){const vp=comp.Variacion||0;const el=document.getElementById('kVariacion');el.textContent=`${vp>0?'+':''}${vp}%`;el.style.color=vp>=0?'#34d399':'#f87171';document.getElementById('kVariacionSub').textContent=`Ant: ${fmtNK(comp.Anterior?.VentaTotal)}`}
 }
 
 // ═══ 2. VENTAS DIARIAS (line — show max value label) ═══
@@ -149,16 +157,43 @@ function renderTipoDocs(data){
     charts.td=new Chart(document.getElementById('chartTipoDocs'),{type:'doughnut',data:{labels,datasets:[{data:values,backgroundColor:COLORS.slice(0,t.length),borderWidth:0,datalabels:DL_DOUGHNUT}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'right',labels:{padding:8,font:{size:10}}},tooltip:{titleFont:{size:12},bodyFont:{size:11},callbacks:{label:c=>{const isNC=t[c.dataIndex].TipoDoc==='N/A';return`${c.label}: ${isNC?'-':''}${fmtK(c.raw)} (${counts[c.dataIndex]} docs)`}}}}}});
 }
 
-// ═══ 4a. TOP IMPORTE (horizontal bar — show values) ═══
-function renderTopImp(data){
-    if(charts.tp)charts.tp.destroy();if(!data||!data.length)return;
-    charts.tp=new Chart(document.getElementById('chartTopProd'),{type:'bar',data:{labels:data.map(p=>(p.Producto||'').trim().substring(0,22)),datasets:[{data:data.map(p=>p.ImporteTotal),backgroundColor:COLORS.map(c=>c+'bb'),borderRadius:3,datalabels:DL_BAR}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{titleFont:{size:12},bodyFont:{size:11},callbacks:{label:c=>`${fmtK(c.raw)} · ${data[c.dataIndex].CantVendida} uds`}}},scales:{x:{ticks:{callback:v=>fmtK(v),font:{size:9}},grid:{color:gc()}},y:{grid:{display:false},ticks:{font:{size:9}}}}}});
+// ═══ 4. TOP PRODUCTOS (combined: importe bars + cantidad line) ═══
+function renderTopProd(dataImp, dataCant){
+    if(charts.tp)charts.tp.destroy();
+    if(!dataImp||!dataImp.length)return;
+    const labels=dataImp.map(p=>(p.Producto||'').trim().substring(0,20));
+    const impData=dataImp.map(p=>p.ImporteTotal);
+    // Match cantidad data to the same products
+    const cantMap={};
+    if(dataCant) dataCant.forEach(p=>{cantMap[(p.Producto||'').trim()]=p.CantVendida});
+    const cantData=dataImp.map(p=>cantMap[(p.Producto||'').trim()]||p.CantVendida||0);
+    charts.tp=new Chart(document.getElementById('chartTopProd'),{type:'bar',data:{
+        labels,
+        datasets:[
+            {label:'Importe',data:impData,backgroundColor:COLORS.map(c=>c+'bb'),borderRadius:3,yAxisID:'y',
+                datalabels:{display:true,anchor:'end',align:'end',font:{size:7,weight:'700'},color:()=>tc(),formatter:v=>fmtNK(v)}},
+            {type:'line',label:'Cantidad',data:cantData,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.2)',pointRadius:3,pointBackgroundColor:'#f59e0b',borderWidth:2,tension:.3,yAxisID:'y1',
+                datalabels:{display:false}}
+        ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{font:{size:9}}},
+            tooltip:{titleFont:{size:12},bodyFont:{size:11},callbacks:{label:c=>c.dataset.label==='Cantidad'?`${parseFloat(c.raw).toLocaleString()} uds`:`${fmtNK(c.raw)}`}}},
+        scales:{y:{grid:{display:false},ticks:{font:{size:8}}},
+            x:{display:false},
+            y1:{position:'top',grid:{display:false},ticks:{font:{size:7},color:'#f59e0b'}}}}});
 }
 
-// ═══ 4b. TOP CANTIDAD (horizontal bar — show values) ═══
-function renderTopCant(data){
-    if(charts.tc)charts.tc.destroy();if(!data||!data.length)return;
-    charts.tc=new Chart(document.getElementById('chartTopCant'),{type:'bar',data:{labels:data.map(p=>(p.Producto||'').trim().substring(0,22)),datasets:[{data:data.map(p=>p.CantVendida),backgroundColor:COLORS.map(c=>c+'99'),borderRadius:3,datalabels:DL_BAR_QTY}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{titleFont:{size:12},bodyFont:{size:11},callbacks:{label:c=>`${parseFloat(c.raw).toLocaleString()} uds · ${fmtK(data[c.dataIndex].ImporteTotal)}`}}},scales:{x:{grid:{color:gc()},ticks:{font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}});
+// ═══ 4b. TOP CLIENTES (horizontal bar) ═══
+function renderTopClientes(data){
+    if(charts.tcli)charts.tcli.destroy();
+    if(!data||!data.length)return;
+    charts.tcli=new Chart(document.getElementById('chartTopClientes'),{type:'bar',data:{
+        labels:data.map(c=>(c.Cliente||'').trim().substring(0,20)),
+        datasets:[{data:data.map(c=>c.VentaTotal),backgroundColor:COLORS.map(c=>c+'bb'),borderRadius:3,
+            datalabels:{display:true,anchor:'end',align:'end',font:{size:7,weight:'700'},color:()=>tc(),formatter:v=>fmtNK(v)}}]
+    },options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+            tooltip:{titleFont:{size:12},bodyFont:{size:11},callbacks:{label:c=>`${fmtNK(c.raw)} · ${data[c.dataIndex].CantDocs} docs`}}},
+        scales:{x:{ticks:{callback:v=>fmtNK(v),font:{size:9}},grid:{color:gc()}},y:{grid:{display:false},ticks:{font:{size:8}}}}}});
 }
 
 // ═══ 5. VENDEDORES (horizontal bar — show values) ═══

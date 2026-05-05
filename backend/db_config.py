@@ -11,6 +11,7 @@ import os
 import sys
 import pyodbc
 from dotenv import load_dotenv, set_key, find_dotenv
+import database
 
 router = APIRouter(prefix="/api/config", tags=["Configuración"])
 
@@ -91,6 +92,12 @@ def update_db_config(config: DBConfigUpdate):
 
         # Reload env vars in memory
         load_dotenv(override=True)
+        
+        # Reset the global database engine so connections are recreated
+        if hasattr(database, 'engine'):
+            if database.engine:
+                database.engine.dispose()
+            database.engine = None
 
         return {"status": "success", "message": "Configuración actualizada exitosamente."}
     except Exception as e:

@@ -1752,7 +1752,15 @@ def get_trazabilidad(
 
         # 4. Detalle facturado por material con validaciones
         # Obtenemos moneda y fecha de la orden
-        cursor.execute("SELECT CodMon, FchDoc FROM CmpVOcom WHERE RTRIM(CodCia)=? AND RTRIM(NroDoc)=?", (codcia.strip(), nrodoc.strip()))
+        q_oc = "SELECT CodMon, FchDoc FROM CmpVOcom WHERE RTRIM(CodCia)=? AND RTRIM(NroDoc)=?"
+        p_oc = [codcia.strip(), nrodoc.strip()]
+        if tipo_oc:
+            q_oc += " AND RTRIM(TipoOc)=?"
+            p_oc.append(tipo_oc.strip())
+        if year:
+            q_oc += " AND RTRIM(Anos)=?"
+            p_oc.append(year.strip())
+        cursor.execute(q_oc, tuple(p_oc))
         row_oc = cursor.fetchone()
         oc_moneda = "1" if row_oc and str(row_oc[0]).strip() in ("1", "1.0", "S/") else "2"
         fch_oc = row_oc[1].strftime("%Y-%m-%d") if row_oc and row_oc[1] else None

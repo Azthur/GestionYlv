@@ -180,16 +180,36 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── Load Empresas ─────────────────────────────────────────────────────
 async function loadEmpresas() {
     try {
-        const res = await fetch('/api/conciliacion/empresas');
-        if (!res.ok) throw new Error('Error loading empresas');
-        const empresas = await res.json();
+        const token = localStorage.getItem('yelave_token');
+        let empresas = [];
+        
+        // Primero intentar obtener empresas filtradas por permisos del usuario
+        if (token) {
+            try {
+                const res = await fetch('/api/permisos/empresas/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    empresas = await res.json();
+                }
+            } catch(e) {
+                console.warn('Error cargando empresas por permisos, usando fallback', e);
+            }
+        }
+        
+        // Fallback: si no hay empresas del endpoint de permisos, usar el general
+        if (!empresas || empresas.length === 0) {
+            const res = await fetch('/api/conciliacion/empresas');
+            if (!res.ok) throw new Error('Error loading empresas');
+            empresas = await res.json();
+        }
 
         const select = document.getElementById('selectEmpresa');
         select.innerHTML = '<option value="">Seleccione empresa</option>';
         empresas.forEach(e => {
             const opt = document.createElement('option');
-            opt.value = e.codcia;
-            opt.textContent = `${e.codcia} - ${e.nomcia}`;
+            opt.value = (e.codcia || '').trim();
+            opt.textContent = `${(e.codcia || '').trim()} - ${(e.nomcia || '').trim()}`;
             select.appendChild(opt);
         });
     } catch (err) {
@@ -1297,7 +1317,28 @@ function filterCobranzas(filter, btn) {
     }
 }
 
-// ─── REPORTE MOVIMIENTOS BANCARIOS (TAB 4) ───────────────────────────────────────
+// ─── FILTRO "Documentos Aplicados y redondeo" ─────────────────────────
+// Custom DataTables search filter: when checked, hide rows where coddoc = "R/C." or "N/A "
+$.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+    // Only apply to the "tableTodasCobranzas" DataTable
+    if (settings.nTable.id !== 'tableTodasCobranzas') return true;
+    
+    var chk = document.getElementById('chkDocAplicados');
+    if (!chk || !chk.checked) return true; // not checked => show everything
+    
+    // coddoc is column index 6 (0-based: Acc, Estado, ID, CodCia, anos, mes, coddoc)
+    var coddoc = (data[6] || '').trim();
+    if (coddoc === 'R/C.' || coddoc === 'N/A') return false; // hide these
+    return true;
+});
+
+function applyDocAplicadosFilter() {
+    if (dtCobranzas) {
+        dtCobranzas.draw();
+    }
+}
+
+
 async function loadMovimientosBanco() {
     const codcia = document.getElementById('selectEmpresa').value;
     const bankCode = document.getElementById('selectBanco').value;

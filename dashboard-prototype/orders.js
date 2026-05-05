@@ -17,6 +17,18 @@ let currentAttachmentContext = null; // { codcia, tipooc, nrodoc, docType }
         currentRole = '';
     }
     
+    // Fetch real DB role to avoid stale JWT issues
+    const token = localStorage.getItem('yelave_token');
+    if (token) {
+        fetch('/api/permisos/me', { headers: { 'Authorization': `Bearer ${token}` }})
+            .then(res => res.json())
+            .then(data => {
+                if (data.isAdmin) currentRole = 'ADMIN';
+                else if (data.rol) currentRole = String(data.rol).toUpperCase();
+            })
+            .catch(console.error);
+    }
+    
     // Default filterPeriod to current month
     window.addEventListener('DOMContentLoaded', () => {
         const pSel = document.getElementById('filterPeriod');
@@ -152,8 +164,8 @@ async function loadOrders() {
             const procesoBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; font-weight:600; padding:3px 6px; border-radius:4px; background:${procesoBg}; color:${procesoColor};" title="${proc}">${procesoIcon} ${proc}</span>`;
 
             // Build actions dropdown
-            const isLogistics = currentRole === 'LOGISTICA' || currentRole === 'ADMIN';
-            const isTreasury = currentRole === 'TESORERIA' || currentRole === 'ADMIN';
+            const isLogistics = ['LOGISTICA', 'ADMIN', 'GERENCIA', 'CONTROL_INTERNO'].includes(currentRole);
+            const isTreasury = ['TESORERIA', 'ADMIN', 'GERENCIA', 'CONTROL_INTERNO', 'FINANZAS'].includes(currentRole);
             const showWarehouseBtn = String(o.tipooc).trim().toUpperCase() === 'M';
 
             const btnHtml = `<div class="action-dropdown">
@@ -184,16 +196,14 @@ async function loadOrders() {
                         Aprobar OC
                     </button>` : ''}
                     <div class="action-dropdown-divider"></div>
-                    ${isLogistics ? `
                     <button class="action-dropdown-item" onclick="openAttachmentModal('${cia}','${o.tipooc}','${o.nrodoc}','signed_order')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon></svg>
                         Orden Firmada
-                    </button>` : ''}
-                    ${isTreasury ? `
+                    </button>
                     <button class="action-dropdown-item" onclick="openAttachmentModal('${cia}','${o.tipooc}','${o.nrodoc}','voucher')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
                         Voucher de Pago
-                    </button>` : ''}
+                    </button>
                 </div>
             </div>`;
 

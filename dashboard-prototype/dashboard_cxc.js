@@ -9,6 +9,9 @@ const fmt=v=>`S/ ${parseFloat(v||0).toLocaleString('es-PE',{minimumFractionDigit
 const fmtK=v=>{const n=parseFloat(v||0);if(n>=1e6)return`S/ ${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`S/ ${(n/1e3).toFixed(1)}K`;return`S/ ${n.toFixed(0)}`};
 const fmtU=v=>`$ ${parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2})}`;
 const fmtUK=v=>{const n=parseFloat(v||0);if(n>=1e6)return`$ ${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`$ ${(n/1e3).toFixed(1)}K`;return`$ ${n.toFixed(0)}`};
+// Neutral formatters (no currency symbol) for multi-currency totals
+const fmtN=v=>parseFloat(v||0).toLocaleString('es-PE',{minimumFractionDigits:2});
+const fmtNK=v=>{const n=parseFloat(v||0);if(n>=1e6)return`${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`${(n/1e3).toFixed(1)}K`;return fmtN(v)};
 const COLORS=['#ef4444','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#14b8a6','#a855f7','#f97316','#6366f1','#22d3ee','#84cc16','#e879f9','#fb923c'];
 const MONTHS_MAP={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
 let charts={};
@@ -29,8 +32,11 @@ let fpIni, fpFin;
 document.addEventListener('DOMContentLoaded',async()=>{
     const sv=localStorage.getItem('yelave_theme');if(sv){document.documentElement.setAttribute('data-theme',sv);document.getElementById('btnTheme').textContent=sv==='dark'?'🌙':'☀️';setDefaults()}
     const fpOpts={locale:'es',dateFormat:'Y-m-d',altInput:true,altFormat:'d/m/Y',disableMobile:true};
-    fpIni=flatpickr('#fechaIni',{...fpOpts,defaultDate:'2025-01-01'});
-    fpFin=flatpickr('#fechaFin',{...fpOpts,defaultDate:'2026-04-27'});
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0,10);
+    fpIni=flatpickr('#fechaIni',{...fpOpts,defaultDate: firstDay});
+    fpFin=flatpickr('#fechaFin',{...fpOpts,defaultDate: lastDay});
     await loadCias();
     const sel=document.getElementById('filterCia');
     document.getElementById('companyLabel').textContent=sel.options[sel.selectedIndex]?.text||'';
@@ -68,18 +74,18 @@ async function applyFilters(){
 
 // ═══ KPIs — Multi-currency ═══
 function renderKPIs(d){
-    document.getElementById('kSaldo').textContent=fmtK(d.saldo_pen);
+    document.getElementById('kSaldo').textContent=fmtNK(d.total_saldo);
     document.getElementById('kSaldo').style.color='#ef4444';
     let saldoSub='PEN: '+fmtK(d.saldo_pen);
     if(d.saldo_usd>0)saldoSub+=' · USD: '+fmtUK(d.saldo_usd);
     document.getElementById('kSaldoSub').textContent=saldoSub;
 
-    document.getElementById('kImporte').textContent=fmtK(d.importe_pen);
+    document.getElementById('kImporte').textContent=fmtNK(d.total_importe);
     let impSub='PEN: '+fmtK(d.importe_pen);
     if(d.importe_usd>0)impSub+=' · USD: '+fmtUK(d.importe_usd);
     document.getElementById('kImporteSub').textContent=impSub;
 
-    document.getElementById('kCobrado').textContent=fmtK(d.acta_pen);
+    document.getElementById('kCobrado').textContent=fmtNK(d.total_acta);
     document.getElementById('kCobrado').style.color='#10b981';
     let cobSub='PEN: '+fmtK(d.acta_pen);
     if(d.acta_usd>0)cobSub+=' · USD: '+fmtUK(d.acta_usd);

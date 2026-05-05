@@ -1,9 +1,9 @@
 /**
- * YELAVE ERP — Auth Guard Reforzado
- * Verifica sesión y permisos dinámicos antes de mostrar contenido.
+ * YELAVE ERP — Auth Guard Reforzado v2
+ * Verifica sesión y permisos dinámicos ANTES de mostrar contenido.
  * - Verifica JWT en localStorage
  * - Valida permisos contra el servidor (GET /api/permisos/me)
- * - Oculta body hasta validación completa
+ * - NUNCA muestra contenido hasta que el servidor confirme acceso
  * - Timeout de inactividad (10 min)
  */
 (function() {
@@ -15,7 +15,7 @@
         return;
     }
 
-    // 1. Ocultar body hasta validación
+    // 1. Ocultar body hasta validación COMPLETA del servidor
     document.documentElement.style.visibility = 'hidden';
 
     // 2. Check token exists
@@ -41,7 +41,7 @@
     const currentPath = window.location.pathname.toLowerCase();
     
     // Pages that don't need permission checks (always accessible if logged in)
-    const alwaysAllowed = ['login.html', 'index.html', 'profile.html'];
+    const alwaysAllowed = ['login.html', 'index.html', 'profile.html', 'manual.html'];
     const isAlwaysAllowed = alwaysAllowed.some(p => currentPath.includes(p));
     
     // Public viewers (no auth needed at all)
@@ -53,18 +53,7 @@
         return; // Public pages don't need auth
     }
 
-    // 5. Validate with server and check permissions
-    const login = String(user.login || '').trim().toUpperCase();
-    const isSuperuser = login === '71941916JL';
-    const userRol = String(user.rol || '').trim().toUpperCase();
-    const isAdmin = isSuperuser || userRol === 'ADMIN';
-
-    // If admin or always-allowed page, show immediately
-    if (isAdmin || isAlwaysAllowed) {
-        document.documentElement.style.visibility = 'visible';
-    }
-
-    // Server-side validation (async, non-blocking for admin/allowed)
+    // 5. SIEMPRE validar contra el servidor — NUNCA confiar solo en localStorage
     fetch('/api/auth/verify', {
         headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -81,39 +70,62 @@
     .then(data => {
         if (!data) return;
         
-        // Update stored user data if server provides newer info
+        // Actualizar datos del usuario con info REAL del servidor
         if (data.nombre || data.rol) {
             user.nombre = data.nombre || user.nombre;
             user.rol = data.rol || user.rol;
             localStorage.setItem('yelave_user', JSON.stringify(user));
         }
 
-        // For non-admin, non-always-allowed pages, check permissions
-        if (!isAdmin && !isAlwaysAllowed) {
-            return fetch('/api/permisos/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(r => r.json()).then(permData => {
-                const modulos = permData.modulos || [];
-                const hasAccess = modulos.some(m => 
-                    currentPath.includes(m.RutaHtml.toLowerCase().replace('/', ''))
-                );
-                
-                if (!hasAccess) {
-                    alert("Acceso Denegado: Su rol no tiene permisos para acceder a este módulo.");
-                    window.location.href = 'index.html';
-                    return;
-                }
-                
-                document.documentElement.style.visibility = 'visible';
-            });
-        } else {
+        // Determinar rol REAL del servidor (no del localStorage viejo)
+        const serverRol = String(data.rol || '').trim().toUpperCase();
+        const serverLogin = String(data.login || '').trim().toUpperCase();
+        const isRealSuperuser = serverLogin === '71941916JL';
+        const isRealAdmin = isRealSuperuser || serverRol === 'ADMIN';
+
+        // Para páginas siempre permitidas, mostrar inmediatamente
+        if (isAlwaysAllowed) {
             document.documentElement.style.visibility = 'visible';
+            return;
         }
+
+        // Para ADMIN real (confirmado por servidor), mostrar inmediatamente
+        if (isRealAdmin) {
+            document.documentElement.style.visibility = 'visible';
+            return;
+        }
+
+        // Para TODOS los demás usuarios: verificar permisos del módulo contra el servidor
+        return fetch('/api/permisos/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.json()).then(permData => {
+            const modulos = permData.modulos || [];
+            const hasAccess = modulos.some(m => {
+                if (!m.RutaHtml) return false;
+                const rutaClean = m.RutaHtml.toLowerCase().replace(/^\//, '');
+                return currentPath.includes(rutaClean);
+            });
+            
+            if (!hasAccess) {
+                document.documentElement.style.visibility = 'visible'; // Mostrar para que vean el alert
+                alert("Acceso Denegado: Su rol no tiene permisos para acceder a este módulo.");
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            document.documentElement.style.visibility = 'visible';
+        });
     })
     .catch(err => {
         console.warn('Auth verify failed (network):', err);
-        // If server is unreachable but token exists, still show (graceful degradation)
-        document.documentElement.style.visibility = 'visible';
+        // Si el servidor no responde, solo permitir páginas siempre accesibles
+        if (isAlwaysAllowed) {
+            document.documentElement.style.visibility = 'visible';
+        } else {
+            // En caso de error de red, NO mostrar contenido protegido
+            alert("No se pudo verificar su sesión. Verifique su conexión.");
+            window.location.href = 'login.html';
+        }
     });
 
     // 6. Inactivity Timeout (10 minutes) — skip for dashboard gerencial (keep-alive)
