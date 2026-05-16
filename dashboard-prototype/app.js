@@ -113,7 +113,7 @@ function renderLandingPage(user, ctx) {
 
     // Fetch permissions to build cards dynamically
     const token = localStorage.getItem('yelave_token');
-    fetch('http://localhost:8000/api/permisos/me', {
+    fetch('/api/permisos/me', {
         headers: { 'Authorization': `Bearer ${token}` }
     })
         .then(r => r.json())

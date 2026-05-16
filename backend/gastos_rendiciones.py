@@ -66,6 +66,110 @@ def get_congasto(codcia: str = Query(...)):
     finally:
         conn.close()
 
+
+
+# ════════════════════════════════════════════════════════════
+#  ENDPOINT PROVEEDORES (RUC Lookup y Creación)
+# ════════════════════════════════════════════════════════════
+from pydantic import BaseModel
+class ProveedorCreate(BaseModel):
+    codcia: str
+    ruc: str
+    razon_social: str
+    direccion: str
+    ubigeo: str = ""
+    coddep: str = ""
+    codpro: str = ""
+    coddis: str = ""
+    email: str = ""
+
+@router.get("/proveedor/{ruc}")
+def get_proveedor_ruc(ruc: str, codcia: str = Query(...)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Buscar en BD local
+        cursor.execute("""
+            SELECT RTRIM(codaux) as codaux, RTRIM(nomaux) as nomaux, RTRIM(rucaux) as rucaux, RTRIM(diraux) as diraux 
+            FROM CbdMAuxi 
+            WHERE codcia = ? AND clfaux = '005' AND RTRIM(rucaux) = ?
+        """, (codcia, ruc.strip()))
+        row = cursor.fetchone()
+        
+        if row:
+            cols = [col[0] for col in cursor.description]
+            return {"origen": "local", "data": dict(zip(cols, row))}
+            
+        # 2. Buscar en API externa
+        import requests
+        url = f"https://api.org.pe/v1/ruc/{ruc.strip()}"
+        headers = {'Authorization': 'Bearer 8b95d098223b4c2cbc4249d3fa490b17'}
+        
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            api_data = resp.json()
+            if api_data.get('success'):
+                d = api_data['data']
+                ubigeo_arr = d.get('ubigeo', [])
+                
+                return {
+                    "origen": "api", 
+                    "data": {
+                        "rucaux": str(d.get('ruc', '')),
+                        "nomaux": str(d.get('nombre_o_razon_social', '')),
+                        "diraux": str(d.get('direccion_completa', '')),
+                        "ubigeo": ubigeo_arr[2] if len(ubigeo_arr) > 2 else '',
+                        "coddep": ubigeo_arr[0] if len(ubigeo_arr) > 0 else '',
+                        "codpro": ubigeo_arr[1] if len(ubigeo_arr) > 1 else '',
+                        "coddis": ubigeo_arr[2] if len(ubigeo_arr) > 2 else ''
+                    }
+                }
+            else:
+                raise HTTPException(status_code=404, detail="RUC no encontrado en la API.")
+        else:
+            raise HTTPException(status_code=404, detail="RUC no encontrado en la API externa.")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/proveedor")
+def create_proveedor(prov: ProveedorCreate):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        jruc = prov.ruc[:15]
+        jrs = prov.razon_social[:60]
+        jdir = prov.direccion[:60] # diraux usually varchar(60) or 40
+        xtpodoc = '6' if len(jruc) == 11 else '1'
+        
+        cursor.execute("""
+            INSERT INTO Cbdmauxi 
+            (CODCIA, clfaux, codaux, nomaux, diraux, rucaux, TLFaux, contacto, 
+             coddep, codpro, coddis, ptolle, TPODOC, CODZON, CODNAC, CODVEN, 
+             CODEST, CODRET, FCHALT, TPOVTA, EMAIL, pais, email2) 
+            VALUES (?, '005', ?, ?, ?, ?, '', '', 
+                    ?, ?, ?, '', ?, '06', '0001', '', 
+                    '1', '2', GETDATE(), '02', ?, '', '')
+        """, (
+            prov.codcia[:3], jruc[:18], jrs[:200], jdir[:200], jruc[:18],
+            prov.coddep[:4], prov.codpro[:4], prov.coddis[:4], xtpodoc[:4],
+            prov.email[:100]
+        ))
+        conn.commit()
+        return {"status": "success", "data": {"codaux": jruc, "nomaux": jrs, "rucaux": jruc, "diraux": jdir}}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 # ════════════════════════════════════════════════════════════
 #  ENDPOINT AUXILIARES (Trabajadores / Socios)
 # ════════════════════════════════════════════════════════════
@@ -298,6 +402,7 @@ def buscar_factura(codcia: str = Query(...), q: str = Query(...)):
         search = f"%{q}%"
         cursor.execute("""
             SELECT TOP 40 
+                RTRIM(f.CodTipoDoc) as TipoDoc,
                 RTRIM(f.Serie) as Serie, 
                 RTRIM(f.Numero) as Numero,
                 f.FecEmision,
@@ -574,7 +679,13 @@ def get_rendiciones(codcia: str = Query(...)):
         raise HTTPException(status_code=500, detail="Error DB")
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM FinRendicionGastosCab WHERE CodCia = ? ORDER BY FechaRegistro DESC", (codcia,))
+        cursor.execute("""
+            SELECT r.*, 
+                   (SELECT TOP 1 Uuid FROM FinPagos p WHERE RTRIM(p.NroOrdenCompra) = RTRIM(r.NroRendicion) AND RTRIM(p.CodCia) = RTRIM(r.CodCia) ORDER BY p.FechaRegistro DESC) as PagoUuid
+            FROM FinRendicionGastosCab r 
+            WHERE RTRIM(r.CodCia) = ? 
+            ORDER BY r.FechaRegistro DESC
+        """, (codcia.strip(),))
         cols = [col[0] for col in cursor.description]
         results = [dict(zip(cols, row)) for row in cursor.fetchall()]
         return results

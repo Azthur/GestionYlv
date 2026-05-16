@@ -984,6 +984,7 @@ function renderInvoiceItems() {
         if(tp === 'gravada') totG += it.vv;
         else if(tp === 'exonerada') totE += it.vv;
         else if(tp === 'inafecta') totI += it.vv;
+        else if(tp === 'retencion_rh') totI += it.vv;
 
         let warning = '';
         if (window.currentOCDetalle && window.currentOCDetalle.length > 0 && it.fromOC) {
@@ -1198,6 +1199,11 @@ function editInvoiceItem(index) {
     if ((it.tipoOp || 'gravada') === 'gravada') {
         const perc = it.vv > 0 ? (it.igv / it.vv) * 100 : 18.0;
         document.getElementById('manualPorcIgv').value = perc.toFixed(1);
+    } else if (it.tipoOp === 'retencion_rh') {
+        document.getElementById('manualPorcIgv').value = '0.0';
+        // Restore retention percentage from stored value
+        const porcRet = it.porcRetencion || (it.vv > 0 ? ((it.vv - it.total) / it.vv * 100) : 8.0);
+        document.getElementById('manualPorcRetencion').value = parseFloat(porcRet).toFixed(1);
     } else {
         document.getElementById('manualPorcIgv').value = '0.0';
     }
@@ -1213,11 +1219,32 @@ function editInvoiceItem(index) {
 function toggleManualIgvOptions() {
     const op = document.getElementById('manualTipoOp').value;
     const block = document.getElementById('manualIgvBlock');
+    const retencionBlock = document.getElementById('manualRetencionBlock');
     if (op === 'gravada') {
         block.style.display = 'grid';
+        if (retencionBlock) retencionBlock.style.display = 'none';
+    } else if (op === 'retencion_rh') {
+        block.style.display = 'none';
+        document.getElementById('manualPorcIgv').value = '0.0';
+        if (retencionBlock) retencionBlock.style.display = 'block';
+        updateRetencionPreview();
     } else {
         block.style.display = 'none';
         document.getElementById('manualPorcIgv').value = '0.0';
+        if (retencionBlock) retencionBlock.style.display = 'none';
+    }
+}
+
+function updateRetencionPreview() {
+    const precio = parseFloat(document.getElementById('manualPrecio').value) || 0;
+    const cant = parseFloat(document.getElementById('manualCant').value) || 1;
+    const porcRet = parseFloat(document.getElementById('manualPorcRetencion').value) || 0;
+    const bruto = precio * cant;
+    const retencion = bruto * (porcRet / 100);
+    const neto = bruto - retencion;
+    const preview = document.getElementById('manualRetencionPreview');
+    if (preview) {
+        preview.innerHTML = `<span style="font-weight:600;">${bruto.toFixed(2)}</span> - <span style="color:#ef4444; font-weight:600;">${retencion.toFixed(2)} (${porcRet}%)</span> = <span style="color:#16a34a; font-weight:700;">${neto.toFixed(2)}</span>`;
     }
 }
 
@@ -1246,6 +1273,14 @@ function injectManualItem() {
             igv = vv * (porcIgv / 100);
             total = vv + igv;
         }
+    } else if (op === 'retencion_rh') {
+        // Retención de recibo por honorario: base - retención% = total neto
+        const porcRet = parseFloat(document.getElementById('manualPorcRetencion').value) || 0;
+        vv = precio * cant;
+        pu = precio;
+        const retencion = vv * (porcRet / 100);
+        igv = retencion;  // Importe de retención va en campo IGV
+        total = vv - retencion;
     } else {
         vv = precio * cant;
         pu = precio;
@@ -1266,6 +1301,11 @@ function injectManualItem() {
         total: total,
         tipoOp: op
     };
+    
+    // Store retention % for re-editing
+    if (op === 'retencion_rh') {
+        obj.porcRetencion = parseFloat(document.getElementById('manualPorcRetencion').value) || 0;
+    }
     
     const editIdx = document.getElementById('modalManualEntry').getAttribute('data-edit-index');
     if (editIdx && editIdx !== '-1') {
@@ -2917,5 +2957,130 @@ function filterTable(tbodyId, filterText) {
         } else {
             rows[i].style.display = 'none';
         }
+    }
+}
+
+// =========================================================
+//  BÚSQUEDA DE PROVEEDOR (RUC)
+// =========================================================
+async function buscarProveedorRuc() {
+    const rucInput = document.getElementById("invRucProv");
+    const nomInput = document.getElementById("invNomProv");
+    const ruc = rucInput.value.trim();
+
+    if (!ruc) {
+        Swal.fire("Atención", "Ingrese un RUC para consultar.", "warning");
+        return;
+    }
+
+    const codcia = getSelectedCia() || '003';
+    
+    try {
+        Swal.showLoading();
+        const url = `/api/finanzas/proveedor/${ruc}?codcia=${codcia}`;
+        const token = localStorage.getItem("yelave_token");
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        
+        Swal.close();
+        
+        if (res.ok) {
+            const result = await res.json();
+            const data = result.data;
+            
+            if (result.origen === 'api') {
+                const { value: formValues } = await Swal.fire({
+                    title: 'Crear Proveedor',
+                    html: `
+                        <div style="text-align:left; font-size:0.85rem; display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem;">
+                            <div style="display:flex; gap:1rem;">
+                                <div style="flex:1;">
+                                    <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">RUC</label>
+                                    <input id="swalProvRuc" class="modern-input" value="${data.rucaux || ''}" readonly style="width:100%; background:#f1f5f9; cursor:not-allowed;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Ubigeo</label>
+                                    <input id="swalProvUbigeo" class="modern-input" value="${data.ubigeo || ''}" style="width:100%;">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Razón Social</label>
+                                <input id="swalProvNom" class="modern-input" value="${data.nomaux || ''}" style="width:100%;">
+                            </div>
+                            
+                            <div>
+                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Dirección Fiscal</label>
+                                <input id="swalProvDir" class="modern-input" value="${data.diraux || ''}" style="width:100%;">
+                            </div>
+                            
+                            <div>
+                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Correo Electrónico (Opcional)</label>
+                                <input id="swalProvEmail" type="email" class="modern-input" placeholder="proveedor@ejemplo.com" style="width:100%;">
+                            </div>
+                        </div>
+                    `,
+                    width: '600px',
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar Proveedor',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        return {
+                            codcia: codcia,
+                            ruc: document.getElementById('swalProvRuc').value,
+                            razon_social: document.getElementById('swalProvNom').value,
+                            direccion: document.getElementById('swalProvDir').value,
+                            ubigeo: document.getElementById('swalProvUbigeo').value,
+                            coddep: data.coddep || "",
+                            codpro: data.codpro || "",
+                            coddis: document.getElementById('swalProvUbigeo').value,
+                            email: document.getElementById('swalProvEmail').value
+                        }
+                    }
+                });
+
+                if (formValues) {
+                    Swal.showLoading();
+                    const postRes = await fetch('/api/finanzas/proveedor', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(formValues)
+                    });
+                    
+                    Swal.close();
+                    if (postRes.ok) {
+                        const postData = await postRes.json();
+                        nomInput.value = postData.data.nomaux;
+                        Swal.fire({
+                            icon: "success",
+                            title: "Proveedor Creado",
+                            text: "El proveedor se registró correctamente.",
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        document.getElementById("invTipoDoc")?.focus();
+                    } else {
+                        const err = await postRes.json();
+                        Swal.fire("Error", err.detail || "Error al crear el proveedor.", "error");
+                    }
+                }
+            } else {
+                nomInput.value = data.nomaux || data.nomaux || "";
+                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, timerProgressBar: true });
+                Toast.fire({ icon: 'success', title: 'Proveedor cargado de BD local' });
+                document.getElementById("invTipoDoc")?.focus();
+            }
+        } else {
+            const err = await res.json();
+            Swal.fire("No encontrado", err.detail || "RUC no encontrado en el sistema ni en SUNAT.", "error");
+            nomInput.value = "";
+            nomInput.focus();
+        }
+    } catch (e) {
+        Swal.close();
+        console.error("Error buscando proveedor:", e);
+        Swal.fire("Error", "Ocurrió un problema de conexión al buscar el RUC.", "error");
     }
 }

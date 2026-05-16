@@ -1,8 +1,5 @@
-const API_BASE_URL = 'http://192.168.1.17:8000/api';
-// Fallback if running via VS Code Live Server testing
-const BASE_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
-    ? 'http://localhost:8000/api' 
-    : '/api';
+const API_BASE_URL = '/api';
+const BASE_URL = '/api';
 
 let dtRequerimientos, dtCotizaciones, dtAprobaciones, dtKardex, dtQC;
 

@@ -115,15 +115,15 @@ def generar_cargo(payload: CargoCreate):
 
         # Insert detail lines
         for item in payload.detalle:
-            # Truncar todos los campos string para evitar error de truncamiento
-            # Usar tamaños muy conservadores basados en la estructura típica de la tabla
-            nro_oc = str(item.nro_orden_compra or '')[:30]  # VARCHAR(30) - permite NroRendicion completos
-            tipo = str(item.tipo_oc or '')[:5]  # Reducido de 10 a 5 - solo guardar 'OC', 'FACT', 'REND'
-            codcia = str(item.codcia_oc or '')[:5]  # Reducido de 10 a 5
-            anos = str(item.anos_oc or '')[:10]
-            nro_fac = str(item.nro_factura or '')[:30]  # Reducido de 50 a 30
-            prov = str(item.proveedor or '')[:50]  # Reducido de 100 a 50
-            ruc = str(item.ruc_proveedor or '')[:15]  # Reducido de 20 a 15
+            # Truncar todos los campos string para coincidir EXACTAMENTE con los tamaños
+            # reales de las columnas en la tabla CntCargosDetalle (setup_contabilidad_db.py)
+            nro_oc = str(item.nro_orden_compra or '')[:20]  # VARCHAR(20) en BD
+            tipo = str(item.tipo_oc or '')[:5]              # VARCHAR(5) en BD
+            codcia = str(item.codcia_oc or '')[:3]           # CHAR(3) en BD
+            anos = str(item.anos_oc or '')[:4]               # VARCHAR(4) en BD
+            nro_fac = str(item.nro_factura or '')[:30]       # VARCHAR(30) en BD
+            prov = str(item.proveedor or '')[:200]           # VARCHAR(200) en BD
+            ruc = str(item.ruc_proveedor or '')[:15]         # VARCHAR(15) en BD
             
             # Normalizar moneda: aceptar cualquier forma (1, 2, '1', '2', '1.0', '2.0', 'PEN', 'USD')
             raw_moneda = str(item.moneda or '1').strip()
@@ -140,8 +140,8 @@ def generar_cargo(payload: CargoCreate):
             # Normalizar fechas
             fecha_emi = item.fecha_emision if item.fecha_emision and item.fecha_emision != '-' else None
             fecha_venc = item.fecha_vencimiento if item.fecha_vencimiento and item.fecha_vencimiento != '-' else None
-            tipo_doc = str(item.tipo_documento or '')[:20]
-            tipo_comp = str(item.tipo_comprobante or '')[:50]
+            tipo_doc = str(item.tipo_documento or '')[:10]   # VARCHAR(10) en BD
+            tipo_comp = str(item.tipo_comprobante or '')[:20] # VARCHAR(20) en BD
             monto_rend = item.monto_rendicion
 
             try:
@@ -698,7 +698,7 @@ def get_cargos_detallado(
         query = '''
             SELECT TOP 4000 c.Id as CargoId, RTRIM(c.NroCargo) as NroCargo, RTRIM(c.TipoCargo) as TipoCargo,
                 c.FechaCargo, c.FechaRecepcion, RTRIM(c.AreaOrigen) as AreaOrigen, RTRIM(c.AreaDestino) as AreaDestino,
-                RTRIM(c.Estado) as EstadoCargo,
+                RTRIM(c.Estado) as EstadoCargo, RTRIM(c.UsuarioOrigen) as UsuarioOrigen,
                 d.Id as DetalleId, RTRIM(d.NroOrdenCompra) as NroOrdenCompra, RTRIM(d.TipoOc) as TipoOc,
                 RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, d.MontoOC, d.MontoFactura,
                 RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc, ISNULL(RTRIM(d.Moneda), 'PEN') as Moneda,

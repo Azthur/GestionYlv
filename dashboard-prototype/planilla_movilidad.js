@@ -1,5 +1,11 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = "/api";
 const LIMITE_DIARIO_RMV = 41.00; // 4% de 1025 (RMV actual)
+
+axios.interceptors.request.use(config => {
+    const token = localStorage.getItem('yelave_token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+});
 
 let empresas = [];
 let trabajadores = [];
@@ -102,7 +108,7 @@ function autoFillPeriod() {
 
 async function cargarEmpresas() {
     try {
-        const res = await axios.get(`${API_URL}/finanzas/empresas`);
+        const res = await axios.get(`${API_URL}/permisos/empresas/me`);
         empresas = res.data;
         const sel = document.getElementById("selEmpresa");
         empresas.forEach(e => {

@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = "/api";
 
 axios.interceptors.request.use(config => {
     const token = localStorage.getItem('yelave_token');
@@ -130,7 +130,7 @@ async function cargarRendicionParaEditar(id) {
 
 async function cargarEmpresas() {
     try {
-        const res = await axios.get(`${API_URL}/finanzas/empresas`);
+        const res = await axios.get(`${API_URL}/permisos/empresas/me`);
         empresas = res.data;
         const sel = document.getElementById("selEmpresa");
         empresas.forEach(e => {
@@ -237,6 +237,10 @@ function agregarFila() {
             <select class="f-tipo">
                 <option value="01-Factura">01-Factura</option>
                 <option value="03-Boleta">03-Boleta</option>
+                <option value="12-Ticket">12-Ticket</option>
+                <option value="02-Recibo por Honorarios">02-Recibo por Honorarios</option>
+                <option value="07-Nota de Crédito">07-Nota de Crédito</option>
+                <option value="08-Nota de Débito">08-Nota de Débito</option>
                 <option value="PGM-Planilla">PGM-Planilla</option>
                 <option value="00-Otros">00-Otros</option>
                 <option value="99-Bancos">99-Bancos</option>
@@ -373,7 +377,27 @@ function llenarFilaDesdeFactura(f) {
     if (!tr) return;
 
     tr.dataset.refId = f.FacturaId;
-    tr.querySelector(".f-tipo").value = "01-Factura";
+    
+    // Asignar el tipo de documento real
+    let tipoStr = "01-Factura";
+    if (f.TipoDoc) {
+        const t = f.TipoDoc.trim();
+        if (t === '01') tipoStr = "01-Factura";
+        else if (t === '03') tipoStr = "03-Boleta";
+        else if (t === '12') tipoStr = "12-Ticket";
+        else if (t === '02' || t === '14') tipoStr = "02-Recibo por Honorarios";
+        else if (t === '07') tipoStr = "07-Nota de Crédito";
+        else if (t === '08') tipoStr = "08-Nota de Débito";
+        else tipoStr = "00-Otros";
+    }
+    
+    // Si la opción no existe en el select, crearla dinámicamente
+    const selTipo = tr.querySelector(".f-tipo");
+    if (!Array.from(selTipo.options).some(opt => opt.value === tipoStr)) {
+        const newOpt = new Option(tipoStr, tipoStr);
+        selTipo.add(newOpt);
+    }
+    selTipo.value = tipoStr;
     tr.querySelector(".f-fecha").value = f.FecEmision.substring(0, 10);
     tr.querySelector(".f-serie").value = f.Serie;
     tr.querySelector(".f-numero").value = f.Numero;

@@ -1536,12 +1536,38 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
         const hasWarnings = data.validaciones && data.validaciones.length > 0;
         const isClosed = String(data.resumen.estado_oc || '').trim().toUpperCase() === 'C';
         
+        // Build specific close-block reasons
+        const closeBlockReasons = [];
+        if (data.validaciones) {
+            data.validaciones.forEach(v => {
+                if (v.includes('No hay ingresos a almacén')) {
+                    closeBlockReasons.push('📦 Falta ingreso a almacén');
+                } else if (v.includes('No hay facturas vinculadas')) {
+                    closeBlockReasons.push('🧾 Falta registro de factura');
+                } else {
+                    closeBlockReasons.push('⚠️ ' + v);
+                }
+            });
+        }
+        
         html += `<div style="margin-top:2rem; text-align:right; border-top:1px solid #e2e8f0; padding-top:1.5rem;">`;
         if (!isClosed) {
             if (hasWarnings) {
-                html += `<button class="btn" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;" title="Hay discrepancias en la trazabilidad. Resuélvalas antes de cerrar.">
-                    🔒 Cerrar Proceso Completo
-                </button>`;
+                const reqLabel = tipooc === 'M' 
+                    ? 'OC tipo Mercadería requiere: Ingreso Almacén + Factura'
+                    : (tipooc === 'S' || tipooc === 'T') 
+                        ? `OC tipo ${tipooc === 'S' ? 'Servicios' : 'Contable'} requiere: Factura (validación por importes)`
+                        : 'Hay discrepancias pendientes';
+                const reasonsHtml = closeBlockReasons.map(r => `<div style="font-size:0.72rem; color:#b45309; margin-top:0.15rem;">${r}</div>`).join('');
+                html += `<div style="display:inline-flex; flex-direction:column; align-items:flex-end; gap:0.3rem;">
+                    <button class="btn" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;" title="${reqLabel}">
+                        🔒 Cerrar Proceso Completo
+                    </button>
+                    <div style="text-align:right; max-width:400px;">
+                        <div style="font-size:0.7rem; color:#94a3b8; font-style:italic;">${reqLabel}</div>
+                        ${reasonsHtml}
+                    </div>
+                </div>`;
             } else {
                 html += `<button class="btn btn-primary" style="background:#8b5cf6;" onclick="cerrarOcIntegral('${codcia}','${nrodoc}','${tipooc}','${anos}')">
                     🔒 Cerrar Proceso Completo

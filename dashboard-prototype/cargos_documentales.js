@@ -1128,6 +1128,12 @@ async function loadHistorial() {
         else if (currentArea === 'TESORERIA') validos = allItems.filter(c => c.AreaDestino === 'TESORERIA');
         else validos = allItems;
 
+        // Filtrar por "Solo mis registros"
+        const filterMine = document.getElementById('filterMyRecords') ? document.getElementById('filterMyRecords').checked : false;
+        if (filterMine && currentUser) {
+            validos = validos.filter(c => (c.UsuarioOrigen || '').trim().toUpperCase() === currentUser.trim().toUpperCase());
+        }
+
         if ($.fn.DataTable.isDataTable('#historialTable')) {
             $('#historialTable').DataTable().clear().destroy();
         }

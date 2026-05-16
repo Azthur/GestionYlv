@@ -1,5 +1,5 @@
 // ─── INVENTARIO.JS — Saldos de Inventario ───────────────
-const API = 'http://localhost:8000/api';
+const API = '/api';
 let dtProd = null, dtAlm = null, dtLote = null;
 let catFamilias = [];
 let catAlmacenes = [];

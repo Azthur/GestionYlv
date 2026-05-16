@@ -133,7 +133,7 @@ async function loadGlobalTrazabilidad() {
         const chkMyRecords = document.getElementById('filterMyRecords');
         const onlyMyRecords = chkMyRecords ? chkMyRecords.checked : true;
         
-        let url = `http://localhost:8000/api/contabilidad/trazabilidad/global?codcia=${encodeURIComponent(codcia)}&year=${encodeURIComponent(year)}&period=${encodeURIComponent(period)}&only_my_records=${onlyMyRecords}`;
+        let url = `/api/contabilidad/trazabilidad/global?codcia=${encodeURIComponent(codcia)}&year=${encodeURIComponent(year)}&period=${encodeURIComponent(period)}&only_my_records=${onlyMyRecords}`;
         if (tipoOc) url += `&tipo_oc=${encodeURIComponent(tipoOc)}`;
         if (codmat_search) url += `&codmat_search=${encodeURIComponent(codmat_search)}`;
 
@@ -692,7 +692,7 @@ async function triggerProductSearch() {
     
     try {
         const token = localStorage.getItem('yelave_token');
-        const res = await fetch(`http://localhost:8000/api/contabilidad/items/autocomplete?codcia=${encodeURIComponent(codcia)}&q=${encodeURIComponent(q)}`, {
+        const res = await fetch(`/api/contabilidad/items/autocomplete?codcia=${encodeURIComponent(codcia)}&q=${encodeURIComponent(q)}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Error buscando');

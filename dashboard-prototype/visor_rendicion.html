@@ -161,7 +161,7 @@
         const qs = new URLSearchParams(window.location.search);
         const uuid = qs.get("uuid");
         if(uuid) {
-            axios.get(`http://localhost:8000/api/finanzas/public/rendiciones/${uuid}`)
+            axios.get(`/api/finanzas/public/rendiciones/${uuid}`)
             .then(res => {
                 const cab = res.data.cabecera;
                 const det = res.data.detalle;
@@ -271,7 +271,7 @@
                         li.style.alignItems = "center";
                         li.style.gap = "10px";
                         
-                        const fileUrl = `http://localhost:8000/api/finanzas/adjuntos/rendicion/${a.Id}`;
+                        const fileUrl = `/api/finanzas/adjuntos/rendicion/${a.Id}`;
                         li.innerHTML = `
                             <button class="btn-preview" onclick="openPreview('${fileUrl}', '${a.ArchivoNombre}')">👁 Previsualizar</button>
                             <a href="${fileUrl}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:600; font-size:0.85rem;">${a.ArchivoNombre}</a> 

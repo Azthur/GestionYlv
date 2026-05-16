@@ -187,9 +187,15 @@ def get_purchase_orders(
             cursor.execute("SELECT RTRIM(TipoOc) FROM WebUsuarioTipoOc WHERE Login = ?", (login,))
             allowed_types = [row[0] for row in cursor.fetchall()]
 
-        # 1. Filtro estricto por Usuario Logueado (Mis Registros)
-        if only_my_records or not puede_ver_todo:
-            # Forzamos que solo vea los suyos
+        # 1. Filtro por Usuario Logueado (Mis Registros)
+        # Si only_my_records=true → siempre filtra por usuario
+        # Si only_my_records=false → solo filtra si NO puede_ver_todo Y NO tiene tipos_oc asignados
+        # (Usuarios de contabilidad con tipos_oc configurados necesitan ver OCs de otros para vincular facturas)
+        if only_my_records:
+            query += " AND RTRIM(Usuario) = ?"
+            params.append(login.strip().upper())
+        elif not puede_ver_todo and not allowed_types:
+            # Sin tipos de OC configurados y sin puede_ver_todo, restringe a sus propias OCs
             query += " AND RTRIM(Usuario) = ?"
             params.append(login.strip().upper())
             
@@ -436,6 +442,7 @@ def get_purchase_order_report(
                     WHERE RTRIM(a.CodCia) = RTRIM(r.CodCia) 
                       AND RTRIM(a.ordcmp) = RTRIM(r.NroDoc) 
                       AND RTRIM(a.codmat) = RTRIM(r.CodMat)
+                      AND ABS(a.preuni - r.PreUni) < 0.01
                 ), 0) as cant_ingresada,
                 COALESCE((
                     SELECT SUM(fd.Cantidad)
@@ -444,6 +451,7 @@ def get_purchase_order_report(
                     WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
                       AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
+                      AND ABS(fd.PrecioUnitario - r.PreUni) < 0.01
                       AND fc.Estado != 'Anulada'
                 ), 0) as cant_facturada,
                 COALESCE((
@@ -453,6 +461,7 @@ def get_purchase_order_report(
                     WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
                       AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
+                      AND ABS(fd.PrecioUnitario - r.PreUni) < 0.01
                       AND fc.Estado != 'Anulada'
                 ), 0) as monto_facturado
             FROM CmpROcom r
@@ -909,7 +918,8 @@ def cerrar_oc_integral(nrodoc: str, req: OcActionRequest, user: dict = Depends(g
         raise HTTPException(status_code=400, detail=f"No se pudo verificar la trazabilidad: {str(e)}")
         
     if traza.get("validaciones") and len(traza["validaciones"]) > 0:
-        raise HTTPException(status_code=400, detail="No se puede cerrar la OC porque tiene discrepancias en trazabilidad.")
+        warnings_text = "; ".join(traza["validaciones"])
+        raise HTTPException(status_code=400, detail=f"No se puede cerrar la OC: {warnings_text}")
         
     conn = get_db_connection()
     if not conn:

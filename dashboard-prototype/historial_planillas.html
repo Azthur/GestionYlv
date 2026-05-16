@@ -55,12 +55,18 @@
     </div>
 
     <script>
-        const API_URL = "http://localhost:8000/api";
+        const API_URL = "/api";
         let tbl;
+
+        axios.interceptors.request.use(config => {
+            const token = localStorage.getItem('yelave_token');
+            if (token) config.headers.Authorization = `Bearer ${token}`;
+            return config;
+        });
 
         document.addEventListener("DOMContentLoaded", async () => {
             try {
-                const res = await axios.get(`${API_URL}/finanzas/empresas`);
+                const res = await axios.get(`${API_URL}/permisos/empresas/me`);
                 const sel = document.getElementById("selFiltroCia");
                 res.data.forEach(e => {
                     const opt = document.createElement("option");

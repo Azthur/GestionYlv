@@ -47,8 +47,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const sv=localStorage.getItem('yelave_theme');if(sv){document.documentElement.setAttribute('data-theme',sv);document.getElementById('btnTheme').textContent=sv==='dark'?'🌙':'☀️';setDefaults()}
     const fpOpts={locale:'es',dateFormat:'Y-m-d',altInput:true,altFormat:'d/m/Y',disableMobile:true};
     const now=new Date();
-    const firstDay=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
-    const lastDay=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);
+    const firstDay=new Date(now.getFullYear(),now.getMonth(),1);
+    const lastDay=new Date(now.getFullYear(),now.getMonth()+1,0);
     fpIni=flatpickr('#fechaIni',{...fpOpts,defaultDate:firstDay});
     fpFin=flatpickr('#fechaFin',{...fpOpts,defaultDate:lastDay});
     await loadCias();
@@ -67,10 +67,14 @@ async function applyFilters(){
     const fiDate=fpIni&&fpIni.selectedDates[0];
     const ffDate=fpFin&&fpFin.selectedDates[0];
     if(!codcia||!fiDate||!ffDate)return;
-    const iso=d=>d.toISOString().split('T')[0];
+    const iso=d=>{const yr=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return `${yr}-${mo}-${da}`;};
     const fi=iso(fiDate),ff=iso(ffDate);
     localStorage.setItem('yelave_codcia',codcia);
-    const dI=new Date(fi),dF=new Date(ff),dm=dF-dI,pF=new Date(dI.getTime()-864e5),pI=new Date(pF.getTime()-dm);
+    const dI=new Date(fiDate.getFullYear(),fiDate.getMonth(),fiDate.getDate());
+    const dF=new Date(ffDate.getFullYear(),ffDate.getMonth(),ffDate.getDate());
+    const dm=dF.getTime()-dI.getTime();
+    const pF=new Date(dI.getTime()-864e5);
+    const pI=new Date(pF.getTime()-dm);
     const aA=dF.getFullYear().toString(),aP=(dF.getFullYear()-1).toString();
     const g=u=>axios.get(u).catch(()=>({data:null}));
     const [r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11]=await Promise.all([

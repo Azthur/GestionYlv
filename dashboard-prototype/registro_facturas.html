@@ -920,8 +920,11 @@
                             <!-- RUC / Prov -->
                             <div class="input-group">
                                 <label>RUC</label>
-                                <input type="text" id="invRucProv" class="modern-input" maxlength="11"
-                                    placeholder="Ej. 20123456789">
+                                <div style="display:flex; gap:0.4rem;">
+                                    <input type="text" id="invRucProv" class="modern-input" maxlength="11"
+                                        placeholder="Ej. 20123456789" style="flex:1;">
+                                    <button type="button" class="btn-sec" onclick="buscarProveedorRuc()" style="padding:0.4rem 0.8rem;">🔍</button>
+                                </div>
                             </div>
                             <div class="input-group" style="grid-column: span 2;">
                                 <label>Razón Social</label>
@@ -1613,11 +1616,11 @@
                         <div style="display:flex; gap:1rem;">
                             <div class="input-group" style="flex:1;">
                                 <label>Cantidad</label>
-                                <input type="number" step="0.01" id="manualCant" class="modern-input" value="1.00">
+                                <input type="number" step="0.01" id="manualCant" class="modern-input" value="1.00" oninput="updateRetencionPreview()">
                             </div>
                             <div class="input-group" style="flex:1;">
                                 <label>Precio / Total Item</label>
-                                <input type="number" step="0.01" id="manualPrecio" class="modern-input" value="0.00">
+                                <input type="number" step="0.01" id="manualPrecio" class="modern-input" value="0.00" oninput="updateRetencionPreview()">
                             </div>
                         </div>
 
@@ -1632,6 +1635,7 @@
                                     <option value="gravada">1 - Operación Gravada</option>
                                     <option value="exonerada">2 - Operación Exonerada</option>
                                     <option value="inafecta">3 - Operación Inafecta</option>
+                                    <option value="retencion_rh">4 - Retención de recibo por honorario</option>
                                 </select>
                             </div>
 
@@ -1647,6 +1651,22 @@
                                         <option value="SI">Sí</option>
                                         <option value="NO">No (Sumar IGV)</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div id="manualRetencionBlock" style="display:none;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                                    <div class="input-group">
+                                        <label>% Retención</label>
+                                        <input type="number" step="0.1" id="manualPorcRetencion" class="modern-input"
+                                            value="8.0" min="0" max="100" oninput="updateRetencionPreview()">
+                                    </div>
+                                    <div class="input-group">
+                                        <label style="visibility:hidden;">.</label>
+                                        <div id="manualRetencionPreview" style="font-size:0.8rem; color:#64748b; padding:0.5rem; background:#f1f5f9; border-radius:6px; text-align:center;">
+                                            Importe - Retención = Total Neto
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

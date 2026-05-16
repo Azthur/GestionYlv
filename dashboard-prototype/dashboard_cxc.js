@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const sv=localStorage.getItem('yelave_theme');if(sv){document.documentElement.setAttribute('data-theme',sv);document.getElementById('btnTheme').textContent=sv==='dark'?'🌙':'☀️';setDefaults()}
     const fpOpts={locale:'es',dateFormat:'Y-m-d',altInput:true,altFormat:'d/m/Y',disableMobile:true};
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0,10);
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     fpIni=flatpickr('#fechaIni',{...fpOpts,defaultDate: firstDay});
     fpFin=flatpickr('#fechaFin',{...fpOpts,defaultDate: lastDay});
     await loadCias();
@@ -52,7 +52,7 @@ async function applyFilters(){
     const fiDate=fpIni&&fpIni.selectedDates[0];
     const ffDate=fpFin&&fpFin.selectedDates[0];
     if(!codcia||!fiDate||!ffDate)return;
-    const iso=d=>d.toISOString().split('T')[0];
+    const iso=d=>{const yr=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return `${yr}-${mo}-${da}`;};
     const fi=iso(fiDate),ff=iso(ffDate);
     localStorage.setItem('yelave_codcia',codcia);
     try{
