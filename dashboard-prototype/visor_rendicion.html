@@ -47,12 +47,49 @@
         .btn-preview:hover { background: #c7d2fe; }
 
         @media print {
-            @page { size: landscape; margin: 10mm; }
-            body { background: #fff; padding: 0; }
-            .page { box-shadow: none; padding: 0; max-width: 100%; }
-            .preview-overlay { display: none !important; }
-            button { display: none !important; }
-            #adjuntosBox { display: none !important; }
+            @page { size: landscape; margin: 10mm 12mm; }
+            * { box-sizing: border-box !important; }
+            body, html { background: #fff !important; padding: 0 !important; margin: 0 !important; height: auto !important; overflow: visible !important; width: 100% !important; max-width: 100% !important; }
+            .sidebar { display: none !important; }
+            .app-container, .main-content { display: block !important; width: 100% !important; height: auto !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; max-width: 100% !important; }
+            .page { box-shadow: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; border: none !important; }
+            
+            /* Cabecera ultra compacta */
+            .header { padding-bottom: 2px !important; margin-bottom: 5px !important; border-bottom-width: 1px !important; width: 100% !important; }
+            .header h2 { font-size: 0.9rem !important; }
+            .header .title { font-size: 0.9rem !important; line-height: 1.1 !important; }
+            .header .title span { font-size: 0.6rem !important; }
+            .header .h-col, .header .h-col div { font-size: 0.6rem !important; line-height: 1.2 !important; }
+            
+            /* Info Grid compacta */
+            .info-grid { gap: 5px !important; margin-bottom: 5px !important; }
+            .info-box { padding: 3px 6px !important; }
+            .info-row { margin-bottom: 1px !important; font-size: 0.6rem !important; }
+            .info-row b { font-size: 0.55rem !important; }
+            
+            /* Tabla compacta */
+            table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; word-wrap: break-word !important; page-break-inside: auto; margin-bottom: 5px !important; font-size: 0.55rem !important; }
+            th { padding: 2px 1px !important; font-size: 0.5rem !important; border-width: 1px !important; word-break: break-word; overflow-wrap: break-word; }
+            td { padding: 1px 2px !important; border-width: 1px !important; word-break: break-word; overflow-wrap: break-word; }
+            td br { display: none !important; } /* Evita espacio extra del salto de linea de los botones */
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tfoot th, tfoot td { padding: 2px !important; font-size: 0.6rem !important; }
+            
+            /* Resumen y Firmas */
+            .summary-box { page-break-inside: avoid; width: 220px !important; margin-bottom: 5px !important; border-width: 1px !important; }
+            .summary-row { padding: 2px 6px !important; font-size: 0.6rem !important; border-bottom-width: 1px !important; }
+            .firm-grid { margin-top: 10px !important; gap: 20px !important; page-break-inside: avoid; }
+            .firm { padding-top: 3px !important; font-size: 0.6rem !important; border-top-width: 1px !important; margin-top: 0 !important; }
+            
+            /* Reducir contenido de firmas inyectadas por JS */
+            .firm > div { padding: 4px !important; border-width: 1px !important; border-radius: 4px !important; line-height: 1.2 !important; }
+            .firm > div > div:first-child { font-size: 0.55rem !important; }
+            .firm > div > div:last-child { font-size: 0.5rem !important; margin-top: 2px !important; }
+
+            /* Ocultar botones y vistas previas */
+            .preview-overlay, .btn-preview, button, #adjuntosBox { display: none !important; }
         }
     </style>
     <script src="auth-guard.js"></script>
@@ -201,10 +238,10 @@
                     
                     let linkSoporte = '';
                     if (d.UuidSoporte) {
-                        if (d.TipoDoc === '01-Factura' || d.TipoDoc === '03-Boleta') {
-                            linkSoporte = `<a href="/factura_visor.html?uid=${d.UuidSoporte}" target="_blank" class="btn-preview" style="text-decoration:none;">👁 Ver Factura</a>`;
-                        } else if (d.TipoDoc === 'PGM-Planilla') {
-                            linkSoporte = `<a href="/visor_planilla.html?uuid=${d.UuidSoporte}" target="_blank" class="btn-preview" style="text-decoration:none;">👁 Ver Planilla</a>`;
+                        if (d.TipoDoc === 'PGM-Planilla') {
+                            linkSoporte = `<br><a href="/visor_planilla.html?uuid=${d.UuidSoporte}" target="_blank" class="btn-preview" style="text-decoration:none; margin-top:4px;">👁 Ver Planilla</a>`;
+                        } else {
+                            linkSoporte = `<br><a href="/factura_visor.html?uid=${d.UuidSoporte}" target="_blank" class="btn-preview" style="text-decoration:none; margin-top:4px;">👁 Ver Factura</a>`;
                         }
                     }
                     

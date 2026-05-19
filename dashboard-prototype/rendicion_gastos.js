@@ -88,33 +88,53 @@ async function cargarRendicionParaEditar(id) {
         det.forEach(d => {
             const rId = ++rowCount;
             const tr = document.createElement("tr");
-            tr.id = `row-${rId}`;
+            tr.id = `fila-${rId}`;
             tr.dataset.refId = d.DocReferenciaId || '';
+
+            const standardTypes = [
+                "01-Factura", "03-Boleta", "12-Ticket", "02-Recibo por Honorarios",
+                "07-Nota de Crédito", "08-Nota de Débito", "PGM-Planilla", "00-Otros", "99-Bancos"
+            ];
+            let optionsHtml = "";
+            let found = false;
+            standardTypes.forEach(t => {
+                if (d.TipoDoc === t) {
+                    optionsHtml += `<option value="${t}" selected>${t}</option>`;
+                    found = true;
+                } else {
+                    optionsHtml += `<option value="${t}">${t}</option>`;
+                }
+            });
+            if (!found && d.TipoDoc) {
+                optionsHtml += `<option value="${d.TipoDoc}" selected>${d.TipoDoc}</option>`;
+            }
+
             tr.innerHTML = `
                 <td>${rId}</td>
-                <td><input type="date" class="f-fecha" value="${d.Fecha}"></td>
+                <td><input type="date" class="f-fecha" value="${d.Fecha}" required></td>
                 <td>
-                    <select class="f-tipo" onchange="tipoDocChanged(${rId})">
-                        <option value="01-Factura" ${d.TipoDoc === '01-Factura' ? 'selected' : ''}>01 - Factura</option>
-                        <option value="03-Boleta" ${d.TipoDoc === '03-Boleta' ? 'selected' : ''}>03 - Boleta</option>
-                        <option value="12-Ticket" ${d.TipoDoc === '12-Ticket' ? 'selected' : ''}>12 - Ticket</option>
-                        <option value="PGM-Planilla" ${d.TipoDoc === 'PGM-Planilla' ? 'selected' : ''}>PGM - Planilla Mov.</option>
-                        <option value="Otros" ${d.TipoDoc === 'Otros' ? 'selected' : ''}>Otros</option>
+                    <select class="f-tipo">
+                        ${optionsHtml}
                     </select>
                 </td>
-                <td><input type="text" class="f-serie" value="${d.Serie || ''}"></td>
-                <td><input type="text" class="f-numero" value="${d.Numero || ''}"></td>
+                <td><input type="text" class="f-serie" placeholder="Ej: F001" value="${d.Serie || ''}"></td>
+                <td><input type="text" class="f-numero" placeholder="Ej: 1332" value="${d.Numero || ''}"></td>
                 <td><input type="text" class="f-ruc" value="${d.RucPro || ''}"></td>
                 <td><input type="text" class="f-proveedor" value="${d.NomPro || ''}"></td>
                 <td><input type="text" class="f-project" value="${d.ProjectCard || ''}"></td>
                 <td><input type="text" class="f-cc" value="${d.CentroCostos || ''}"></td>
-                <td><input type="text" class="f-cat cursor-pointer" readonly onclick="openModalCongasto(${rId})" value="${d.ExpenseCategory || ''}"></td>
+                <td>
+                    <div style="display:flex;">
+                        <input type="text" class="f-cat text-left" readonly placeholder="Seleccionar..." style="flex-grow:1; cursor:pointer;" onclick="openModalCongasto(${rId})" value="${d.ExpenseCategory || ''}">
+                    </div>
+                </td>
                 <td><input type="text" class="f-det" value="${d.Detalles || ''}"></td>
-                <td><input type="number" step="0.01" class="f-sol" value="${d.ImporteSoles}" onkeyup="calcularResumen()" onchange="calcularResumen()"></td>
-                <td><input type="number" step="0.01" class="f-dol" value="${d.ImporteDolares}" onkeyup="calcularResumen()" onchange="calcularResumen()"></td>
-                <td class="text-center">
-                    <button type="button" class="btn-icon" onclick="openModalBuscar(${rId})" title="Buscar Doc. Sist." id="btnSearch-${rId}">?</button>
-                    <button type="button" class="btn-icon text-red" onclick="borrarFila(${rId})" title="Eliminar fila">&#10006;</button>
+                <td><input type="number" step="0.01" class="f-sol text-right" value="${d.ImporteSoles}" onkeyup="calcularResumen()" onchange="calcularResumen()"></td>
+                <td><input type="number" step="0.01" class="f-dol text-right" value="${d.ImporteDolares}" onkeyup="calcularResumen()" onchange="calcularResumen()"></td>
+                <td style="white-space: nowrap;">
+                    <button type="button" class="btn btn-search" title="Buscar Factura" onclick="openModalFactura(${rId})">F</button>
+                    <button type="button" class="btn btn-search" title="Buscar Planilla Movilidad" style="background:#8b5cf6;" onclick="openModalPlanilla(${rId})">P</button>
+                    <button type="button" class="btn btn-del" title="Eliminar fila" onclick="eliminarFila(${rId})">X</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -382,13 +402,20 @@ function llenarFilaDesdeFactura(f) {
     let tipoStr = "01-Factura";
     if (f.TipoDoc) {
         const t = f.TipoDoc.trim();
-        if (t === '01') tipoStr = "01-Factura";
-        else if (t === '03') tipoStr = "03-Boleta";
-        else if (t === '12') tipoStr = "12-Ticket";
-        else if (t === '02' || t === '14') tipoStr = "02-Recibo por Honorarios";
-        else if (t === '07') tipoStr = "07-Nota de Crédito";
-        else if (t === '08') tipoStr = "08-Nota de Débito";
-        else tipoStr = "00-Otros";
+        const names = {
+            '01': 'Factura',
+            '02': 'Recibo por Honorarios',
+            '03': 'Boleta',
+            '04': 'Liquidación',
+            '05': 'Boleto de Aviación',
+            '07': 'Nota de Crédito',
+            '08': 'Nota de Débito',
+            '12': 'Ticket',
+            '14': 'Recibo Servicios Públicos',
+            '00': 'Otros'
+        };
+        const docName = names[t] || "Otros";
+        tipoStr = t + "-" + docName;
     }
     
     // Si la opción no existe en el select, crearla dinámicamente

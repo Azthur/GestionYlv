@@ -201,7 +201,7 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
                 c.FechaCargo, c.FechaRecepcion, RTRIM(c.AreaOrigen) as AreaOrigen, RTRIM(c.AreaDestino) as AreaDestino, 
                 RTRIM(c.Estado) as EstadoCargo,
                 d.Id as DetalleId, RTRIM(d.NroOrdenCompra) as NroOrdenCompra, RTRIM(d.TipoOc) as TipoOc,
-                RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, d.MontoOC, d.MontoFactura,
+                RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, RTRIM(d.RucProveedor) as RucProveedor, d.MontoOC, d.MontoFactura,
                 RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc, RTRIM(d.Moneda) as Moneda,
                 RTRIM(d.TipoDocumento) as TipoDocumento, RTRIM(d.TipoComprobante) as TipoComprobante,
                 d.FechaEmision, d.FechaVencimiento
@@ -231,8 +231,8 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
         vals = [(d,) for d in nrodocs_set]
         cursor.executemany("INSERT INTO #TempOcs (nrodoc) VALUES (?)", vals)
 
-        cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.CodTipoDoc) FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra''', (codcia.strip(),))
-        factura_map = {r[0].strip(): {'factura': r[1], 'uuid': r[2], 'cod_tipo': r[3]} for r in cursor.fetchall()}
+        cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.CodTipoDoc), RTRIM(f.NumRucProveedor) FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor''', (codcia.strip(),))
+        factura_map = {f"{r[0].strip()}|{r[4].strip()}": {'factura': r[1], 'uuid': r[2], 'cod_tipo': r[3]} for r in cursor.fetchall()}
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
         pedida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
@@ -252,7 +252,7 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
 
         for d in base_results:
             ncond = d['NroOrdenCompra'].strip() if d['NroOrdenCompra'] else ""
-            fac_info = factura_map.get(ncond, {})
+            fac_info = factura_map.get(f"{ncond}|{d.get('RucProveedor', '').strip()}", {})
             if not d.get('NroFactura') or d['NroFactura'] == '-': d['NroFactura'] = fac_info.get('factura', '')
             d['FacturaUuid'] = fac_info.get('uuid')
             
@@ -525,7 +525,7 @@ def get_ocs_disponibles_ssr(request: Request):
             
         cursor.execute('''
             SELECT RTRIM(f.NroOrdenCompra), RTRIM(f.Serie) + '-' + RTRIM(f.Numero), f.Total, f.FecEmision, f.Uuid, f.Id,
-                   RTRIM(f.CodTipoDoc), f.FecVencimiento, RTRIM(tbl.Nombre)
+                   RTRIM(f.CodTipoDoc), f.FecVencimiento, RTRIM(tbl.Nombre), RTRIM(f.NumRucProveedor)
             FROM CntFacturaCab f 
             INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc 
             LEFT JOIN AlmTabla tbl ON tbl.CodCia = f.CodCia AND tbl.Tabla = '0006' AND tbl.Codigo = f.CodTipoDoc
@@ -539,7 +539,8 @@ def get_ocs_disponibles_ssr(request: Request):
             factura_map[nro].append({
                 'factura': r[1], 'total_factura': r[2], 'fec_factura': r[3], 'factura_uuid': r[4], 'fac_id': r[5],
                 'tipo_doc': r[6], 'fecha_vencimiento': r[7],
-                'tipo_comp_desc': r[8] if r[8] else ('Otros' if not r[6] else r[6])
+                'tipo_comp_desc': r[8] if r[8] else ('Otros' if not r[6] else r[6]),
+                'ruc': r[9].strip() if r[9] else ""
             })
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
@@ -553,7 +554,8 @@ def get_ocs_disponibles_ssr(request: Request):
         results = []
         for d in base_ocs:
             nro = d['nrodoc']
-            fac_list = factura_map.get(nro, [])
+            fac_list_raw = factura_map.get(nro, [])
+            fac_list = [f for f in fac_list_raw if f['ruc'] == d.get('ruc', '').strip()]
             ped = pedida_map.get(nro, 0.0)
             rec = recibida_map.get(nro, 0.0)
             
@@ -700,7 +702,7 @@ def get_cargos_detallado(
                 c.FechaCargo, c.FechaRecepcion, RTRIM(c.AreaOrigen) as AreaOrigen, RTRIM(c.AreaDestino) as AreaDestino,
                 RTRIM(c.Estado) as EstadoCargo, RTRIM(c.UsuarioOrigen) as UsuarioOrigen,
                 d.Id as DetalleId, RTRIM(d.NroOrdenCompra) as NroOrdenCompra, RTRIM(d.TipoOc) as TipoOc,
-                RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, d.MontoOC, d.MontoFactura,
+                RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, RTRIM(d.RucProveedor) as RucProveedor, d.MontoOC, d.MontoFactura,
                 RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc, ISNULL(RTRIM(d.Moneda), 'PEN') as Moneda,
                 RTRIM(d.TipoDocumento) as TipoDocumento, RTRIM(d.TipoComprobante) as TipoComprobante,
                 d.FechaEmision, d.FechaVencimiento
@@ -751,11 +753,11 @@ def get_cargos_detallado(
 
         # Build maps using SQL JOINs
         cursor.execute('''
-            SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.Id)
+            SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.Id), RTRIM(f.NumRucProveedor)
             FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc 
-            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra
+            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor
         ''', (codcia.strip(),))
-        factura_map = {r[0].strip(): {'factura': r[1], 'uuid': r[2], 'fac_id': r[3]} for r in cursor.fetchall()}
+        factura_map = {f"{r[0].strip()}|{r[4].strip()}": {'factura': r[1], 'uuid': r[2], 'fac_id': r[3]} for r in cursor.fetchall()}
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
         pedida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
@@ -770,7 +772,7 @@ def get_cargos_detallado(
             if not ncond: ncond = ""
             ncond = ncond.strip()
 
-            fac_info = factura_map.get(ncond, {})
+            fac_info = factura_map.get(f"{ncond}|{d.get('RucProveedor', '').strip()}", {})
             # Only override if detail doesn't already have a valid NroFactura recorded
             if not d.get('NroFactura') or d['NroFactura'] == '-':
                 d['NroFactura'] = fac_info.get('factura', '')

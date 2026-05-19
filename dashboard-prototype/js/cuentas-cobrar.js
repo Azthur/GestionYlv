@@ -768,6 +768,8 @@ function showSummaryDetail(type, label) {
                 <td>${r.codaux}</td>
                 <td title="${r.nomaux}">${(r.nomaux || '').substring(0,30)}</td>
                 <td title="${r.vendedor_homologado || r.nomven}">${(r.vendedor_homologado || r.nomven || '').substring(0,15)}</td>
+                <td title="${r.nompgo}">${(r.nompgo || '').substring(0,15)}</td>
+                <td title="${r.nomsol}">${(r.nomsol || '').substring(0,15)}</td>
                 <td class="text-right">${fmt(r.imptot)}</td>
                 <td class="text-right">${fmt(r.acta)}</td>
                 <td class="text-right" style="color:#f87171; font-weight:600;">${fmt(r.saldo)}</td>
@@ -780,7 +782,7 @@ function showSummaryDetail(type, label) {
         
         tfoot.innerHTML = `
             <tr class="total-row">
-                <td colspan="7" class="text-right">TOTALES (${currentDetailData.length} docs)</td>
+                <td colspan="9" class="text-right">TOTALES (${currentDetailData.length} docs)</td>
                 <td class="text-right">${fmt(tImporte)}</td>
                 <td class="text-right">${fmt(tActa)}</td>
                 <td class="text-right">${fmt(tSaldo)}</td>
@@ -798,10 +800,11 @@ function exportSummaryDetail(format) {
     const empresa = window._empresa || {};
     const { jsPDF } = window.jspdf;
     
-    const head = [['Empresa', 'Fecha', 'T.D.', 'Serie - N° Doc.', 'Código', 'Cliente', 'Vendedor', 'Importe', 'A Cta', 'Saldo']];
+    const head = [['Empresa', 'Fecha', 'T.D.', 'Serie - N° Doc.', 'Código', 'Cliente', 'Vendedor', 'F. Pago', 'Tienda Rendición', 'Importe', 'A Cta', 'Saldo']];
     const dataRows = currentDetailData.map(r => [
         r.codcia, r.fchdoc, r.coddoc, `${r.serie}-${r.nrodoc}`, r.codaux,
         (r.nomaux || '').substring(0,30), (r.vendedor_homologado || r.nomven || '').substring(0,18),
+        (r.nompgo || '').substring(0,15), (r.nomsol || '').substring(0,15),
         format === 'pdf' ? fmt(r.imptot) : r.imptot,
         format === 'pdf' ? fmt(r.acta) : r.acta,
         format === 'pdf' ? fmt(r.saldo) : r.saldo
@@ -811,7 +814,7 @@ function exportSummaryDetail(format) {
     const tActa = currentDetailData.reduce((s, r) => s + (r.acta || 0), 0);
     const tSaldo = currentDetailData.reduce((s, r) => s + (r.saldo || 0), 0);
     
-    dataRows.push(['', '', '', '', '', '', 'TOTALES', 
+    dataRows.push(['', '', '', '', '', '', '', '', 'TOTALES', 
         format === 'pdf' ? fmt(tImporte) : tImporte,
         format === 'pdf' ? fmt(tActa) : tActa,
         format === 'pdf' ? fmt(tSaldo) : tSaldo
@@ -825,7 +828,7 @@ function exportSummaryDetail(format) {
             ...dataRows
         ];
         const ws = XLSX.utils.aoa_to_sheet(allRows);
-        ws['!cols'] = [{wch:8}, {wch:12}, {wch:6}, {wch:16}, {wch:12}, {wch:35}, {wch:20}, {wch:14}, {wch:14}, {wch:14}];
+        ws['!cols'] = [{wch:8}, {wch:12}, {wch:6}, {wch:16}, {wch:12}, {wch:35}, {wch:20}, {wch:15}, {wch:20}, {wch:14}, {wch:14}, {wch:14}];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
         XLSX.writeFile(wb, `Detalle_${currentDetailLabel.replace(/[/\\?%*:|"<>]/g, '-')}.xlsx`);
@@ -842,12 +845,12 @@ function exportSummaryDetail(format) {
             theme: 'striped',
             styles: { fontSize: 7, cellPadding: 1.5 },
             columnStyles: {
-                7: { halign: 'right' },
-                8: { halign: 'right' },
-                9: { halign: 'right', textColor: [220, 38, 38], fontStyle: 'bold' }
+                9: { halign: 'right' },
+                10: { halign: 'right' },
+                11: { halign: 'right', textColor: [220, 38, 38], fontStyle: 'bold' }
             },
             willDrawCell: function(data) {
-                if (data.row.section === 'body' && String(data.row.raw[6] || '') === 'TOTALES') {
+                if (data.row.section === 'body' && String(data.row.raw[8] || '') === 'TOTALES') {
                     doc.setFillColor(200, 200, 220);
                     doc.setFont('', 'bold');
                 }

@@ -32,6 +32,70 @@ let facturasSinOC = [];
 let rendicionesAprobadas = [];
 let userPerms = []; // Almacena sub-permisos del módulo
 
+// --- Selection Tracker for SSR DataTables ---
+let selectedItemsTracker = {
+    ocs: new Map(),
+    facturas: new Map(),
+    rendiciones: new Map(),
+    docsAceptados: new Map()
+};
+
+
+function updateSelectionUI() {
+    const totalOcs = selectedItemsTracker.ocs.size;
+    const totalFacturas = selectedItemsTracker.facturas.size;
+    const totalRendiciones = selectedItemsTracker.rendiciones.size;
+    const totalDocsAceptados = selectedItemsTracker.docsAceptados.size;
+
+    // Actualizar badges
+    const bOcs = document.getElementById('badgeOcsSelected');
+    if (bOcs) {
+        const count = totalOcs + totalDocsAceptados;
+        bOcs.textContent = `${count} seleccionado${count !== 1 ? 's' : ''}`;
+        bOcs.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+
+    const bFacturas = document.getElementById('badgeFacturasSelected');
+    if (bFacturas) {
+        bFacturas.textContent = `${totalFacturas} seleccionado${totalFacturas !== 1 ? 's' : ''}`;
+        bFacturas.style.display = totalFacturas > 0 ? 'inline-block' : 'none';
+    }
+
+    const bRend = document.getElementById('badgeRendicionesSelected');
+    if (bRend) {
+        bRend.textContent = `${totalRendiciones} seleccionado${totalRendiciones !== 1 ? 's' : ''}`;
+        bRend.style.display = totalRendiciones > 0 ? 'inline-block' : 'none';
+    }
+
+    // Actualizar botón global
+    const totalSelected = totalOcs + totalFacturas + totalRendiciones + totalDocsAceptados;
+    const btn = document.getElementById('btnGenerarCargoGlobal');
+    if (btn) {
+        if (totalSelected > 0) {
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.4rem; vertical-align:middle;"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>Generar Cargo (${totalSelected})`;
+            btn.style.background = '#10b981';
+            btn.style.borderColor = '#10b981';
+            btn.style.color = '#fff';
+            btn.style.transform = 'scale(1.02)';
+        } else {
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.4rem; vertical-align:middle;"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>Generar Cargo de Entrega`;
+            btn.style.background = 'var(--primary)';
+            btn.style.borderColor = 'var(--primary)';
+            btn.style.color = '#fff';
+            btn.style.transform = 'scale(1)';
+        }
+    }
+}
+
+function clearSelectionTracker() {
+    selectedItemsTracker.ocs.clear();
+    selectedItemsTracker.facturas.clear();
+    selectedItemsTracker.rendiciones.clear();
+    selectedItemsTracker.docsAceptados.clear();
+    updateSelectionUI();
+}
+
+
 let viewModeBandeja = 'DETALLE'; // 'CARGO' o 'DETALLE'
 let viewModeHistorial = 'DETALLE'; // 'CARGO' o 'DETALLE'
 
@@ -237,6 +301,7 @@ function switchSubTab(tab, event) {
     if (rendicionesAprobadas_DT) { try { rendicionesAprobadas_DT.destroy(); } catch(e) {} rendicionesAprobadas_DT = null; }
     if (facturasSinOC_DT) { try { facturasSinOC_DT.destroy(); } catch(e) {} facturasSinOC_DT = null; }
 
+    clearSelectionTracker();
     document.getElementById('panelGenerar').style.display = 'none';
     document.getElementById('panelRecibidos').style.display = 'none';
     document.getElementById('panelHistorial').style.display = 'none';
@@ -344,6 +409,12 @@ async function loadOCsDisponibles() {
             language: { 
                 url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json',
                 processing: '<div style="background:rgba(255,255,255,0.8); z-index:99; position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#2563eb; font-weight:700;"><i class="fa fa-spinner fa-spin fa-2x fa-fw"></i> Cargando OCs...</div>'
+            },
+            rowCallback: function(row, data) {
+                const key = data.Serie + '|' + data.Numero + '|' + data.NumRucProveedor;
+                if (selectedItemsTracker.facturas.has(key)) {
+                    $(row).find('.factura-sin-oc-chk').prop('checked', true);
+                }
             },
             ajax: {
                 url: '/api/cargos/ocs-disponibles-ssr',
@@ -462,10 +533,26 @@ async function loadOCsDisponibles() {
             ]
         });
 
+        $('#ocsDisponiblesTable tbody').off('change', '.oc-chk').on('change', '.oc-chk', function() {
+            const tr = $(this).closest('tr');
+            const rowData = ocsDT.row(tr).data();
+            if (!rowData) return;
+            const key = rowData.nrodoc + '|' + (rowData.tipooc || '');
+            if (this.checked) {
+                selectedItemsTracker.ocs.set(key, rowData);
+                updateSelectionUI();
+            } else {
+                selectedItemsTracker.ocs.delete(key);
+                updateSelectionUI();
+            }
+        });
+
         $('#chkAllOcs').off('change').on('change', function() {
             const checked = this.checked;
-            ocsDT.rows().nodes().each(function(row) {
-                $(row).find('.oc-chk').prop('checked', checked);
+            $('.oc-chk', ocsDT.rows().nodes()).each(function() {
+                this.checked = checked;
+                $(this).trigger('change');
+                updateSelectionUI();
             });
         });
 
@@ -480,137 +567,99 @@ async function generarCargo() {
 
         // Obtener OCs seleccionadas
         if (ocsDT) {
-            ocsDT.rows().nodes().each(function(row) {
-                const chk = $(row).find('.oc-chk');
-                if (chk.is(':checked')) {
-                    const oc = ocsDT.row(row).data();
-                    if (oc) {
-                        selected.push({
-                            nro_orden_compra: oc.nrodoc || '',
-                            tipo_oc: oc.tipooc || 'M',
-                            codcia_oc: document.getElementById('filterCia').value || '',
-                            anos_oc: oc.anos || '',
-                            nro_factura: oc.factura || '',
-                            monto_oc: parseFloat(oc.total_oc || 0) || 0,
-                            monto_factura: parseFloat(oc.total_factura || 0) || 0,
-                            proveedor: oc.proveedor || '',
-                            ruc_proveedor: String(oc.ruc || ''),
-                            moneda: String(oc.moneda || '1'),
-                            tipo_documento: oc.tipo_doc || '',
-                            tipo_comprobante: oc.tipo_comprobante || '',
-                            fecha_emision: oc.fec_factura || null,
-                            fecha_vencimiento: oc.fecha_vencimiento || null,
-                            monto_rendicion: null
-                        });
-                    }
-                }
+            selectedItemsTracker.ocs.forEach(oc => {
+                selected.push({
+                    nro_orden_compra: oc.nrodoc || '',
+                    tipo_oc: oc.tipooc || 'M',
+                    codcia_oc: document.getElementById('filterCia').value || '',
+                    anos_oc: oc.anos || '',
+                    nro_factura: oc.factura || '',
+                    monto_oc: parseFloat(oc.total_oc || 0) || 0,
+                    monto_factura: parseFloat(oc.total_factura || 0) || 0,
+                    proveedor: oc.proveedor || '',
+                    ruc_proveedor: String(oc.ruc || ''),
+                    moneda: String(oc.moneda || '1'),
+                    tipo_documento: oc.tipo_doc || '',
+                    tipo_comprobante: oc.tipo_comprobante || '',
+                    fecha_emision: oc.fec_factura || null,
+                    fecha_vencimiento: oc.fecha_vencimiento || null,
+                    monto_rendicion: null
+                });
             });
         }
 
         // Obtener documentos aceptados seleccionados (para Enviar a Tesorería)
         if (docsAceptadosDT) {
-            docsAceptadosDT.rows().nodes().each(function(row) {
-                const chk = $(row).find('.doc-aceptado-chk');
-                if (chk.is(':checked')) {
-                    const nroOc = chk.data('nrooc');
-                    const tipoOc = chk.data('tipooc');
-                    const codciaOc = chk.data('codciaoc');
-                    const nroFactura = chk.data('nrofactura');
-                    const montoOc = chk.data('montooc');
-                    const montoFactura = chk.data('montofactura');
-                    const proveedor = chk.data('proveedor');
-                    const ruc = chk.data('ruc');
-                    const moneda = chk.data('moneda');
+            selectedItemsTracker.docsAceptados.forEach(row => {
+                selected.push({
+                    nro_orden_compra: row.NroOrdenCompra || '',
+                    tipo_oc: row.TipoOc || 'OC',
+                    codcia_oc: row.CodCiaOc || document.getElementById('filterCia').value || '',
+                    anos_oc: '',
+                    nro_factura: row.NroFactura || '',
+                    monto_oc: parseFloat(row.MontoOC || 0) || 0,
+                    monto_factura: parseFloat(row.MontoFactura || 0) || 0,
+                    proveedor: row.Proveedor || '',
+                    ruc_proveedor: String(row.RucProveedor || ''),
+                    moneda: String(row.Moneda || '1'),
+                    tipo_documento: row.TipoDoc || '',
+                    tipo_comprobante: row.TipoComprobante || '',
+                    fecha_emision: row.FecFactura || null,
+                    fecha_vencimiento: row.FechaVencimiento || null,
+                    monto_rendicion: null
+                });
+            });
+        }
 
+        // Obtener Facturas sin OC seleccionadas
+        if (facturasSinOC_DT) {
+            selectedItemsTracker.facturas.forEach(row => {
+                const serie = row.Serie || '';
+                const numero = row.Numero || '';
+                if (serie && numero) {
                     selected.push({
-                        nro_orden_compra: nroOc || '',
-                        tipo_oc: tipoOc || 'OC',
-                        codcia_oc: codciaOc || document.getElementById('filterCia').value || '',
+                        nro_orden_compra: row.NroOrdenCompra || '',
+                        tipo_oc: 'FACT',
+                        codcia_oc: document.getElementById('filterCia').value || '',
                         anos_oc: '',
-                        nro_factura: nroFactura || '',
-                        monto_oc: parseFloat(montoOc || 0) || 0,
-                        monto_factura: parseFloat(montoFactura || 0) || 0,
-                        proveedor: proveedor || '',
-                        ruc_proveedor: String(ruc || ''),
-                        moneda: String(moneda || '1'),
-                        tipo_documento: chk.data('tipodoc') || '',
-                        tipo_comprobante: chk.data('tipocomprobante') || '',
-                        fecha_emision: chk.data('fechaemision') || null,
-                        fecha_vencimiento: chk.data('fechavencimiento') || null,
+                        nro_factura: `${serie}-${numero}`,
+                        monto_oc: 0,
+                        monto_factura: parseFloat(row.Total || 0) || 0,
+                        proveedor: row.NomProveedor || '',
+                        ruc_proveedor: String(row.NumRucProveedor || ''),
+                        moneda: String(row.CodMoneda || '1'),
+                        tipo_documento: 'FACTURA_SIN_OC',
+                        tipo_comprobante: row.CodTipoDoc || '',
+                        fecha_emision: row.FecEmision || null,
+                        fecha_vencimiento: row.FecVencimiento || null,
                         monto_rendicion: null
                     });
                 }
             });
         }
 
-        // Obtener Facturas sin OC seleccionadas
-        if (facturasSinOC_DT) {
-            facturasSinOC_DT.rows().nodes().each(function(row) {
-                const chk = $(row).find('.factura-sin-oc-chk');
-                if (chk.is(':checked')) {
-                    // Obtener datos de los atributos data del checkbox
-                    const serie = chk.data('serie');
-                    const numero = chk.data('numero');
-                    const total = chk.data('total');
-                    const nomProveedor = chk.data('nomproveedor');
-                    const numRuc = chk.data('numruc');
-                    
-                    if (serie && numero) {
-                        const moneda = chk.data('moneda');
-                        const nrooc = chk.data('nrooc') || '';
-                        selected.push({
-                            nro_orden_compra: nrooc,  // Puede tener OC si ya se envió la OC sola antes
-                            tipo_oc: 'FACT',  // Código corto para factura
-                            codcia_oc: document.getElementById('filterCia').value || '',
-                            anos_oc: '',
-                            nro_factura: `${serie}-${numero}`,
-                            monto_oc: 0,
-                            monto_factura: parseFloat(total || 0) || 0,
-                            proveedor: nomProveedor || '',
-                            ruc_proveedor: String(numRuc || ''),
-                            moneda: String(moneda || '1'),
-                            tipo_documento: 'FACTURA_SIN_OC',
-                            tipo_comprobante: chk.data('tipodoc') || '', // e.g. '01'
-                            fecha_emision: chk.data('fechaemision') || null,
-                            fecha_vencimiento: chk.data('fechavencimiento') || null,
-                            monto_rendicion: null
-                        });
-                    }
-                }
-            });
-        }
-
         // Obtener Rendiciones aprobadas seleccionadas
         if (rendicionesAprobadas_DT) {
-            rendicionesAprobadas_DT.rows().nodes().each(function(row) {
-                const chk = $(row).find('.rendicion-aprobada-chk');
-                if (chk.is(':checked')) {
-                    const nroRendicion = chk.data('nrorendicion');
-                    const nomAux = chk.data('nomaux');
-                    const total = chk.data('total');
-                    const codAux = chk.data('codaux');
-                    const monedaRend = String(chk.data('moneda') || '1');
-                    const fechaRend = chk.data('fecha') || '';
-                    
-                    if (nroRendicion) {
-                        selected.push({
-                            nro_orden_compra: nroRendicion || '',
-                            tipo_oc: 'REND',
-                            codcia_oc: document.getElementById('filterCia').value || '',
-                            anos_oc: '',
-                            nro_factura: '',
-                            monto_oc: 0,
-                            monto_factura: parseFloat(total || 0) || 0,
-                            proveedor: nomAux || '',
-                            ruc_proveedor: String(codAux || ''),
-                            moneda: monedaRend,
-                            tipo_documento: 'RG',
-                            tipo_comprobante: 'Rendición de Gastos',
-                            fecha_emision: fechaRend || null,
-                            fecha_vencimiento: null,
-                            monto_rendicion: parseFloat(total || 0) || 0
-                        });
-                    }
+            selectedItemsTracker.rendiciones.forEach(row => {
+                const nroRendicion = row.NroRendicion;
+                if (nroRendicion) {
+                    selected.push({
+                        nro_orden_compra: nroRendicion || '',
+                        tipo_oc: 'REND',
+                        codcia_oc: document.getElementById('filterCia').value || '',
+                        anos_oc: '',
+                        nro_factura: '',
+                        monto_oc: 0,
+                        monto_factura: parseFloat(row.TotalRendido || 0) || 0,
+                        proveedor: row.NomAuxiliar || '',
+                        ruc_proveedor: String(row.CodAuxiliar || ''),
+                        moneda: String(row.CodMoneda || '1'),
+                        tipo_documento: 'RG',
+                        tipo_comprobante: 'Rendición de Gastos',
+                        fecha_emision: row.FecRegistro || null,
+                        fecha_vencimiento: null,
+                        monto_rendicion: parseFloat(row.TotalRendido || 0) || 0
+                    });
                 }
             });
         }
@@ -625,7 +674,7 @@ async function generarCargo() {
         const areaDestino = tipoCargo === 'LOG_A_CONT' ? 'CONTABILIDAD' : 'TESORERIA';
 
         // Calcular montos por tipo y moneda
-        const isOcType = (t) => ['M','S','T'].includes(t); // Tipos reales de OC
+        const isOcType = (t) => !['FACT', 'REND'].includes(t); // Cualquier tipo que no sea FACT o REND es una OC
         const getMonto = (items, filterFn, isUsd) => items.filter(s => filterFn(s.tipo_oc) && (isUsd ? isUsdCurrency(s.moneda) : !isUsdCurrency(s.moneda))).reduce((sum, s) => sum + (s.monto_factura || s.monto_oc || 0), 0);
 
         const montoOCsPEN = getMonto(selected, isOcType, false);
@@ -830,7 +879,13 @@ async function loadCargosRecibidos() {
                 deferRender: true, order: [[4, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
-                columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [6, 7, 8, 9], className: 'dt-right font-semibold text-slate-800' } ]
+                rowCallback: function(row, data) {
+                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                if (selectedItemsTracker.docsAceptados.has(key)) {
+                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                }
+            },
+            columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [6, 7, 8, 9], className: 'dt-right font-semibold text-slate-800' } ]
             });
         } else {
             dtData = pending.map(c => {
@@ -890,7 +945,13 @@ async function loadCargosRecibidos() {
                 deferRender: true, order: [[3, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
-                columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [9], className: 'dt-right font-semibold text-slate-800' } ]
+                rowCallback: function(row, data) {
+                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                if (selectedItemsTracker.docsAceptados.has(key)) {
+                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                }
+            },
+            columnDefs: [ { targets: [0, 10], orderable: false }, { targets: [9], className: 'dt-right font-semibold text-slate-800' } ]
             });
         }
 
@@ -1227,7 +1288,13 @@ async function loadHistorial() {
                 deferRender: true, order: [[2, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9] } } ],
-                columnDefs: [ { targets: [10], orderable: false }, { targets: [6, 7, 8, 9], className: 'dt-right font-semibold text-slate-800' } ]
+                rowCallback: function(row, data) {
+                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                if (selectedItemsTracker.docsAceptados.has(key)) {
+                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                }
+            },
+            columnDefs: [ { targets: [10], orderable: false }, { targets: [6, 7, 8, 9], className: 'dt-right font-semibold text-slate-800' } ]
             });
         } else {
             dtData = validos.map(c => {
@@ -1281,7 +1348,13 @@ async function loadHistorial() {
                 deferRender: true, order: [[2, 'desc']], pageLength: 10,
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8] } } ],
-                columnDefs: [ { targets: [8], className: 'dt-right font-semibold text-slate-800' } ]
+                rowCallback: function(row, data) {
+                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                if (selectedItemsTracker.docsAceptados.has(key)) {
+                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                }
+            },
+            columnDefs: [ { targets: [8], className: 'dt-right font-semibold text-slate-800' } ]
             });
         }
 
@@ -2789,6 +2862,12 @@ async function loadFacturasSinOC() {
                 url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json',
                 processing: '<div style="background:rgba(255,255,255,0.8); z-index:99; position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#2563eb; font-weight:700;">Cargando facturas...</div>'
             },
+            rowCallback: function(row, data) {
+                const key = data.Serie + '|' + data.Numero + '|' + data.NumRucProveedor;
+                if (selectedItemsTracker.facturas.has(key)) {
+                    $(row).find('.factura-sin-oc-chk').prop('checked', true);
+                }
+            },
             ajax: {
                 url: '/api/contabilidad/facturas-sin-oc',
                 type: 'GET',
@@ -2850,11 +2929,38 @@ async function loadFacturasSinOC() {
     }
 }
 
-function toggleAllFacturasSinOC() {
-    const chkAll = document.getElementById('chkAllFacturasSinOC');
-    const chks = document.querySelectorAll('.factura-sin-oc-chk');
-    chks.forEach(chk => chk.checked = chkAll.checked);
-}
+
+        $('#facturasSinOCTable tbody').off('change', '.factura-sin-oc-chk').on('change', '.factura-sin-oc-chk', function() {
+            const chk = $(this);
+            const key = chk.data('serie') + '|' + chk.data('numero') + '|' + chk.data('numruc');
+            if (this.checked) {
+                selectedItemsTracker.facturas.set(key, {
+                    Serie: chk.data('serie'),
+                    Numero: chk.data('numero'),
+                    NumRucProveedor: chk.data('numruc'),
+                    NroOrdenCompra: chk.data('nrooc') || '',
+                    Total: chk.data('total') || 0,
+                    NomProveedor: chk.data('nomproveedor') || '',
+                    CodMoneda: chk.data('moneda') || '1',
+                    CodTipoDoc: chk.data('tipocomprobante') || chk.data('tipodoc') || '',
+                    FecEmision: chk.data('fechaemision') || null,
+                    FecVencimiento: chk.data('fechavencimiento') || null
+                });
+            } else {
+                selectedItemsTracker.facturas.delete(key);
+            }
+            updateSelectionUI();
+        });
+
+        $('#chkAllFacturasSinOC').off('change').on('change', function() {
+            const checked = this.checked;
+            $('.factura-sin-oc-chk', facturasSinOC_DT.rows().nodes()).each(function() {
+                this.checked = checked;
+                $(this).trigger('change');
+                updateSelectionUI();
+            });
+        });
+
 
 // ─── Cargar Rendiciones Aprobadas ────────────────────────────────
 let rendicionesAprobadas_DT = null;
@@ -2896,6 +3002,12 @@ async function loadRendicionesAprobadas() {
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
             dom: 'Bfrtip',
             buttons: [{ extend: 'excelHtml5', text: '📊 Exportar Rendiciones', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6] } }],
+            rowCallback: function(row, data) {
+                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                if (selectedItemsTracker.docsAceptados.has(key)) {
+                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                }
+            },
             columnDefs: [
                 { targets: [0], orderable: false },
                 { targets: [5], className: 'dt-right font-semibold text-slate-800' }
@@ -2907,11 +3019,35 @@ async function loadRendicionesAprobadas() {
     }
 }
 
-function toggleAllRendiciones() {
-    const chkAll = document.getElementById('chkAllRendiciones');
-    const chks = document.querySelectorAll('.rendicion-aprobada-chk');
-    chks.forEach(chk => chk.checked = chkAll.checked);
-}
+
+        $('#rendicionesAprobadasTable tbody').off('change', '.rendicion-aprobada-chk').on('change', '.rendicion-aprobada-chk', function() {
+            const chk = $(this);
+            const key = chk.data('nrorendicion');
+            if (!key) return;
+            if (this.checked) {
+                selectedItemsTracker.rendiciones.set(key, {
+                    NroRendicion: key,
+                    NomAuxiliar: chk.data('nomaux') || '',
+                    TotalRendido: chk.data('total') || 0,
+                    CodAuxiliar: chk.data('codaux') || '',
+                    CodMoneda: chk.data('moneda') || '1',
+                    FecRegistro: chk.data('fecha') || null
+                });
+            } else {
+                selectedItemsTracker.rendiciones.delete(key);
+            }
+            updateSelectionUI();
+        });
+
+        $('#chkAllRendiciones').off('change').on('change', function() {
+            const checked = this.checked;
+            $('.rendicion-aprobada-chk', rendicionesAprobadas_DT.rows().nodes()).each(function() {
+                this.checked = checked;
+                $(this).trigger('change');
+                updateSelectionUI();
+            });
+        });
+
 
 // ════════════════════════════════════════════════════════════
 //  DOCUMENTOS ACEPTADOS PARA ENVIAR A TESORERÍA
@@ -3094,11 +3230,40 @@ async function loadDocumentosAceptadosTesoreria() {
                     data: dtData, destroy: true,
                     deferRender: true, order: [[2, 'desc']], pageLength: 15,
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-                    columnDefs: [
+                    rowCallback: function(row, data) {
+                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                if (selectedItemsTracker.docsAceptados.has(key)) {
+                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                }
+            },
+            columnDefs: [
                         { targets: [0, 14], orderable: false },
                         { targets: [6, 12], className: 'dt-right font-semibold' },
                         { targets: [0, 13, 14], className: 'dt-center' }
                     ]
+                });
+
+                $('#ocsDisponiblesTable tbody').off('change', '.doc-aceptado-chk').on('change', '.doc-aceptado-chk', function() {
+                    const tr = $(this).closest('tr');
+                    const rowData = docsAceptadosDT.row(tr).data();
+                    if (!rowData) return;
+                    const key = rowData.NroOrdenCompra + '|' + (rowData.TipoOc || '');
+                    if (this.checked) {
+                        selectedItemsTracker.docsAceptados.set(key, rowData);
+                        updateSelectionUI();
+                    } else {
+                        selectedItemsTracker.docsAceptados.delete(key);
+                        updateSelectionUI();
+                    }
+                });
+
+                $('#chkAllOcs').off('change').on('change', function() {
+                    const checked = this.checked;
+                    $('.doc-aceptado-chk', docsAceptadosDT.rows().nodes()).each(function() {
+                        this.checked = checked;
+                        $(this).trigger('change');
+                updateSelectionUI();
+                    });
                 });
             }
 
@@ -3134,8 +3299,4 @@ async function loadDocumentosAceptadosTesoreria() {
     }
 }
 
-function toggleAllDocsAceptados() {
-    const chkAll = document.getElementById('chkAllDocsAceptados');
-    const chks = document.querySelectorAll('.doc-aceptado-chk');
-    chks.forEach(chk => chk.checked = chkAll.checked);
-}
+

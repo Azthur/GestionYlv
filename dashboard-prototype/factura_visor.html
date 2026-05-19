@@ -98,15 +98,24 @@
                 .then(function(r) { if(!r.ok) throw new Error('Factura no encontrada'); return r.json(); })
                 .then(function(d) { 
                     if (d.CodCia) {
-                        fetch('/api/contabilidad/tipos-comprobante?codcia=' + encodeURIComponent(d.CodCia.trim()))
-                            .then(r => r.json())
-                            .then(tipos => {
-                                var tm = {};
-                                tipos.forEach(function(t) { tm[t.codigo] = t.nombre; });
-                                var tipoStr = (d.CodTipoDoc || '') + ' - ' + (tm[d.CodTipoDoc] || 'Otro');
-                                render(d, tipoStr);
-                            })
-                            .catch(function(e) { render(d, null); });
+                        Promise.all([
+                            fetch('/api/contabilidad/tipos-comprobante?codcia=' + encodeURIComponent(d.CodCia.trim())).then(r => r.ok ? r.json() : []),
+                            fetch('/api/permisos/empresas/all').then(r => r.ok ? r.json() : [])
+                        ]).then(results => {
+                            var tipos = results[0];
+                            var cias = results[1];
+                            var tm = {};
+                            tipos.forEach(function(t) { tm[t.codigo] = t.nombre; });
+                            var tipoStr = (d.CodTipoDoc || '') + ' - ' + (tm[d.CodTipoDoc] || 'Otro');
+                            
+                            var cia = cias.find(c => c.codcia === d.CodCia.trim());
+                            d.NomCia = cia ? cia.nomcia : d.CodCia;
+                            
+                            render(d, tipoStr);
+                        }).catch(function(e) {
+                            d.NomCia = d.CodCia;
+                            render(d, null);
+                        });
                     } else {
                         render(d, null);
                     }
@@ -339,7 +348,8 @@
                 estadoBadge +
                 // HEADER
                 '<div class="header">' +
-                    '<div><h1>CONSTANCIA DE REGISTRO</h1><div class="sub">Recepción de Compras / '+tipo+'</div></div>' +
+                    '<div><h1>CONSTANCIA DE REGISTRO</h1><div class="sub">Recepción de Compras / '+tipo+'</div>' +
+                    '<div class="sub" style="color:#2563eb; font-weight:600; margin-top:5px;">Empresa: '+(d.NomCia || d.CodCia || '')+'</div></div>' +
                     '<div class="right">' +
                         '<div class="doc-num">'+(d.CodTipoDoc||'01')+' '+(d.Serie||'')+'-'+(d.Numero||'')+'</div>' +
                     '</div>' +
@@ -386,6 +396,9 @@
                     '<div class="trow"><span class="lb">Otros Tributos:</span><strong>'+fmt((d.OtrosTributos||0)+(d.MtoICBPER||0)+(d.MtoOtrosCargos||0))+'</strong></div>' +
                     '<div class="tfinal"><strong style="color:#0f172a;">TOTAL:</strong><strong style="font-size:1.25rem;color:#2563eb;">'+monSym(d.CodMoneda)+' '+fmt(d.Total)+'</strong></div>' +
                 '</div>' +
+                '<br>' +
+                // OBSERVACIONES
+                obsHTML +
                 // ARCHIVOS
                 archHTML +
                 // SECCIONES INFORMATIVAS COMPACTAS (grilla 2x2)

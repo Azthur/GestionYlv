@@ -419,7 +419,7 @@ def buscar_factura(codcia: str = Query(...), q: str = Query(...)):
                 SELECT 1 FROM FinRendicionGastosDet d
                 INNER JOIN FinRendicionGastosCab c ON d.RendicionId = c.Id
                 WHERE d.DocReferenciaId = f.Id 
-                  AND d.TipoDoc IN ('01-Factura', '03-Boleta')
+                  AND d.TipoDoc != 'PGM-Planilla'
                   AND c.Estado != 'ANULADO'
             )
             ORDER BY f.FecEmision DESC
@@ -617,7 +617,7 @@ async def create_rendicion(
             # Bloqueo Anti-Duplicados
             ref_id = item.get('doc_referencia_id')
             tipo_doc = item.get('tipo_doc')
-            if ref_id and tipo_doc in ['01-Factura', '03-Boleta']:
+            if ref_id and tipo_doc != 'PGM-Planilla':
                 # Revisar si se usó en otra rendición
                 cursor.execute("""
                     SELECT 1 FROM FinRendicionGastosDet d
@@ -747,7 +747,7 @@ def get_rendicion_publica(uuid_link: str):
                 d.*,
                 ISNULL(f.Uuid, p.UuidLink) as UuidSoporte
             FROM FinRendicionGastosDet d
-            LEFT JOIN CntFacturaCab f ON d.DocReferenciaId = f.Id AND d.TipoDoc IN ('01-Factura', '03-Boleta')
+            LEFT JOIN CntFacturaCab f ON d.DocReferenciaId = f.Id AND d.TipoDoc != 'PGM-Planilla'
             LEFT JOIN FinPlanillaMovilidadCab p ON d.DocReferenciaId = p.Id AND d.TipoDoc = 'PGM-Planilla'
             WHERE d.RendicionId = ?
         """, (cab['Id'],))
@@ -772,6 +772,8 @@ def aprobar_rendicion(id_rendicion: int, data: AprobarRendicionInput):
     if not conn: raise HTTPException(status_code=500, detail="Error DB")
     try:
         cursor = conn.cursor()
+        cursor.execute("SET ANSI_NULLS, ANSI_PADDING, ANSI_WARNINGS, ARITHABORT, CONCAT_NULL_YIELDS_NULL, QUOTED_IDENTIFIER ON;")
+        
         cursor.execute("SELECT FechaAprobacion FROM FinRendicionGastosCab WHERE Id = ?", (id_rendicion,))
         row = cursor.fetchone()
         if not row: raise HTTPException(status_code=404, detail="No encontrada")
@@ -796,6 +798,51 @@ def aprobar_rendicion(id_rendicion: int, data: AprobarRendicionInput):
         cursor.execute("""
             UPDATE CntFacturaCab
             SET Estado = 'CONTABILIZADA'
+            WHERE Id IN (
+                SELECT DocReferenciaId FROM FinRendicionGastosDet 
+                WHERE RendicionId=? AND TipoDoc != 'PGM-Planilla' AND DocReferenciaId IS NOT NULL
+            )
+        """, (id_rendicion,))
+
+        conn.commit()
+        return {"status": "success"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/rendiciones/{id_rendicion}/desaprobar")
+def desaprobar_rendicion(id_rendicion: int):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SET ANSI_NULLS, ANSI_PADDING, ANSI_WARNINGS, ARITHABORT, CONCAT_NULL_YIELDS_NULL, QUOTED_IDENTIFIER ON;")
+        
+        cursor.execute("SELECT FechaAprobacion FROM FinRendicionGastosCab WHERE Id = ?", (id_rendicion,))
+        row = cursor.fetchone()
+        if not row: raise HTTPException(status_code=404, detail="No encontrada")
+        if not row.FechaAprobacion: raise HTTPException(status_code=400, detail="La rendición no está aprobada.")
+
+        # Desaprobar Rendicion
+        cursor.execute("""
+            UPDATE FinRendicionGastosCab
+            SET Estado = 'REGISTRADO', AprobadorDocumento = NULL, AprobadorNombre = NULL, FechaAprobacion = NULL
+            WHERE Id = ?
+        """, (id_rendicion,))
+
+        # Desaprobar Planillas Anidadas (Vuelven a estado RENDIDO porque siguen atadas a esta rendición)
+        cursor.execute("""
+            UPDATE FinPlanillaMovilidadCab
+            SET Estado = 'RENDIDO', AprobadorDocumento = NULL, AprobadorNombre = NULL, FechaAprobacion = NULL
+            WHERE Id IN (SELECT DocReferenciaId FROM FinRendicionGastosDet WHERE RendicionId=? AND TipoDoc='PGM-Planilla')
+        """, (id_rendicion,))
+
+        # Revertir Facturas asociadas
+        cursor.execute("""
+            UPDATE CntFacturaCab
+            SET Estado = 'REGISTRADA'
             WHERE Id IN (
                 SELECT DocReferenciaId FROM FinRendicionGastosDet 
                 WHERE RendicionId=? AND TipoDoc != 'PGM-Planilla' AND DocReferenciaId IS NOT NULL

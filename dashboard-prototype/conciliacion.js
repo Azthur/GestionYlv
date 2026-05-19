@@ -1221,7 +1221,7 @@ async function openReport(cajaId = null) {
 
                 items.forEach(item => {
                     const fchDoc = item.OriginalFechaDoc ? new Date(item.OriginalFechaDoc).toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'}) : (item.FechaEfe ? new Date(item.FechaEfe).toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'}) : '');
-                    const fchEfe = item.FechaEfe ? new Date(item.FechaEfe).toLocaleDateString('es-PE', {year:'numeric', month:'2-digit', day:'2-digit'}) : '';
+                    const fchDepFormat = item.fchDep ? new Date(item.fchDep).toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone: 'UTC'}) : '';
                     const soles = item.Soles || 0;
                     const dolares = item.Dolares || 0;
                     subTotalSoles += soles;
@@ -1237,7 +1237,7 @@ async function openReport(cajaId = null) {
                             <td style="padding:2px 2px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.nomven || ''}</td>
                             <td style="padding:2px 2px;">${item.usuario || ''}</td>
                             <td style="padding:2px 2px;">${item.NroDep || ''}</td>
-                            <td style="padding:2px 2px;">${fchEfe}</td>
+                            <td style="padding:2px 2px;">${fchDepFormat}</td>
                             <td style="padding:2px 2px; text-align:center;">${soles > 0 ? 'S/.' : (dolares > 0 ? '$' : 'S/.')}</td>
                             <td style="text-align:right; padding:2px 2px;">${soles > 0 ? soles.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
                             <td style="text-align:right; padding:2px 2px;">${dolares > 0 ? dolares.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>

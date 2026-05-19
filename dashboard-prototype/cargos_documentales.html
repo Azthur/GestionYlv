@@ -462,6 +462,14 @@
                 <div id="panelGenerar">
 
                     <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem;">
+                                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                            <div>
+                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#1e3a5f;" id="headerOcsDisponibles">
+                                    📦 Documentos Principal
+                                    <span id="badgeOcsSelected" style="font-size:0.75rem; background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:12px; margin-left:8px; display:none;">0 seleccionados</span>
+                                </h3>
+                            </div>
+                        </div>
                         <div style="overflow-x: auto;">
                             <table class="display nowrap" id="ocsDisponiblesTable" style="width:100%;">
                                 <thead>
@@ -492,7 +500,9 @@
                     <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
                             <div>
-                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#b45309;">📄 Facturas sin Orden de Compra</h3>
+                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#b45309;">📄 Facturas sin Orden de Compra
+                                    <span id="badgeFacturasSelected" style="font-size:0.75rem; background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:12px; margin-left:8px; display:none;">0 seleccionados</span>
+                                </h3>
                                 <p style="margin:0.2rem 0 0; font-size:0.75rem; color:var(--text-muted);">Facturas registradas sin OC vinculada</p>
                             </div>
                             <button class="btn-action outline" onclick="loadFacturasSinOC()" style="font-size:0.75rem;">
@@ -525,7 +535,9 @@
                     <div class="card glass-panel" style="padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #10b981;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
                             <div>
-                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#047857;">✅ Rendiciones Aprobadas</h3>
+                                <h3 style="margin:0; font-size:1rem; font-weight:700; color:#047857;">✅ Rendiciones Aprobadas
+                                    <span id="badgeRendicionesSelected" style="font-size:0.75rem; background:#d1fae5; color:#047857; padding:2px 8px; border-radius:12px; margin-left:8px; display:none;">0 seleccionados</span>
+                                </h3>
                                 <p style="margin:0.2rem 0 0; font-size:0.75rem; color:var(--text-muted);">Rendiciones con estado Aprobado listas para Tesorería</p>
                             </div>
                             <button class="btn-action outline" onclick="loadRendicionesAprobadas()" style="font-size:0.75rem;">
@@ -566,7 +578,7 @@
                                 <label>Observaciones (opcional)</label>
                                 <input type="text" id="cargoObservaciones" placeholder="Notas adicionales para el cargo...">
                             </div>
-                            <button class="btn-action primary" onclick="generarCargo()" style="padding:0.55rem 1.5rem; font-size:0.85rem;">
+                            <button id="btnGenerarCargoGlobal" class="btn-action primary" onclick="generarCargo()" style="padding:0.55rem 1.5rem; font-size:0.85rem; transition:all 0.2s;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
                                 Generar Cargo de Entrega
                             </button>

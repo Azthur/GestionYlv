@@ -11,6 +11,29 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <style>
+        /* Modern DataTables Styling Override */
+        table.dataTable thead th { border-bottom: 2px solid #e2e8f0; color: #475569; font-size: 0.75rem; text-transform: uppercase; padding: 12px 10px; text-align: left; }
+        table.dataTable tbody td { border-bottom: 1px solid #f1f5f9; padding: 12px 10px; vertical-align: middle; color: #1e293b; }
+        table.dataTable tbody tr:hover { background-color: #f8fafc; }
+        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.5px; }
+        .badge-pending { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+        .badge-approved { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+        
+        .action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; border: none; text-decoration: none; white-space: nowrap; }
+        .btn-pdf { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .btn-pdf:hover { background: #dbeafe; }
+        .btn-approve { background: #10b981; color: white; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
+        .btn-approve:hover { background: #059669; transform: translateY(-1px); }
+        .btn-reject { background: #ef4444; color: white; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); }
+        .btn-reject:hover { background: #dc2626; transform: translateY(-1px); }
+
+        .filter-btn { padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+        .filter-active { background: #0f172a; color: white; border: 1px solid #0f172a; }
+        .filter-inactive { background: white; color: #64748b; border: 1px solid #cbd5e1; }
+        .filter-inactive:hover { background: #f1f5f9; color: #0f172a; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     
@@ -29,11 +52,18 @@
                     </div>
                 </div>
 
-                <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; gap:15px; border:1px solid #e2e8f0;">
-                    <label style="font-weight:700; color:#334155;">FILTRO DE SEDE / EMPRESA:</label>
-                    <select id="selFiltroCia" onchange="cargarBandeja()" style="padding:8px; width:300px; border-radius:4px; border:1px solid #cbd5e1; font-family:'Inter',sans-serif; font-weight:500;">
-                        <option value="">-- TODAS LAS EMPRESAS --</option>
-                    </select>
+                <div style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:25px; display:flex; align-items:center; justify-content:space-between; border:1px solid #e2e8f0; flex-wrap:wrap; gap:15px;">
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <label style="font-weight:700; color:#334155; font-size:0.85rem;">SEDE / EMPRESA:</label>
+                        <select id="selFiltroCia" onchange="cargarBandeja()" style="padding:8px 12px; width:280px; border-radius:6px; border:1px solid #cbd5e1; font-family:'Inter',sans-serif; font-weight:500; font-size:0.85rem; outline:none;">
+                            <option value="">-- TODAS LAS EMPRESAS --</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button id="btnFilterAll" onclick="setGlobalFilter('')" class="filter-btn filter-active">Todas las Rendiciones</button>
+                        <button id="btnFilterPend" onclick="setGlobalFilter('PENDIENTE')" class="filter-btn filter-inactive">Solo Pendientes</button>
+                    </div>
                 </div>
 
                 <table id="tablaRevision" class="display" style="width:100%; font-size: 0.85rem;">
@@ -48,8 +78,8 @@
                             <th>TOTAL REEMBOLSO</th>
                             <th>USUARIO</th>
                             <th>ESTADO</th>
-                            <th>PDF</th>
-                            <th>ACCIÓN</th>
+                            <th style="min-width: 180px;">ACCIONES</th>
+                            <th style="display:none;">ESTADO_SEARCH</th>
                         </tr>
                     </thead>
                     <tbody id="tbBodyRevision"></tbody>
@@ -85,11 +115,31 @@
             tbl = $('#tablaRevision').DataTable({
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                 order: [[1, "desc"]],
-                pageLength: 25
+                pageLength: 25,
+                columnDefs: [
+                    { targets: [9], orderable: false }, // Acciones
+                    { targets: [10], visible: false } // ESTADO_SEARCH hidden
+                ]
             });
 
             cargarBandeja();
         });
+
+        let currentStatusFilter = '';
+        function setGlobalFilter(status) {
+            currentStatusFilter = status;
+            
+            document.getElementById('btnFilterAll').className = status === '' ? 'filter-btn filter-active' : 'filter-btn filter-inactive';
+            document.getElementById('btnFilterPend').className = status === 'PENDIENTE' ? 'filter-btn filter-active' : 'filter-btn filter-inactive';
+            
+            applyCurrentFilter();
+        }
+
+        function applyCurrentFilter() {
+            if(tbl) {
+                tbl.column(10).search(currentStatusFilter ? '^' + currentStatusFilter + '$' : '', true, false).draw();
+            }
+        }
 
         async function cargarBandeja() {
             try {
@@ -103,16 +153,28 @@
                 
                 res.data.forEach(r => {
                     const badge = r.FechaAprobacion 
-                        ? `<span style="padding: 3px 8px; border-radius: 4px; background: #dcfce7; color: #166534; font-weight:bold; font-size:0.75rem;">APROBADO</span>` 
-                        : `<span style="padding: 3px 8px; border-radius: 4px; background: #fef08a; color: #854d0e; font-weight:bold; font-size:0.75rem;">PENDIENTE</span>`;
+                        ? `<span class="badge badge-approved">✓ APROBADO</span>` 
+                        : `<span class="badge badge-pending">⏳ PENDIENTE</span>`;
                     
-                    const btnPdf = `<a href="/visor_rendicion.html?uuid=${r.UuidLink}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: bold; border: 1px solid #2563eb; padding: 4px 8px; border-radius: 4px;">👁 VER PDF</a>`;
+                    const btnPdf = `<a href="/visor_rendicion.html?uuid=${r.UuidLink}" target="_blank" class="action-btn btn-pdf">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                        PDF
+                                    </a>`;
                     
                     const btnAccion = r.FechaAprobacion 
-                        ? `<button disabled style="background:#e2e8f0; color:#94a3b8; border:none; padding:4px 8px; border-radius:4px; font-weight:600;">Ya Aprobado</button>`
-                        : `<button onclick="aprobarRendicion(${r.Id})" style="background:#10b981; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:600;">✔ APROBAR</button>`;
+                        ? `<button onclick="desaprobarRendicion(${r.Id})" class="action-btn btn-reject">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> 
+                                Desaprobar
+                           </button>`
+                        : `<button onclick="aprobarRendicion(${r.Id})" class="action-btn btn-approve">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg> 
+                                Aprobar
+                           </button>`;
 
                     const sym = monSym(r.Moneda);
+                    // Estado crudo para facilitar la busqueda
+                    const searchStatus = r.FechaAprobacion ? 'APROBADO' : 'PENDIENTE';
+
                     tbl.row.add([
                         r.nomcia || r.CodCia,
                         r.FechaRegistro,
@@ -123,12 +185,13 @@
                         `${sym} ${(parseFloat(r.TotalReembolso) || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}`,
                         r.UsuarioRegistro || '',
                         badge,
-                        btnPdf,
-                        btnAccion
+                        `<div style="display:flex; gap:6px;">${btnPdf}${btnAccion}</div>`,
+                        searchStatus // hidden column para search
                     ]);
                 });
                 
                 tbl.draw();
+                applyCurrentFilter();
             } catch(e) {
                 console.error(e);
             }
@@ -199,6 +262,36 @@
                     cargarBandeja(); // recargar
                 } catch(e) {
                     Swal.fire("Error Sistémico", "No se pudo procesar la aprobación. Intente nuevamente.", "error");
+                }
+            }
+        }
+        async function desaprobarRendicion(id) {
+            const resConfirm = await Swal.fire({
+                title: '¿Desaprobar Rendición?',
+                html: "Esto revertirá la firma electrónica y cambiará el estado a Pendiente para que el trabajador pueda editarla. ¿Desea continuar?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '✖ Sí, Desaprobar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if(resConfirm.isConfirmed) {
+                try {
+                    Swal.fire({ title: 'Revirtiendo aprobación...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+                    
+                    await axios.post(`${API_URL}/finanzas/rendiciones/${id}/desaprobar`);
+                    
+                    Swal.fire({
+                        title: "Desaprobación Exitosa", 
+                        html: "La rendición ha sido devuelta a estado pendiente (REGISTRADO).", 
+                        icon: "success",
+                        confirmButtonColor: "#2563eb"
+                    });
+                    cargarBandeja(); // recargar
+                } catch(e) {
+                    Swal.fire("Error Sistémico", "No se pudo procesar la desaprobación. Intente nuevamente.", "error");
                 }
             }
         }

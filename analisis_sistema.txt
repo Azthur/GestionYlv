@@ -1,0 +1,64 @@
+# Análisis del Sistema YELAVE ERP
+
+El proyecto "SistemaGestionyelave" es un sistema ERP (Planificación de Recursos Empresariales) integral, diseñado a medida, que cuenta con un backend en Python y un frontend basado en tecnologías web estándar. A continuación, se detalla todo lo que hace el código estructurado por módulos y tecnologías:
+
+## 1. Arquitectura y Tecnologías
+*   **Backend:** Está desarrollado en Python utilizando el framework **FastAPI**. Proporciona una API RESTful rápida y moderna.
+*   **Base de Datos:** Utiliza **SQL Server**, conectándose a través de la librería `pyodbc`.
+*   **Frontend:** Es un prototipo de dashboard montado estáticamente desde FastAPI. Está construido con **HTML5, CSS puro (Vanilla CSS) y JavaScript (Vanilla JS)**, sin frameworks pesados en el cliente.
+*   **Infraestructura:** Está preparado para ser desplegado mediante **Docker** y **Docker Compose** (contiene `Dockerfile` y `docker-compose.yml`), lo que facilita su portabilidad y despliegue.
+
+## 2. Módulos y Funcionalidades Principales
+
+El sistema está altamente modularizado para cubrir distintas áreas de la empresa:
+
+### 2.1. Autenticación y Seguridad (`auth.py`, `users.py`, `permisos.py`)
+*   Gestiona el inicio de sesión de los usuarios.
+*   Control de roles y permisos granulares (por módulos y vistas).
+*   Gestión de perfiles de usuario.
+
+### 2.2. Logística y Compras (`logistics.py`, `orders.html`)
+*   Gestión de **Órdenes de Compra (OC)**.
+*   Seguimiento de proveedores y aprobaciones logísticas.
+*   Recepción de mercadería.
+
+### 2.3. Inventario y Almacén (`kardex.py`, `inventario.html`, `kardex.html`)
+*   Sistema de **Kardex** para el control de stock.
+*   Registro de entradas y salidas de productos.
+*   Trazabilidad de movimientos en el almacén.
+
+### 2.4. Producción (`production_modules.py`, `production.html`)
+*   Gestión de **Órdenes de Producción**.
+*   Control de lotes, registro sanitario y cantidades planificadas vs. producidas.
+*   Trazabilidad del responsable (Director Técnico).
+
+### 2.5. Contabilidad y Finanzas (`contabilidad.py`, `cargos_documentales.py`, `gastos_rendiciones.py`)
+*   **Registro de Facturas:** Recepción y procesamiento de facturas (con o sin OC).
+*   **Rendiciones y Planillas:** Control de gastos de movilidad, viáticos y rendiciones de cuentas del personal.
+*   **Cargos Documentales:** Sistema para generar "Cargos" que agrupan documentos (Facturas, Rendiciones) para su validación o pase a pago.
+*   **Tesorería:** Visualización y control de pagos.
+
+### 2.6. Cuentas por Cobrar (`cuentas_cobrar.py`, `dashboard_cxc.html`)
+*   Seguimiento de la deuda de los clientes.
+*   Módulo de gestión de cobranzas.
+
+### 2.7. Conciliación Bancaria (`conciliacion.py`, `conciliacion.html`)
+*   Permite conciliar (emparejar) los movimientos bancarios reales con los registros contables internos del ERP (facturas, pagos, etc.).
+
+### 2.8. Reparto y Distribución (`reparto.py`, `reparto.html`)
+*   Módulo de trazabilidad y gestión de despachos.
+*   Control de rutas y entregas de mercadería.
+
+### 2.9. Dashboards Gerenciales (`dashboard_gerencial.py`)
+*   Generación de reportes y métricas de alto nivel para la toma de decisiones.
+*   Visualización consolidada del estado financiero, logístico y operativo de la empresa.
+
+### 2.10. Herramientas Colaborativas (`chat.py`)
+*   Sistema de **chat interno** integrado en el ERP, lo que permite a los usuarios de la plataforma comunicarse entre sí en tiempo real o dejar mensajes (soporta almacenamiento en base de datos).
+
+## 3. Scripts de Mantenimiento y "Parches"
+Dentro del código fuente (`backend/` y `dashboard-prototype/`) se aprecian una gran cantidad de scripts auxiliares (ej. `patch_backend.py`, `fix_ui.py`, `test_sql.py`, `scratch_*.py`). Esto indica que el sistema se encuentra en un proceso activo de desarrollo, migración o refactorización, empleando pequeños scripts (parches) para corregir bugs específicos, inyectar código dinámicamente o arreglar discrepancias en la base de datos sin alterar bruscamente el código central.
+
+---
+**Resumen:**
+YELAVE ERP es un sistema robusto, hecho a medida, que unifica Logística, Producción, Finanzas, Inventario y Distribución en una sola plataforma web, apoyándose en la velocidad de FastAPI y la solidez de una base de datos relacional (SQL Server).
