@@ -637,9 +637,44 @@ async function runAutoMatch() {
         return;
     }
 
+    const modal = document.getElementById('turtleProgressModal');
+    const bar = document.getElementById('turtleProgressBar');
+    const text = document.getElementById('turtleProgressText');
+    const turtle = document.getElementById('turtleIcon');
+    const timeText = document.getElementById('turtleTimeText');
+    
+    if (modal) modal.style.display = 'flex';
+    let progress = 0;
+    let secondsElapsed = 0;
+    if (bar) bar.style.width = '0%';
+    if (text) text.textContent = '0%';
+    if (turtle) turtle.style.left = '0%';
+    if (timeText) timeText.textContent = 'Tiempo transcurrido: 0s';
+    
+    // Simulate progress up to 90% while the request is running
+    const progressInterval = setInterval(() => {
+        if (progress < 90) {
+            progress += Math.floor(Math.random() * 5) + 2;
+            if (progress > 90) progress = 90;
+            if (bar) bar.style.width = progress + '%';
+            if (text) text.textContent = progress + '%';
+            if (turtle) turtle.style.left = `calc(${progress}% - 25px)`;
+        }
+    }, 400);
+
+    const timerInterval = setInterval(() => {
+        secondsElapsed++;
+        if (timeText) {
+            if (progress === 90) {
+                timeText.textContent = `Procesando gran volumen de datos... Tiempo transcurrido: ${secondsElapsed}s`;
+            } else {
+                timeText.textContent = `Tiempo transcurrido: ${secondsElapsed}s`;
+            }
+        }
+    }, 1000);
+
     const btn = document.getElementById('btnAutoMatch');
     btn.disabled = true;
-    btn.textContent = 'Procesando...';
 
     try {
         const res = await fetch('/api/conciliacion/auto-match', {
@@ -650,18 +685,35 @@ async function runAutoMatch() {
                 bank_code: bankCode,
                 period_year: year,
                 period_month: month,
+                cross_company: document.getElementById('checkCrossCompany').checked,
                 usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })()
             })
         });
 
+        clearInterval(progressInterval);
+        clearInterval(timerInterval);
+        progress = 100;
+        if (bar) bar.style.width = '100%';
+        if (text) text.textContent = '100%';
+        if (timeText) timeText.textContent = `¡Completado en ${secondsElapsed}s!`;
+        if (turtle) turtle.style.left = `calc(100% - 25px)`;
+
+        // Delay to let the user see the turtle reach 100%
+        await new Promise(r => setTimeout(r, 600));
+        
+        if (modal) modal.style.display = 'none';
+
         if (!res.ok) throw new Error('Error en auto-match');
         const data = await res.json();
 
-        showToast(`${data.matched_count} de ${data.total_processed} movimientos conciliados automáticamente`, 'success');
+        showToast(`${data.matched_count || data.matches_count || 0} movimientos conciliados automáticamente`, 'success');
 
         // Reload data
         await loadData();
     } catch (err) {
+        clearInterval(progressInterval);
+        if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+        if (modal) modal.style.display = 'none';
         console.error(err);
         showToast('Error en conciliación automática', 'error');
     } finally {
@@ -671,7 +723,66 @@ async function runAutoMatch() {
 }
 
 // ─── Manual Match ────────────────────────────────────────────────────
-// ─── Manual Match ────────────────────────────────────────────────────
+function runManualMatch() {
+    if (selectedBankIds.size === 0 || selectedCobKeys.size === 0) {
+        showToast('Seleccione al menos 1 movimiento bancario y 1 cobranza', 'info');
+        return;
+    }
+
+    let bcoTotal = 0;
+    const bcoList = document.getElementById('matchBcoList');
+    bcoList.innerHTML = '';
+    
+    selectedBankIds.forEach(id => {
+        const mov = bankMovements.find(b => b.Id == id);
+        if (mov) {
+            bcoTotal += parseFloat(mov.Monto) || 0;
+            bcoList.innerHTML += `<li style="margin-bottom: 5px; font-size: 0.9rem;">${mov.Fecha || ''} - ${mov.Descripcion || ''} <strong style="float: right;">S/ ${parseFloat(mov.Monto).toFixed(2)}</strong></li>`;
+        }
+    });
+
+    let cobTotal = 0;
+    const cobList = document.getElementById('matchCobList');
+    cobList.innerHTML = '';
+    
+    selectedCobKeys.forEach(key => {
+        const c = cobranzas.find(cb => `${cb.CodCia}|${cb.coddoc}|${cb.nrodoc}|${cb.nroitm}` === key);
+        if (c) {
+            cobTotal += parseFloat(c.import) || 0;
+            cobList.innerHTML += `<li style="margin-bottom: 5px; font-size: 0.9rem;">${c.CodCia || ''} - ${c.coddoc || ''} ${c.nrodoc || ''} <strong style="float: right;">S/ ${parseFloat(c.import).toFixed(2)}</strong></li>`;
+        }
+    });
+
+    document.getElementById('matchBcoTotal').textContent = `S/ ${bcoTotal.toFixed(2)}`;
+    document.getElementById('matchCobTotal').textContent = `S/ ${cobTotal.toFixed(2)}`;
+
+    const diffAlert = document.getElementById('matchDiffAlert');
+    const diff = Math.abs(bcoTotal - cobTotal);
+    
+    if (diff > 0.01) {
+        diffAlert.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+        diffAlert.style.color = '#ef4444';
+        diffAlert.innerHTML = `⚠️ Diferencia detectada: S/ ${diff.toFixed(2)}`;
+    } else {
+        diffAlert.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+        diffAlert.style.color = '#22c55e';
+        diffAlert.innerHTML = `✅ Cuadre perfecto`;
+    }
+
+    document.getElementById('matchSummary').innerHTML = `Se van a conciliar <strong>${selectedBankIds.size}</strong> movimiento(s) con <strong>${selectedCobKeys.size}</strong> cobranza(s).`;
+    
+    document.getElementById('matchModal').classList.add('active');
+}
+
+function closeMatchModal() {
+    document.getElementById('matchModal').classList.remove('active');
+}
+
+function confirmManualMatch() {
+    closeMatchModal();
+    matchSelected();
+}
+
 async function matchSelected() {
     if (selectedBankIds.size === 0 || selectedCobKeys.size === 0) {
         showToast('Seleccione al menos 1 movimiento bancario y 1 cobranza', 'info');
@@ -1338,6 +1449,25 @@ function applyDocAplicadosFilter() {
     }
 }
 
+// Filtro para la tabla de Cruce y Conciliación
+$.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+    if (settings.nTable.id !== 'tableCobranzas') return true;
+    
+    var chk = document.getElementById('chkDocAplicadosCruce');
+    if (!chk || !chk.checked) return true;
+    
+    // En tableCobranzas, coddoc es la columna 2
+    var coddoc = (data[2] || '').trim();
+    if (coddoc.includes('R/C.') || coddoc.includes('N/A')) return false;
+    return true;
+});
+
+function applyDocAplicadosCruceFilter() {
+    if (dtCruceCobranzas) {
+        dtCruceCobranzas.draw();
+    }
+}
+
 
 async function loadMovimientosBanco() {
     const codcia = document.getElementById('selectEmpresa').value;
@@ -1386,7 +1516,12 @@ async function loadMovimientosBanco() {
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                             <circle cx="12" cy="12" r="3"></circle>
                         </svg>
-                    </button>` : ''}
+                    </button>` : `<button class="btn-icon" onclick="deleteBankMovement(${c.Id})" title="Eliminar Movimiento" style="padding:4px; margin: auto; color: #ef4444;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>`}
                 </td>
                 <td>${c.Id || ''}</td>
                 <td>${c.Fecha || ''}</td>
@@ -1465,6 +1600,41 @@ async function updateOpManual(id, newValue, inputEl) {
         console.error(err);
         showToast('Error al actualizar Op Manual', 'error');
         // Reset visually if failed
+    }
+}
+
+// ─── Delete Bank Movement ────────────────────────────────────────────
+async function deleteBankMovement(id) {
+    if (!id) return;
+    
+    const result = await Swal.fire({
+        title: '¿Eliminar Movimiento?',
+        text: "Esta acción eliminará permanentemente este movimiento bancario del sistema.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const res = await fetch(`/api/conciliacion/movimientos-banco/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Error al eliminar el movimiento');
+        }
+
+        showToast('Movimiento eliminado exitosamente', 'success');
+        await loadMovimientosBanco(); // Refrescar la tabla
+    } catch (err) {
+        console.error(err);
+        Swal.fire('Error', err.message, 'error');
     }
 }
 

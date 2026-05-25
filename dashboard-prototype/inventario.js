@@ -85,14 +85,14 @@ function getCodCia() {
 
 async function onCompanyChange() {
     await loadFilters();
-    // Re-load active tab
-    const active = document.querySelector('.inv-tab-btn.active');
-    if (active) {
-        const tab = active.getAttribute('data-tab');
-        if (tab === 'producto') loadProductos();
-        else if (tab === 'almacen') loadAlmacenStock();
-        else if (tab === 'lote') loadLoteStock();
-    }
+    // Clear tables when company changes so user is forced to click Consultar
+    if (dtProd) dtProd.clear().draw();
+    if (dtAlm) dtAlm.clear().draw();
+    if (dtLote) dtLote.clear().draw();
+    ['kpiProd', 'kpiAlm', 'kpiLote'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+    });
 }
 
 // ─── Load Filters (Almacenes, Familias) ───
@@ -235,11 +235,6 @@ function switchTab(tab) {
     document.querySelectorAll('.inv-tab-pane').forEach(p => p.classList.remove('active'));
     document.querySelector(`.inv-tab-btn[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
-    
-    // Auto-load on tab switch if no data yet
-    if (tab === 'producto' && (!dtProd || dtProd.data().length === 0)) loadProductos();
-    if (tab === 'almacen' && (!dtAlm || dtAlm.data().length === 0)) loadAlmacenStock();
-    if (tab === 'lote' && (!dtLote || dtLote.data().length === 0)) loadLoteStock();
 }
 
 // ─── KPI Renderer ───
@@ -489,13 +484,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initSecurity(); // Load permissions first
     await loadCompanies();
     await loadFilters();
-    
-    // Trigger load on first visible tab
-    const activeBtn = document.querySelector('.inv-tab-btn.active');
-    if (activeBtn && activeBtn.style.display !== 'none') {
-        const tab = activeBtn.getAttribute('data-tab');
-        if (tab === 'producto') loadProductos();
-        else if (tab === 'almacen') loadAlmacenStock();
-        else if (tab === 'lote') loadLoteStock();
-    }
 });

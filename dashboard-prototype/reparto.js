@@ -267,6 +267,73 @@ async function loadHojasRuta(codcia) {
     }
 }
 
+// ─── Actions ────────────
+
+function toggleAllSol() {
+    const currentList = document.querySelectorAll('.chk-sol');
+    const checked = document.getElementById('chkAllSol').checked;
+    currentList.forEach(chk => chk.checked = checked);
+}
+
+async function generarHojaRuta() {
+    const codcia = document.getElementById('filterCia').value;
+    const codChofer = document.getElementById('selChofer').value;
+    const codMovilidad = document.getElementById('selMovilidad').value;
+    const fechaRuta = document.getElementById('selFechaRuta').value;
+    
+    if (!codcia) { Swal.fire('Error','Falta seleccionar Empresa', 'error'); return; }
+    if (!codChofer || !codMovilidad || !fechaRuta) {
+        Swal.fire('Atención', 'Seleccione Chofer, Movilidad y Fecha de Ruta', 'warning'); return;
+    }
+    
+    const selectedIds = [];
+    document.querySelectorAll('.chk-sol').forEach(chk => {
+        if (chk.checked) selectedIds.push(parseInt(chk.value));
+    });
+    
+    if (selectedIds.length === 0) {
+        Swal.fire('Atención', 'Seleccione al menos una solicitud pendiente', 'warning'); return;
+    }
+    
+    let userDisplay = 'Sistema';
+    try {
+        const userStr = localStorage.getItem('yelave_user');
+        if (userStr) {
+            const userObj = JSON.parse(userStr);
+            if (userObj && userObj.nombre) userDisplay = userObj.nombre;
+        }
+    } catch(e) {}
+    
+    const payload = {
+        codcia: codcia,
+        cod_chofer: codChofer,
+        cod_movilidad: codMovilidad,
+        fecha_ruta: fechaRuta,
+        solicitudes_ids: selectedIds,
+        responsable: userDisplay
+    };
+    
+    try {
+        Swal.fire({ title: 'Generando...', didOpen: () => Swal.showLoading() });
+        const res = await fetch('/api/reparto/hojas-ruta', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Error');
+        
+        Swal.fire('¡Éxito!', 'Hoja de Ruta generada correctamente.', 'success');
+        
+        loadSolicitudesPendientes(codcia);
+        loadHojasRuta(codcia);
+        document.getElementById('selChofer').value = '';
+        document.getElementById('selMovilidad').value = '';
+        
+    } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+    }
+}
+
 function viewSolicitudDetalle(id) {
     const s = window.solData[id];
     if (!s) return;

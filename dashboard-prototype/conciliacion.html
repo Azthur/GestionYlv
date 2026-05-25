@@ -212,10 +212,14 @@
                                     </svg>
                                     Cobranzas del Sistema
                                 </h3>
-                                <div class="table-actions">
+                                <div class="table-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                                     <label class="checkbox-inline">
                                         <input type="checkbox" id="checkCrossCompany" onchange="loadData()">
                                         Cross-Company
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer; padding:0.4rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:#fff;">
+                                        <input type="checkbox" id="chkDocAplicadosCruce" checked onchange="applyDocAplicadosCruceFilter()" style="accent-color:var(--primary);">
+                                        Documentos Aplicados y redondeo
                                     </label>
                                 </div>
                             </div>
@@ -839,6 +843,23 @@
                     onclick="event.stopPropagation(); executeDeleteAllBankMovements(event);"
                     style="flex: 1; padding: 0.75rem; border-radius: 8px; font-weight: 600; background: #ef4444; color: white; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3); font-size: 0.9rem;">Sí,
                     eliminar todo</button>
+            </div>
+        </div>
+    </div>
+    <!-- Auto Match Progress Modal -->
+    <div id="turtleProgressModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:99999; background:rgba(15, 23, 42, 0.9); flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(5px);">
+        <h2 style="color:#fff; font-size:2.5rem; font-weight:600; margin-bottom:1rem; letter-spacing:1px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">Conciliando Automáticamente</h2>
+        <p style="color:#cbd5e1; font-size:1.2rem; margin-bottom:4rem;">Por favor, espera unos instantes...</p>
+        
+        <div style="width:60%; max-width:700px; height:24px; background:#334155; border-radius:12px; overflow:hidden; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1);">
+            <div id="turtleProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #3b82f6, #60a5fa); transition:width 0.4s ease; border-radius:12px;"></div>
+        </div>
+        <div id="turtleProgressText" style="color:#fff; font-size:1.5rem; font-weight:600; margin-top:15px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">0%</div>
+        <div id="turtleTimeText" style="color:#94a3b8; font-size:1rem; margin-top:5px;">Tiempo transcurrido: 0s</div>
+        
+        <div style="width:60%; max-width:700px; margin-top:1.5rem; position:relative; height:60px;">
+            <div id="turtleIcon" style="position:absolute; left:0%; top:0; transition:left 0.4s ease; font-size:50px; transform:scaleX(-1);">
+                🐢
             </div>
         </div>
     </div>

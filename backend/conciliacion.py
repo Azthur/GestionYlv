@@ -32,6 +32,7 @@ class AutoMatchRequest(BaseModel):
     bank_code: str
     period_year: Optional[str] = None
     period_month: Optional[str] = None
+    cross_company: bool = False
     usuario: Optional[str] = None
 
 
@@ -426,6 +427,40 @@ def delete_all_bank_movements(
         conn.close()
 
 
+@router.delete("/movimientos-banco/{movimiento_id}")
+def delete_bank_movement(movimiento_id: int):
+    """
+    Elimina un movimiento bancario específico, solo si su estado es Pendiente.
+    """
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        
+        # Verificar si existe y si no está conciliado
+        cursor.execute("SELECT Estado FROM BankMovements WHERE Id = ?", (movimiento_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+            
+        if row[0] == 'Conciliado':
+            raise HTTPException(status_code=400, detail="No se puede eliminar un movimiento conciliado")
+            
+        cursor.execute("DELETE FROM BankMovements WHERE Id = ?", (movimiento_id,))
+        conn.commit()
+        
+        return {"status": "success", "message": "Movimiento eliminado exitosamente."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 @router.get("/cobranzas")
 def get_cobranzas(
     codcia: Optional[str] = None,
@@ -541,23 +576,38 @@ def auto_match(request: AutoMatchRequest):
                 bank_groups[cleaned].append(mov)
 
         # 3. Load ALL pending CcbMVtos for these dates/companies with Filiales logic
-        c_query = """
-            SELECT CodCia, coddoc, nrodoc, nroitm, NroDep, nroref, import, fchDep, fchdoc, tpopgo, CodDep, CodCom, codref, codaux 
-            FROM CcbMVtos
-            WHERE (FlgEst IS NULL OR FlgEst <> 'E')
-              AND (
-                  CodCia = ? 
-                  OR (tpopgo = '1' AND CodCom = ? AND CodDep = ?)
-              )
-              AND NOT EXISTS (
-                  SELECT 1 FROM ReconciliationDetail rd
-                  WHERE rd.MatchCodCia = CcbMVtos.CodCia
-                    AND rd.MatchCoddoc = CcbMVtos.coddoc
-                    AND rd.MatchNrodoc = CcbMVtos.nrodoc
-                    AND rd.MatchNroitm = CcbMVtos.nroitm
-              )
-        """
-        c_params = [request.codcia, request.codcia, request.bank_code]
+        if request.cross_company:
+            c_query = """
+                SELECT CodCia, coddoc, nrodoc, nroitm, NroDep, nroref, import, fchDep, fchdoc, tpopgo, CodDep, CodCom, codref, codaux 
+                FROM CcbMVtos
+                WHERE (FlgEst IS NULL OR FlgEst <> 'E')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ReconciliationDetail rd
+                      WHERE rd.MatchCodCia = CcbMVtos.CodCia
+                        AND rd.MatchCoddoc = CcbMVtos.coddoc
+                        AND rd.MatchNrodoc = CcbMVtos.nrodoc
+                        AND rd.MatchNroitm = CcbMVtos.nroitm
+                  )
+            """
+            c_params = []
+        else:
+            c_query = """
+                SELECT CodCia, coddoc, nrodoc, nroitm, NroDep, nroref, import, fchDep, fchdoc, tpopgo, CodDep, CodCom, codref, codaux 
+                FROM CcbMVtos
+                WHERE (FlgEst IS NULL OR FlgEst <> 'E')
+                  AND (
+                      CodCia = ? 
+                      OR (tpopgo = '1' AND CodCom = ? AND CodDep = ?)
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ReconciliationDetail rd
+                      WHERE rd.MatchCodCia = CcbMVtos.CodCia
+                        AND rd.MatchCoddoc = CcbMVtos.coddoc
+                        AND rd.MatchNrodoc = CcbMVtos.nrodoc
+                        AND rd.MatchNroitm = CcbMVtos.nroitm
+                  )
+            """
+            c_params = [request.codcia, request.codcia, request.bank_code]
         
         if request.period_year:
            c_query += " AND anos = ?"
@@ -1051,7 +1101,7 @@ def get_todas_cobranzas(
 
         # Query enriquecida para el reporte y listado (Refinada con Joins a Bancos, POS y Documentos)
         query = f"""
-            SELECT TOP 3000
+            SELECT
                 -- Columnas crudas solicitadas para la tabla principal
                 m.CodCia,
                 m.anos,

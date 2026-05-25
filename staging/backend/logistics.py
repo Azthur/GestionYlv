@@ -462,10 +462,11 @@ def list_order_attachments(
             return []
         
         files = []
+        import urllib.parse
         for filename in os.listdir(target_dir):
             files.append({
                 "filename": filename,
-                "url": f"/api/logistics/attachments/download?codcia={c}&tipooc={t}&nrodoc={n}&doc_type={dt}&filename={filename}"
+                "url": f"/api/logistics/attachments/download?codcia={c}&tipooc={t}&nrodoc={n}&doc_type={dt}&filename={urllib.parse.quote(filename)}"
             })
         return files
     except Exception as e:
