@@ -1148,7 +1148,7 @@ def get_todas_cobranzas(
                 rd.BankMovementId as BankId,
                 CASE WHEN (rd.Id IS NOT NULL OR m.FlgEst = 'C') THEN 1 ELSE 0 END as IsConciliado,
                 -- Buscar el nombre de la cuenta o POS
-                ISNULL(p.DESTARJ, t.Nombre) as GroupName,
+                COALESCE(p.DESTARJ, t.Nombre) as GroupName,
                 -- Buscar la fecha original del documento (CcbRGdoc)
                 rg.fchdoc as FechaOriginalDoc
             FROM CcbMVtos m
@@ -1162,14 +1162,16 @@ def get_todas_cobranzas(
             OUTER APPLY (
                 SELECT TOP 1 t2.Nombre 
                 FROM CcbTabla t2 
-                WHERE RTRIM(m.CodDep) = RTRIM(t2.Codigo) AND t2.Tabla = '0001'
+                WHERE RTRIM(m.CodDep) = RTRIM(t2.Codigo) 
+                AND t2.Tabla = '0001'
+                AND t2.CodCia = CASE WHEN m.tpopgo = '1' THEN m.CodCom ELSE m.CodCia END
             ) t
             -- Join con POS
-            LEFT JOIN POSTARJE p ON RTRIM(m.CodDep) = RTRIM(p.codtarj)
+            LEFT JOIN POSTARJE p ON RTRIM(m.CodDep) = RTRIM(p.codtarj) AND p.CODcia = CASE WHEN m.tpopgo = '1' THEN m.CodCom ELSE m.CodCia END
             -- Join con Cabecera de Documento usando los campos de referencia
             LEFT JOIN CcbRGdoc rg ON m.CodCia = rg.codcia AND m.codref = rg.coddoc AND m.nroref = rg.nrodoc
             {where_str}
-            ORDER BY m.tpopgo, ISNULL(p.DESTARJ, t.Nombre), m.nroitm
+            ORDER BY m.tpopgo, COALESCE(p.DESTARJ, t.Nombre), m.nroitm
         """
         
         cursor.execute(query, params)
@@ -1197,6 +1199,11 @@ def get_todas_cobranzas(
         for r in result:
             tp = str(r.get('tpopgo') or '').strip()
             jt = tpopgo_map.get(tp, 'CANJE')
+            if tp == '1':
+                codcom = str(r.get('CodCom') or '').strip()
+                if codcom:
+                    jt = f"FILIAL CANCELA ({codcom})"
+                    
             
             # codmon viene como string del row_to_dict
             cm = str(r.get('codmon') or '1').strip()
@@ -1233,7 +1240,7 @@ def get_todas_cobranzas(
 
                 # --- Alias y campos adicionales necesarios para la logica del Reporte de Caja y UI ---
                 "id": f"{r['Suc']}-{r['SerieDoc']}-{r['NroDoc']}-{r['Correlat']}",
-                "NroCaja": f"{(r['SerieDoc'] or '').strip()}{(r['NroDoc'] or '').strip()}",
+                "NroCaja": f"{(r['Suc'] or '').strip()}-{(r['SerieDoc'] or '').strip()}-{(r['NroDoc'] or '').strip()}",
                 "NumCompte": r['NumCompte'],
                 "FechaEfe": r['FechaEfe'],
                 "Suc": (r['Suc'] or '').strip(),
@@ -1268,6 +1275,126 @@ def get_todas_cobranzas(
             })
             
         return enriched
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/caja-publica/{codigo}")
+def get_caja_publica(codigo: str):
+    """
+    Retorna el detalle de una caja específica usando su código único (CodCia-coddoc-nrodoc).
+    """
+    parts = codigo.split("-")
+    if len(parts) < 3:
+        raise HTTPException(status_code=400, detail="Código inválido. Formato esperado: CodCia-coddoc-nrodoc")
+    
+    codcia = parts[0]
+    coddoc = parts[1]
+    nrodoc = "-".join(parts[2:])
+    
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT
+                m.CodCia as Suc,
+                m.coddoc as SerieDoc,
+                m.nrodoc as NroDoc,
+                m.nroitm as Correlat,
+                m.tpodoc as TipoDoc,
+                m.fchdoc as FechaEfe,
+                m.import as Monto,
+                m.fchDep as F_D,
+                m.glodoc as Glosa,
+                m.Glosa as Concepto,
+                m.codbco as CodBco,
+                m.nro_apl as NumCompte,
+                m.NomAux as RazonSocial,
+                m.codmon,
+                c.nombco as CuentaNombre,
+                rd.Id as MatchId,
+                rd.BankMovementId as BankId,
+                CASE WHEN (rd.Id IS NOT NULL OR m.FlgEst = 'C') THEN 1 ELSE 0 END as IsConciliado,
+                COALESCE(p.DESTARJ, t.Nombre) as GroupName,
+                rg.fchdoc as FechaOriginalDoc,
+                m.codref as TipoDocCancelado,
+                m.nroref as NroDocCancelado,
+                m.codaux as Codigo,
+                m.nomven,
+                m.usuario,
+                m.NroDep,
+                m.fchDep,
+                m.CodCom,
+                m.tpopgo
+            FROM CcbMVtos m
+            LEFT JOIN CcbICaja c ON m.CodCia = c.codcia AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
+            LEFT JOIN ReconciliationDetail rd ON rd.MatchCodCia = m.CodCia 
+                AND rd.MatchCoddoc = m.coddoc AND rd.MatchNrodoc = m.nrodoc AND rd.MatchNroitm = m.nroitm
+            OUTER APPLY (
+                SELECT TOP 1 t2.Nombre 
+                FROM CcbTabla t2 
+                WHERE RTRIM(m.CodDep) = RTRIM(t2.Codigo) 
+                AND t2.Tabla = '0001'
+                AND t2.CodCia = CASE WHEN m.tpopgo = '1' THEN m.CodCom ELSE m.CodCia END
+            ) t
+            LEFT JOIN POSTARJE p ON RTRIM(m.CodDep) = RTRIM(p.codtarj) AND p.CODcia = CASE WHEN m.tpopgo = '1' THEN m.CodCom ELSE m.CodCia END
+            LEFT JOIN CcbRGdoc rg ON m.CodCia = rg.codcia AND m.codref = rg.coddoc AND m.nroref = rg.nrodoc
+            WHERE m.CodCia = ? AND m.coddoc = ? AND m.nrodoc = ?
+            ORDER BY m.tpopgo, COALESCE(p.DESTARJ, t.Nombre), m.nroitm
+        """
+        cursor.execute(query, (codcia, coddoc, nrodoc))
+        result = rows_to_list(cursor)
+        
+        tpopgo_map = {
+            '1': 'FILIAL CANCELA', '2': 'PERSONAL', '3': 'AMERICAN EXPRES', '4': 'EPS',
+            '5': 'DINERS', 'C': 'CHEQUE', 'D': 'DEPOSITO', 'E': 'EFECTIVO', 'M': 'MASTERCAR',
+            'R': 'RETENCION', 'A': 'ANTICIPO APLICACION', 'B': 'ANTICIPO CREACION', 'F': 'FILIAL DEPOSITO', 'Z': 'IZIPAY'
+        }
+        
+        enriched = []
+        for r in result:
+            tp = str(r.get('tpopgo') or '').strip()
+            jt = tpopgo_map.get(tp, 'CANJE')
+            if tp == '1':
+                codcom = str(r.get('CodCom') or '').strip()
+                if codcom:
+                    jt = f"FILIAL CANCELA ({codcom})"
+            
+            cm = str(r.get('codmon') or '1').strip()
+            soles = float(r.get('Monto') or 0) if cm == '1' else 0
+            dolares = float(r.get('Monto') or 0) if cm == '2' else 0
+            
+            enriched.append({
+                "NroCaja": codigo,
+                "Suc": (r['Suc'] or '').strip(),
+                "SerieDoc": (r['SerieDoc'] or '').strip(),
+                "NroDoc": (r['NroDoc'] or '').strip(),
+                "Correlat": r['Correlat'],
+                "TipoDocCancelado": (r.get('TipoDocCancelado') or '').strip(),
+                "NroDocCancelado": (r.get('NroDocCancelado') or '').strip(),
+                "FechaEfe": r.get('FechaEfe'),
+                "OriginalFechaDoc": r.get('FechaOriginalDoc'),
+                "Codigo": (r.get('Codigo') or '').strip(),
+                "RazonSocial": (r.get('RazonSocial') or '').strip(),
+                "nomven": (r.get('nomven') or '').strip(),
+                "usuario": (r.get('usuario') or '').strip(),
+                "NroDep": (r.get('NroDep') or '').strip(),
+                "fchDep": r.get('fchDep'),
+                "Soles": soles,
+                "Dolares": dolares,
+                "Conciliado": str(r.get('IsConciliado', '0')).strip() == '1',
+                "JT": jt,
+                "GroupName": (r.get('GroupName') or r.get('CuentaNombre') or 'VARIOS').strip()
+            })
+        
+        return enriched
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

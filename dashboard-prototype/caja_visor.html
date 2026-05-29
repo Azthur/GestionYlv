@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Caja - YELAVE</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: #64748b;
+        }
+        .error {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: #ef4444;
+        }
+        .btn-print {
+            display: inline-block;
+            margin-bottom: 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-print:hover {
+            background: #1d4ed8;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; max-width: none; padding: 0; }
+            .no-print { display: none !important; }
+        }
+        /* Report specific styles copied from main app */
+        .report-header { color: black; background: white; padding: 0 0 15px 0; }
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; color: black; font-family: 'Arial', sans-serif; }
+        .report-table th, .report-table td { padding: 4px 6px; }
+        .report-table thead tr { border-top: 1px solid #000; border-bottom: 1px solid #000; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Reporte</button>
+        <div id="reportContent">
+            <div class="loading">Cargando datos de la caja...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadReport() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codigoCaja = urlParams.get('caja');
+            const reportContent = document.getElementById('reportContent');
+
+            if (!codigoCaja) {
+                reportContent.innerHTML = '<div class="error">❌ No se proporcionó un código de caja válido en la URL.<br><small>Ejemplo: ?caja=002-CJ05-0000006935</small></div>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/conciliacion/caja-publica/${codigoCaja}`);
+                if (!res.ok) {
+                    throw new Error(await res.text());
+                }
+                const data = await res.json();
+                
+                if (!data || data.length === 0) {
+                    reportContent.innerHTML = '<div class="error">⚠️ No se encontraron movimientos para esta caja.</div>';
+                    return;
+                }
+
+                const empresaNombre = "YELAVE INDUSTRIAS S.A.C."; // Idealmente debería venir del API pero usamos genérico
+                const now = new Date().toLocaleDateString();
+                const fechaCaja = data[0].FechaEfe ? new Date(data[0].FechaEfe).toLocaleDateString() : '---';
+                
+                const allMatched = data.length > 0 && data.every(i => i.Conciliado);
+                const matchStatusBadge = allMatched ? 
+                    `<span class="status-badge" style="background:#10b981;">✓ CAJA CONCILIADA TOTALMENTE</span>` : 
+                    `<span class="status-badge" style="background:#f59e0b;">⏳ CAJA PENDIENTE</span>`;
+
+                let html = `
+                    <div class="report-header">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                            <div style="font-size: 1.1rem; font-weight: 600;">${empresaNombre}</div>
+                            <div style="font-size: 0.85rem;">${now}</div>
+                        </div>
+                        <div style="text-align:center; font-size:1.4rem; font-weight:bold; margin-bottom:0.75rem; text-transform: uppercase;">
+                            Cancelación de Documentos
+                            <div style="margin-top:8px;">${matchStatusBadge}</div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size: 0.95rem; border-bottom:1px solid #000; padding-bottom:8px; margin-bottom:8px;">
+                            <div>N° Caja: <b style="margin-left:5px;">${codigoCaja}</b></div>
+                            <div>Fecha de Caja: <b style="margin-left:5px;">${fechaCaja}</b></div>
+                            <div>Page: 1</div>
+                        </div>
+                        <div style="font-size:0.85rem; margin-bottom:6px; font-weight: bold;">CANCELACIONES DEL DÍA : ${fechaCaja}</div>
+                    </div>
+                    
+                    <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">T/D</th>
+                            <th style="text-align:left;">N° DOCUM.</th>
+                            <th style="text-align:left;">FCH. DOC.</th>
+                            <th style="text-align:left;">CODIGO</th>
+                            <th style="text-align:left;">RAZON SOCIAL</th>
+                            <th style="text-align:left;">NOMVEN</th>
+                            <th style="text-align:left;">USUARIO</th>
+                            <th style="text-align:left;">N°OPER.</th>
+                            <th style="text-align:left;">FECHA</th>
+                            <th style="text-align:center;">MON.</th>
+                            <th style="text-align:right;">SOLES</th>
+                            <th style="text-align:right;">DOLARES</th>
+                            <th style="text-align:center;">ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+
+                // Group by JT and GroupName
+                const groupsJT = {};
+                data.forEach(item => {
+                    const jtKey = item.JT || 'VARIOS';
+                    const groupKey = item.GroupName || 'SIN CUENTA';
+                    if (!groupsJT[jtKey]) groupsJT[jtKey] = {};
+                    if (!groupsJT[jtKey][groupKey]) groupsJT[jtKey][groupKey] = [];
+                    groupsJT[jtKey][groupKey].push(item);
+                });
+
+                let boxTotalSoles = 0;
+                let boxTotalDolares = 0;
+
+                Object.keys(groupsJT).sort().forEach(jt => {
+                    Object.keys(groupsJT[jt]).sort().forEach(groupName => {
+                        const items = groupsJT[jt][groupName];
+                        let subTotalSoles = 0;
+                        let subTotalDolares = 0;
+
+                        html += `
+                            <tr>
+                                <td colspan="3" style="padding-top:16px; font-weight:bold; font-size:0.85rem; letter-spacing:0.5px; text-transform:uppercase;">${jt}</td>
+                                <td colspan="10" style="padding-top:16px; font-weight:bold; font-size:0.85rem; color:#1e293b;">Cuenta: ${groupName}</td>
+                            </tr>
+                        `;
+
+                        items.forEach(item => {
+                            const fchDoc = item.OriginalFechaDoc ? new Date(item.OriginalFechaDoc).toLocaleDateString('es-PE') : (item.FechaEfe ? new Date(item.FechaEfe).toLocaleDateString('es-PE') : '');
+                            const fchDepFormat = item.fchDep ? new Date(item.fchDep).toLocaleDateString('es-PE') : '';
+                            const soles = item.Soles || 0;
+                            const dolares = item.Dolares || 0;
+                            subTotalSoles += soles;
+                            subTotalDolares += dolares;
+
+                            html += `
+                                <tr style="${item.Conciliado ? 'background: #f0fdf4;' : ''}">
+                                    <td>${item.TipoDocCancelado || ''}</td>
+                                    <td>${item.NroDocCancelado || ''}</td>
+                                    <td>${fchDoc}</td>
+                                    <td>${item.Codigo || ''}</td>
+                                    <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.RazonSocial || ''}">${item.RazonSocial || ''}</td>
+                                    <td style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nomven || ''}</td>
+                                    <td>${item.usuario || ''}</td>
+                                    <td>${item.NroDep || ''}</td>
+                                    <td>${fchDepFormat}</td>
+                                    <td style="text-align:center;">${soles > 0 ? 'S/.' : (dolares > 0 ? '$' : 'S/.')}</td>
+                                    <td style="text-align:right;">${soles > 0 ? soles.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
+                                    <td style="text-align:right;">${dolares > 0 ? dolares.toLocaleString('en-US', {minimumFractionDigits:2}) : '0.00'}</td>
+                                    <td style="text-align:center; font-weight: bold;">
+                                        ${item.Conciliado ? `<span style="color:#10b981;">✓ CONC.</span>` : `<span style="color:#f59e0b;">⏳ Pend.</span>`}
+                                    </td>
+                                </tr>
+                            `;
+                        });
+
+                        boxTotalSoles += subTotalSoles;
+                        boxTotalDolares += subTotalDolares;
+
+                        html += `
+                            <tr style="font-weight:bold;">
+                                <td colspan="10" style="text-align:right; padding:6px 8px;">SUB TOTAL:</td>
+                                <td style="text-align:right; border-top: 1px solid #000;">${subTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                                <td style="text-align:right; border-top: 1px solid #000;">${subTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                                <td></td>
+                            </tr>
+                        `;
+                    });
+                });
+
+                html += `
+                        <tr style="border-top:2px solid #000; font-weight:bold; font-size:0.9rem;">
+                            <td colspan="10" style="text-align:right; padding:12px 8px;">TOTAL GRAL.:</td>
+                            <td style="text-align:right; padding:12px 6px;">${boxTotalSoles.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                            <td style="text-align:right; padding:12px 6px;">${boxTotalDolares.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="height: 40px;"></div>
+                `;
+
+                reportContent.innerHTML = html;
+
+            } catch (err) {
+                console.error(err);
+                reportContent.innerHTML = `<div class="error">❌ Error al cargar los datos.<br><small>${err.message}</small></div>`;
+            }
+        }
+
+        window.onload = loadReport;
+    </script>
+</body>
+</html>

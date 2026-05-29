@@ -94,7 +94,7 @@ async function loadParametros() {
 
     try {
         const [resBancos, resConceptos] = await Promise.all([
-            axios.get(`/api/cargos/parametros/bancos-all?codcia=${codcia}`).catch(() => ({data: []})),
+            axios.get(`/api/conciliacion/bancos/${codcia}`).catch(() => ({data: []})),
             axios.get(`/api/cargos/parametros/conceptos-pago?codcia=${codcia}`).catch(() => ({data: []}))
         ]);
 
@@ -117,7 +117,8 @@ function updateSelectBancos() {
     if (paramBancos.length > 0) {
         html += paramBancos.map(b => {
             const monLabel = parseInt(b.CodMon) === 2 ? 'USD' : 'PEN';
-            return `<option value="${b.Codigo}" data-codmon="${b.CodMon}">${b.Descripcion} [${monLabel}]</option>`;
+            const nombre = b.Nombre || b.Descripcion || b.Codigo;
+            return `<option value="${b.Codigo}" data-codmon="${b.CodMon}">${nombre} [${monLabel}]</option>`;
         }).join('');
     } else {
         html += `
@@ -599,7 +600,10 @@ async function editarPago(pagoUuid, pagoId) {
                     <label style="font-weight:600; display:block; margin-bottom:0.25rem;">Banco / Cuenta</label>
                     <select id="editPagoBanco" class="swal2-select" style="width:100%; max-width:100%; margin:0; padding:0.5rem; font-size:0.85rem;">
                         <option value="">Seleccione...</option>
-                        ${paramBancos.map(b => `<option value="${b.Codigo}" ${b.Codigo.trim() === (pago.BancoPago||'').trim() ? 'selected' : ''}>${b.Descripcion}</option>`).join('')}
+                        ${paramBancos.map(b => {
+                            const nombre = b.Nombre || b.Descripcion || b.Codigo;
+                            return `<option value="${b.Codigo}" ${b.Codigo.trim() === (pago.BancoPago||'').trim() ? 'selected' : ''}>${nombre}</option>`;
+                        }).join('')}
                     </select>
                 </div>
                 <div style="margin-bottom:1rem;">

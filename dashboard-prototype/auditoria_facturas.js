@@ -1,8 +1,8 @@
-// ═══════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  Registro de Facturas - JavaScript
-// ═══════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-// ─── Auth & Session ─────────────────
+// âââ Auth & Session âââââââââââââââââ
 function checkAuth() {
     const token = localStorage.getItem('yelave_token');
     if (!token) { window.location.href = 'login.html'; return null; }
@@ -35,7 +35,7 @@ function toggleSidebar() {
     overlay.classList.toggle('active', sidebar.classList.contains('open'));
 }
 
-// ─── Format Utils ────────────
+// âââ Format Utils ââââââââââââ
 const fmtNum = (val, dec = 2) => {
     if (val === null || val === undefined || isNaN(val)) return '0.00';
     return parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -48,26 +48,26 @@ const escapeHtml = (unsafe) => {
          .replace(/"/g, "&quot;")
          .replace(/'/g, "&#039;");
 };
-// ─── Currency Helpers ────────────
+// âââ Currency Helpers ââââââââââââ
 // Normaliza cualquier valor de moneda a '1' o '2'
 function normMoneda(v) {
     if (!v) return '1';
     const raw = String(v).trim().replace('.0','').toUpperCase();
-    if (['2','USD','US$','ME','DOLARES','DÓLARES'].includes(raw)) return '2';
+    if (['2','USD','US$','ME','DOLARES','DÃLARES'].includes(raw)) return '2';
     return '1';
 }
-// Devuelve símbolo legible: 'S/' o '$'
+// Devuelve sÃ­mbolo legible: 'S/' o '$'
 function monSym(v) { return normMoneda(v) === '2' ? '$' : 'S/'; }
-// Devuelve label: 'Soles' o 'Dólares'
-function monLabel(v) { return normMoneda(v) === '2' ? 'Dólares ($)' : 'Soles (S/)'; }
+// Devuelve label: 'Soles' o 'DÃ³lares'
+function monLabel(v) { return normMoneda(v) === '2' ? 'DÃ³lares ($)' : 'Soles (S/)'; }
 
-// ─── Global State ────────────
+// âââ Global State ââââââââââââ
 let dtFacturas = null;
 let invoiceItems = [];
 let invoiceMode = 'auto';
 let currentCodCia = '';
 
-// ─── Load Companies ──────────
+// âââ Load Companies ââââââââââ
 async function loadCompanies() {
     try {
         const token = localStorage.getItem('yelave_token');
@@ -107,7 +107,7 @@ async function loadCompanies() {
 function getSelectedCia() {
     const v = document.getElementById('cntEmpresa').value;
     if (!v) {
-        Swal.fire({icon:'warning', title:'Atención', text:'Seleccione una empresa primero'});
+        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'Seleccione una empresa primero'});
         return null;
     }
     currentCodCia = v;
@@ -115,7 +115,7 @@ function getSelectedCia() {
     return v;
 }
 
-// ─── Invoice Mode ────────────
+// âââ Invoice Mode ââââââââââââ
 function setInvoiceMode(mode) {
     invoiceMode = mode;
     const btnAuto = document.getElementById('btnModeAuto');
@@ -126,9 +126,9 @@ function setInvoiceMode(mode) {
     if (autoPanel) autoPanel.style.display = mode === 'auto' ? 'block' : 'none';
 }
 
-// ════════════════════════════════════════════════════════════
-//  BÚSQUEDA EN COMPRAS SUNAT
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  BÃSQUEDA EN COMPRAS SUNAT
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function openSunatSearch() { document.getElementById('modalSunat').classList.add('active'); }
 function openOCSearch() { document.getElementById('modalOC').classList.add('active'); }
@@ -144,7 +144,7 @@ async function searchSunatInvoices() {
 
     const proveedor = document.getElementById('searchSunatInput').value.trim();
     if (!proveedor) {
-        Swal.fire({icon:'warning', title:'Atención', text:'Ingrese RUC o Razón Social del proveedor'});
+        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'Ingrese RUC o RazÃ³n Social del proveedor'});
         return;
     }
 
@@ -190,7 +190,7 @@ async function searchSunatInvoices() {
         tb.innerHTML = html;
         document.getElementById('sunatSearchResults').style.display = 'block';
 
-        // Inicializar DataTable si no está inicializado
+        // Inicializar DataTable si no estÃ¡ inicializado
         const table = $('#sunatSearchResults table');
         if ($.fn.DataTable.isDataTable(table)) {
             table.DataTable().destroy();
@@ -202,7 +202,7 @@ async function searchSunatInvoices() {
                 search: "Buscar:",
                 lengthMenu: "Mostrar _MENU_ registros",
                 info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+                paginate: { first: "Primero", last: "Ãltimo", next: "Siguiente", previous: "Anterior" }
             },
             order: [[1, 'desc'], [2, 'desc']],
             dom: 'Bfrtip',
@@ -223,14 +223,14 @@ async function loadSunatInvoice(btn) {
     try {
         const c = JSON.parse(btn.getAttribute('data-doc').replace(/&quot;/g, '"'));
 
-        // Alerta si la factura ya está vinculada a una OC
+        // Alerta si la factura ya estÃ¡ vinculada a una OC
         if (c.FacturaId && c.NroOrdenCompra) {
             const result = await Swal.fire({
                 icon: 'warning',
                 title: 'Factura ya vinculada',
-                html: `Esta factura ya se encuentra vinculada a la OC N° <strong>${c.TipoOc||''}${c.NroOrdenCompra}</strong> con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>¿Desea continuar?`,
+                html: `Esta factura ya se encuentra vinculada a la OC NÂ° <strong>${c.TipoOc||''}${c.NroOrdenCompra}</strong> con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>Â¿Desea continuar?`,
                 showCancelButton: true,
-                confirmButtonText: 'Sí, continuar',
+                confirmButtonText: 'SÃ­, continuar',
                 cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#2563eb'
             });
@@ -239,9 +239,9 @@ async function loadSunatInvoice(btn) {
             const result = await Swal.fire({
                 icon: 'info',
                 title: 'Factura ya registrada',
-                html: `Esta factura ya está registrada con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>¿Desea continuar de todas formas?`,
+                html: `Esta factura ya estÃ¡ registrada con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>Â¿Desea continuar de todas formas?`,
                 showCancelButton: true,
-                confirmButtonText: 'Sí, continuar',
+                confirmButtonText: 'SÃ­, continuar',
                 cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#2563eb'
             });
@@ -405,22 +405,22 @@ async function previewSunatInvoice(btn) {
                 <div style="margin-bottom:1rem; padding:1rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
                         <div><strong>RUC:</strong> ${c.NumDocIdProveedor}</div>
-                        <div><strong>Razón Social:</strong> ${c.NomRazonSocialProveedor}</div>
+                        <div><strong>RazÃ³n Social:</strong> ${c.NomRazonSocialProveedor}</div>
                         <div><strong>Comprobante:</strong> ${c.CodTipoCDP} ${c.NumSerieCDP}-${c.NumCDP}</div>
-                        <div><strong>Fecha Emisión:</strong> ${c.FecEmision?.substring(0,10) || '-'}</div>
+                        <div><strong>Fecha EmisiÃ³n:</strong> ${c.FecEmision?.substring(0,10) || '-'}</div>
                         <div><strong>Moneda:</strong> ${monLabel(c.CodMoneda)}</div>
                         <div><strong>Monto Base (BI):</strong> ${fmtNum(c.MtoBIMGravadas || c.MtoBiGravada || c.mtoBiGravada || 0)}</div>
                         <div><strong>Monto IGV:</strong> ${fmtNum(c.MtoIgvTot || c.MtoIgvIpm || c.MtoIgv || c.mtoIgv || 0)}</div>
                         <div><strong>Total General:</strong> <span style="font-size:1.1em; color:var(--primary); font-weight:700;">${monSym(c.CodMoneda)} ${fmtNum(c.MtoTotalCp)}</span></div>
                     </div>
                 </div>
-                <h4 style="margin:0 0 0.5rem 0; color:var(--primary); font-size:0.95rem;">Líneas del Comprobante (${items.length})</h4>
+                <h4 style="margin:0 0 0.5rem 0; color:var(--primary); font-size:0.95rem;">LÃ­neas del Comprobante (${items.length})</h4>
                 <div style="max-height:300px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
                     <table class="fluent-table" style="width:100%; border-bottom:none;">
                         <thead style="background:#f1f5f9;">
                             <tr>
                                 <th style="padding:0.5rem;">Cod</th>
-                                <th style="padding:0.5rem;">Descripción</th>
+                                <th style="padding:0.5rem;">DescripciÃ³n</th>
                                 <th style="padding:0.5rem; text-align:right;">Cant.</th>
                                 <th style="padding:0.5rem; text-align:right;">P.Unit</th>
                                 <th style="padding:0.5rem; text-align:right;">Total</th>
@@ -429,7 +429,7 @@ async function previewSunatInvoice(btn) {
                         <tbody>`;
         
         if (items.length === 0) {
-            html += `<tr><td colspan="5" style="text-align:center; padding:1rem; color:#64748b;">El comprobante no tiene detalle de ítems en el XML proporcionado por SUNAT.</td></tr>`;
+            html += `<tr><td colspan="5" style="text-align:center; padding:1rem; color:#64748b;">El comprobante no tiene detalle de Ã­tems en el XML proporcionado por SUNAT.</td></tr>`;
         } else {
             items.forEach(it => {
                 html += `<tr>
@@ -458,9 +458,9 @@ async function previewSunatInvoice(btn) {
     }
 }
 
-// ════════════════════════════════════════════════════════════
-//  VINCULACIÓN ORDEN DE COMPRA
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  VINCULACIÃN ORDEN DE COMPRA
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async function searchPendingOC() {
     const codcia = getSelectedCia();
@@ -477,7 +477,7 @@ async function searchPendingOC() {
     console.log('searchPendingOC - codcia:', codcia, 'proveedor:', proveedor, 'tipo:', tipo);
 
     if (!proveedor) {
-        Swal.fire({icon:'warning', title:'Atención', text:'Ingrese RUC del proveedor para buscar OC. Si la factura ya tiene RUC, se usará ese.'});
+        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'Ingrese RUC del proveedor para buscar OC. Si la factura ya tiene RUC, se usarÃ¡ ese.'});
         return;
     }
 
@@ -536,7 +536,7 @@ async function searchPendingOC() {
         tb.innerHTML = html;
         document.getElementById('ocSearchResults').style.display = 'block';
 
-        // Inicializar DataTable si no está inicializado
+        // Inicializar DataTable si no estÃ¡ inicializado
         const table = $('#ocSearchResults table');
         if ($.fn.DataTable.isDataTable(table)) {
             table.DataTable().destroy();
@@ -548,7 +548,7 @@ async function searchPendingOC() {
                 search: "Buscar:",
                 lengthMenu: "Mostrar _MENU_ registros",
                 info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+                paginate: { first: "Primero", last: "Ãltimo", next: "Siguiente", previous: "Anterior" }
             },
             order: [[1, 'desc'], [2, 'desc']],
             dom: 'Bfrtip',
@@ -579,9 +579,9 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
         const result = await Swal.fire({
             icon: 'warning',
             title: 'OC ya vinculada',
-            html: `Esta OC ya se encuentra vinculada a las facturas: ${factLinks}.<br>¿Desea continuar?`,
+            html: `Esta OC ya se encuentra vinculada a las facturas: ${factLinks}.<br>Â¿Desea continuar?`,
             showCancelButton: true,
-            confirmButtonText: 'Sí, continuar',
+            confirmButtonText: 'SÃ­, continuar',
             cancelButtonText: 'Cancelar',
             confirmButtonColor: '#f59e0b'
         });
@@ -589,9 +589,9 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
     }
 
     try {
-        Swal.fire({ title: 'Obteniendo OC...', text: 'Descargando líneas pendientes', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Obteniendo OC...', text: 'Descargando lÃ­neas pendientes', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         const res = await fetch(`/api/logistics/orders/${nrodoc}/report?codcia=${codcia}&tipo_oc=${tipooc}&year=${anos}`);
-        if (!res.ok) throw new Error('La OC no contiene items pendientes o no existe en el año indicado.');
+        if (!res.ok) throw new Error('La OC no contiene items pendientes o no existe en el aÃ±o indicado.');
         const ocData = await res.json();
         Swal.close();
 
@@ -615,13 +615,13 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
         }
 
         // LOGICA DE VINCULACION OC (MANUAL POR USUARIO):
-        // En lugar de autovincular y reemplazar, levantamos la vista de conciliación
-        // para que el usuario seleccione y evalúe.
+        // En lugar de autovincular y reemplazar, levantamos la vista de conciliaciÃ³n
+        // para que el usuario seleccione y evalÃºe.
         window.currentOCDetalle = window.currentOCDetalle || [];
         
         const detalles = ocData.items || [];
         
-        // Agregar nuevas líneas al detalle global (para validación en memoria y mult-oc)
+        // Agregar nuevas lÃ­neas al detalle global (para validaciÃ³n en memoria y mult-oc)
         detalles.forEach(d => {
             const pend = parseFloat(d.candes || d.canpend || d.cantidad || 0) - parseFloat(d.cant_ingresada || 0);
             window.currentOCDetalle.push({
@@ -648,7 +648,7 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
     } catch(err) {
         Swal.fire({
             icon:'warning', 
-            title:'<span style="font-size:1.25rem;">Orden Vacía o No Encontrada</span>', 
+            title:'<span style="font-size:1.25rem;">Orden VacÃ­a o No Encontrada</span>', 
             html: `<p style="color:var(--text-muted); font-size:0.9rem;">${err.message}</p>`,
             confirmButtonText: 'Volver',
             confirmButtonColor: 'var(--primary)'
@@ -661,7 +661,7 @@ async function previewOCDetails(nrodoc, tipooc, anos) {
     if (!codcia) return;
 
     try {
-        Swal.fire({ title: 'Obteniendo OC...', text: 'Descargando líneas de Orden de Compra', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Obteniendo OC...', text: 'Descargando lÃ­neas de Orden de Compra', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         const res = await fetch(`/api/logistics/orders/${nrodoc}/report?codcia=${codcia}&tipo_oc=${tipooc}&year=${anos}`);
         if (!res.ok) throw new Error('La OC no contiene items pendientes o no existe.');
         const ocData = await res.json();
@@ -686,13 +686,13 @@ async function previewOCDetails(nrodoc, tipooc, anos) {
                         <div><strong>Estado:</strong> ${(cab.flgest || '').trim() === 'P' ? 'Pendiente' : 'Parcial/Fact.'}</div>
                     </div>
                 </div>
-                <h4 style="margin:0 0 0.5rem 0; color:#f59e0b; font-size:0.95rem;">Ítems Pendientes por Ingresar (${detalles.length})</h4>
+                <h4 style="margin:0 0 0.5rem 0; color:#f59e0b; font-size:0.95rem;">Ãtems Pendientes por Ingresar (${detalles.length})</h4>
                 <div style="max-height:300px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
                     <table class="fluent-table" style="width:100%; border-bottom:none;">
                         <thead style="background:#f1f5f9;">
                             <tr>
                                 <th style="padding:0.5rem;">Cod</th>
-                                <th style="padding:0.5rem;">Descripción</th>
+                                <th style="padding:0.5rem;">DescripciÃ³n</th>
                                 <th style="padding:0.5rem; text-align:right;">Pend.</th>
                                 <th style="padding:0.5rem; text-align:right;">Precio</th>
                                 <th style="padding:0.5rem; text-align:right;">SubT.</th>
@@ -701,7 +701,7 @@ async function previewOCDetails(nrodoc, tipooc, anos) {
                         <tbody>`;
         
         if (detalles.length === 0) {
-            html += `<tr><td colspan="5" style="text-align:center; padding:1rem; color:#64748b;">No hay ítems pendientes en esta OC.</td></tr>`;
+            html += `<tr><td colspan="5" style="text-align:center; padding:1rem; color:#64748b;">No hay Ã­tems pendientes en esta OC.</td></tr>`;
         } else {
             detalles.forEach(it => {
                 const pend = parseFloat(it.candes || it.canpend || it.cantidad || 0) - parseFloat(it.cant_ingresada || 0);
@@ -731,9 +731,9 @@ async function previewOCDetails(nrodoc, tipooc, anos) {
         Swal.fire({icon:'error', title:'Error', text: err.message});
     }
 }
-// ════════════════════════════════════════════════════════════
-//  VISTA CONCILIACIÓN OC
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  VISTA CONCILIACIÃN OC
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 window.tempOcDataList = [];
 window.tempOcGlobalData = null;
@@ -742,7 +742,7 @@ function openConciliarOCModal(ocData) {
     window.tempOcGlobalData = ocData;
     window.tempOcDataList = [];
     
-    // Si la factura está vacía o solo tiene un GEN genérico, lo limpiamos para una carga limpia
+    // Si la factura estÃ¡ vacÃ­a o solo tiene un GEN genÃ©rico, lo limpiamos para una carga limpia
     if (invoiceItems.length === 1 && invoiceItems[0].codigo === 'GEN') {
         invoiceItems = [];
     }
@@ -768,7 +768,7 @@ function openConciliarOCModal(ocData) {
                  if (Math.abs(invoiceItems[i].cant - dCant) < 0.01) { matchFacturaIdx = i; break; }
              }
         }
-        // Asignación fallback simple (top-down)
+        // AsignaciÃ³n fallback simple (top-down)
         if (matchFacturaIdx === -1) {
             matchFacturaIdx = invoiceUsed.findIndex((u, i) => !u && !invoiceItems[i].fromOC);
         }
@@ -808,7 +808,7 @@ function renderConciliacionTable() {
             precioFacturaStr = fmtNum(row.invItem.pu);
             if (Math.abs(row.invItem.pu - row.precioOc) > 0.05) {
                 estadoCruces = `<span style="color:#ef4444; font-weight:600; font-size:0.75rem;">VINCULA (DIF. PRECIO)</span>`;
-                if(row.include) difAlerts.push(`El ítem <b>${d.codmat || d.codart || '-'}</b> tiene diferente precio en la factura (${fmtNum(row.invItem.pu)} vs ${fmtNum(row.precioOc)}).`);
+                if(row.include) difAlerts.push(`El Ã­tem <b>${d.codmat || d.codart || '-'}</b> tiene diferente precio en la factura (${fmtNum(row.invItem.pu)} vs ${fmtNum(row.precioOc)}).`);
             } else {
                 estadoCruces = `<span style="color:#10b981; font-weight:600; font-size:0.75rem;">VINCULA (OK)</span>`;
             }
@@ -818,12 +818,12 @@ function renderConciliacionTable() {
             if(!row.invItem || Math.abs(row.invItem.pu - row.precioOc) <= 0.05) {
                 estadoCruces = `<span style="color:#f59e0b; font-weight:600; font-size:0.75rem;">VINCULA (PARCIAL)</span>`;
             }
-            difAlerts.push(`El ítem <b>${d.codmat || d.codart || '-'}</b> ingresará parcialmente (${row.cantIngresar} de ${row.cantPendiente}).`);
+            difAlerts.push(`El Ã­tem <b>${d.codmat || d.codart || '-'}</b> ingresarÃ¡ parcialmente (${row.cantIngresar} de ${row.cantPendiente}).`);
         }
 
         if (row.cantIngresar > row.cantPendiente && row.include) {
             estadoCruces = `<span style="color:#ef4444; font-weight:600; font-size:0.75rem;">VINCULA (EXCEDE)</span>`;
-            difAlerts.push(`El ítem <b>${d.codmat || d.codart || '-'}</b> excede la cantidad de la OC (${row.cantIngresar} de ${row.cantPendiente}).`);
+            difAlerts.push(`El Ã­tem <b>${d.codmat || d.codart || '-'}</b> excede la cantidad de la OC (${row.cantIngresar} de ${row.cantPendiente}).`);
         }
 
         html += `
@@ -881,9 +881,9 @@ function confirmarConciliacionOC() {
         Swal.fire({
             icon: 'warning',
             title: 'Diferencia en Costos',
-            text: 'Existen diferencias en el precio unitario entre la Orden de Compra y la Factura. Si continúa, se priorizará la integración a la cuenta con los montos de la factura, pero se conservarán las variaciones con fines de auditoría. ¿Desea continuar con el cruce?',
+            text: 'Existen diferencias en el precio unitario entre la Orden de Compra y la Factura. Si continÃºa, se priorizarÃ¡ la integraciÃ³n a la cuenta con los montos de la factura, pero se conservarÃ¡n las variaciones con fines de auditorÃ­a. Â¿Desea continuar con el cruce?',
             showCancelButton: true,
-            confirmButtonText: 'Sí, cruzar de todas formas',
+            confirmButtonText: 'SÃ­, cruzar de todas formas',
             cancelButtonText: 'Revisar manual'
         }).then((result) => {
             if(result.isConfirmed) processConfirmConciliacionOC();
@@ -907,7 +907,7 @@ function processConfirmConciliacionOC() {
         const und = d.undstk || d.codund || 'NIU';
 
         if (row.matchFacturaIdx >= 0) {
-            // Existe en la factura original y se emparejó, sólo ENRIQUECEMOS
+            // Existe en la factura original y se emparejÃ³, sÃ³lo ENRIQUECEMOS
             const item = invoiceItems[row.matchFacturaIdx];
             item.codProv = item.codigo || item.codProv || '';
             item.codigo = codmat || item.codigo;
@@ -929,7 +929,7 @@ function processConfirmConciliacionOC() {
             item.fromOC = true;
             item.oc_origen = ocOrigenTracker;
         } else {
-            // No existe en factura (Ítem NUEVO inyectado de la OC)
+            // No existe en factura (Ãtem NUEVO inyectado de la OC)
             const vv = row.cantIngresar * row.precioOc;
             const igv = vv * 0.18;
             invoiceItems.push({
@@ -960,14 +960,14 @@ function clearOC() {
     window.currentOCDetalle = [];
 }
 
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  ITEMS y CALCULOS
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function renderInvoiceItems() {
     const tb = document.getElementById('invItemsTbody');
     if (invoiceItems.length === 0) {
-        tb.innerHTML = '<tr id="invNoItems"><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-muted);">Sin ítems. Busque un comprobante SUNAT, cargue una OC o agregue ítems manualmente.</td></tr>';
+        tb.innerHTML = '<tr id="invNoItems"><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-muted);">Sin Ã­tems. Busque un comprobante SUNAT, cargue una OC o agregue Ã­tems manualmente.</td></tr>';
         updateTotals(0,0,0);
         return;
     }
@@ -999,24 +999,24 @@ function renderInvoiceItems() {
             <tr>
                 <td>${i+1}</td>
                 <td style="text-align:center;">
-                    <input type="checkbox" id="itemExtraCheck_${i}" ${it.extraData && (it.extraData.inci || it.extraData.fabricante || it.extraData.obs1 || it.extraData.obs2 || it.extraData.obs3 || it.extraData.obs4) ? 'checked' : ''} onchange="toggleItemExtraData(${i})" title="Agregar más datos">
+                    <input type="checkbox" id="itemExtraCheck_${i}" ${it.extraData && (it.extraData.inci || it.extraData.fabricante || it.extraData.obs1 || it.extraData.obs2 || it.extraData.obs3 || it.extraData.obs4) ? 'checked' : ''} onchange="toggleItemExtraData(${i})" title="Agregar mÃ¡s datos">
                 </td>
                 <td>
                     <div style="display:flex; gap:0.2rem;">
                         <input type="text" class="item-input-cell" style="width:70%; font-weight:600; color:var(--primary);" value="${it.codigo}" onchange="updateItem(${i}, 'codigo', this.value)" readonly>
-                        <button class="btn-sec" style="width:30%; padding:0.2rem; display:flex; align-items:center; justify-content:center;" onclick="openItemSearchModal(${i})" title="Buscar en Catálogo">
+                        <button class="btn-sec" style="width:30%; padding:0.2rem; display:flex; align-items:center; justify-content:center;" onclick="openItemSearchModal(${i})" title="Buscar en CatÃ¡logo">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         </button>
                     </div>
                 </td>
-                <td><input type="text" class="item-input-edit" placeholder="Opcional..." value="${it.codProv || ''}" onchange="updateItem(${i}, 'codProv', this.value)" title="Código de Referencia del Proveedor / Factura"></td>
+                <td><input type="text" class="item-input-edit" placeholder="Opcional..." value="${it.codProv || ''}" onchange="updateItem(${i}, 'codProv', this.value)" title="CÃ³digo de Referencia del Proveedor / Factura"></td>
                 <td>
                     <input type="text" class="item-input-edit" style="width:100%;" value="${it.desc}" onchange="updateItem(${i}, 'desc', this.value)">
                     ${it.oc_origen ? `<div style="font-size:0.65rem; color:#f59e0b; margin-top:2px; font-weight:600;">Origen: ${it.oc_origen}</div>` : ''}
                 </td>
                 <td><input type="text" class="item-input-edit" style="width:50px; text-align:center;" value="${it.und}" onchange="updateItem(${i}, 'und', this.value)"></td>
                 <td>
-                    <input type="number" step="0.01" class="item-input-edit highlight-edit" style="width:70px; text-align:right;" value="${it.cant}" onchange="updateItem(${i}, 'cant', this.value)" title="Edite para declarar recepción parcial">
+                    <input type="number" step="0.01" class="item-input-edit highlight-edit" style="width:70px; text-align:right;" value="${it.cant}" onchange="updateItem(${i}, 'cant', this.value)" title="Edite para declarar recepciÃ³n parcial">
                     ${warning}
                 </td>
                 <td><input type="number" step="0.0001" class="item-input-edit" style="width:80px; text-align:right;" value="${it.pu}" onchange="updateItem(${i}, 'pu', this.value)"></td>
@@ -1025,7 +1025,7 @@ function renderInvoiceItems() {
                 <td style="text-align:right; font-weight:600; color:var(--primary);">${fmtNum(it.total)}</td>
                 <td style="text-align:center;">
                     <div style="display:flex; justify-content:center; gap:0.25rem;">
-                        <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="editInvoiceItem(${i})" title="Editar Cálculos / Lógica de Impuesto">
+                        <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="editInvoiceItem(${i})" title="Editar CÃ¡lculos / LÃ³gica de Impuesto">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                         </button>
                         <button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="removeInvoiceItem(${i})" title="Eliminar fila">
@@ -1051,8 +1051,8 @@ function runValidationInsights() {
             if (!it.fromOC) return;
             const match = window.currentOCDetalle.find(o => o.codigo === it.codigo);
             if (match) {
-                if(it.cant > match.canpend) { hasWarnings=true; msgs+=`&bull; Ítem ${it.codigo}: Cantidad excede (${it.cant} > ${match.canpend})<br>`; }
-                if(Math.abs(it.pu - match.precio_unitario) > 0.01) { hasWarnings=true; msgs+=`&bull; Ítem ${it.codigo}: Precio difiere de OC (${fmtNum(match.precio_unitario)})<br>`; }
+                if(it.cant > match.canpend) { hasWarnings=true; msgs+=`&bull; Ãtem ${it.codigo}: Cantidad excede (${it.cant} > ${match.canpend})<br>`; }
+                if(Math.abs(it.pu - match.precio_unitario) > 0.01) { hasWarnings=true; msgs+=`&bull; Ãtem ${it.codigo}: Precio difiere de OC (${fmtNum(match.precio_unitario)})<br>`; }
             }
         });
         if (hasWarnings) {
@@ -1062,7 +1062,7 @@ function runValidationInsights() {
             valAlerts.style.background = '#fef2f2';
         } else {
             valPanel.style.display = 'block';
-            valAlerts.innerHTML = '<span style="color:#10b981;">✓ Líneas coinciden correctamente con la Orden de Compra.</span>';
+            valAlerts.innerHTML = '<span style="color:#10b981;">â LÃ­neas coinciden correctamente con la Orden de Compra.</span>';
             valAlerts.style.borderLeftColor = '#10b981';
             valAlerts.style.background = '#f0fdf4';
         }
@@ -1071,7 +1071,7 @@ function runValidationInsights() {
     }
 }
 
-// ── BÚSQUEDA DE ÍTEM (MODAL) ──
+// ââ BÃSQUEDA DE ÃTEM (MODAL) ââ
 function openItemSearchModal(idx) {
     document.getElementById('searchItemTargetIndex').value = idx;
     document.getElementById('catalogoSearchInput').value = '';
@@ -1116,7 +1116,7 @@ async function executeCatalogSearch(q) {
                 }).join('');
             }
         } catch(e) { 
-            resDiv.innerHTML = '<div style="padding:2rem; text-align:center; color:#ef4444; font-size:0.9rem;">Error en la búsqueda.</div>';
+            resDiv.innerHTML = '<div style="padding:2rem; text-align:center; color:#ef4444; font-size:0.9rem;">Error en la bÃºsqueda.</div>';
         }
     }, 350);
 }
@@ -1134,7 +1134,7 @@ function selectModalItem(codigo, desc) {
     const idxStr = document.getElementById('searchItemTargetIndex').value;
     
     if (idxStr === '-1') {
-        // En vez de agregar fila vacía directa, abrimos la ventana de IMPUESTOS Y LÓGICA MANUAL
+        // En vez de agregar fila vacÃ­a directa, abrimos la ventana de IMPUESTOS Y LÃGICA MANUAL
         document.getElementById('manualDesc').value = codigo === 'USER-LIBRE' ? desc : (codigo + ' - ' + desc);
         document.getElementById('manualCant').value = '1.00';
         document.getElementById('manualPrecio').value = '0.00';
@@ -1250,7 +1250,7 @@ function updateRetencionPreview() {
 
 function injectManualItem() {
     const desc = document.getElementById('manualDesc').value.trim();
-    if (!desc) { Swal.fire('Error', 'Ingrese una descripción', 'warning'); return; }
+    if (!desc) { Swal.fire('Error', 'Ingrese una descripciÃ³n', 'warning'); return; }
     
     const cant = parseFloat(document.getElementById('manualCant').value) || 1;
     let precio = parseFloat(document.getElementById('manualPrecio').value) || 0;
@@ -1274,12 +1274,12 @@ function injectManualItem() {
             total = vv + igv;
         }
     } else if (op === 'retencion_rh') {
-        // Retención de recibo por honorario: base - retención% = total neto
+        // RetenciÃ³n de recibo por honorario: base - retenciÃ³n% = total neto
         const porcRet = parseFloat(document.getElementById('manualPorcRetencion').value) || 0;
         vv = precio * cant;
         pu = precio;
         const retencion = vv * (porcRet / 100);
-        igv = retencion;  // Importe de retención va en campo IGV
+        igv = retencion;  // Importe de retenciÃ³n va en campo IGV
         total = vv - retencion;
     } else {
         vv = precio * cant;
@@ -1335,7 +1335,7 @@ function toggleItemExtraData(index) {
 }
 
 function openItemExtraModal(index) {
-    // Crear modal dinámicamente si no existe
+    // Crear modal dinÃ¡micamente si no existe
     let modal = document.getElementById('modalItemExtraData');
     if (!modal) {
         modal = document.createElement('div');
@@ -1346,7 +1346,7 @@ function openItemExtraModal(index) {
             <div class="fluent-dialog" style="max-width:700px;background:white;border-radius:12px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);display:flex;flex-direction:column;max-height:85vh;border:1px solid rgba(255,255,255,0.1);">
                 <div class="fluent-dialog-header" style="padding:1.5rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;">
                     <div>
-                        <h3 class="fluent-dialog-title" style="margin:0;font-size:1.2rem;font-weight:700;">Datos Adicionales del Ítem</h3>
+                        <h3 class="fluent-dialog-title" style="margin:0;font-size:1.2rem;font-weight:700;">Datos Adicionales del Ãtem</h3>
                         <div style="font-size:0.85rem;color:#64748b;margin-top:0.25rem;">INCI, Fabricante y Observaciones</div>
                     </div>
                     <button class="fluent-dialog-close" onclick="closeItemExtraModal()" style="background:#f1f5f9;border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;">
@@ -1356,30 +1356,30 @@ function openItemExtraModal(index) {
                 <div class="fluent-dialog-body" style="padding:1.5rem;overflow-y:auto;background:white;display:flex;flex-direction:column;gap:1.25rem;">
                     <input type="hidden" id="itemExtraIndex">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                        <div class="input-group"><label>INCI</label><input type="text" id="itemExtraINCI" class="modern-input" placeholder="Código INCI"></div>
+                        <div class="input-group"><label>INCI</label><input type="text" id="itemExtraINCI" class="modern-input" placeholder="CÃ³digo INCI"></div>
                         <div class="input-group"><label>Nombre del Fabricante</label><input type="text" id="itemExtraFabricante" class="modern-input" placeholder="Nombre del fabricante"></div>
                     </div>
                     <div style="border-top:1px solid #e2e8f0;padding-top:1rem;">
-                        <div style="font-weight:600;font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;">Fecha de Vencimiento del Ítem</div>
+                        <div style="font-weight:600;font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;">Fecha de Vencimiento del Ãtem</div>
                         <div class="input-group" style="margin-bottom:1rem;">
                             <label>Fecha de Vencimiento</label>
                             <input type="date" id="itemExtraFechaVencimiento" class="modern-input">
                         </div>
                         <div style="font-weight:600;font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;">Observaciones y Archivos</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
-                            <div class="input-group"><label>Observación 1</label><input type="text" id="itemExtraObs1" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>ObservaciÃ³n 1</label><input type="text" id="itemExtraObs1" class="modern-input" placeholder="DescripciÃ³n..."></div>
                             <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles1" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
-                            <div class="input-group"><label>Observación 2</label><input type="text" id="itemExtraObs2" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>ObservaciÃ³n 2</label><input type="text" id="itemExtraObs2" class="modern-input" placeholder="DescripciÃ³n..."></div>
                             <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles2" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
-                            <div class="input-group"><label>Observación 3</label><input type="text" id="itemExtraObs3" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>ObservaciÃ³n 3</label><input type="text" id="itemExtraObs3" class="modern-input" placeholder="DescripciÃ³n..."></div>
                             <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles3" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                            <div class="input-group"><label>Observación 4</label><input type="text" id="itemExtraObs4" class="modern-input" placeholder="Descripción..."></div>
+                            <div class="input-group"><label>ObservaciÃ³n 4</label><input type="text" id="itemExtraObs4" class="modern-input" placeholder="DescripciÃ³n..."></div>
                             <div class="input-group"><label>Archivos</label><input type="file" id="itemExtraFiles4" multiple accept=".pdf,.jpg,.png,.xlsx,.docx" class="modern-input"></div>
                         </div>
                     </div>
@@ -1449,7 +1449,7 @@ function openItemExtraModal(index) {
                 html += `<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
                     <span style="background:${color};color:white;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;">${ext}</span>
                     <span style="flex:1;">${fileName}</span>
-                    ${fileId ? `<button onclick="deleteItemFile(${fileId}, '${obsField}', ${index})" style="padding:0.15rem 0.4rem;font-size:0.65rem;background:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️</button>` : ''}
+                    ${fileId ? `<button onclick="deleteItemFile(${fileId}, '${obsField}', ${index})" style="padding:0.15rem 0.4rem;font-size:0.65rem;background:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer;">ðï¸</button>` : ''}
                 </div>`;
             });
             previewDiv.innerHTML = html;
@@ -1462,7 +1462,7 @@ function openItemExtraModal(index) {
 }
 
 async function deleteItemFile(archivoId, obsField, itemIndex) {
-    if (!confirm('¿Está seguro de eliminar este archivo?')) return;
+    if (!confirm('Â¿EstÃ¡ seguro de eliminar este archivo?')) return;
     
     try {
         const token = localStorage.getItem('yelave_token');
@@ -1534,7 +1534,7 @@ async function saveItemExtraData() {
     invoiceItems[index].extraData.obs3 = document.getElementById('itemExtraObs3').value;
     invoiceItems[index].extraData.obs4 = document.getElementById('itemExtraObs4').value;
     
-    // Guardar archivos (múltiples por observación)
+    // Guardar archivos (mÃºltiples por observaciÃ³n)
     const fileInputs = [
         { field: 'obs1', input: 'itemExtraFiles1' },
         { field: 'obs2', input: 'itemExtraFiles2' },
@@ -1555,11 +1555,11 @@ async function saveItemExtraData() {
                 invoiceItems[index].extraData.files[field].push(file);
                 console.log(`Archivo guardado en memoria: ${field}, ${file.name}, size: ${file.size}`);
             }
-            // No limpiar el input para que el usuario pueda ver qué archivos seleccionó
+            // No limpiar el input para que el usuario pueda ver quÃ© archivos seleccionÃ³
         }
     }
     
-    console.log(`saveItemExtraData - Archivos en memoria después de guardar:`, invoiceItems[index].extraData.files);
+    console.log(`saveItemExtraData - Archivos en memoria despuÃ©s de guardar:`, invoiceItems[index].extraData.files);
     
     // Marcar checkbox como seleccionado
     const checkbox = document.getElementById(`itemExtraCheck_${index}`);
@@ -1595,7 +1595,7 @@ async function handleItemFileUpload(index, obsField, input) {
         invoiceItems[index].extraData.files = {};
     }
     
-    // Guardar archivo en memoria para subir después de guardar la factura
+    // Guardar archivo en memoria para subir despuÃ©s de guardar la factura
     if (!invoiceItems[index].extraData.files[obsField]) {
         invoiceItems[index].extraData.files[obsField] = [];
     }
@@ -1661,7 +1661,7 @@ function updateTotals(subt, igv, tot, totG=0, totE=0, totI=0) {
 }
 
 function setSummaryFromSUNAT(data) {
-    // Called when extracting CPE from SUNAT API — fills all breakdown fields
+    // Called when extracting CPE from SUNAT API â fills all breakdown fields
     console.log('setSummaryFromSUNAT called with data:', data);
     const setVal = (id, v) => { const el = document.getElementById(id); if(el) { el.textContent = fmtNum(v || 0); console.log(`Set ${id} to ${fmtNum(v || 0)}`); } else { console.warn(`Element ${id} not found`); }};
     setVal('invGravadoDisplay', data.MtoBIGravadaDG || data.mtoBIGravadaDG || data.mtoOperGravada);
@@ -1675,7 +1675,7 @@ function setSummaryFromSUNAT(data) {
     setVal('invSubTotalDisplay', data.MtoBIGravadaDG || data.mtoBIGravadaDG || data.mtoOperGravada);
     setVal('invIGVDisplay', data.MtoIgvIpmDG || data.mtoIgvIpmDG || data.mtoIGV);
     setVal('invTotalDisplay', data.MtoTotalCp || data.mtoTotalCp || data.mtoImporteTotal);
-    // Detracción
+    // DetracciÃ³n
     if (data.informacionDetraccion && data.informacionDetraccion.length > 0) {
         const det = data.informacionDetraccion[0];
         const setInput = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
@@ -1686,16 +1686,16 @@ function setSummaryFromSUNAT(data) {
         setInput('invDetMonto', det.mtoDetraccion);
     }
     
-    // Información de crédito - fallback si no trae datos
+    // InformaciÃ³n de crÃ©dito - fallback si no trae datos
     const setInput = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
     const total = data.MtoTotalCp || data.mtoTotalCp || data.mtoImporteTotal || 0;
     const fecEmision = data.FecEmision || '';
     
     if (!data.informacionCreditos || data.informacionCreditos.length === 0) {
-        // Si no trae información de crédito, poner 1 cuota con fecha de vencimiento (o emisión) y monto total
+        // Si no trae informaciÃ³n de crÃ©dito, poner 1 cuota con fecha de vencimiento (o emisiÃ³n) y monto total
         setInput('invCreditoNumCuotas', '1');
         setInput('invCreditoMontoCuota', fmtNum(total));
-        // Usar fecha de vencimiento si existe, si no usar fecha de emisión
+        // Usar fecha de vencimiento si existe, si no usar fecha de emisiÃ³n
         const fecPlazo = sunatRow.FecVencPag ? sunatRow.FecVencPag.substring(0,10) : fecEmision;
         setInput('invCreditoFecPlazo', fecPlazo);
         setInput('invCreditoMtoPendiente', fmtNum(total));
@@ -1713,12 +1713,12 @@ function agregarGuiaManual() {
     if (currentText === 'Sin documentos relacionados') {
         listDiv.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid #e2e8f0;">
             <span>${guia}</span>
-            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">×</button>
+            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">Ã</button>
         </div>`;
     } else {
         listDiv.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid #e2e8f0;">
             <span>${guia}</span>
-            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">×</button>
+            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">Ã</button>
         </div>`;
     }
     
@@ -1732,7 +1732,7 @@ function agregarGuiaManual() {
 }
 
 function setSummaryFromCPE(cpeData, sunatRow) {
-    // Función enriquecida que lee TODA la data del XML (datoscperecibido)
+    // FunciÃ³n enriquecida que lee TODA la data del XML (datoscperecibido)
     console.log('setSummaryFromCPE called with cpeData:', cpeData);
     console.log('setSummaryFromCPE called with sunatRow:', sunatRow);
     
@@ -1803,7 +1803,7 @@ function setSummaryFromCPE(cpeData, sunatRow) {
             setInput('invDocModificaNumero', dm.numCpeRelac);
             setInput('invDocModificaTipo', dm.codCpeRelac);
         }
-        // Auto-abrir sección NC y mostrar badge
+        // Auto-abrir secciÃ³n NC y mostrar badge
         const secNC = document.getElementById('secNotaCredito');
         if (secNC) secNC.open = true;
         const badgeNC = document.getElementById('badgeNC');
@@ -1862,18 +1862,18 @@ function setSummaryFromCPE(cpeData, sunatRow) {
             cuotasDiv.innerHTML = html;
         }
         
-        // Auto-abrir sección y badge
+        // Auto-abrir secciÃ³n y badge
         const secCred = document.getElementById('secCreditos');
         if (secCred) secCred.open = true;
         const badge = document.getElementById('badgeCreditos');
         if (badge) { badge.style.display = 'inline-flex'; badge.textContent = (cred.numCuotas || 1) + ' cuota(s)'; }
     } else {
-        // Si no hay créditos, asumir contado y llenar con valores por defecto
+        // Si no hay crÃ©ditos, asumir contado y llenar con valores por defecto
         const totalFactura = pm.mtoImporteTotal || pi.mtoImporteTotal || sunatRow.MtoTotalCp || 0;
         if (totalFactura > 0) {
             setInput('invCreditoMtoPendiente', fmtNum(totalFactura));
             
-            // Convertir fecha de emisión a formato YYYY-MM-DD
+            // Convertir fecha de emisiÃ³n a formato YYYY-MM-DD
             let fecEmision = '';
             const fecEmisionRaw = cpeData.fecEmision || sunatRow.FecEmision || '';
             if (fecEmisionRaw) {
@@ -1885,7 +1885,7 @@ function setSummaryFromCPE(cpeData, sunatRow) {
             setInput('invCreditoFecPlazo', fecEmision);
             setInput('invCreditoNumCuotas', '1');
             
-            // Mostrar detalle de cuota única
+            // Mostrar detalle de cuota Ãºnica
             const cuotasDiv = document.getElementById('creditoCuotasDetail');
             if (cuotasDiv) {
                 cuotasDiv.innerHTML = '<div style="font-size:0.78rem; color:var(--text-muted);">Pago al contado: 1 cuota de ' + fmtNum(totalFactura) + '</div>';
@@ -1971,37 +1971,37 @@ function clearInvoiceForm() {
     renderInvoiceItems();
 }
 
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  REGISTRO y LISTADO
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async function registrarFactura() {
     const codcia = getSelectedCia();
     if (!codcia) return;
 
     if (!document.getElementById('invRucProv').value || !document.getElementById('invSerie').value || !document.getElementById('invNumero').value) {
-        Swal.fire({icon:'warning', title:'Atención', text:'RUC, Serie y Número son obligatorios para guardar la cabecera.'});
+        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'RUC, Serie y NÃºmero son obligatorios para guardar la cabecera.'});
         return;
     }
 
     if (!document.getElementById('invObservaciones') || !document.getElementById('invObservaciones').value.trim()) {
-        Swal.fire({icon:'warning', title:'Atención', text:'El campo Observaciones es obligatorio.'});
+        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'El campo Observaciones es obligatorio.'});
         return;
     }
 
-    // Validar Información de Pago/Créditos
+    // Validar InformaciÃ³n de Pago/CrÃ©ditos
     const creditoFecPlazo = document.getElementById('invCreditoFecPlazo')?.value;
     const creditoNumCuotas = document.getElementById('invCreditoNumCuotas')?.value;
     if (!creditoFecPlazo && !creditoNumCuotas) {
-        Swal.fire({icon:'warning', title:'Atención', text:'Información de Pago/Créditos es obligatoria. Por favor complete la fecha de plazo o el número de cuotas.'});
+        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'InformaciÃ³n de Pago/CrÃ©ditos es obligatoria. Por favor complete la fecha de plazo o el nÃºmero de cuotas.'});
         return;
     }
 
     if (invoiceItems.length === 0) {
         const conf = await Swal.fire({
-            icon:'warning', title:'Sin ítems',
-            text:'Está a punto de guardar una factura sin detalle. ¿Desea continuar?',
-            showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar'
+            icon:'warning', title:'Sin Ã­tems',
+            text:'EstÃ¡ a punto de guardar una factura sin detalle. Â¿Desea continuar?',
+            showCancelButton: true, confirmButtonText: 'SÃ­, guardar', cancelButtonText: 'Cancelar'
         });
         if (!conf.isConfirmed) return;
     }
@@ -2026,15 +2026,15 @@ async function registrarFactura() {
     if (exceedsOC) {
         const conf = await Swal.fire({
             icon:'warning', title:'Exceso de Cantidad',
-            text:'Algunas cantidades de los ítems superan el saldo pendiente en la Orden de Compra. ¿Desea continuar el registro de todas formas?',
-            showCancelButton: true, confirmButtonText: 'Sí, guardar y exceder', cancelButtonText: 'Revisar ítems'
+            text:'Algunas cantidades de los Ã­tems superan el saldo pendiente en la Orden de Compra. Â¿Desea continuar el registro de todas formas?',
+            showCancelButton: true, confirmButtonText: 'SÃ­, guardar y exceder', cancelButtonText: 'Revisar Ã­tems'
         });
         if (!conf.isConfirmed) return;
     } else if (partialInvoice && document.getElementById('invNroOC').value) {
         // Just an info to user
         const conf = await Swal.fire({
-            icon:'info', title:'Facturación Parcial',
-            text:'Usted está facturando una cantidad menor al saldo de la Orden de Compra. Se registrará como un ingreso parcial.',
+            icon:'info', title:'FacturaciÃ³n Parcial',
+            text:'Usted estÃ¡ facturando una cantidad menor al saldo de la Orden de Compra. Se registrarÃ¡ como un ingreso parcial.',
             showCancelButton: true, confirmButtonText: 'Continuar', cancelButtonText: 'Cancelar'
         });
         if (!conf.isConfirmed) return;
@@ -2072,7 +2072,7 @@ async function registrarFactura() {
         mto_icbper: parseFloat((document.getElementById('invICBPERDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
         mto_otros_cargos: parseFloat((document.getElementById('invOtrosCargosDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
         otros_tributos: parseFloat((document.getElementById('invOtrosTribDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
-        // Detracción
+        // DetracciÃ³n
         det_bien_servicio: document.getElementById('invDetBienServicio')?.value.trim() || null,
         det_medio_pago: document.getElementById('invDetMedioPago')?.value.trim() || null,
         det_nro_cuenta: document.getElementById('invDetNroCuenta')?.value.trim() || null,
@@ -2097,7 +2097,7 @@ async function registrarFactura() {
         mto_total_letras: window.currentCpeData?.desMtoTotalLetras || (document.getElementById('invMtoTotalLetras')?.value) || null,
         nom_comercial_emisor: window.currentCpeData?.datosEmisor?.desNomComercialEmis || null,
         created_by: JSON.parse(localStorage.getItem('yelave_user') || '{}').login || 'SISTEMA',
-        // Nota de crédito / débito
+        // Nota de crÃ©dito / dÃ©bito
         cod_tipo_nota: document.getElementById('invCodTipoNota')?.value || null,
         des_tipo_nota: document.getElementById('invDesTipoNota')?.value || window.currentCpeData?.desTipoNota || null,
         des_motivo: document.getElementById('invDesMotivo')?.value || window.currentCpeData?.desObservacion || null,
@@ -2105,7 +2105,7 @@ async function registrarFactura() {
         doc_modifica_numero: document.getElementById('invDocModificaNumero')?.value || null,
         doc_modifica_tipo: document.getElementById('invDocModificaTipo')?.value || null,
         doc_modifica_fecha: document.getElementById('invDocModificaFecha')?.value || null,
-        // Créditos - leer del formulario o de CPE data
+        // CrÃ©ditos - leer del formulario o de CPE data
         credito_mto_pendiente: parseFloat((document.getElementById('invCreditoMtoPendiente')?.value || '0').replace(/,/g, '')) || parseFloat(window.currentCpeData?.informacionCreditos?.[0]?.mtoPagoPendiente) || 0,
         credito_fec_plazo: (() => {
             let fp = document.getElementById('invCreditoFecPlazo')?.value || '';
@@ -2124,7 +2124,7 @@ async function registrarFactura() {
                     fp = raw;
                 }
             }
-            // Fallback: si no hay fecha plazo, usar fecha de emisión
+            // Fallback: si no hay fecha plazo, usar fecha de emisiÃ³n
             if (!fp) fp = document.getElementById('invFecEmision')?.value || '';
             return fp || null;
         })(),
@@ -2132,9 +2132,9 @@ async function registrarFactura() {
         credito_cuotas_json: window.currentCpeData?.informacionCreditos?.[0]?.numCuotasList ? JSON.stringify(window.currentCpeData.informacionCreditos[0].numCuotasList) : null,
         // Docs relacionados
         docs_relacionados_json: window.currentCpeData?.informacionDocumentosRelacionados ? JSON.stringify(window.currentCpeData.informacionDocumentosRelacionados) : null,
-        // XML raw completo para auditoría
+        // XML raw completo para auditorÃ­a
         xml_data_json: window.currentCpeData ? JSON.stringify(window.currentCpeData) : null,
-        // Detracción leyenda
+        // DetracciÃ³n leyenda
         det_leyenda: document.getElementById('invDetLeyenda')?.value || null,
         items: invoiceItems.map((i, idx) => ({
             nro_item: idx + 1,
@@ -2206,7 +2206,7 @@ async function registrarFactura() {
                     console.log(`registrarFactura - Item ${i}, obs ${obsField}:`, files);
                     if (Array.isArray(files)) {
                         for (const file of files) {
-                            // Verificar que sea un archivo válido (File object) - saltar archivos existentes (con id)
+                            // Verificar que sea un archivo vÃ¡lido (File object) - saltar archivos existentes (con id)
                             console.log(`registrarFactura - Verificando archivo: item ${i}, obs ${obsField}, file:`, file);
                             console.log(`registrarFactura - file.name: ${file.name}, file.size: ${file.size}, file.id: ${file.id}`);
                             if (!file || !file.name || file.size === 0 || file.id) {
@@ -2238,7 +2238,7 @@ async function registrarFactura() {
 
         await Swal.fire({
             icon: 'success', 
-            title: '¡Guardado!', 
+            title: 'Â¡Guardado!', 
             text: 'Comprobante registrado correctamente.', 
             timer: 1500, 
             showConfirmButton: false
@@ -2264,12 +2264,12 @@ async function loadFacturas() {
         const login = user.login || 'SISTEMA';
         console.log('loadFacturas - user:', user, 'login:', login);
         
-        const res = await fetch(`/api/contabilidad/facturas?codcia=${codcia}&created_by=${encodeURIComponent(login)}`);
+        const res = await fetch(`/api/contabilidad/facturas?codcia=${codcia}`);
         if (!res.ok) throw new Error('Error al cargar');
         const list = await res.json();
 
         const data = list.map(f => {
-            const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota Crédito', '08': '08-Nota Débito', '87': '87-Nota Crédito Esp.', '00': '00-Otros' };
+            const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota CrÃ©dito', '08': '08-Nota DÃ©bito', '87': '87-Nota CrÃ©dito Esp.', '00': '00-Otros' };
             const tipoComprobante = tipoMap[f.CodTipoDoc] || `${f.CodTipoDoc}-Otro`;
             const fechaRegistro = f.CreatedAt ? f.CreatedAt.substring(0,10) : '-';
             const fechaVencimiento = f.FecVencimiento ? f.FecVencimiento.substring(0,10) : (f.CreditoFecPlazo ? f.CreditoFecPlazo.substring(0,10) : '-');
@@ -2281,8 +2281,8 @@ async function loadFacturas() {
             const estadoRaw = (f.Estado || '').trim().toUpperCase();
             const estadoBadge = 
                 (estadoRaw === 'ANULADA' || estadoRaw === 'ELIMINADO') ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : 
-                (estadoRaw === 'CERRADO') ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">🔒 CERRADO</span>' :
-                (estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">📘 CONTABILIZADA</span>' :
+                (estadoRaw === 'CERRADO') ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ð CERRADO</span>' :
+                (estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ð CONTABILIZADA</span>' :
                 (estadoRaw === 'REGISTRADA' || estadoRaw === 'REGISTRADO') ? '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADA</span>' :
                 `<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">${f.Estado || 'SIN ESTADO'}</span>`;
             const isLocked = (estadoRaw === 'CERRADO' || estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA');
@@ -2306,7 +2306,8 @@ async function loadFacturas() {
                     <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="viewFacturaDetail(${f.Id})" title="Ver Detalle"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
                     ${isLocked 
                         ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Editar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
-                          `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
+                          `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>` +
+                          ((estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? `<button class="btn-flat" style="padding:4px; color:#f59e0b; margin-left:2px;" onclick="revertirEstado(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Revertir a REGISTRADA"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg></button>` : '')
                         : `<button class="btn-flat" style="padding:4px; color:#f59e0b;" onclick="openEditRegistro(${f.Id})" title="Editar / Adjuntar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
                           `<button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="eliminarFactura(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Eliminar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
                     }
@@ -2345,7 +2346,7 @@ async function viewFacturaDetail(id) {
         
         if (!document.getElementById('facturaDetailModal')) return; 
 
-        window.currentFacturaViewData = data; // Cache para impresión
+        window.currentFacturaViewData = data; // Cache para impresiÃ³n
         const cab = data.cabecera || data;
         const items = data.items || [];
         const archivos = data.archivos || [];
@@ -2392,11 +2393,11 @@ async function viewFacturaDetail(id) {
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 2rem;">
                     <div>
                         <h1 style="margin: 0; font-size: 1.5rem; color: #0f172a; text-transform:uppercase; letter-spacing: 1px;">CONSTANCIA DE REGISTRO - ERP</h1>
-                        <p style="color:#64748b; font-size:0.9rem; margin-top:0.35rem;">Recepción de Compras / Facturas</p>
+                        <p style="color:#64748b; font-size:0.9rem; margin-top:0.35rem;">RecepciÃ³n de Compras / Facturas</p>
                     </div>
                     <div style="text-align: right;">
                         <h2 style="margin: 0; font-size: 1.6rem; color: #0f172a;">${cab.CodTipoDoc || '01'} ${cab.Serie||''}-${cab.Numero||''}</h2>
-                        <p style="font-weight: 600; color: #334155; margin-top: 0.35rem; font-size:0.9rem;">Emisión: ${cab.FecEmision || '-'} &nbsp;|&nbsp; Vence: ${cab.FecVencimiento || '-'}</p>
+                        <p style="font-weight: 600; color: #334155; margin-top: 0.35rem; font-size:0.9rem;">EmisiÃ³n: ${cab.FecEmision || '-'} &nbsp;|&nbsp; Vence: ${cab.FecVencimiento || '-'}</p>
                         <p style="color:#64748b; font-size:0.85rem;">Moneda: ${monLabel(cab.CodMoneda)} (TC: ${cab.TipoCambio || 1})</p>
                     </div>
                 </div>
@@ -2405,13 +2406,13 @@ async function viewFacturaDetail(id) {
                     <div style="background:#f8fafc; padding: 1.5rem; border-radius: 8px; border:1px solid #f1f5f9;">
                         <h3 style="font-size: 0.8rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin: 0 0 1rem 0;">Datos del Proveedor</h3>
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem; font-size:0.85rem;">
-                            <strong>Razón Social:</strong> <span style="text-align:right;">${cab.NomProveedor || '-'}</span>
+                            <strong>RazÃ³n Social:</strong> <span style="text-align:right;">${cab.NomProveedor || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem; font-size:0.85rem;">
                             <strong>RUC:</strong> <span>${cab.NumRucProveedor || '-'}</span>
                         </div>
                         <div style="display:flex; flex-direction:column; font-size:0.85rem; margin-bottom:0.75rem;">
-                            <strong style="margin-bottom:0.25rem;">Dirección Fiscal:</strong>
+                            <strong style="margin-bottom:0.25rem;">DirecciÃ³n Fiscal:</strong>
                             <span style="color:#475569;">${cab.DirEmisor || '-'}</span>
                         </div>
                     </div>
@@ -2438,8 +2439,8 @@ async function viewFacturaDetail(id) {
                         <thead style="background:#f8fafc; border-top:1px solid #e2e8f0; border-bottom:2px solid #cbd5e1;">
                             <tr>
                                 <th style="padding:10px; text-align:left; color:#475569;">#</th>
-                                <th style="padding:10px; text-align:left; color:#475569;">Código</th>
-                                <th style="padding:10px; text-align:left; color:#475569;">Descripción</th>
+                                <th style="padding:10px; text-align:left; color:#475569;">CÃ³digo</th>
+                                <th style="padding:10px; text-align:left; color:#475569;">DescripciÃ³n</th>
                                 <th style="padding:10px; text-align:right; color:#475569;">Cant.</th>
                                 <th style="padding:10px; text-align:right; color:#475569;">P.Unit</th>
                                 <th style="padding:10px; text-align:right; color:#475569;">SubTotal</th>
@@ -2455,11 +2456,11 @@ async function viewFacturaDetail(id) {
                     <div style="width:50%; background:#f8fafc; border: 1px dashed #cbd5e1; border-radius:8px; padding:1.25rem;">
                         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
                             <svg viewBox="0 0 24 24" width="18" height="18" stroke="#10b981" fill="none" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                            <span style="font-weight:700; color:#334155; font-size:0.9rem;">Verificación Electrónica</span>
+                            <span style="font-weight:700; color:#334155; font-size:0.9rem;">VerificaciÃ³n ElectrÃ³nica</span>
                         </div>
                         <div style="font-size:0.8rem; color:#64748b; margin-bottom:0.25rem;"><strong>UUID:</strong><br><code style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-size:0.75rem;">${cab.Uuid || 'Pendiente'}</code></div>
                         <div style="font-size:0.8rem; color:#64748b; word-break:break-all; margin-top:0.75rem;">
-                            <strong>URL Pública de Acceso Libre:</strong><br>
+                            <strong>URL PÃºblica de Acceso Libre:</strong><br>
                             <a href="${window.location.origin}/factura_visor.html?uid=${cab.Uuid}" style="color:#2563eb;" target="_blank">${window.location.origin}/factura_visor.html?uid=${cab.Uuid}</a>
                         </div>
                     </div>
@@ -2553,11 +2554,11 @@ function printFacturaLocal() {
             <div class="header">
                 <div>
                     <h1>CONSTANCIA DE REGISTRO - ERP</h1>
-                    <p>Recepción de Compras / Facturas</p>
+                    <p>RecepciÃ³n de Compras / Facturas</p>
                 </div>
                 <div style="text-align: right;">
                     <p style="font-weight: 700; color: #0f172a; font-size:18px;">${data.CodTipoDoc || '01'} ${data.Serie||''}-${data.Numero||''}</p>
-                    <p>Emisión: ${data.FecEmision || '-'} &nbsp;|&nbsp; Vence: ${data.FecVencimiento || '-'}</p>
+                    <p>EmisiÃ³n: ${data.FecEmision || '-'} &nbsp;|&nbsp; Vence: ${data.FecVencimiento || '-'}</p>
                     <p>Moneda: ${monLabel(data.CodMoneda)} (TC: ${data.TipoCambio || 1})</p>
                 </div>
             </div>
@@ -2565,9 +2566,9 @@ function printFacturaLocal() {
             <div class="info-grid">
                 <div class="info-box">
                     <h3>Datos del Proveedor</h3>
-                    <div class="info-row"><strong>Razón Social:</strong> <span>${data.NomProveedor || ''}</span></div>
+                    <div class="info-row"><strong>RazÃ³n Social:</strong> <span>${data.NomProveedor || ''}</span></div>
                     <div class="info-row"><strong>RUC:</strong> <span>${data.NumRucProveedor || ''}</span></div>
-                    <div class="info-row"><strong>Dirección:</strong> <span>${data.DirEmisor || '-'}</span></div>
+                    <div class="info-row"><strong>DirecciÃ³n:</strong> <span>${data.DirEmisor || '-'}</span></div>
                     <div class="info-row"><strong>Nombre Com.:</strong> <span>${data.NomComercialEmisor || '-'}</span></div>
                 </div>
                 <div class="info-box">
@@ -2581,7 +2582,7 @@ function printFacturaLocal() {
 
             <table>
                 <thead>
-                    <tr><th>#</th><th>Código</th><th>Descripción</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">P.Unit</th><th style="text-align:right;">SubTotal</th><th style="text-align:right;">IGV</th><th style="text-align:right;">Total</th></tr>
+                    <tr><th>#</th><th>CÃ³digo</th><th>DescripciÃ³n</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">P.Unit</th><th style="text-align:right;">SubTotal</th><th style="text-align:right;">IGV</th><th style="text-align:right;">Total</th></tr>
                 </thead>
                 <tbody>
                     ${itemsHtml}
@@ -2590,9 +2591,9 @@ function printFacturaLocal() {
 
             <div class="main-totals-container">
                 <div class="url-box">
-                    <strong style="display:block; margin-bottom:5px; color:#334155;">Verificación Electrónica:</strong>
+                    <strong style="display:block; margin-bottom:5px; color:#334155;">VerificaciÃ³n ElectrÃ³nica:</strong>
                     UUID: ${data.Uuid || 'Pendiente'}<br><br>
-                    URL Pública de Acceso Libre:<br>
+                    URL PÃºblica de Acceso Libre:<br>
                     <a href="${publicUrl}" style="color:#2563eb;">${publicUrl}</a>
                 </div>
 
@@ -2642,8 +2643,8 @@ function printFacturaLocal() {
 async function eliminarFactura(id, label) {
     const result = await Swal.fire({
         icon: 'warning', title: 'Eliminar Registro',
-        html: `¿Está seguro de eliminar el registro <strong>${label}</strong>?<br>Esta acción borrará la operación por completo.`,
-        showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Sí, Eliminar', cancelButtonText: 'Cancelar'
+        html: `Â¿EstÃ¡ seguro de eliminar el registro <strong>${label}</strong>?<br>Esta acciÃ³n borrarÃ¡ la operaciÃ³n por completo.`,
+        showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'SÃ­, Eliminar', cancelButtonText: 'Cancelar'
     });
     if (!result.isConfirmed) return;
 
@@ -2657,9 +2658,9 @@ async function eliminarFactura(id, label) {
     }
 }
 
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  EDITAR REGISTRO EXISTENTE (ADJUNTAR ARCHIVOS)
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function openEditRegistro(id) {
     try {
         Swal.fire({ title: 'Cargando registro...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -2686,12 +2687,9 @@ async function openEditRegistro(id) {
                 archivos.forEach(a => {
                     const ext = (a.NombreArchivo||'').split('.').pop().toUpperCase();
                     const color = ext === 'PDF' ? '#ef4444' : ext === 'XML' ? '#10b981' : '#6366f1';
-                    html += `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0;" id="file-row-${a.Id}">
+                    html += `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0;">
                         <span style="background:${color}; color:white; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600;">${ext}</span>
-                        <a href="/api/contabilidad/archivos/${a.Id}/descargar" target="_blank" style="font-size:0.8rem; color:#2563eb; text-decoration:none; flex-grow:1;">${a.NombreArchivo}</a>
-                        <button type="button" onclick="eliminarArchivoAdjunto(${a.Id})" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:2px;" title="Eliminar archivo">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                        </button>
+                        <a href="/api/contabilidad/archivos/${a.Id}/descargar" target="_blank" style="font-size:0.8rem; color:#2563eb; text-decoration:none;">${a.NombreArchivo}</a>
                     </div>`;
                 });
                 existingFilesDiv.innerHTML = html;
@@ -2726,7 +2724,7 @@ async function openEditRegistro(id) {
         setVal('invDocModificaNumero', cab.DocModificaNumero);
         setVal('invDocModificaTipo', cab.DocModificaTipo);
         setVal('invDocModificaFecha', cab.DocModificaFecha);
-        // Detracción
+        // DetracciÃ³n
         setVal('invDetBienServicio', cab.DetBienServicio);
         setVal('invDetMedioPago', cab.DetMedioPago);
         setVal('invDetNroCuenta', cab.DetNroCuenta);
@@ -2767,11 +2765,11 @@ async function openEditRegistro(id) {
         // Fill items
         invoiceItems = items.map(it => {
             console.log(`editFactura - Item ${it.CodMaterial}, archivos del backend:`, it.archivos);
-            // Limpiar files corruptos del extraData (objetos vacíos serializados de File objects)
+            // Limpiar files corruptos del extraData (objetos vacÃ­os serializados de File objects)
             let extraData = it.extraData || {};
             // Eliminar la propiedad files del extraData del backend (siempre se reconstruye desde la tabla de archivos)
             delete extraData.files;
-            // Rellenar campos desde columnas individuales si no están en extraData
+            // Rellenar campos desde columnas individuales si no estÃ¡n en extraData
             extraData = {
                 inci: extraData.inci || it.Inci || '',
                 fabricante: extraData.fabricante || it.Fabricante || '',
@@ -2825,7 +2823,7 @@ async function openEditRegistro(id) {
         window.editingFacturaId = id;
 
         Swal.fire({
-            icon: 'info', title: 'Modo Edición',
+            icon: 'info', title: 'Modo EdiciÃ³n',
             html: `Registro <strong>${cab.Serie||''}-${cab.Numero||''}</strong> cargado en el formulario.<br>Modifique lo que necesite y presione <strong>Registrar Comprobante</strong> para guardar.`,
             timer: 3000, showConfirmButton: false
         });
@@ -2835,9 +2833,9 @@ async function openEditRegistro(id) {
     }
 }
 
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  FILE UPLOAD HELPERS
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 window.pendingAdjuntos = window.pendingAdjuntos || [];
 
 function updateFileList() {
@@ -2866,7 +2864,7 @@ function updateFileList() {
             <span style="background:${color}; color:white; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600;">${ext}</span>
             <span style="flex:1;">${f.name}</span>
             <span style="color:var(--text-xs);">${sizeKB} KB</span>
-            <button onclick="removePendingAdjunto(${idx})" style="color:#ef4444; border:none; background:none; cursor:pointer; font-size:1.2rem; line-height:1;" title="Quitar archivo">×</button>
+            <button onclick="removePendingAdjunto(${idx})" style="color:#ef4444; border:none; background:none; cursor:pointer; font-size:1.2rem; line-height:1;" title="Quitar archivo">Ã</button>
         </div>`;
     });
     preview.innerHTML = html;
@@ -2879,9 +2877,9 @@ function removePendingAdjunto(idx) {
     }
 }
 
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  TAB NAVIGATION
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function switchRegTab(tabId) {
     document.querySelectorAll('.reg-tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('panelRegistro').style.display = 'none';
@@ -2911,9 +2909,9 @@ function switchRegTab(tabId) {
     }
 }
 
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  INIT
-// ════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 document.addEventListener('DOMContentLoaded', async () => {
     const user = checkAuth();
     if (!user) return;
@@ -2987,7 +2985,7 @@ function filterTable(tbodyId, filterText) {
 }
 
 // =========================================================
-//  BÚSQUEDA DE PROVEEDOR (RUC)
+//  BÃSQUEDA DE PROVEEDOR (RUC)
 // =========================================================
 async function buscarProveedorRuc() {
     const rucInput = document.getElementById("invRucProv");
@@ -2995,7 +2993,7 @@ async function buscarProveedorRuc() {
     const ruc = rucInput.value.trim();
 
     if (!ruc) {
-        Swal.fire("Atención", "Ingrese un RUC para consultar.", "warning");
+        Swal.fire("AtenciÃ³n", "Ingrese un RUC para consultar.", "warning");
         return;
     }
 
@@ -3030,17 +3028,17 @@ async function buscarProveedorRuc() {
                             </div>
                             
                             <div>
-                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Razón Social</label>
+                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">RazÃ³n Social</label>
                                 <input id="swalProvNom" class="modern-input" value="${data.nomaux || ''}" style="width:100%;">
                             </div>
                             
                             <div>
-                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Dirección Fiscal</label>
+                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">DirecciÃ³n Fiscal</label>
                                 <input id="swalProvDir" class="modern-input" value="${data.diraux || ''}" style="width:100%;">
                             </div>
                             
                             <div>
-                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Correo Electrónico (Opcional)</label>
+                                <label style="font-weight:600; color:var(--text-main); display:block; margin-bottom:0.25rem;">Correo ElectrÃ³nico (Opcional)</label>
                                 <input id="swalProvEmail" type="email" class="modern-input" placeholder="proveedor@ejemplo.com" style="width:100%;">
                             </div>
                         </div>
@@ -3082,7 +3080,7 @@ async function buscarProveedorRuc() {
                         Swal.fire({
                             icon: "success",
                             title: "Proveedor Creado",
-                            text: "El proveedor se registró correctamente.",
+                            text: "El proveedor se registrÃ³ correctamente.",
                             timer: 2000,
                             showConfirmButton: false
                         });
@@ -3107,41 +3105,41 @@ async function buscarProveedorRuc() {
     } catch (e) {
         Swal.close();
         console.error("Error buscando proveedor:", e);
-        Swal.fire("Error", "Ocurrió un problema de conexión al buscar el RUC.", "error");
+        Swal.fire("Error", "OcurriÃ³ un problema de conexiÃ³n al buscar el RUC.", "error");
     }
 }
 
+async function revertirEstado(id, compName) {
+    const user = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+    const rol = user.rol || 'USER';
 
-async function eliminarArchivoAdjunto(archivoId) {
+    if(rol !== 'ADMIN' && rol !== 'CONTABILIDAD') {
+        Swal.fire('Acceso Denegado', 'Sólo usuarios de Contabilidad pueden revertir el estado.', 'warning');
+        return;
+    }
+
     const conf = await Swal.fire({
-        title: '¿Eliminar archivo?',
-        text: 'Esta acción no se puede deshacer.',
         icon: 'warning',
+        title: '¿Revertir a REGISTRADA?',
+        text: `¿Seguro que deseas cambiar el estado de la factura ${compName} de CONTABILIZADA a REGISTRADA?`,
         showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, revertir',
         cancelButtonText: 'Cancelar'
     });
-    
     if (!conf.isConfirmed) return;
-    
+
     try {
+        Swal.fire({title: 'Actualizando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
         const token = localStorage.getItem('yelave_token');
-        const res = await fetch(`/api/contabilidad/archivos/${archivoId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+        const res = await fetch(`/api/contabilidad/facturas/${id}/estado`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: 'REGISTRADA' })
         });
-        
-        if (!res.ok) throw new Error('Error al eliminar');
-        
-        // Remover el elemento del DOM
-        const el = document.getElementById(`file-row-${archivoId}`);
-        if (el) el.remove();
-        
-        const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
-        Toast.fire({ icon: 'success', title: 'Archivo eliminado' });
-        
-    } catch (e) {
-        console.error(e);
-        Swal.fire('Error', 'No se pudo eliminar el archivo', 'error');
+        if (!res.ok) throw new Error('Error al revertir el estado');
+        await Swal.fire('Éxito', 'Estado revertido exitosamente.', 'success');
+        loadFacturas();
+    } catch(err) {
+        Swal.fire('Error', err.message, 'error');
     }
 }

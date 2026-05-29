@@ -204,14 +204,14 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
                 RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, RTRIM(d.RucProveedor) as RucProveedor, d.MontoOC, d.MontoFactura,
                 RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc, RTRIM(d.Moneda) as Moneda,
                 RTRIM(d.TipoDocumento) as TipoDocumento, RTRIM(d.TipoComprobante) as TipoComprobante,
-                d.FechaEmision, d.FechaVencimiento
+                d.FechaEmision, d.FechaVencimiento, RTRIM(d.ObservacionRechazo) as ObservacionRechazo
             FROM CntCargosDocumentales c
             INNER JOIN CntCargosDetalle d ON c.Id = d.CargoId
             WHERE RTRIM(c.CodCia) = ?
         '''
         
         if current_area == 'CONTABILIDAD':
-            query += " AND (RTRIM(c.AreaDestino) = 'CONTABILIDAD' AND c.Estado IN ('PENDIENTE', 'RECIBIDO', 'PROCESADO'))"
+            query += " AND ((RTRIM(c.AreaDestino) = 'CONTABILIDAD' AND c.Estado IN ('PENDIENTE', 'RECIBIDO', 'PROCESADO')) OR (RTRIM(c.TipoCargo) = 'CONT_A_TES' AND RTRIM(d.EstadoContable) = 'RECHAZADO'))"
         elif current_area == 'TESORERIA':
             query += " AND (RTRIM(c.AreaDestino) = 'TESORERIA' AND c.Estado IN ('PENDIENTE', 'RECIBIDO'))"
         
@@ -229,7 +229,8 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
         nrodocs_set = list(set(r['NroOrdenCompra'].strip() for r in base_results if r.get('NroOrdenCompra')))
         if hasattr(cursor, 'fast_executemany'): cursor.fast_executemany = True
         vals = [(d,) for d in nrodocs_set]
-        cursor.executemany("INSERT INTO #TempOcs (nrodoc) VALUES (?)", vals)
+        if vals:
+            cursor.executemany("INSERT INTO #TempOcs (nrodoc) VALUES (?)", vals)
 
         cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.CodTipoDoc), RTRIM(f.NumRucProveedor) FROM CntFacturaCab f INNER JOIN #TempOcs t ON RTRIM(f.NroOrdenCompra)=t.nrodoc WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor''', (codcia.strip(),))
         factura_map = {f"{r[0].strip()}|{r[4].strip()}": {'factura': r[1], 'uuid': r[2], 'cod_tipo': r[3]} for r in cursor.fetchall()}
@@ -549,6 +550,16 @@ def get_ocs_disponibles_ssr(request: Request):
         cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH(INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
         recibida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
         
+        cursor.execute('''
+            SELECT RTRIM(d.NroOrdenCompra), MAX(RTRIM(d.ObservacionRechazo))
+            FROM CntCargosDetalle d
+            INNER JOIN CntCargosDocumentales c ON d.CargoId = c.Id
+            INNER JOIN #TempOcs t ON RTRIM(d.NroOrdenCompra)=t.nrodoc
+            WHERE d.EstadoContable = 'RECHAZADO' AND c.Estado != 'ANULADO'
+            GROUP BY RTRIM(d.NroOrdenCompra)
+        ''')
+        rechazo_map = {r[0].strip(): r[1] for r in cursor.fetchall() if r[1]}
+
         cursor.execute("DROP TABLE #TempOcs")
 
         results = []
@@ -570,7 +581,7 @@ def get_ocs_disponibles_ssr(request: Request):
                 'cant_pedida': ped,
                 'cant_recibida': rec,
                 'estado_almacen': est_almacen,
-                'observacion_rechazo': '',
+                'observacion_rechazo': rechazo_map.get(nro, ''),
                 'cargo_origen': d.get('cargo_origen', '')
             })
             if base_dict.get('fchdoc'):
@@ -705,7 +716,7 @@ def get_cargos_detallado(
                 RTRIM(d.NroFactura) as NroFactura, RTRIM(d.Proveedor) as Proveedor, RTRIM(d.RucProveedor) as RucProveedor, d.MontoOC, d.MontoFactura,
                 RTRIM(d.EstadoContable) as EstadoContable, RTRIM(d.CodCiaOc) as CodCiaOc, ISNULL(RTRIM(d.Moneda), 'PEN') as Moneda,
                 RTRIM(d.TipoDocumento) as TipoDocumento, RTRIM(d.TipoComprobante) as TipoComprobante,
-                d.FechaEmision, d.FechaVencimiento
+                d.FechaEmision, d.FechaVencimiento, RTRIM(d.ObservacionRechazo) as ObservacionRechazo
             FROM CntCargosDocumentales c
             INNER JOIN CntCargosDetalle d ON c.Id = d.CargoId
             WHERE RTRIM(c.CodCia) = ?
@@ -1791,7 +1802,7 @@ def get_bancos_all(codcia: str = Query(...)):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT RTRIM(Codigo) as Codigo, RTRIM(Nombre) as Descripcion, ISNULL(CodMon, 1) as CodMon
-            FROM bk030226.dbo.CcbTabla
+            FROM CcbTabla
             WHERE CodCia = ? AND Tabla = '0001'
             ORDER BY Nombre
         """, (codcia.strip(),))
@@ -1812,7 +1823,7 @@ def get_conceptos_pago(codcia: str = Query(...)):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT RTRIM(Codigo) as Codigo, RTRIM(Nombre) as Descripcion
-            FROM bk030226.dbo.CjaMTipo
+            FROM CjaMTipo
             WHERE CodCia = ? AND Tabla = '0002'
             ORDER BY Codigo
         """, (codcia.strip(),))
@@ -2237,6 +2248,7 @@ def get_cargo_detalle(cargo_id: int):
                    RTRIM(d.NroFactura) as NroFactura, d.MontoOC, d.MontoFactura,
                    RTRIM(d.Proveedor) as Proveedor, RTRIM(d.RucProveedor) as RucProveedor,
                    RTRIM(d.EstadoContable) as EstadoContable, ISNULL(RTRIM(d.Moneda), 'PEN') as Moneda,
+                   RTRIM(d.ObservacionRechazo) as ObservacionRechazo,
                    -- Factura info
                    f.Uuid as FacturaUuid,
                    f.FecEmision as fch_factura,

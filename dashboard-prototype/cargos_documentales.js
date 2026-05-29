@@ -25,6 +25,17 @@ const isUsdCurrency = (mon) => {
 };
 const getCurrSym = (mon) => isUsdCurrency(mon) ? '$' : 'S/';
 // ------------------------
+
+window.showRechazoMotivo = function(motivoText) {
+    if (!motivoText) motivoText = 'Sin motivo registrado.';
+    Swal.fire({
+        title: 'Motivo de Rechazo',
+        html: `<div style="text-align:left; font-size:0.9rem; padding:1rem; background:#fef2f2; border:1px solid #fecaca; border-radius:0.5rem; color:#991b1b; white-space:pre-wrap;">${motivoText}</div>`,
+        icon: 'info',
+        confirmButtonColor: '#3b82f6',
+        confirmButtonText: 'Cerrar'
+    });
+};
 let currentUser = '';
 let currentRole = 'USER';
 let ocsDisponibles = [];
@@ -411,9 +422,9 @@ async function loadOCsDisponibles() {
                 processing: '<div style="background:rgba(255,255,255,0.8); z-index:99; position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#2563eb; font-weight:700;"><i class="fa fa-spinner fa-spin fa-2x fa-fw"></i> Cargando OCs...</div>'
             },
             rowCallback: function(row, data) {
-                const key = data.Serie + '|' + data.Numero + '|' + data.NumRucProveedor;
-                if (selectedItemsTracker.facturas.has(key)) {
-                    $(row).find('.factura-sin-oc-chk').prop('checked', true);
+                const key = data.nrodoc + '|' + (data.tipooc || '');
+                if (selectedItemsTracker.ocs.has(key)) {
+                    $(row).find('.oc-chk').prop('checked', true);
                 }
             },
             ajax: {
@@ -447,7 +458,8 @@ async function loadOCsDisponibles() {
                             html += `<br><span style="color:#0f766e; font-size:0.65rem; font-weight:600; background:#ccfbf1; padding:2px 4px; border-radius:4px; border:1px solid #99f6e4;">📦 Origen: ${row.cargo_origen}</span>`;
                         }
                         if(row.observacion_rechazo) {
-                            html += `<br><span style="color:#ef4444; font-size:0.65rem; font-weight:600;" title="${row.observacion_rechazo}">⚠️ Rechazado: ${row.observacion_rechazo.substring(0,25)}</span>`;
+                            const safeMotivo = row.observacion_rechazo.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                            html += `<br><span style="color:#ef4444; font-size:0.65rem; font-weight:600;">⚠️ Rechazado <button onclick="showRechazoMotivo('${safeMotivo}')" style="background:none; border:none; color:#dc2626; text-decoration:underline; cursor:pointer; font-size:0.65rem; padding:0;">[Ver Motivo]</button></span>`;
                         }
                         return html;
                     }
@@ -807,7 +819,8 @@ async function loadCargosRecibidos() {
                         MontoOC_PEN: 0, MontoOC_USD: 0,
                         MontoFactura_PEN: 0, MontoFactura_USD: 0,
                         MontoRend_PEN: 0, MontoRend_USD: 0,
-                        EsDevuelto: false 
+                        EsDevuelto: false,
+                        MotivosRechazo: []
                     };
                 }
                 mapCargo[c.CargoId].Items++;
@@ -838,14 +851,22 @@ async function loadCargosRecibidos() {
                     else mapCargo[c.CargoId].MontoRend_PEN += parseFloat(c.MontoFactura || 0);
                 }
 
-                if (c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO') mapCargo[c.CargoId].EsDevuelto = true;
+                if (c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO') {
+                    mapCargo[c.CargoId].EsDevuelto = true;
+                    if (c.ObservacionRechazo) mapCargo[c.CargoId].MotivosRechazo.push(c.ObservacionRechazo);
+                }
             });
 
             dtData = Object.values(mapCargo).map(cg => {
                 const tipoLabel = cg.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
-                let estadoItem = cg.EsDevuelto 
-                    ? '<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTOS</span>' 
-                    : `<span style="color:#64748b; font-size:0.65rem; font-weight:700;">${cg.EstadoCargo}</span>`;
+                let estadoItem = `<span style="color:#64748b; font-size:0.65rem; font-weight:700;">${cg.EstadoCargo}</span>`;
+                if (cg.EsDevuelto) {
+                    estadoItem = `<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTOS</span>`;
+                    if (cg.MotivosRechazo && cg.MotivosRechazo.length > 0) {
+                        const safeMotivo = [...new Set(cg.MotivosRechazo)].join('\\n').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        estadoItem += `<br><button onclick="showRechazoMotivo('${safeMotivo}')" style="background:none; border:none; color:#dc2626; text-decoration:underline; cursor:pointer; font-size:0.65rem; padding:0; margin-top:4px; font-weight:600;">[Ver Motivo]</button>`;
+                    }
+                }
 
                 let dpItems = `<button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${cg.CargoId})">📄 Vista Cargo</button>`;
                 
@@ -891,10 +912,20 @@ async function loadCargosRecibidos() {
             dtData = pending.map(c => {
                 const esDevueltoTesoreria = c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO';
                 let estadoItem;
-                if (esDevueltoTesoreria) estadoItem = '<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTO POR TESORERÍA</span>';
-                else if (c.EstadoContable === 'RECHAZADO') estadoItem = '<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">RECHAZADO</span>';
-                else if (c.EstadoContable === 'ACEPTADO') estadoItem = '<span style="color:#10b981; font-size:0.65rem; font-weight:700;">ACEPTADO</span>';
-                else estadoItem = '<span style="color:#64748b; font-size:0.65rem; font-weight:700;">PENDIENTE</span>';
+                if (esDevueltoTesoreria) {
+                    estadoItem = `<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTO POR TESORERÍA</span>`;
+                } else if (c.EstadoContable === 'RECHAZADO') {
+                    estadoItem = `<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">RECHAZADO</span>`;
+                } else if (c.EstadoContable === 'ACEPTADO') {
+                    estadoItem = '<span style="color:#10b981; font-size:0.65rem; font-weight:700;">ACEPTADO</span>';
+                } else {
+                    estadoItem = '<span style="color:#64748b; font-size:0.65rem; font-weight:700;">PENDIENTE</span>';
+                }
+                
+                if (c.EstadoContable === 'RECHAZADO' && c.ObservacionRechazo) {
+                    const safeMotivo = c.ObservacionRechazo.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    estadoItem += `<br><button onclick="showRechazoMotivo('${safeMotivo}')" style="background:none; border:none; color:#dc2626; text-decoration:underline; cursor:pointer; font-size:0.65rem; padding:0; margin-top:4px; font-weight:600;">[Ver Motivo]</button>`;
+                }
                 
                 const tipoLabel = c.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
 
@@ -917,7 +948,7 @@ async function loadCargosRecibidos() {
                     mainButtons += `<button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.7rem; display:inline-flex; align-items:center; gap:0.25rem;" onclick="event.preventDefault(); recibirCargo(${c.CargoId})">📥 Recibir</button>`;
                 }
 
-                if (esDevueltoTesoreria) {
+                if (esDevueltoTesoreria && currentArea === 'CONTABILIDAD') {
                     mainButtons += `<button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.7rem; display:inline-flex; align-items:center; gap:0.25rem; background:#dc2626; border-color:#dc2626;" onclick="reenviarATesoreria(${c.CargoId}, ${c.DetalleId}, '${c.NroOrdenCompra||''}', '${c.TipoOc||''}', '${c.CodCiaOc||''}', '', '${(c.Proveedor||'').replace(/'/g,"\\'")}', '', ${c.MontoOC||0}, ${c.MontoFactura||0}, '${c.NroFactura||''}')">🔄 Reenviar a Tesorería</button>`;
                 }
                 if (c.FacturaUuid) {
@@ -1230,7 +1261,9 @@ async function loadHistorial() {
                         AreaOrigen: c.AreaOrigen, AreaDestino: c.AreaDestino, EstadoCargo: c.EstadoCargo, Items: 0, 
                         MontoOC_PEN: 0, MontoOC_USD: 0,
                         MontoFactura_PEN: 0, MontoFactura_USD: 0,
-                        MontoRend_PEN: 0, MontoRend_USD: 0 
+                        MontoRend_PEN: 0, MontoRend_USD: 0,
+                        EsDevuelto: false,
+                        MotivosRechazo: []
                     };
                 }
                 mapCargo[c.CargoId].Items++;
@@ -1260,9 +1293,19 @@ async function loadHistorial() {
 
             dtData = Object.values(mapCargo).map(cg => {
                 const tipoLabel = cg.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
-                const estadoItem = `<span style="color:#64748b; font-size:0.65rem; font-weight:700;">${cg.EstadoCargo}</span>`;
+                
+                let estadoItem = `<span style="color:#64748b; font-size:0.65rem; font-weight:700;">${cg.EstadoCargo}</span>`;
+                if (cg.EstadoCargo === 'ANULADO') estadoItem = '<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">ANULADO</span>';
+                else if (cg.EsDevuelto) {
+                    estadoItem = `<span style="color:#fff; background:#dc2626; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px;">⚠️ DEVUELTOS</span>`;
+                    if (cg.MotivosRechazo && cg.MotivosRechazo.length > 0) {
+                        const safeMotivo = [...new Set(cg.MotivosRechazo)].join('\\n').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        estadoItem += `<br><button onclick="showRechazoMotivo('${safeMotivo}')" style="background:none; border:none; color:#dc2626; text-decoration:underline; cursor:pointer; font-size:0.65rem; padding:0; margin-top:4px; font-weight:600;">[Ver Motivo]</button>`;
+                    }
+                }
                 
                 let dpItems = `<button class="action-dropdown-item" onclick="event.preventDefault(); openCargoDetail(${cg.CargoId})">📄 Vista Cargo Completo</button>`;
+                
                 let actionsHtml = `<div class="action-dropdown"><button class="action-dropdown-btn" onclick="toggleDropdown(event, this)" title="Acciones">⋮</button><div class="action-dropdown-menu">${dpItems}</div></div>`;
 
                 const formatTot = (pen, usd) => {
@@ -1298,11 +1341,20 @@ async function loadHistorial() {
             });
         } else {
             dtData = validos.map(c => {
-                let estadoItem = c.EstadoContable === 'RECHAZADO' 
-                    ? '<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">RECHAZADO</span>' 
-                    : (c.EstadoContable === 'ACEPTADO' ? '<span style="color:#10b981; font-size:0.65rem; font-weight:700;">ACEPTADO</span>' : '<span style="color:#64748b; font-size:0.65rem; font-weight:700;">PENDIENTE</span>');
+                let estadoItem = '';
                 if (c.TipoCargo === 'CONT_A_TES' && c.EstadoContable === 'RECHAZADO') {
-                    estadoItem = '<span style="color:#fff; background:#dc2626; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;">DEVUELTO TESORERÍA</span>';
+                    estadoItem = `<span style="color:#fff; background:#dc2626; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;">DEVUELTO TESORERÍA</span>`;
+                } else if (c.EstadoContable === 'RECHAZADO') {
+                    estadoItem = `<span style="color:#ef4444; font-size:0.65rem; font-weight:700;">RECHAZADO</span>`;
+                } else if (c.EstadoContable === 'ACEPTADO') {
+                    estadoItem = '<span style="color:#10b981; font-size:0.65rem; font-weight:700;">ACEPTADO</span>';
+                } else {
+                    estadoItem = '<span style="color:#64748b; font-size:0.65rem; font-weight:700;">PENDIENTE</span>';
+                }
+                
+                if (c.EstadoContable === 'RECHAZADO' && c.ObservacionRechazo) {
+                    const safeMotivo = c.ObservacionRechazo.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    estadoItem += `<br><button onclick="showRechazoMotivo('${safeMotivo}')" style="background:none; border:none; color:#dc2626; text-decoration:underline; cursor:pointer; font-size:0.65rem; padding:0; margin-top:4px; font-weight:600;">[Ver Motivo]</button>`;
                 }
 
                 const tipoLabel = c.TipoCargo === 'LOG_A_CONT' ? 'Log → Cont' : 'Cont → Tes';
@@ -1500,9 +1552,11 @@ async function openCargoDetail(cargoId) {
         });
 
         const detailRows = Object.values(mapOC).map((d, i) => {
-            const estadoItem = d.EstadoContable === 'RECHAZADO'
-                ? '<span style="color:#ef4444; font-size:0.6rem; font-weight:700; border:1px solid #fecaca; padding:0 3px; border-radius:2px; background:#fef2f2;">RECHAZADO</span>'
-                : '';
+            let estadoItem = '';
+            if (d.EstadoContable === 'RECHAZADO') {
+                const obsTitle = d.ObservacionRechazo ? ` title="Motivo: ${d.ObservacionRechazo.replace(/"/g, '&quot;')}"` : '';
+                estadoItem = `<span style="color:#ef4444; font-size:0.6rem; font-weight:700; border:1px solid #fecaca; padding:0 3px; border-radius:2px; background:#fef2f2; cursor:help;"${obsTitle}>RECHAZADO</span>`;
+            }
 
             let enlacesHtml = '';
             const codcia = (d.CodCiaOc || '').trim();
@@ -1609,16 +1663,60 @@ async function openCargoDetail(cargoId) {
         content.innerHTML = `
             <style>
                 @media print {
-                    @page { size: landscape; margin: 15mm; }
-                    body { font-size: 10pt; background: white !important; }
-                    .rpt-table { font-size: 9pt; width: 100%; border-collapse: collapse; }
-                    .rpt-table th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; padding: 8px 6px; }
-                    .rpt-table td { padding: 8px 6px; }
+                    @page { size: landscape; margin: 4mm; }
+                    body { background: white !important; font-size: 7.5pt !important; line-height: 1.15 !important; margin: 0; padding: 0; }
+                    * { 
+                        box-shadow: none !important; 
+                        font-family: 'Inter', Arial, sans-serif !important; 
+                        -webkit-print-color-adjust: exact !important; 
+                        print-color-adjust: exact !important; 
+                    }
+                    
+                    /* Header Area */
+                    div[style*="margin-bottom: 0.75rem"] { margin-bottom: 4px !important; padding-bottom: 4px !important; border-bottom: 1px solid #cbd5e1 !important; }
+                    h2 { font-size: 9.5pt !important; margin: 0 !important; }
+                    p { font-size: 7pt !important; margin: 0 !important; }
+                    div[style*="font-size: 1.2rem"] { font-size: 10pt !important; }
+                    div[style*="font-size: 0.7rem"] { font-size: 6.5pt !important; }
+
+                    /* Info Grid */
+                    .report-card-info { border: 1px solid #cbd5e1 !important; padding: 4px 6px !important; margin-bottom: 6px !important; border-radius: 4px !important; }
+                    .info-grid { gap: 6px 12px !important; }
+                    .info-item { gap: 0 !important; }
+                    .info-label { font-size: 6pt !important; margin-bottom: 1px !important; }
+                    .info-value { font-size: 7.5pt !important; }
+                    
+                    /* Table */
+                    div[style*="padding-bottom: 1rem"] { padding-bottom: 4px !important; }
+                    .rpt-table { font-size: 7pt !important; width: 100%; border-collapse: collapse; margin-bottom: 6px !important; }
+                    .rpt-table th { background-color: #f1f5f9 !important; padding: 3px 4px !important; border: 1px solid #cbd5e1 !important; font-size: 6.5pt !important; height: auto !important; color: #334155 !important; }
+                    .rpt-table td { padding: 3px 4px !important; border: 1px solid #cbd5e1 !important; font-size: 7pt !important; height: auto !important; color: #1e293b !important; }
                     .rpt-table tr { page-break-inside: avoid; }
                     .rpt-table thead { display: table-header-group; }
                     .rpt-table tfoot { display: table-footer-group; }
+                    .rpt-table tfoot td { font-size: 7.5pt !important; padding: 3px !important; }
                     .no-print { display: none !important; }
-                    .report-card-info { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+                    
+                    /* Disclaimer Box */
+                    div[style*="margin-top:1.25rem"] { margin-top: 6px !important; padding: 4px !important; font-size: 6.5pt !important; border-radius: 4px !important; line-height: 1.15 !important; border: 1px solid #94a3b8 !important;}
+                    
+                    /* Signature container */
+                    div[style*="margin-top:1.5rem"] { margin-top: 6px !important; gap: 10px !important; }
+                    
+                    /* Individual signature boxes */
+                    div[style*="max-width:320px"] { 
+                        max-width: 48% !important; 
+                        padding: 6px 8px !important; 
+                        min-height: auto !important; 
+                        border-radius: 6px !important;
+                    }
+                    div[style*="max-width:320px"] h4 { font-size: 7pt !important; margin-bottom: 3px !important; }
+                    div[style*="max-width:320px"] div { font-size: 6.5pt !important; margin-bottom: 1px !important; }
+                    div[style*="max-width:320px"] svg { width: 12px !important; height: 12px !important; margin-bottom: 2px !important; }
+                    
+                    /* Badge in signed signature */
+                    div[style*="position:absolute"] { top: -8px !important; right: 10px !important; padding: 0 4px !important; background: white !important; }
+                    div[style*="position:absolute"] svg { width: 14px !important; height: 14px !important; }
                 }
                 .rpt-table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
                 .rpt-table thead { background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
@@ -1897,7 +1995,19 @@ async function openReportModal(codcia, nrodoc, tipooc, year) {
         // Cargar Firmas (Acciones)
         let acciones = [];
         try {
-            const urlAcc = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/acciones?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(tipooc)}&year=${encodeURIComponent(year || '')}`;
+            let finalYear = year;
+            if (!finalYear && data.header && data.header.fchdoc) {
+                const fd = data.header.fchdoc;
+                if (fd.includes('-')) finalYear = fd.split('-')[0];
+                else if (fd.includes('/')) finalYear = fd.split('/')[2];
+            }
+            
+            let finalTipoOc = tipooc;
+            if (data.header && data.header.tipooc) {
+                finalTipoOc = data.header.tipooc.trim();
+            }
+
+            const urlAcc = `/api/logistics/orders/${encodeURIComponent(nrodoc)}/acciones?codcia=${encodeURIComponent(codcia)}&tipo_oc=${encodeURIComponent(finalTipoOc)}&year=${encodeURIComponent(finalYear || '')}`;
             const resAcc = await fetch(urlAcc, { headers: { 'Authorization': `Bearer ${token}` } });
             if (resAcc.ok) {
                 const accData = await resAcc.json();
@@ -3231,9 +3341,10 @@ async function loadDocumentosAceptadosTesoreria() {
                     deferRender: true, order: [[2, 'desc']], pageLength: 15,
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     rowCallback: function(row, data) {
-                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                const cb = $(row).find('.doc-aceptado-chk');
+                const key = cb.data('nrooc') + '|' + (cb.data('tipooc') || '');
                 if (selectedItemsTracker.docsAceptados.has(key)) {
-                    $(row).find('.doc-aceptado-chk').prop('checked', true);
+                    cb.prop('checked', true);
                 }
             },
             columnDefs: [
@@ -3244,12 +3355,28 @@ async function loadDocumentosAceptadosTesoreria() {
                 });
 
                 $('#ocsDisponiblesTable tbody').off('change', '.doc-aceptado-chk').on('change', '.doc-aceptado-chk', function() {
-                    const tr = $(this).closest('tr');
-                    const rowData = docsAceptadosDT.row(tr).data();
-                    if (!rowData) return;
-                    const key = rowData.NroOrdenCompra + '|' + (rowData.TipoOc || '');
+                    const cb = $(this);
+                    const nrooc = String(cb.data('nrooc') || '');
+                    const tipooc = String(cb.data('tipooc') || '');
+                    const key = nrooc + '|' + tipooc;
+                    
                     if (this.checked) {
-                        selectedItemsTracker.docsAceptados.set(key, rowData);
+                        const rowDataObj = {
+                            NroOrdenCompra: nrooc,
+                            TipoOc: tipooc,
+                            CodCiaOc: String(cb.data('codciaoc') || ''),
+                            NroFactura: String(cb.data('nrofactura') || ''),
+                            MontoOC: parseFloat(cb.data('montooc')) || 0,
+                            MontoFactura: parseFloat(cb.data('montofactura')) || 0,
+                            Proveedor: String(cb.data('proveedor') || ''),
+                            RucProveedor: String(cb.data('ruc') || ''),
+                            Moneda: String(cb.data('moneda') || '1'),
+                            TipoDoc: String(cb.data('tipodoc') || ''),
+                            TipoComprobante: String(cb.data('tipocomprobante') || ''),
+                            FecFactura: String(cb.data('fechaemision') || ''),
+                            FechaVencimiento: String(cb.data('fechavencimiento') || '')
+                        };
+                        selectedItemsTracker.docsAceptados.set(key, rowDataObj);
                         updateSelectionUI();
                     } else {
                         selectedItemsTracker.docsAceptados.delete(key);

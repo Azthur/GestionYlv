@@ -1429,7 +1429,7 @@ function filterCobranzas(filter, btn) {
 }
 
 // ─── FILTRO "Documentos Aplicados y redondeo" ─────────────────────────
-// Custom DataTables search filter: when checked, hide rows where coddoc = "R/C." or "N/A "
+// Custom DataTables search filter: when checked, hide rows where coddoc = "R/C." or "N/A " or tpopgo = "R"
 $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
     // Only apply to the "tableTodasCobranzas" DataTable
     if (settings.nTable.id !== 'tableTodasCobranzas') return true;
@@ -1437,9 +1437,11 @@ $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
     var chk = document.getElementById('chkDocAplicados');
     if (!chk || !chk.checked) return true; // not checked => show everything
     
-    // coddoc is column index 6 (0-based: Acc, Estado, ID, CodCia, anos, mes, coddoc)
+    // coddoc is column index 6
+    // tpopgo is column index 22
     var coddoc = (data[6] || '').trim();
-    if (coddoc === 'R/C.' || coddoc === 'N/A') return false; // hide these
+    var tpopgo = (data[22] || '').trim();
+    if (coddoc === 'R/C.' || coddoc === 'N/A' || tpopgo === 'R') return false; // hide these
     return true;
 });
 
@@ -1456,9 +1458,10 @@ $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
     var chk = document.getElementById('chkDocAplicadosCruce');
     if (!chk || !chk.checked) return true;
     
-    // En tableCobranzas, coddoc es la columna 2
+    // En tableCobranzas, coddoc es la columna 2, tpopgo es la columna 10
     var coddoc = (data[2] || '').trim();
-    if (coddoc.includes('R/C.') || coddoc.includes('N/A')) return false;
+    var tpopgo = (data[10] || '').trim();
+    if (coddoc.includes('R/C.') || coddoc.includes('N/A') || tpopgo === 'R') return false;
     return true;
 });
 

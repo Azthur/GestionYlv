@@ -2142,6 +2142,36 @@ def descargar_archivo(archivo_id: int):
     finally:
         conn.close()
 
+
+@router.delete("/archivos/{archivo_id}")
+def delete_archivo(archivo_id: int):
+    """Eliminar archivo adjunto de factura"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT RutaArchivo FROM CntFacturaArchivos WHERE Id=?", (archivo_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+        
+        ruta_archivo = row[0]
+        if ruta_archivo and os.path.exists(ruta_archivo):
+            try:
+                os.remove(ruta_archivo)
+            except Exception as e:
+                print(f"DEBUG: Error al eliminar archivo del disco: {e}")
+        
+        cursor.execute("DELETE FROM CntFacturaArchivos WHERE Id=?", (archivo_id,))
+        conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        print(f"DEBUG: Error en delete_archivo: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al eliminar archivo: {str(e)}")
+    finally:
+        conn.close()
+
 @router.post("/facturas/{factura_id}/items/archivos/upload")
 async def upload_item_archivo(
     factura_id: int,
@@ -2331,6 +2361,32 @@ def update_factura_observaciones(factura_id: int, body: dict):
         )
         conn.commit()
         return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+# ════════════════════════════════════════════════════════════
+#  ACTUALIZAR ESTADO
+# ════════════════════════════════════════════════════════════
+@router.put("/facturas/{factura_id}/estado")
+def update_factura_estado(factura_id: int, body: dict):
+    """Actualiza el estado de una factura"""
+    nuevo_estado = body.get("estado", "").strip()
+    if not nuevo_estado:
+        raise HTTPException(status_code=400, detail="Falta el campo estado")
+        
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE CntFacturaCab SET Estado=?, UpdatedAt=GETDATE() WHERE Id=?",
+            (nuevo_estado, factura_id)
+        )
+        conn.commit()
+        return {"ok": True, "message": f"Estado cambiado a {nuevo_estado}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
