@@ -25,6 +25,7 @@ class ManualMatchRequest(BaseModel):
     bank_movement_ids: List[int]
     cobranza_keys: List[str]  # Format: "CodCia|coddoc|nrodoc|nroitm"
     usuario: Optional[str] = None
+    max_diff: Optional[float] = 0.50
 
 
 class AutoMatchRequest(BaseModel):
@@ -34,6 +35,7 @@ class AutoMatchRequest(BaseModel):
     period_month: Optional[str] = None
     cross_company: bool = False
     usuario: Optional[str] = None
+    only_ingresos: Optional[bool] = False
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
@@ -427,6 +429,47 @@ def delete_all_bank_movements(
         conn.close()
 
 
+@router.get("/movimientos-banco/duplicates")
+def get_duplicate_bank_movements(
+    codcia: str = Query(...),
+    bank_code: str = Query(...)
+):
+    """
+    Busca movimientos bancarios duplicados (mismo CodCia, BankCode, fecha (solo date), Monto y OperacionNumero)
+    para una empresa y banco específicos.
+    """
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT Id, Fecha, Descripcion, Monto, Saldo, Sucursal, OperacionNumero, OperacionHora, Referencia, OpManual, OpCancelacion, DescripcionFinal, Estado
+            FROM BankMovements
+            WHERE CodCia = ? AND BankCode = ?
+              AND OperacionNumero IS NOT NULL AND RTRIM(LTRIM(OperacionNumero)) <> ''
+              AND EXISTS (
+                  SELECT 1 FROM BankMovements bm2
+                  WHERE bm2.CodCia = BankMovements.CodCia
+                    AND bm2.BankCode = BankMovements.BankCode
+                    AND CAST(bm2.Fecha AS DATE) = CAST(BankMovements.Fecha AS DATE)
+                    AND bm2.Monto = BankMovements.Monto
+                    AND bm2.OperacionNumero = BankMovements.OperacionNumero
+                  GROUP BY bm2.CodCia, bm2.BankCode, CAST(bm2.Fecha AS DATE), bm2.Monto, bm2.OperacionNumero
+                  HAVING COUNT(*) > 1
+              )
+            ORDER BY OperacionNumero, Fecha, Monto
+        """, (codcia, bank_code))
+        
+        result = rows_to_list(cursor)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 @router.delete("/movimientos-banco/{movimiento_id}")
 def delete_bank_movement(movimiento_id: int):
     """
@@ -555,6 +598,9 @@ def auto_match(request: AutoMatchRequest):
             WHERE CodCia = ? AND BankCode = ? AND Estado = 'Pendiente'
         """
         params = [request.codcia, request.bank_code]
+
+        if request.only_ingresos:
+            query += " AND Monto > 0"
 
         if request.period_year:
             query += " AND YEAR(Fecha) = ?"
@@ -807,8 +853,9 @@ def manual_match(request: ManualMatchRequest):
             parsed_cobs.append((c_cia, c_doc, n_doc, n_itm, cob[4], cob[5], cob[1], cob[6])) # + codref, nroref, importe, codaux
 
         # 3. Validate Amounts
-        # In absolute terms, they must match within a tiny float tolerance
-        if abs(abs(sum_bancos) - abs(sum_cobranzas)) > 0.10:
+        # In absolute terms, they must match within the specified tolerance
+        max_diff_val = request.max_diff if request.max_diff is not None else 0.50
+        if abs(abs(sum_bancos) - abs(sum_cobranzas)) > max_diff_val:
             raise HTTPException(status_code=400, detail=f"Los importes no concuerdan. Bancos: {abs(sum_bancos):.2f}, Cobranzas: {abs(sum_cobranzas):.2f}")
 
         # 4. Do the Many-to-Many Insert
@@ -1281,7 +1328,7 @@ def get_todas_cobranzas(
         conn.close()
 
 
-@router.get("/caja-publica/{codigo}")
+@router.get("/caja-publica/{codigo:path}")
 def get_caja_publica(codigo: str):
     """
     Retorna el detalle de una caja específica usando su código único (CodCia-coddoc-nrodoc).
@@ -1349,6 +1396,18 @@ def get_caja_publica(codigo: str):
         """
         cursor.execute(query, (codcia, coddoc, nrodoc))
         result = rows_to_list(cursor)
+        
+        if not result:
+            # Fallback flexible matching if the user-provided code has a different prefix/padding
+            import re
+            digits = re.findall(r'\d+', nrodoc)
+            if digits:
+                num_suffix = digits[-1].lstrip('0')
+                if num_suffix:
+                    like_pattern = f"%{num_suffix.zfill(5)}"
+                    query_fallback = query.replace("m.nrodoc = ?", "(m.nrodoc = ? OR m.nrodoc LIKE ?)")
+                    cursor.execute(query_fallback, (codcia, coddoc, nrodoc, like_pattern))
+                    result = rows_to_list(cursor)
         
         tpopgo_map = {
             '1': 'FILIAL CANCELA', '2': 'PERSONAL', '3': 'AMERICAN EXPRES', '4': 'EPS',

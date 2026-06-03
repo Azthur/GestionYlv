@@ -378,7 +378,7 @@
                         '<div class="row"><strong>Dirección:</strong><span>'+(d.DirEmisor||d.DirProveedor||'-')+'</span></div>' +
                     '</div>' +
                     '<div class="panel"><h3>Datos Operativos</h3>' +
-                        '<div class="row"><strong>Orden de Compra:</strong><span>'+(d.NroOrdenCompra?(d.TipoOc||'')+d.NroOrdenCompra:'Ninguna')+'</span></div>' +
+                        '<div class="row"><strong>Orden de Compra:</strong><span>'+(d.NroOrdenCompra ? d.NroOrdenCompra.split(',').map(function(oc){ return (d.TipoOc||'') + oc.trim(); }).join(', ') : 'Ninguna')+'</span></div>' +
                         '<div class="row"><strong>Modo Registro:</strong><span>'+(d.ModoRegistro||'-')+'</span></div>' +
                         '<div class="row"><strong>Registrado por:</strong><span>'+(d.CreatedBy||'SISTEMA')+'</span></div>' +
                         '<div class="row"><strong>Fecha Registro:</strong><span>'+(d.CreatedAt||'-')+'</span></div>' +

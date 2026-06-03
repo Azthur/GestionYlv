@@ -80,7 +80,7 @@
             }
 
             try {
-                const res = await fetch(`/api/conciliacion/caja-publica/${codigoCaja}`);
+                const res = await fetch(`/api/conciliacion/caja-publica/${encodeURIComponent(codigoCaja)}`);
                 if (!res.ok) {
                     throw new Error(await res.text());
                 }

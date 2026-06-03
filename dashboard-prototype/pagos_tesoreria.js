@@ -852,8 +852,10 @@ async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, 
     let docLabel = tipoDocumento, docNro = nrodoc;
     const sim = moneda === 'USD' ? '$' : 'S/';
 
+    const isFacturaDoc = ['FACTURA_SIN_OC', 'FACTURA_SI', 'FACTURA', '01', '03'].includes(tipoDocumento) || tipoDocumento.startsWith('FACT');
+
     if (tipoDocumento === 'OC') { docLabel = 'OC'; docNro = nrodoc; }
-    else if (tipoDocumento === 'FACTURA_SIN_OC' || tipoDocumento === 'FACTURA') { docLabel = 'Factura'; docNro = factura || nrodoc; }
+    else if (isFacturaDoc) { docLabel = 'Factura'; docNro = factura || nrodoc; }
     else if (tipoDocumento === 'RENDICION') { docLabel = 'Rendición'; docNro = nrodoc; }
     else if (tipoDocumento === 'MULTI') { docLabel = 'Múltiples Documentos'; docNro = nrodoc; }
 
@@ -876,7 +878,7 @@ async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, 
     if (tipoDocumento === 'OC') {
         if (factura) resumenHtml += `<span style="font-weight:600; color:#64748b;">Factura:</span><span>${factura}</span>`;
         resumenHtml += `<span style="font-weight:600; color:#64748b;">A Pagar:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;
-    } else if (tipoDocumento === 'FACTURA_SIN_OC' || tipoDocumento === 'FACTURA') {
+    } else if (isFacturaDoc) {
         resumenHtml += `<span style="font-weight:600; color:#64748b;">Importe:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;
     } else if (tipoDocumento === 'RENDICION') {
         resumenHtml += `<span style="font-weight:600; color:#64748b;">Reembolso:</span><span style="font-weight:700; color:var(--primary);">${fmtMonto(montoPagar)}</span>`;

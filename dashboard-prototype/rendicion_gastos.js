@@ -9,6 +9,7 @@ axios.interceptors.request.use(config => {
 let empresas = [];
 let personas = [];
 let categoriasCosto = [];
+let planillasPendientes = [];
 let rowCount = 0;
 let currentRowIdxToFill = null;
 let archivosAdjuntos = []; // Almacenar archivos múltiples
@@ -454,32 +455,54 @@ async function openModalPlanilla(rowIdx) {
         const res = await axios.get(url);
         Swal.close();
 
-        const tb = document.getElementById("tbModalPlanillas");
-        tb.innerHTML = "";
-
-        if (res.data.length === 0) {
-            tb.innerHTML = "<tr><td colspan='4' class='text-center'>No tiene planillas pendientes de rendir en esta empresa.</td></tr>";
-        } else {
-            res.data.forEach(p => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${p.NroPlanilla}</td>
-                    <td>${p.FechaEmision}</td>
-                    <td>S/ ${p.TotalGastado}</td>
-                    <td><button class="btn btn-search">Seleccionar</button></td>
-                `;
-                tr.onclick = () => {
-                    llenarFilaDesdePlanilla(p);
-                    closeModal('modalPlanillas');
-                };
-                tb.appendChild(tr);
-            });
-        }
+        planillasPendientes = res.data;
+        document.getElementById("qPlanilla").value = "";
+        
+        filtrarPlanillas();
 
         document.getElementById("modalPlanillas").style.display = "flex";
     } catch (e) {
         Swal.fire("Error", "Error buscando planillas", "error");
     }
+}
+
+function filtrarPlanillas() {
+    const q = document.getElementById("qPlanilla").value.toLowerCase();
+    const tb = document.getElementById("tbModalPlanillas");
+    tb.innerHTML = "";
+
+    const filtrados = planillasPendientes.filter(p => {
+        const nro = (p.NroPlanilla || "").toLowerCase();
+        const trab = (p.NomAux || "").toLowerCase();
+        const doc = (p.RucDni || "").toLowerCase();
+        return nro.includes(q) || trab.includes(q) || doc.includes(q);
+    });
+
+    if (filtrados.length === 0) {
+        tb.innerHTML = "<tr><td colspan='6' class='text-center'>No tiene planillas pendientes de rendir en esta empresa o que coincidan con la búsqueda.</td></tr>";
+        return;
+    }
+
+    filtrados.forEach(p => {
+        const tr = document.createElement("tr");
+        const publicUrl = `/visor_planilla.html?uuid=${p.UuidLink}`;
+        
+        tr.innerHTML = `
+            <td>${p.NroPlanilla}</td>
+            <td>${p.NomAux || ''}</td>
+            <td>${p.FechaEmision}</td>
+            <td>S/ ${parseFloat(p.TotalGastado).toFixed(2)}</td>
+            <td>
+                <a href="${publicUrl}" target="_blank" class="btn btn-search" style="background:#0284c7; text-decoration:none; display:inline-block;" onclick="event.stopPropagation()">🔗 Ver</a>
+            </td>
+            <td><button type="button" class="btn btn-search" style="background:#10b981;">Seleccionar</button></td>
+        `;
+        tr.onclick = () => {
+            llenarFilaDesdePlanilla(p);
+            closeModal('modalPlanillas');
+        };
+        tb.appendChild(tr);
+    });
 }
 
 function llenarFilaDesdePlanilla(p) {

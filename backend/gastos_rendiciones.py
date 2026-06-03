@@ -18,6 +18,19 @@ def normalize_moneda_valor(v):
         return '2'
     return '1'
 
+
+def _format_date(val, fmt="%Y-%m-%d"):
+    if val is None:
+        return None
+    if isinstance(val, str):
+        s = val.strip()
+        if fmt == "%Y-%m-%d" and len(s) > 10 and " " in s:
+            return s.split()[0]
+        return s
+    if hasattr(val, 'strftime'):
+        return val.strftime(fmt)
+    return str(val)
+
 router = APIRouter(prefix="/api/finanzas", tags=["Finanzas - Gastos y Rendiciones"])
 
 from dotenv import load_dotenv
@@ -480,7 +493,7 @@ def get_rendiciones_aprobadas(
         for r in cursor.fetchall():
             d = dict(zip(cols, r))
             if d.get('Fecha'):
-                d['Fecha'] = d['Fecha'].strftime("%Y-%m-%d")
+                d['Fecha'] = _format_date(d['Fecha'], "%Y-%m-%d")
             if d.get('TotalGastado') is not None:
                 d['TotalGastado'] = float(d['TotalGastado'])
             data.append(d)
@@ -489,6 +502,9 @@ def get_rendiciones_aprobadas(
         print(f"Error en rendiciones-aprobadas: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        if 'cursor' in locals() and cursor:
+            try: cursor.close()
+            except: pass
         conn.close()
 
 @router.get("/rendiciones/revision")

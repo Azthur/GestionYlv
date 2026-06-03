@@ -309,6 +309,7 @@ async function loadBankMovements(codcia, bankCode, year, month) {
         if (!res.ok) throw new Error('Error loading bank movements');
         bankMovements = await res.json();
         renderBankTable();
+        updateSummaryCards();
     } catch (err) {
         console.error(err);
         showToast('Error al cargar movimientos bancarios', 'error');
@@ -343,13 +344,18 @@ async function loadResumen(codcia, bankCode, year, month) {
         if (!res.ok) throw new Error('Error loading resumen');
         const data = await res.json();
 
-        document.getElementById('statTotalMov').textContent = data.total_movimientos.toLocaleString();
-        document.getElementById('statTotalMonto').textContent = `${currentCurrencySymbol} ${data.total_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-        document.getElementById('statMatched').textContent = data.conciliados.toLocaleString();
-        document.getElementById('statMatchedMonto').textContent = `${currentCurrencySymbol} ${data.conciliados_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-        document.getElementById('statPending').textContent = data.pendientes.toLocaleString();
-        document.getElementById('statPendingMonto').textContent = `${currentCurrencySymbol} ${data.pendientes_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-        document.getElementById('statPercent').textContent = `${data.porcentaje_conciliado}%`;
+        const chkIngresos = document.getElementById('chkOnlyIngresosBanco');
+        if (chkIngresos && chkIngresos.checked) {
+            updateSummaryCards();
+        } else {
+            document.getElementById('statTotalMov').textContent = data.total_movimientos.toLocaleString();
+            document.getElementById('statTotalMonto').textContent = `${currentCurrencySymbol} ${data.total_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('statMatched').textContent = data.conciliados.toLocaleString();
+            document.getElementById('statMatchedMonto').textContent = `${currentCurrencySymbol} ${data.conciliados_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('statPending').textContent = data.pendientes.toLocaleString();
+            document.getElementById('statPendingMonto').textContent = `${currentCurrencySymbol} ${data.pendientes_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('statPercent').textContent = `${data.porcentaje_conciliado}%`;
+        }
     } catch (err) {
         console.error(err);
     }
@@ -360,10 +366,15 @@ let dtCruceBank = null;
 
 function renderBankTable() {
     const filter = document.getElementById('filterEstadoBanco').value;
+    const chkIngresos = document.getElementById('chkOnlyIngresosCruce');
+    const filterOnlyIngresos = chkIngresos && chkIngresos.checked;
     
     let filtered = bankMovements;
     if (filter) {
         filtered = bankMovements.filter(m => m.Estado === filter);
+    }
+    if (filterOnlyIngresos) {
+        filtered = filtered.filter(m => parseFloat(m.Monto || 0) > 0);
     }
     
     if (dtCruceBank) {
@@ -569,8 +580,12 @@ function toggleCobSelection(key, checked, checkboxEl) {
 function toggleAllBank() {
     const checkAll = document.getElementById('checkAllBank').checked;
     const filter = document.getElementById('filterEstadoBanco').value;
+    const chkIngresos = document.getElementById('chkOnlyIngresosCruce');
+    const filterOnlyIngresos = chkIngresos && chkIngresos.checked;
+    
     let filtered = bankMovements;
     if (filter) filtered = bankMovements.filter(m => m.Estado === filter);
+    if (filterOnlyIngresos) filtered = filtered.filter(m => parseFloat(m.Monto || 0) > 0);
 
     selectedBankIds.clear();
     if (checkAll) {
@@ -615,10 +630,13 @@ function updateMatchButton() {
         if (cob) sumCobranzas += parseFloat(cob.import || 0);
     });
 
+    const maxDiffInput = document.getElementById('inputDiferenciaAceptada');
+    const maxDiff = maxDiffInput ? parseFloat(maxDiffInput.value) : 0.50;
+
     const diff = Math.abs(Math.abs(sumBancos) - Math.abs(sumCobranzas));
-    if (diff <= 0.10) {
+    if (diff <= maxDiff) {
         btn.disabled = false;
-        btn.title = "Importes cuadran perfectamente. Clic para conciliar.";
+        btn.title = "Importes cuadran dentro del margen. Clic para conciliar.";
     } else {
         btn.disabled = true;
         btn.title = `Diferencia de importes: ${currentCurrencySymbol} ${diff.toFixed(2)}`;
@@ -686,7 +704,8 @@ async function runAutoMatch() {
                 period_year: year,
                 period_month: month,
                 cross_company: document.getElementById('checkCrossCompany').checked,
-                usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })()
+                usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })(),
+                only_ingresos: document.getElementById('chkOnlyIngresosCruce')?.checked || false
             })
         });
 
@@ -790,10 +809,14 @@ async function matchSelected() {
     }
 
     try {
+        const maxDiffInput = document.getElementById('inputDiferenciaAceptada');
+        const maxDiff = maxDiffInput ? parseFloat(maxDiffInput.value) : 0.50;
+
         const requestBody = {
             bank_movement_ids: Array.from(selectedBankIds),
             cobranza_keys: Array.from(selectedCobKeys),
-            usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })()
+            usuario: (function(){ try { var u = JSON.parse(localStorage.getItem('yelave_user')); return u?.nombre || u?.login || 'Desconocido'; } catch(e){ return 'Desconocido'; } })(),
+            max_diff: maxDiff
         };
 
         const res = await fetch('/api/conciliacion/manual-match', {
@@ -1079,6 +1102,139 @@ function openMatchModal() { document.getElementById('matchModal').classList.add(
 function closeMatchModal() { document.getElementById('matchModal').classList.remove('active'); }
 function openRuleModal() { document.getElementById('ruleModal').classList.add('active'); }
 function closeRuleModal() { document.getElementById('ruleModal').classList.remove('active'); }
+
+let dtDuplicatesBank = null;
+
+function openDuplicatesModal() {
+    const codcia = document.getElementById('selectEmpresa').value;
+    const bankCode = document.getElementById('selectBanco').value;
+
+    if (!codcia || !bankCode) {
+        showToast('Seleccione empresa y banco antes de buscar duplicados', 'info');
+        return;
+    }
+
+    document.getElementById('duplicatesModal').classList.add('active');
+    loadDuplicates(codcia, bankCode);
+}
+
+function closeDuplicatesModal() {
+    document.getElementById('duplicatesModal').classList.remove('active');
+}
+
+async function loadDuplicates(codcia, bankCode) {
+    const tbody = document.getElementById('tbodyDuplicatesBank');
+    if (dtDuplicatesBank) {
+        dtDuplicatesBank.destroy();
+        dtDuplicatesBank = null;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-state empty-state" style="text-align: center; padding: 20px;">Buscando movimientos duplicados...</td></tr>';
+
+    try {
+        const res = await fetch(`/api/conciliacion/movimientos-banco/duplicates?codcia=${codcia}&bank_code=${bankCode}`);
+        if (!res.ok) throw new Error('Error al consultar duplicados');
+        const data = await res.json();
+
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="text-align: center; padding: 20px; color: #64748b;">No se encontraron movimientos bancarios duplicados.</td></tr>';
+            return;
+        }
+
+        data.forEach(row => {
+            const isMatched = row.Estado === 'Conciliado';
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #e2e8f0';
+            
+            let actionHtml = '';
+            if (isMatched) {
+                actionHtml = `<span style="color: #94a3b8; font-size: 0.8rem;" title="No se pueden eliminar movimientos conciliados">Bloqueado</span>`;
+            } else {
+                actionHtml = `
+                    <button class="btn-icon" onclick="deleteDuplicateBankMovement(${row.Id})" title="Eliminar Duplicado" style="color: #ef4444; border: 1px solid #fee2e2; background: #fef2f2; padding: 5px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: auto;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                `;
+            }
+
+            const monto = parseFloat(row.Monto || 0);
+            const montoStr = `${currentCurrencySymbol} ${Math.abs(monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+            tr.innerHTML = `
+                <td style="padding: 10px; text-align: center;">${actionHtml}</td>
+                <td style="padding: 10px; font-weight: 500;">${row.Id || ''}</td>
+                <td style="padding: 10px;">${formatUTCLocalDate(row.Fecha)}</td>
+                <td style="padding: 10px; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${row.Descripcion || ''}">${row.Descripcion || ''}</td>
+                <td style="padding: 10px;" class="amount ${monto < 0 ? 'negative' : 'positive'}">${montoStr}</td>
+                <td style="padding: 10px; font-weight: 600;">${row.OperacionNumero || ''}</td>
+                <td style="padding: 10px;">${row.Referencia || ''}</td>
+                <td style="padding: 10px;">
+                    <span class="status ${isMatched ? 'conciliado' : 'pendiente'}">${row.Estado || 'Pendiente'}</span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        dtDuplicatesBank = $('#tableDuplicatesBank').DataTable({
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
+            dom: '<"dt-top"lf>rtip',
+            scrollX: true,
+            autoWidth: false,
+            destroy: true,
+            pageLength: 10,
+            order: [[5, 'asc']]
+        });
+
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="8" class="loading-state empty-state" style="color: var(--danger); text-align: center; padding: 20px;">Error al cargar duplicados.</td></tr>';
+    }
+}
+
+async function deleteDuplicateBankMovement(id) {
+    if (!id) return;
+
+    const result = await Swal.fire({
+        title: '¿Eliminar Movimiento Duplicado?',
+        text: "Esta acción eliminará de forma permanente este registro bancario del sistema.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const res = await fetch(`/api/conciliacion/movimientos-banco/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Error al eliminar el movimiento');
+        }
+
+        showToast('Movimiento duplicado eliminado exitosamente', 'success');
+        
+        const codcia = document.getElementById('selectEmpresa').value;
+        const bankCode = document.getElementById('selectBanco').value;
+        await loadDuplicates(codcia, bankCode);
+        
+        await loadMovimientosBanco();
+        await loadResumen(codcia, bankCode, document.getElementById('selectYear').value, document.getElementById('selectMonth').value);
+
+    } catch (err) {
+        console.error(err);
+        Swal.fire('Error', err.message, 'error');
+    }
+}
 
 // ─── REPORTE COBRANZAS (TAB 2) ───────────────────────────────────────
 async function loadAllCobranzas() {
@@ -1472,6 +1628,145 @@ function applyDocAplicadosCruceFilter() {
 }
 
 
+// ─── Update Summary Cards client-side (reactive to filters) ──────────
+function updateSummaryCards() {
+    if (!bankMovements) return;
+
+    // Check if the "Solo Ingresos" checkbox exists and is checked
+    const chkIngresos = document.getElementById('chkOnlyIngresosBanco');
+    const filterOnlyIngresos = chkIngresos && chkIngresos.checked;
+
+    // Filter the bankMovements array based on the "Solo Ingresos" checkbox
+    const filtered = filterOnlyIngresos 
+        ? bankMovements.filter(m => parseFloat(m.Monto || 0) > 0)
+        : bankMovements;
+
+    let total_movimientos = filtered.length;
+    let total_monto = filtered.reduce((sum, m) => sum + parseFloat(m.Monto || 0), 0);
+
+    const conciliadosList = filtered.filter(m => m.Estado === 'Conciliado');
+    let conciliados = conciliadosList.length;
+    let conciliados_monto = conciliadosList.reduce((sum, m) => sum + parseFloat(m.Monto || 0), 0);
+
+    const pendientesList = filtered.filter(m => m.Estado !== 'Conciliado');
+    let pendientes = pendientesList.length;
+    let pendientes_monto = pendientesList.reduce((sum, m) => sum + parseFloat(m.Monto || 0), 0);
+
+    let porcentaje_conciliado = total_movimientos === 0 ? 0 : Math.round((conciliados / total_movimientos) * 100);
+
+    // Update DOM
+    document.getElementById('statTotalMov').textContent = total_movimientos.toLocaleString();
+    document.getElementById('statTotalMonto').textContent = `${currentCurrencySymbol} ${total_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+    document.getElementById('statMatched').textContent = conciliados.toLocaleString();
+    document.getElementById('statMatchedMonto').textContent = `${currentCurrencySymbol} ${conciliados_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+    document.getElementById('statPending').textContent = pendientes.toLocaleString();
+    document.getElementById('statPendingMonto').textContent = `${currentCurrencySymbol} ${pendientes_monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+    document.getElementById('statPercent').textContent = `${porcentaje_conciliado}%`;
+}
+
+window.applyMovimientosBancoFilters = function() {
+    renderMovimientosBancoTable();
+};
+
+function renderMovimientosBancoTable() {
+    const tbody = document.getElementById('tbodyMovimientosBanco');
+    if (dtMovimientosBanco) {
+        dtMovimientosBanco.destroy();
+        dtMovimientosBanco = null;
+    }
+    tbody.innerHTML = '';
+
+    if (!bankMovements || bankMovements.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" class="empty-state">No hay movimientos bancarios para mostrar.</td></tr>';
+        return;
+    }
+
+    const chkIngresos = document.getElementById('chkOnlyIngresosBanco');
+    const filterOnlyIngresos = chkIngresos && chkIngresos.checked;
+    const chkPendiente = document.getElementById('chkOnlyPendienteBanco');
+    const filterOnlyPendiente = chkPendiente && chkPendiente.checked;
+
+    let filtered = bankMovements;
+    if (filterOnlyIngresos) {
+        filtered = filtered.filter(m => parseFloat(m.Monto || 0) > 0);
+    }
+    if (filterOnlyPendiente) {
+        filtered = filtered.filter(m => m.Estado === 'Pendiente');
+    }
+
+    filtered.forEach(c => {
+        const isMatched = c.Estado === 'Conciliado';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="sticky-col-ver">
+                ${isMatched ? `<button class="btn-icon" onclick="showMatchDetails(${c.Id}, 'bank')" title="Ver Conciliación" style="padding:4px; margin: auto;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>` : `<button class="btn-icon" onclick="deleteBankMovement(${c.Id})" title="Eliminar Movimiento" style="padding:4px; margin: auto; color: #ef4444;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>`}
+            </td>
+            <td>${c.Id || ''}</td>
+            <td>${c.Fecha || ''}</td>
+            <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Descripcion || ''}">${c.Descripcion || ''}</td>
+            <td class="amount ${parseFloat(c.Monto || 0) < 0 ? 'negative' : 'positive'}">${currentCurrencySymbol} ${parseFloat(c.Monto || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</td>
+            <td class="amount">${currentCurrencySymbol} ${parseFloat(c.Saldo || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</td>
+            <td>${c.Sucursal || ''}</td>
+            <td>${c.OperacionNumero || ''}</td>
+            <td>${c.OperacionHora || ''}</td>
+            <td>${c.Referencia || ''}</td>
+            <td>
+                <input type="text" class="op-manual-input" 
+                       value="${(c.OpManual || '').replace(/"/g, '&quot;')}" 
+                       onchange="updateOpManual(${c.Id}, this.value, this)" 
+                       placeholder="—" 
+                       ${isMatched ? 'disabled' : ''}>
+            </td>
+            <td class="op-cancel-cell">${c.OpCancelacion || ''}</td>
+            <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.DescripcionFinal || ''}">${c.DescripcionFinal || ''}</td>
+            <td>
+                <span class="status ${isMatched ? 'conciliado' : 'pendiente'}">${c.Estado || 'Pendiente'}</span>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    if(filtered.length > 0) {
+        dtMovimientosBanco = $('#tableMovimientosBanco').DataTable({
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
+            },
+            dom: '<"dt-top"lfB>rtip',
+            scrollX: true,
+            autoWidth: false,
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Exportar a Excel',
+                    className: 'dt-button'
+                },
+                {
+                    text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Reporte PDF Detallado',
+                    className: 'dt-button btn-pdf-report',
+                    action: function (e, dt, node, config) {
+                        generateDetailedPDFReport();
+                    }
+                }
+            ],
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
+            destroy: true
+        });
+    }
+
+    updateSummaryCards();
+}
+
 async function loadMovimientosBanco() {
     const codcia = document.getElementById('selectEmpresa').value;
     const bankCode = document.getElementById('selectBanco').value;
@@ -1481,19 +1776,20 @@ async function loadMovimientosBanco() {
     const tbody = document.getElementById('tbodyMovimientosBanco');
     if (dtMovimientosBanco) {
         dtMovimientosBanco.destroy();
+        dtMovimientosBanco = null;
     }
 
     const deleteBtn = document.getElementById('btnDeleteAllBank');
 
     if (!codcia || !bankCode) {
-        tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Seleccione empresa y banco en los filtros superiores para ver los movimientos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" class="empty-state">Seleccione empresa y banco en los filtros superiores para ver los movimientos</td></tr>';
         if(deleteBtn) deleteBtn.disabled = true;
         return;
     }
     
     if(deleteBtn) deleteBtn.disabled = false;
 
-    tbody.innerHTML = '<tr><td colspan="12" class="loading-state empty-state">Cargando datos del servidor...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="loading-state empty-state">Cargando datos del servidor...</td></tr>';
     
     try {
         let url = `/api/conciliacion/movimientos-banco?codcia=${codcia}&bank_code=${bankCode}`;
@@ -1507,73 +1803,328 @@ async function loadMovimientosBanco() {
         // Cache data globally so showMatchDetails can find the correct ReconciliationDetailId
         bankMovements = data; 
         
-        tbody.innerHTML = '';
-
-        data.forEach(c => {
-            const isMatched = c.Estado === 'Conciliado';
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="sticky-col-ver">
-                    ${isMatched ? `<button class="btn-icon" onclick="showMatchDetails(${c.Id}, 'bank')" title="Ver Conciliación" style="padding:4px; margin: auto;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                    </button>` : `<button class="btn-icon" onclick="deleteBankMovement(${c.Id})" title="Eliminar Movimiento" style="padding:4px; margin: auto; color: #ef4444;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                    </button>`}
-                </td>
-                <td>${c.Id || ''}</td>
-                <td>${c.Fecha || ''}</td>
-                <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.Descripcion || ''}">${c.Descripcion || ''}</td>
-                <td class="amount ${parseFloat(c.Monto || 0) < 0 ? 'negative' : 'positive'}">${currentCurrencySymbol} ${parseFloat(c.Monto || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</td>
-                <td class="amount">${currentCurrencySymbol} ${parseFloat(c.Saldo || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</td>
-                <td>${c.Sucursal || ''}</td>
-                <td>${c.OperacionNumero || ''}</td>
-                <td>${c.OperacionHora || ''}</td>
-                <td>${c.Referencia || ''}</td>
-                <td>
-                    <input type="text" class="op-manual-input" 
-                           value="${(c.OpManual || '').replace(/"/g, '&quot;')}" 
-                           onchange="updateOpManual(${c.Id}, this.value, this)" 
-                           placeholder="—" 
-                           ${isMatched ? 'disabled' : ''}>
-                </td>
-                <td class="op-cancel-cell">${c.OpCancelacion || ''}</td>
-                <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${c.DescripcionFinal || ''}">${c.DescripcionFinal || ''}</td>
-                <td>
-                    <span class="status ${isMatched ? 'conciliado' : 'pendiente'}">${c.Estado || 'Pendiente'}</span>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        if(data.length > 0) {
-            dtMovimientosBanco = $('#tableMovimientosBanco').DataTable({
-                language: {
-                    url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
-                },
-                dom: '<"dt-top"lfB>rtip',
-                scrollX: true,
-                autoWidth: false,
-                buttons: [
-                    {
-                        extend: 'excelHtml5',
-                        text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Exportar a Excel',
-                        className: 'dt-button'
-                    }
-                ],
-                pageLength: 25,
-                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
-                destroy: true
-            });
-        }
+        renderMovimientosBancoTable();
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="12" class="loading-state empty-state" style="color:var(--danger)">Error al cargar datos. Verifique la conexión al servidor.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" class="loading-state empty-state" style="color:var(--danger)">Error al cargar datos. Verifique la conexión al servidor.</td></tr>';
+    }
+}
+
+async function generateDetailedPDFReport() {
+    if (!bankMovements || bankMovements.length === 0) {
+        showToast('No hay datos disponibles en la tabla para exportar', 'info');
+        return;
+    }
+
+    const codcia = document.getElementById('selectEmpresa').value;
+    const bankCode = document.getElementById('selectBanco').value;
+    const year = document.getElementById('selectYear').value;
+    const month = document.getElementById('selectMonth').value;
+    const selectEmpresaEl = document.getElementById('selectEmpresa');
+    const selectBancoEl = document.getElementById('selectBanco');
+    const empresaText = selectEmpresaEl ? selectEmpresaEl.options[selectEmpresaEl.selectedIndex].text : codcia;
+    const bancoText = selectBancoEl ? selectBancoEl.options[selectBancoEl.selectedIndex].text : bankCode;
+
+    Swal.fire({
+        title: 'Generando Reporte PDF...',
+        html: 'Cargando detalles de los movimientos conciliados. Por favor espere...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const conciliados = bankMovements.filter(m => m.Estado === 'Conciliado');
+        const pendientes = bankMovements.filter(m => m.Estado !== 'Conciliado');
+
+        // Cargar detalles de conciliación en paralelo
+        const detailedConciliados = await Promise.all(conciliados.map(async (m) => {
+            const matchId = m.ReconciliationDetailId || m.Id;
+            try {
+                const res = await fetch(`/api/conciliacion/match-details?match_id=${matchId}`);
+                if (!res.ok) throw new Error('Error');
+                const details = await res.json();
+                return { ...m, details };
+            } catch (e) {
+                console.error(`Error al obtener detalles del match para movimiento ID ${m.Id}:`, e);
+                return { ...m, details: { cobranzas: [], bancos: [] } };
+            }
+        }));
+
+        Swal.fire({
+            title: 'Generando Reporte PDF...',
+            html: 'Estructurando documento y diseño...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Totales
+        const totalConciliadoMonto = detailedConciliados.reduce((acc, m) => acc + parseFloat(m.Monto || 0), 0);
+        const totalPendienteMonto = pendientes.reduce((acc, m) => acc + parseFloat(m.Monto || 0), 0);
+        const totalMontoGeneral = totalConciliadoMonto + totalPendienteMonto;
+
+        const periodStr = (year && month) ? `${month}/${year}` : (year ? year : 'Todos');
+
+        // Construir tabla de Conciliados
+        const conciliadosBody = [
+            [
+                { text: 'Fecha', style: 'tableHeader' },
+                { text: 'N° Operación', style: 'tableHeader' },
+                { text: 'Referencia', style: 'tableHeader' },
+                { text: 'Descripción Banco', style: 'tableHeader' },
+                { text: 'Monto', style: 'tableHeader', alignment: 'right' }
+            ]
+        ];
+
+        if (detailedConciliados.length === 0) {
+            conciliadosBody.push([
+                { text: 'No hay movimientos conciliados en este período.', colSpan: 5, alignment: 'center', style: 'emptyCell' },
+                {}, {}, {}, {}
+            ]);
+        } else {
+            detailedConciliados.forEach(m => {
+                const montoVal = parseFloat(m.Monto || 0);
+                conciliadosBody.push([
+                    { text: m.Fecha || '', fontSize: 8 },
+                    { text: m.OperacionNumero || '', fontSize: 8 },
+                    { text: m.Referencia || '', fontSize: 8 },
+                    { text: m.Descripcion || '', fontSize: 8 },
+                    { text: `${currentCurrencySymbol} ${montoVal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, fontSize: 8, alignment: 'right', bold: true, color: montoVal < 0 ? '#b91c1c' : '#15803d' }
+                ]);
+
+                if (m.details && m.details.cobranzas && m.details.cobranzas.length > 0) {
+                    const cobRows = [
+                        [
+                            { text: 'Cia', style: 'subTableHeader' },
+                            { text: 'Documento', style: 'subTableHeader' },
+                            { text: 'Cliente (Razón Social)', style: 'subTableHeader' },
+                            { text: 'F. Cobro', style: 'subTableHeader' },
+                            { text: 'Vendedor', style: 'subTableHeader' },
+                            { text: 'N° Depósito', style: 'subTableHeader' },
+                            { text: 'Importe', style: 'subTableHeader', alignment: 'right' }
+                        ]
+                    ];
+
+                    m.details.cobranzas.forEach(cob => {
+                        const cobFch = cob.Fecha ? new Date(cob.Fecha).toLocaleDateString('es-PE') : '';
+                        const cobMonto = Math.abs(parseFloat(cob.Importe || 0));
+                        cobRows.push([
+                            { text: cob.CodCia || '', fontSize: 7 },
+                            { text: `${cob.CodDoc || ''} - ${cob.NroDoc || ''}`, fontSize: 7 },
+                            { text: cob.RazonSocial || '', fontSize: 7 },
+                            { text: cobFch, fontSize: 7 },
+                            { text: cob.NomVen || '', fontSize: 7 },
+                            { text: cob.NroDep || '', fontSize: 7 },
+                            { text: `${currentCurrencySymbol} ${cobMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, fontSize: 7, alignment: 'right' }
+                        ]);
+                    });
+
+                    conciliadosBody.push([
+                        {
+                            colSpan: 5,
+                            margin: [15, 2, 15, 6],
+                            fillColor: '#f8fafc',
+                            stack: [
+                                { text: '▼ Cobranzas vinculadas en la conciliación:', fontSize: 7, bold: true, color: '#1e3a8a', margin: [0, 2, 0, 4] },
+                                {
+                                    table: {
+                                        headerRows: 1,
+                                        widths: ['5%', '13%', '40%', '11%', '15%', '10%', '6%'],
+                                        body: cobRows
+                                    },
+                                    layout: 'lightHorizontalLines'
+                                }
+                            ]
+                        },
+                        {}, {}, {}, {}
+                    ]);
+                }
+            });
+        }
+
+        // Construir tabla de Pendientes
+        const pendientesBody = [
+            [
+                { text: 'Fecha', style: 'tableHeader' },
+                { text: 'N° Operación', style: 'tableHeader' },
+                { text: 'Sucursal', style: 'tableHeader' },
+                { text: 'Referencia', style: 'tableHeader' },
+                { text: 'Descripción Banco', style: 'tableHeader' },
+                { text: 'Op. Manual', style: 'tableHeader' },
+                { text: 'Monto', style: 'tableHeader', alignment: 'right' }
+            ]
+        ];
+
+        if (pendientes.length === 0) {
+            pendientesBody.push([
+                { text: 'No hay movimientos pendientes en este período.', colSpan: 7, alignment: 'center', style: 'emptyCell' },
+                {}, {}, {}, {}, {}, {}
+            ]);
+        } else {
+            pendientes.forEach(m => {
+                const montoVal = parseFloat(m.Monto || 0);
+                pendientesBody.push([
+                    { text: m.Fecha || '', fontSize: 8 },
+                    { text: m.OperacionNumero || '', fontSize: 8 },
+                    { text: m.Sucursal || '', fontSize: 8 },
+                    { text: m.Referencia || '', fontSize: 8 },
+                    { text: m.Descripcion || '', fontSize: 8 },
+                    { text: m.OpManual || '', fontSize: 8 },
+                    { text: `${currentCurrencySymbol} ${montoVal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, fontSize: 8, alignment: 'right', bold: true, color: montoVal < 0 ? '#b91c1c' : '#15803d' }
+                ]);
+            });
+        }
+
+        const docDefinition = {
+            pageOrientation: 'landscape',
+            pageSize: 'A4',
+            pageMargins: [30, 40, 30, 40],
+            header: function(currentPage, pageCount, pageSize) {
+                return {
+                    text: 'SISTEMA DE GESTIÓN YELAVE ERP',
+                    alignment: 'right',
+                    fontSize: 7,
+                    color: '#94a3b8',
+                    margin: [0, 15, 30, 0]
+                };
+            },
+            footer: function(currentPage, pageCount) {
+                return {
+                    columns: [
+                        { text: `Generado el: ${new Date().toLocaleString('es-PE')}`, fontSize: 7, color: '#94a3b8', margin: [30, 0, 0, 0] },
+                        { text: `Página ${currentPage} de ${pageCount}`, alignment: 'right', fontSize: 8, color: '#64748b', margin: [0, 0, 30, 0] }
+                    ]
+                };
+            },
+            content: [
+                {
+                    columns: [
+                        {
+                            text: 'REPORTE DETALLADO DE CONCILIACIÓN BANCARIA',
+                            fontSize: 14,
+                            bold: true,
+                            color: '#1e3a8a'
+                        },
+                        {
+                            text: `Período: ${periodStr}`,
+                            alignment: 'right',
+                            fontSize: 10,
+                            bold: true,
+                            color: '#475569',
+                            margin: [0, 4, 0, 0]
+                        }
+                    ]
+                },
+                {
+                    canvas: [{ type: 'line', x1: 0, y1: 5, x2: 782, y2: 5, lineWidth: 1.5, lineColor: '#1e3a8a' }]
+                },
+                {
+                    margin: [0, 10, 0, 15],
+                    columns: [
+                        {
+                            stack: [
+                                { text: 'DATOS GENERALES', style: 'sectionHeader' },
+                                { text: `Empresa: ${empresaText}`, fontSize: 9, margin: [0, 2, 0, 2] },
+                                { text: `Banco / Cuenta: ${bancoText}`, fontSize: 9, margin: [0, 2, 0, 2] }
+                            ]
+                        },
+                        {
+                            width: '40%',
+                            table: {
+                                widths: ['60%', '40%'],
+                                body: [
+                                    [{ text: 'RESUMEN DEL PERÍODO', colSpan: 2, bold: true, fontSize: 8, fillColor: '#f1f5f9', alignment: 'center' }, {}],
+                                    [
+                                        { text: 'Conciliado:', fontSize: 8, color: '#15803d', bold: true },
+                                        { text: `${currentCurrencySymbol} ${totalConciliadoMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, fontSize: 8, alignment: 'right', bold: true, color: '#15803d' }
+                                    ],
+                                    [
+                                        { text: 'Pendiente:', fontSize: 8, color: '#b91c1c', bold: true },
+                                        { text: `${currentCurrencySymbol} ${totalPendienteMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, fontSize: 8, alignment: 'right', bold: true, color: '#b91c1c' }
+                                    ],
+                                    [
+                                        { text: 'Total Bancos:', fontSize: 8, bold: true },
+                                        { text: `${currentCurrencySymbol} ${totalMontoGeneral.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, fontSize: 8, alignment: 'right', bold: true }
+                                    ]
+                                ]
+                            },
+                            layout: {
+                                hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1 : 0.5; },
+                                vLineWidth: function (i, node) { return (i === 0 || i === node.table.widths.length) ? 1 : 0.5; },
+                                hLineColor: function () { return '#cbd5e1'; },
+                                vLineColor: function () { return '#cbd5e1'; }
+                            }
+                        }
+                    ]
+                },
+                
+                // SECCIÓN: CONCILIADOS
+                { text: `MOVIMIENTOS CONCILIADOS (${detailedConciliados.length})`, style: 'tableTitle', color: '#15803d' },
+                {
+                    table: {
+                        headerRows: 1,
+                        widths: ['10%', '13%', '15%', '47%', '15%'],
+                        body: conciliadosBody
+                    },
+                    layout: 'lightHorizontalLines'
+                },
+
+                // SECCIÓN: PENDIENTES
+                { text: `MOVIMIENTOS PENDIENTES (${pendientes.length})`, style: 'tableTitle', color: '#b91c1c', pageBreak: 'before' },
+                {
+                    table: {
+                        headerRows: 1,
+                        widths: ['10%', '12%', '10%', '15%', '33%', '10%', '10%'],
+                        body: pendientesBody
+                    },
+                    layout: 'lightHorizontalLines'
+                }
+            ],
+            styles: {
+                sectionHeader: {
+                    fontSize: 9,
+                    bold: true,
+                    color: '#1e3a8a',
+                    margin: [0, 0, 0, 5],
+                    letterSpacing: 0.5
+                },
+                tableTitle: {
+                    fontSize: 10,
+                    bold: true,
+                    margin: [0, 15, 0, 8],
+                    letterSpacing: 0.5
+                },
+                tableHeader: {
+                    bold: true,
+                    fontSize: 8,
+                    color: '#ffffff',
+                    fillColor: '#1e3a8a',
+                    margin: [0, 2, 0, 2]
+                },
+                subTableHeader: {
+                    bold: true,
+                    fontSize: 7,
+                    color: '#0f172a',
+                    fillColor: '#cbd5e1',
+                    margin: [0, 1, 0, 1]
+                },
+                emptyCell: {
+                    fontSize: 8,
+                    color: '#94a3b8',
+                    italic: true,
+                    margin: [0, 10, 0, 10]
+                }
+            }
+        };
+
+        pdfMake.createPdf(docDefinition).download(`Reporte_Conciliacion_${periodStr.replace('/', '-')}.pdf`);
+        Swal.close();
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', 'No se pudo generar el reporte PDF: ' + e.message, 'error');
     }
 }
 

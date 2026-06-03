@@ -122,7 +122,7 @@ def get_purchase_orders(
                 RTRIM(NomCom) as nomcom,
                 RTRIM(Usuario) as usuario,
                 CASE WHEN EXISTS (SELECT 1 FROM LogSolicitudesRecojo sr WHERE sr.nro_oc = o.NroDoc AND sr.codcia = o.codcia AND sr.estado != 'Completada' AND sr.estado != 'Cancelada') THEN 1 ELSE 0 END as has_recojo,
-                (SELECT STUFF((SELECT ', '+RTRIM(f.CodTipoDoc)+'-'+RTRIM(f.Serie)+'-'+RTRIM(f.Numero)+'|'+CAST(f.Id AS VARCHAR(10)) FROM CntFacturaCab f WHERE RTRIM(f.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(f.CodCia) = RTRIM(o.CodCia) AND f.Estado != 'Anulada' FOR XML PATH('')), 1, 2, '')) as facturas_vinculadas,
+                (SELECT STUFF((SELECT ', '+RTRIM(f.CodTipoDoc)+'-'+RTRIM(f.Serie)+'-'+RTRIM(f.Numero)+'|'+CAST(f.Id AS VARCHAR(10)) FROM CntFacturaCab f WHERE ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(o.NroDoc) + ',%' AND RTRIM(f.CodCia) = RTRIM(o.CodCia) AND RTRIM(f.TipoOc) = RTRIM(o.TipoOc) AND f.Estado != 'Anulada' FOR XML PATH('')), 1, 2, '')) as facturas_vinculadas,
                 ISNULL((SELECT TOP 1 
                     CASE 
                         WHEN RTRIM(cd.EstadoContable) = 'PAGADO' THEN 'CANCELADO'
@@ -132,7 +132,7 @@ def get_purchase_orders(
                     END
                  FROM CntCargosDetalle cd
                  INNER JOIN CntCargosDocumentales c ON cd.CargoId = c.Id
-                 WHERE RTRIM(cd.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(cd.CodCiaOc) = RTRIM(o.CodCia)
+                 WHERE RTRIM(cd.NroOrdenCompra) = RTRIM(o.NroDoc) AND RTRIM(cd.CodCiaOc) = RTRIM(o.CodCia) AND RTRIM(cd.TipoOc) = RTRIM(o.TipoOc)
                  ORDER BY cd.Id DESC), 'EN LOGÍSTICA') as estado_proceso,
                 (SELECT TOP 1 ISNULL(RTRIM(UsuarioLogin), 'SISTEMA') FROM LogOcAcciones l WHERE RTRIM(l.CodCia) = RTRIM(o.CodCia) AND RTRIM(l.NroDoc) = RTRIM(o.NroDoc) AND RTRIM(l.TipoOc) = RTRIM(o.TipoOc) AND l.Accion = 'APROBACION' ORDER BY l.FechaHora DESC) as usuario_aprobado,
                 CASE 
@@ -449,7 +449,7 @@ def get_purchase_order_report(
                     FROM CntFacturaDet fd
                     INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
                     WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
-                      AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
+                      AND ',' + REPLACE(RTRIM(fc.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(r.NroDoc) + ',%'
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
                       AND ABS(fd.PrecioUnitario - r.PreUni) < 0.01
                       AND fc.Estado != 'Anulada'
@@ -459,7 +459,7 @@ def get_purchase_order_report(
                     FROM CntFacturaDet fd
                     INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
                     WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
-                      AND RTRIM(fc.NroOrdenCompra) = RTRIM(r.NroDoc)
+                      AND ',' + REPLACE(RTRIM(fc.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(r.NroDoc) + ',%'
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
                       AND ABS(fd.PrecioUnitario - r.PreUni) < 0.01
                       AND fc.Estado != 'Anulada'

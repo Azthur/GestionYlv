@@ -558,12 +558,17 @@
             <h2>Buscar Planillas de Movilidad Pendientes</h2>
             <div style="font-size:0.8rem; margin-bottom:10px; color:#555;">Se muestran las planillas no rendidas del
                 trabajador seleccionado.</div>
+            <div class="search-bar">
+                <input type="text" id="qPlanilla" placeholder="Buscar por Nro Planilla, Trabajador, RUC o DNI..." onkeyup="filtrarPlanillas()">
+            </div>
             <table class="modal-table">
                 <thead>
                     <tr>
                         <th>Nro Planilla</th>
+                        <th>Trabajador</th>
                         <th>Fecha Emis.</th>
                         <th>Monto Total</th>
+                        <th>Enlace</th>
                         <th>Acción</th>
                     </tr>
                 </thead>

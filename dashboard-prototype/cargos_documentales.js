@@ -422,7 +422,7 @@ async function loadOCsDisponibles() {
                 processing: '<div style="background:rgba(255,255,255,0.8); z-index:99; position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#2563eb; font-weight:700;"><i class="fa fa-spinner fa-spin fa-2x fa-fw"></i> Cargando OCs...</div>'
             },
             rowCallback: function(row, data) {
-                const key = data.nrodoc + '|' + (data.tipooc || '');
+                const key = data.nrodoc + '|' + (data.tipooc || '') + '|' + (data.factura || '');
                 if (selectedItemsTracker.ocs.has(key)) {
                     $(row).find('.oc-chk').prop('checked', true);
                 }
@@ -549,7 +549,7 @@ async function loadOCsDisponibles() {
             const tr = $(this).closest('tr');
             const rowData = ocsDT.row(tr).data();
             if (!rowData) return;
-            const key = rowData.nrodoc + '|' + (rowData.tipooc || '');
+            const key = rowData.nrodoc + '|' + (rowData.tipooc || '') + '|' + (rowData.factura || '');
             if (this.checked) {
                 selectedItemsTracker.ocs.set(key, rowData);
                 updateSelectionUI();
@@ -640,8 +640,8 @@ async function generarCargo() {
                         proveedor: row.NomProveedor || '',
                         ruc_proveedor: String(row.NumRucProveedor || ''),
                         moneda: String(row.CodMoneda || '1'),
-                        tipo_documento: 'FACTURA_SIN_OC',
-                        tipo_comprobante: row.CodTipoDoc || '',
+                        tipo_documento: row.TipoDoc || '',
+                        tipo_comprobante: row.TipoComprobante || '',
                         fecha_emision: row.FecEmision || null,
                         fecha_vencimiento: row.FecVencimiento || null,
                         monto_rendicion: null
@@ -750,8 +750,7 @@ async function generarCargo() {
             confirmButtonColor: '#10b981'
         });
 
-        document.getElementById('cargoObservaciones').value = '';
-        setTimeout(() => switchSubTab('historial', null), 300);
+        window.location.reload();
 
     } catch (err) {
         Swal.fire('Error', err.response?.data?.detail || err.message, 'error');
@@ -901,7 +900,7 @@ async function loadCargosRecibidos() {
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
                 rowCallback: function(row, data) {
-                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                const key = (data.NroOrdenCompra || '') + '|' + (data.TipoOc || '') + '|' + (data.NroFactura || '');
                 if (selectedItemsTracker.docsAceptados.has(key)) {
                     $(row).find('.doc-aceptado-chk').prop('checked', true);
                 }
@@ -977,7 +976,7 @@ async function loadCargosRecibidos() {
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Pendientes', className: 'dt-button', exportOptions: { columns: [1,2,3,4,5,6,7,8,9] } } ],
                 rowCallback: function(row, data) {
-                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                const key = (data.NroOrdenCompra || '') + '|' + (data.TipoOc || '') + '|' + (data.NroFactura || '');
                 if (selectedItemsTracker.docsAceptados.has(key)) {
                     $(row).find('.doc-aceptado-chk').prop('checked', true);
                 }
@@ -1332,7 +1331,7 @@ async function loadHistorial() {
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9] } } ],
                 rowCallback: function(row, data) {
-                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                const key = (data.NroOrdenCompra || '') + '|' + (data.TipoOc || '') + '|' + (data.NroFactura || '');
                 if (selectedItemsTracker.docsAceptados.has(key)) {
                     $(row).find('.doc-aceptado-chk').prop('checked', true);
                 }
@@ -1401,7 +1400,7 @@ async function loadHistorial() {
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }, dom: 'Bfrtip',
                 buttons: [ { extend: 'excelHtml5', text: '📊 Exportar Historial', className: 'dt-button', exportOptions: { columns: [0,1,2,3,4,5,6,7,8] } } ],
                 rowCallback: function(row, data) {
-                const key = data.NroOrdenCompra + '|' + (data.TipoOc || '');
+                const key = (data.NroOrdenCompra || '') + '|' + (data.TipoOc || '') + '|' + (data.NroFactura || '');
                 if (selectedItemsTracker.docsAceptados.has(key)) {
                     $(row).find('.doc-aceptado-chk').prop('checked', true);
                 }
@@ -3052,7 +3051,8 @@ async function loadFacturasSinOC() {
                     Total: chk.data('total') || 0,
                     NomProveedor: chk.data('nomproveedor') || '',
                     CodMoneda: chk.data('moneda') || '1',
-                    CodTipoDoc: chk.data('tipocomprobante') || chk.data('tipodoc') || '',
+                    TipoDoc: chk.data('tipodoc') || '',
+                    TipoComprobante: chk.data('tipocomprobante') || '',
                     FecEmision: chk.data('fechaemision') || null,
                     FecVencimiento: chk.data('fechavencimiento') || null
                 });
@@ -3342,7 +3342,7 @@ async function loadDocumentosAceptadosTesoreria() {
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     rowCallback: function(row, data) {
                 const cb = $(row).find('.doc-aceptado-chk');
-                const key = cb.data('nrooc') + '|' + (cb.data('tipooc') || '');
+                const key = cb.data('nrooc') + '|' + (cb.data('tipooc') || '') + '|' + (cb.data('nrofactura') || '');
                 if (selectedItemsTracker.docsAceptados.has(key)) {
                     cb.prop('checked', true);
                 }
@@ -3358,7 +3358,7 @@ async function loadDocumentosAceptadosTesoreria() {
                     const cb = $(this);
                     const nrooc = String(cb.data('nrooc') || '');
                     const tipooc = String(cb.data('tipooc') || '');
-                    const key = nrooc + '|' + tipooc;
+                    const key = nrooc + '|' + tipooc + '|' + String(cb.data('nrofactura') || '');
                     
                     if (this.checked) {
                         const rowDataObj = {

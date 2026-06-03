@@ -17,6 +17,19 @@ from auth import get_current_user
 router = APIRouter(prefix="/api/contabilidad", tags=["Contabilidad"])
 
 
+def _format_date(val, fmt="%Y-%m-%d"):
+    if val is None:
+        return None
+    if isinstance(val, str):
+        s = val.strip()
+        if fmt == "%Y-%m-%d" and len(s) > 10 and " " in s:
+            return s.split()[0]
+        return s
+    if hasattr(val, 'strftime'):
+        return val.strftime(fmt)
+    return str(val)
+
+
 def _safe_date(val):
     """Normaliza un valor de fecha a formato YYYY-MM-DD compatible con SQL Server.
     Maneja formatos: DD/MM/YYYY, YYYY-MM-DD, cadenas vacías, None.
@@ -241,14 +254,17 @@ def list_tokens():
             d = dict(zip(cols, r))
             d['Activo'] = bool(d['Activo'])
             if d['CreatedAt']:
-                d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+                d['CreatedAt'] = _format_date(d['CreatedAt'], "%Y-%m-%d %H:%M")
             if d['UpdatedAt']:
-                d['UpdatedAt'] = d['UpdatedAt'].strftime("%Y-%m-%d %H:%M")
+                d['UpdatedAt'] = _format_date(d['UpdatedAt'], "%Y-%m-%d %H:%M")
             rows.append(d)
         return rows
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        if 'cursor' in locals() and cursor:
+            try: cursor.close()
+            except: pass
         conn.close()
 
 
@@ -876,6 +892,15 @@ def crear_factura(data: FacturaCreate):
             print(f"DEBUG: Error al modificar columna Inci: {e}")
             pass
         
+        # Asegurar que CntFacturaCab.NroOrdenCompra tenga capacidad suficiente para múltiples OCs
+        try:
+            cursor.execute("ALTER TABLE CntFacturaCab ALTER COLUMN NroOrdenCompra varchar(250) NULL")
+            conn.commit()
+            print("DEBUG: Columna NroOrdenCompra modificada a varchar(250) en CntFacturaCab")
+        except Exception as e:
+            print(f"DEBUG: Error al modificar CntFacturaCab.NroOrdenCompra: {e}")
+            pass
+        
         # Crear tabla para archivos de items si no existe
         try:
             cursor.execute("""
@@ -930,7 +955,7 @@ def crear_factura(data: FacturaCreate):
         data.modo_registro = trunc(data.modo_registro, 10)
         data.created_by = trunc(data.created_by, 50)
         data.placa_vehicular = trunc(data.placa_vehicular, 20)
-        data.nro_orden_compra = trunc(data.nro_orden_compra, 20)
+        data.nro_orden_compra = trunc(data.nro_orden_compra, 250)
 
 
         # Check for duplicate
@@ -1195,11 +1220,11 @@ def list_facturas(
         for r in cursor.fetchall():
             d = dict(zip(cols, r))
             if d.get('FecEmision'):
-                d['FecEmision'] = d['FecEmision'].strftime("%Y-%m-%d")
+                d['FecEmision'] = _format_date(d['FecEmision'], "%Y-%m-%d")
             if d.get('FecVencimiento'):
-                d['FecVencimiento'] = d['FecVencimiento'].strftime("%Y-%m-%d")
+                d['FecVencimiento'] = _format_date(d['FecVencimiento'], "%Y-%m-%d")
             if d.get('CreatedAt'):
-                d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+                d['CreatedAt'] = _format_date(d['CreatedAt'], "%Y-%m-%d %H:%M")
             for k in ['SubTotal','IGV','OtrosTributos','Total','TipoCambio']:
                 if d.get(k) is not None:
                     d[k] = float(d[k])
@@ -1208,6 +1233,9 @@ def list_facturas(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        if 'cursor' in locals() and cursor:
+            try: cursor.close()
+            except: pass
         conn.close()
 
 
@@ -1253,11 +1281,11 @@ def get_factura_detail(factura_id: int):
         # Format dates
         for k in ['FecEmision','FecVencimiento','FecRegistro','CreditoFecPlazo']:
             if cab.get(k):
-                cab[k] = cab[k].strftime("%Y-%m-%d")
+                cab[k] = _format_date(cab[k], "%Y-%m-%d")
         if cab.get('CreatedAt'):
-            cab['CreatedAt'] = cab['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+            cab['CreatedAt'] = _format_date(cab['CreatedAt'], "%Y-%m-%d %H:%M")
         if cab.get('UpdatedAt'):
-            cab['UpdatedAt'] = cab['UpdatedAt'].strftime("%Y-%m-%d %H:%M")
+            cab['UpdatedAt'] = _format_date(cab['UpdatedAt'], "%Y-%m-%d %H:%M")
         for k in ['SubTotal','IGV','OtrosTributos','Total','TipoCambio']:
             if cab.get(k) is not None:
                 cab[k] = float(cab[k])
@@ -1295,7 +1323,7 @@ def get_factura_detail(factura_id: int):
                     d[k] = float(d[k])
             
             if d.get('FechaVencimientoItem'):
-                d['FechaVencimientoItem'] = d['FechaVencimientoItem'].strftime("%Y-%m-%d")
+                d['FechaVencimientoItem'] = _format_date(d['FechaVencimientoItem'], "%Y-%m-%d")
             
             # Parse extraData from ExtraDataJson
             if d.get('ExtraDataJson'):
@@ -1327,7 +1355,7 @@ def get_factura_detail(factura_id: int):
             for r in cursor.fetchall():
                 d = dict(zip(ia_cols, r))
                 if d.get('CreatedAt'):
-                    d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+                    d['CreatedAt'] = _format_date(d['CreatedAt'], "%Y-%m-%d %H:%M")
                 item_archivos.append(d)
             print(f"DEBUG get_factura_detail: Archivos de items obtenidos: {len(item_archivos)} archivos para factura {factura_id}")
         except Exception as e:
@@ -1363,6 +1391,9 @@ def get_factura_detail(factura_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        if 'cursor' in locals() and cursor:
+            try: cursor.close()
+            except: pass
         conn.close()
 
 
@@ -2558,7 +2589,7 @@ def get_facturas_sin_oc(
                       AND EXISTS (
                           SELECT 1 FROM CntCargosDetalle d2 
                           INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
-                          WHERE RTRIM(d2.NroOrdenCompra) = RTRIM(f.NroOrdenCompra)
+                          WHERE ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(d2.NroOrdenCompra) + ',%'
                             AND RTRIM(d2.CodCiaOc) = RTRIM(f.CodCia)
                             AND (d2.NroFactura IS NULL OR RTRIM(d2.NroFactura) = '' OR RTRIM(d2.NroFactura) = '-')
                             AND c2.TipoCargo = 'LOG_A_CONT'
@@ -2615,11 +2646,11 @@ def get_facturas_sin_oc(
         for r in cursor.fetchall():
             d = dict(zip(cols, r))
             if d.get('FecEmision'):
-                d['FecEmision'] = d['FecEmision'].strftime("%Y-%m-%d")
+                d['FecEmision'] = _format_date(d['FecEmision'], "%Y-%m-%d")
             if d.get('FecVencimiento'):
-                d['FecVencimiento'] = d['FecVencimiento'].strftime("%Y-%m-%d")
+                d['FecVencimiento'] = _format_date(d['FecVencimiento'], "%Y-%m-%d")
             if d.get('CreatedAt'):
-                d['CreatedAt'] = d['CreatedAt'].strftime("%Y-%m-%d %H:%M")
+                d['CreatedAt'] = _format_date(d['CreatedAt'], "%Y-%m-%d %H:%M")
             if d.get('Total') is not None:
                 d['Total'] = float(d['Total'])
             # Eliminar la columna rn del resultado
@@ -2637,6 +2668,9 @@ def get_facturas_sin_oc(
         print(f"Error en facturas-sin-oc: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        if 'cursor' in locals() and cursor:
+            try: cursor.close()
+            except: pass
         conn.close()
 
 

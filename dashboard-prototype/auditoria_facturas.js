@@ -171,7 +171,7 @@ async function searchSunatInvoices() {
         docs.forEach(c => {
             const jsonStr = escapeHtml(JSON.stringify(c));
             // Usar NroOrdenCompra/TipoOc del LEFT JOIN
-            const ocInfo = c.NroOrdenCompra ? `${c.TipoOc||''}${c.NroOrdenCompra}` : '<span style="color:#94a3b8;">-</span>';
+            const ocInfo = c.NroOrdenCompra ? c.NroOrdenCompra.split(',').map(oc => (c.TipoOc||'') + oc.trim()).join(', ') : '<span style="color:#94a3b8;">-</span>';
             const estadoInfo = c.FacturaId ? `<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;">${c.FacturaEstado||'Registrada'}</span>` : '<span style="color:#94a3b8;font-size:0.75rem;">Sin registrar</span>';
             html += `<tr>
                 <td style="white-space:nowrap;">
@@ -228,7 +228,7 @@ async function loadSunatInvoice(btn) {
             const result = await Swal.fire({
                 icon: 'warning',
                 title: 'Factura ya vinculada',
-                html: `Esta factura ya se encuentra vinculada a la OC NÂ° <strong>${c.TipoOc||''}${c.NroOrdenCompra}</strong> con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>Â¿Desea continuar?`,
+                html: `Esta factura ya se encuentra vinculada a la OC NÂ° <strong>${c.NroOrdenCompra.split(',').map(oc => (c.TipoOc||'') + oc.trim()).join(', ')}</strong> con estado <strong>${c.FacturaEstado||'Registrada'}</strong>.<br>Â¿Desea continuar?`,
                 showCancelButton: true,
                 confirmButtonText: 'SÃ­, continuar',
                 cancelButtonText: 'Cancelar',
@@ -595,7 +595,19 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
         const ocData = await res.json();
         Swal.close();
 
-        document.getElementById('invNroOC').value = nrodoc;
+        const currOcInput = document.getElementById('invNroOC');
+        if (currOcInput) {
+            let currentVal = currOcInput.value.trim();
+            if (currentVal && currentVal !== '-') {
+                const arr = currentVal.split(',').map(s => s.trim()).filter(x => x);
+                if (!arr.includes(nrodoc)) {
+                    arr.push(nrodoc);
+                }
+                currOcInput.value = arr.join(', ');
+            } else {
+                currOcInput.value = nrodoc;
+            }
+        }
         document.getElementById('invTipoOC').value = tipooc;
         document.getElementById('invAnosOC').value = anos;
 
@@ -623,7 +635,7 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
         
         // Agregar nuevas lÃ­neas al detalle global (para validaciÃ³n en memoria y mult-oc)
         detalles.forEach(d => {
-            const pend = parseFloat(d.candes || d.canpend || d.cantidad || 0) - parseFloat(d.cant_ingresada || 0);
+            const pend = parseFloat(d.candes || d.canpend || d.cantidad || 0) - parseFloat(d.cant_facturada || 0);
             window.currentOCDetalle.push({
                 codigo: d.codmat || d.codart || '',
                 canpend: pend > 0 ? pend : 0, // Ensure no negative pending
@@ -632,14 +644,7 @@ async function loadOCDetails(nrodoc, tipooc, anos, ruc, prov, moneda, factVincSt
             });
         });
 
-        const currOcInput = document.getElementById('invNroOC');
-        if (currOcInput && currOcInput.value && currOcInput.value !== (ocData.header?.nrodoc || '')) {
-            const arr = currOcInput.value.split(',').map(s=>s.trim()).filter(x=>x);
-            if (!arr.includes(ocData.header?.nrodoc)) {
-                arr.push(ocData.header?.nrodoc || '');
-                currOcInput.value = arr.join(', ').substring(0, 50);
-            }
-        }
+        // El input invNroOC ya fue actualizado al inicio de la funciÃ³n
 
         // Levantar Modal
         openConciliarOCModal(ocData);
@@ -704,7 +709,7 @@ async function previewOCDetails(nrodoc, tipooc, anos) {
             html += `<tr><td colspan="5" style="text-align:center; padding:1rem; color:#64748b;">No hay Ã­tems pendientes en esta OC.</td></tr>`;
         } else {
             detalles.forEach(it => {
-                const pend = parseFloat(it.candes || it.canpend || it.cantidad || 0) - parseFloat(it.cant_ingresada || 0);
+                const pend = parseFloat(it.candes || it.canpend || it.cantidad || 0) - parseFloat(it.cant_facturada || 0);
                 const p = parseFloat(it.preuni || it.precio_unitario || 0);
                 html += `<tr>
                     <td style="padding:0.5rem; border-bottom:1px solid #e2e8f0;">${it.codmat || it.codart || '-'}</td>
@@ -752,7 +757,7 @@ function openConciliarOCModal(ocData) {
 
     detalles.forEach((d, j) => {
         let matchFacturaIdx = -1;
-        const dCant = parseFloat(d.candes || d.canpend || d.cantidad || 0) - parseFloat(d.cant_ingresada || 0);
+        const dCant = parseFloat(d.candes || d.canpend || d.cantidad || 0) - parseFloat(d.cant_facturada || 0);
         const dPu = parseFloat(d.preuni || d.precio_unitario || 0);
 
         for (let i=0; i<invoiceItems.length; i++) {
@@ -2298,7 +2303,7 @@ async function loadFacturas() {
                 f.NumRucProveedor || '-',
                 monLabel(f.CodMoneda),
                 amtDisplay,
-                f.NroOrdenCompra ? `${f.TipoOc||''}${f.NroOrdenCompra}` : '-',
+                f.NroOrdenCompra ? f.NroOrdenCompra.split(',').map(oc => (f.TipoOc||'') + oc.trim()).join(', ') : '-',
                 f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
                 f.CreatedBy || 'SISTEMA',
                 estadoBadge,
@@ -2420,7 +2425,7 @@ async function viewFacturaDetail(id) {
                     <div style="background:#f8fafc; padding: 1.5rem; border-radius: 8px; border:1px solid #f1f5f9;">
                         <h3 style="font-size: 0.8rem; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; margin: 0 0 1rem 0;">Datos Operativos</h3>
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem; font-size:0.85rem;">
-                            <strong>Orden de Compra:</strong> <span>${cab.NroOrdenCompra ? (cab.TipoOc||'') + cab.NroOrdenCompra : 'Ninguna'}</span>
+                            <strong>Orden de Compra:</strong> <span>${cab.NroOrdenCompra ? cab.NroOrdenCompra.split(',').map(oc => (cab.TipoOc||'') + oc.trim()).join(', ') : 'Ninguna'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem; font-size:0.85rem;">
                             <strong>Doc. que Modifica:</strong> <span>${cab.DocModificaSerie ? cab.DocModificaSerie+'-'+cab.DocModificaNumero : '-'}</span>
@@ -2573,7 +2578,7 @@ function printFacturaLocal() {
                 </div>
                 <div class="info-box">
                     <h3>Datos Operativos</h3>
-                    <div class="info-row"><strong>Orden de Compra:</strong> <span>${data.NroOrdenCompra ? (data.TipoOc||'') + data.NroOrdenCompra : 'Ninguna'}</span></div>
+                    <div class="info-row"><strong>Orden de Compra:</strong> <span>${data.NroOrdenCompra ? data.NroOrdenCompra.split(',').map(oc => (data.TipoOc||'') + oc.trim()).join(', ') : 'Ninguna'}</span></div>
                     <div class="info-row"><strong>Observaciones:</strong> <span>${data.Observaciones || '-'}</span></div>
                     <div class="info-row"><strong>Estado Registro:</strong> <span style="font-weight:700; color:#10b981;">${data.Estado || 'Registrada'}</span></div>
                     <div class="info-row"><strong>Dcto Modifica (NC/ND):</strong> <span>${data.DocModificaSerie ? data.DocModificaSerie+'-'+data.DocModificaNumero : '-'}</span></div>
