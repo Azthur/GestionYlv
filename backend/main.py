@@ -46,6 +46,12 @@ app.include_router(kardex_router)
 from cuentas_cobrar import router as cuentas_cobrar_router
 app.include_router(cuentas_cobrar_router)
 
+from historial_cancelaciones import router as historial_cancelaciones_router
+app.include_router(historial_cancelaciones_router)
+
+from auditoria_comprobantes import router as auditoria_comprobantes_router
+app.include_router(auditoria_comprobantes_router)
+
 from contabilidad import router as contabilidad_router
 app.include_router(contabilidad_router)
 

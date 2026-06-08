@@ -135,7 +135,11 @@ class FacturaDetItem(BaseModel):
     total: Optional[float] = 0
     cantidad_oc: Optional[float] = None
     cantidad_almacen: Optional[float] = None
+    cuenta_contable: Optional[str] = None
     extra_data: Optional[dict] = None
+    porc_igv: Optional[float] = 18.0
+    tipo_op: Optional[str] = "gravada"
+    codcta2: Optional[str] = None
 
 class FacturaCreate(BaseModel):
     id: Optional[int] = None
@@ -611,7 +615,7 @@ def list_compras(
 
 @router.get("/items/autocomplete")
 def autocomplete_items(codcia: str, q: str = Query(..., min_length=2)):
-    """Busca en tablas AlmmMatg, AlmTabla(0017) y CONGASTO simultáneamente"""
+    """Busca en tablas AlmmMatg, AlmTabla(0017) y CONGASTO simultáneamente, considerando CntCuentasContablesCustom"""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection generic error")
@@ -622,24 +626,118 @@ def autocomplete_items(codcia: str, q: str = Query(..., min_length=2)):
         
         # 1. AlmmMatg (Materiales / Productos)
         try:
-            cursor.execute("SELECT TOP 15 RTRIM(codmat) as codigo, RTRIM(desmat) as descripcion FROM AlmmMatg WHERE RTRIM(codcia)=? AND (codmat LIKE ? OR desmat LIKE ?)", (codcia, q_clean, q_clean))
+            cursor.execute("""
+                SELECT TOP 15 
+                    RTRIM(m.codmat) as codigo, 
+                    RTRIM(m.desmat) as descripcion,
+                    COALESCE(RTRIM(c.CodCta), RTRIM(f.codcta)) as cuenta_contable,
+                    COALESCE(RTRIM(c.CodCta2), RTRIM(f.codcta2)) as cuenta_contable2
+                FROM AlmmMatg m
+                LEFT JOIN AlmTabla f ON f.tabla = '0001' AND RTRIM(f.codigo) = RTRIM(m.codfam) AND f.codcia = m.codcia
+                LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Producto' AND c.Codigo = m.codfam AND c.CodCia = m.codcia
+                WHERE RTRIM(m.codcia)=? AND (m.codmat LIKE ? OR m.desmat LIKE ?)
+            """, (codcia, q_clean, q_clean))
             for row in cursor.fetchall():
-                results.append({"tipo": "Producto", "codigo": row.codigo, "descripcion": row.descripcion})
-        except Exception: pass
+                results.append({
+                    "tipo": "Producto", 
+                    "codigo": row[0], 
+                    "descripcion": row[1], 
+                    "cuenta_contable": row[2].strip() if row[2] else "",
+                    "cuenta_contable2": row[3].strip() if row[3] else ""
+                })
+        except Exception as e:
+            print("autocomplete product error:", e)
 
         # 2. AlmTabla (Servicios)
         try:
-            cursor.execute("SELECT TOP 15 RTRIM(codigo) as codigo, RTRIM(nombre) as descripcion FROM AlmTabla WHERE tabla='0017' AND (codigo LIKE ? OR nombre LIKE ?)", (q_clean, q_clean))
+            cursor.execute("""
+                SELECT TOP 15 codigo, descripcion, cuenta_contable, cuenta_contable2
+                FROM (
+                    SELECT 
+                        RTRIM(t.codigo) as codigo, 
+                        COALESCE(RTRIM(c.Descripcion), RTRIM(t.nombre)) as descripcion,
+                        COALESCE(RTRIM(c.CodCta), RTRIM(t.codcta)) as cuenta_contable,
+                        COALESCE(RTRIM(c.CodCta2), RTRIM(t.codcta2)) as cuenta_contable2
+                    FROM AlmTabla t
+                    LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Servicio' AND c.Codigo = t.codigo AND c.CodCia = t.codcia
+                    WHERE t.tabla='0017' AND RTRIM(t.codcia)=?
+                    
+                    UNION
+                    
+                    SELECT 
+                        RTRIM(c.Codigo) as codigo,
+                        RTRIM(c.Descripcion) as descripcion,
+                        RTRIM(c.CodCta) as cuenta_contable,
+                        RTRIM(c.CodCta2) as cuenta_contable2
+                    FROM CntCuentasContablesCustom c
+                    WHERE c.Tipo = 'Servicio' AND RTRIM(c.CodCia)=?
+                      AND NOT EXISTS (
+                          SELECT 1 FROM AlmTabla t 
+                          WHERE t.tabla = '0017' AND RTRIM(t.codigo) = RTRIM(c.Codigo) AND RTRIM(t.codcia) = ?
+                      )
+                ) AS combined
+                WHERE (codigo LIKE ? OR descripcion LIKE ?)
+            """, (codcia, codcia, codcia, q_clean, q_clean))
             for row in cursor.fetchall():
-                results.append({"tipo": "Servicio", "codigo": row.codigo, "descripcion": row.descripcion})
-        except Exception: pass
+                results.append({
+                    "tipo": "Servicio", 
+                    "codigo": row[0], 
+                    "descripcion": row[1], 
+                    "cuenta_contable": row[2].strip() if row[2] else "",
+                    "cuenta_contable2": row[3].strip() if row[3] else ""
+                })
+        except Exception as e:
+            print("autocomplete service error:", e)
 
         # 3. CONGASTO (Gastos)
         try:
-            cursor.execute("SELECT TOP 15 RTRIM(CODCGAS) as codigo, RTRIM(DESCGAS) as descripcion FROM CONGASTO WHERE RTRIM(codcia)=? AND (CODCGAS LIKE ? OR DESCGAS LIKE ?)", (codcia, q_clean, q_clean))
+            has_codcta2_congasto = False
+            try:
+                cursor.execute("SELECT COL_LENGTH('dbo.CONGASTO', 'codcta2')")
+                has_codcta2_congasto = cursor.fetchone()[0] is not None
+            except Exception:
+                pass
+            
+            congasto_col = "RTRIM(t.codcta2)" if has_codcta2_congasto else "NULL"
+            
+            cursor.execute(f"""
+                SELECT TOP 15 codigo, descripcion, cuenta_contable, cuenta_contable2
+                FROM (
+                    SELECT 
+                        RTRIM(t.CODCGAS) as codigo, 
+                        COALESCE(RTRIM(c.Descripcion), RTRIM(t.DESCGAS)) as descripcion,
+                        COALESCE(RTRIM(c.CodCta), RTRIM(t.CODCTA)) as cuenta_contable,
+                        COALESCE(RTRIM(c.CodCta2), {congasto_col}) as cuenta_contable2
+                    FROM CONGASTO t
+                    LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Gasto' AND c.Codigo = t.CODCGAS AND c.CodCia = t.CODCIA
+                    WHERE RTRIM(t.codcia)=?
+                    
+                    UNION
+                    
+                    SELECT 
+                        RTRIM(c.Codigo) as codigo,
+                        RTRIM(c.Descripcion) as descripcion,
+                        RTRIM(c.CodCta) as cuenta_contable,
+                        RTRIM(c.CodCta2) as cuenta_contable2
+                    FROM CntCuentasContablesCustom c
+                    WHERE c.Tipo = 'Gasto' AND RTRIM(c.CodCia)=?
+                      AND NOT EXISTS (
+                          SELECT 1 FROM CONGASTO t 
+                          WHERE RTRIM(t.CODCGAS) = RTRIM(c.Codigo) AND RTRIM(t.CODCIA) = ?
+                      )
+                ) AS combined
+                WHERE (codigo LIKE ? OR descripcion LIKE ?)
+            """, (codcia, codcia, codcia, q_clean, q_clean))
             for row in cursor.fetchall():
-                results.append({"tipo": "Gasto", "codigo": row.codigo, "descripcion": row.descripcion})
-        except Exception: pass
+                results.append({
+                    "tipo": "Gasto", 
+                    "codigo": row[0], 
+                    "descripcion": row[1], 
+                    "cuenta_contable": row[2].strip() if row[2] else "",
+                    "cuenta_contable2": row[3].strip() if row[3] else ""
+                })
+        except Exception as e:
+            print("autocomplete gasto error:", e)
 
         return results
     except Exception as e:
@@ -865,7 +963,8 @@ def crear_factura(data: FacturaCreate):
             'MtoICBPERItem': 'decimal(18,2)', 'MtoDescuento': 'decimal(18,2)',
             'Inci': 'varchar(500)', 'Fabricante': 'varchar(250)',
             'Obs1': 'varchar(500)', 'Obs2': 'varchar(500)', 'Obs3': 'varchar(500)', 'Obs4': 'varchar(500)',
-            'ExtraDataJson': 'varchar(MAX)'
+            'ExtraDataJson': 'varchar(MAX)', 'CuentaContable': 'varchar(50)',
+            'PorcIgv': 'decimal(5,2)', 'TipoOp': 'varchar(50)', 'codcta2': 'varchar(50)'
         }
         for col, dtype in _new_det_cols.items():
             try:
@@ -961,12 +1060,17 @@ def crear_factura(data: FacturaCreate):
         # Check for duplicate
         if data.serie and data.numero and data.num_ruc_proveedor:
             cursor.execute("""
-                SELECT Id FROM CntFacturaCab
-                WHERE RTRIM(CodCia)=? AND Serie=? AND Numero=? AND NumRucProveedor=? AND Estado != 'Anulada'
-            """, (data.codcia.strip(), data.serie, data.numero, data.num_ruc_proveedor))
-            row = cursor.fetchone()
-            if row and row.Id != data.id:
-                raise HTTPException(status_code=409, detail="Ya existe una factura registrada con esa serie/numero/proveedor")
+                SELECT Id, RTRIM(Numero) FROM CntFacturaCab
+                WHERE RTRIM(CodCia)=? AND Serie=? AND NumRucProveedor=? AND Estado != 'Anulada'
+            """, (data.codcia.strip(), data.serie, data.num_ruc_proveedor))
+            rows = cursor.fetchall()
+            new_num_clean = data.numero.strip().lstrip('0') or '0'
+            for row in rows:
+                existing_id = row[0]
+                existing_num = row[1].strip() if row[1] else ""
+                existing_num_clean = existing_num.lstrip('0') or '0'
+                if existing_num_clean == new_num_clean and existing_id != data.id:
+                    raise HTTPException(status_code=409, detail="Ya existe una factura registrada con esa serie/numero/proveedor")
 
         # SET ARITHABORT ON is needed when inserting into tables with computed columns or indexed views
         cursor.execute("SET ARITHABORT ON")
@@ -1092,8 +1196,9 @@ def crear_factura(data: FacturaCreate):
                     UnidadMedida, DesUnidadMedida, Cantidad, PrecioUnitario, Descuento,
                     SubTotal, IGV, ICBPER, MtoICBPERItem, MtoDescuento, Total,
                     CantidadOC, CantidadAlmacen,
-                    Inci, Fabricante, Obs1, Obs2, Obs3, Obs4, FechaVencimientoItem, ExtraDataJson
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    Inci, Fabricante, Obs1, Obs2, Obs3, Obs4, FechaVencimientoItem, ExtraDataJson, CuentaContable,
+                    PorcIgv, TipoOp, codcta2
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 factura_id,
                 item.nro_item,
@@ -1120,7 +1225,11 @@ def crear_factura(data: FacturaCreate):
                 obs3_val,
                 obs4_val,
                 _safe_date(extra_data.get('fecha_vencimiento')) if extra_data else None,
-                json.dumps(extra_data) if extra_data else None
+                json.dumps(extra_data) if extra_data else None,
+                trunc(item.cuenta_contable, 50),
+                item.porc_igv,
+                trunc(item.tipo_op, 50),
+                trunc(item.codcta2, 50)
             ))
 
         conn.commit()
@@ -1255,7 +1364,8 @@ def get_factura_detail(factura_id: int):
             'Inci': 'varchar(50)', 'Fabricante': 'varchar(250)',
             'Obs1': 'varchar(500)', 'Obs2': 'varchar(500)', 'Obs3': 'varchar(500)', 'Obs4': 'varchar(500)',
             'FechaVencimientoItem': 'date',
-            'ExtraDataJson': 'varchar(MAX)'
+            'ExtraDataJson': 'varchar(MAX)',
+            'CuentaContable': 'varchar(50)'
         }
         for col, dtype in _cols_to_check.items():
             try:
@@ -1299,7 +1409,8 @@ def get_factura_detail(factura_id: int):
             'Id', 'NroItem', 'CodMaterial', 'Descripcion', 'UnidadMedida',
             'Cantidad', 'PrecioUnitario', 'Descuento', 'SubTotal', 'IGV', 'ICBPER', 'Total',
             'CantidadOC', 'CantidadAlmacen',
-            'Inci', 'Fabricante', 'Obs1', 'Obs2', 'Obs3', 'Obs4', 'FechaVencimientoItem', 'ExtraDataJson'
+            'Inci', 'Fabricante', 'Obs1', 'Obs2', 'Obs3', 'Obs4', 'FechaVencimientoItem', 'ExtraDataJson', 'CuentaContable',
+            'PorcIgv', 'TipoOp', 'codcta2'
         ]
         
         # Filtrar solo las que existen
@@ -1318,7 +1429,7 @@ def get_factura_detail(factura_id: int):
             for col in missing_cols:
                 d[col] = None
                 
-            for k in ['Cantidad','PrecioUnitario','Descuento','SubTotal','IGV','ICBPER','Total','CantidadOC','CantidadAlmacen']:
+            for k in ['Cantidad','PrecioUnitario','Descuento','SubTotal','IGV','ICBPER','Total','CantidadOC','CantidadAlmacen','PorcIgv']:
                 if d.get(k) is not None:
                     d[k] = float(d[k])
             
@@ -2591,7 +2702,6 @@ def get_facturas_sin_oc(
                           INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
                           WHERE ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(d2.NroOrdenCompra) + ',%'
                             AND RTRIM(d2.CodCiaOc) = RTRIM(f.CodCia)
-                            AND (d2.NroFactura IS NULL OR RTRIM(d2.NroFactura) = '' OR RTRIM(d2.NroFactura) = '-')
                             AND c2.TipoCargo = 'LOG_A_CONT'
                             AND c2.Estado != 'ANULADO'
                       )
@@ -2694,6 +2804,188 @@ def get_tipos_comprobante(codcia: str = Query(...)):
         cols = [c[0] for c in cursor.description]
         return [dict(zip(cols, r)) for r in cursor.fetchall()]
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ════════════════════════════════════════════════════════════
+#  CONFIGURACION DE CUENTAS CONTABLES CUSTOM (PARA EL AREA CONTABLE)
+# ════════════════════════════════════════════════════════════
+
+class ConfigCuentasSave(BaseModel):
+    codcia: str
+    tipo: str # 'Producto', 'Servicio', 'Gasto'
+    codigo: str
+    codcta: Optional[str] = None
+    codcta2: Optional[str] = None
+    descripcion: Optional[str] = None
+
+@router.get("/config-cuentas")
+def get_config_cuentas(codcia: str = Query(...), tipo: str = Query(...), q: Optional[str] = Query(None)):
+    """Listar cuentas contables para configuración, incluyendo valores por defecto de la BD ERP
+    y sobreescrituras en CntCuentasContablesCustom."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        
+        # Check if codcta2 column exists on CONGASTO
+        has_codcta2_congasto = False
+        try:
+            cursor.execute("SELECT COL_LENGTH('dbo.CONGASTO', 'codcta2')")
+            has_codcta2_congasto = cursor.fetchone()[0] is not None
+        except Exception:
+            pass
+        
+        congasto_col = "RTRIM(t.codcta2)" if has_codcta2_congasto else "NULL"
+        
+        q_clean = f"%{q.strip()}%" if q else None
+        
+        if tipo == 'Producto':
+            query = """
+                SELECT 
+                    RTRIM(t.codigo) as codigo, 
+                    COALESCE(RTRIM(c.Descripcion), RTRIM(t.nombre)) as descripcion,
+                    COALESCE(RTRIM(c.CodCta), RTRIM(t.codcta)) as cuenta_contable,
+                    COALESCE(RTRIM(c.CodCta2), RTRIM(t.codcta2)) as cuenta_contable2
+                FROM AlmTabla t
+                LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Producto' AND c.Codigo = t.codigo AND c.CodCia = t.codcia
+                WHERE t.tabla = '0001' AND RTRIM(t.codcia) = ?
+                
+                UNION
+                
+                SELECT 
+                    RTRIM(c.Codigo) as codigo,
+                    RTRIM(c.Descripcion) as descripcion,
+                    RTRIM(c.CodCta) as cuenta_contable,
+                    RTRIM(c.CodCta2) as cuenta_contable2
+                FROM CntCuentasContablesCustom c
+                WHERE c.Tipo = 'Producto' AND RTRIM(c.CodCia) = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM AlmTabla t 
+                      WHERE t.tabla = '0001' AND RTRIM(t.codigo) = RTRIM(c.Codigo) AND RTRIM(t.codcia) = ?
+                  )
+            """
+            params = [codcia.strip(), codcia.strip(), codcia.strip()]
+                
+        elif tipo == 'Servicio':
+            query = """
+                SELECT 
+                    RTRIM(t.codigo) as codigo, 
+                    COALESCE(RTRIM(c.Descripcion), RTRIM(t.nombre)) as descripcion,
+                    COALESCE(RTRIM(c.CodCta), RTRIM(t.codcta)) as cuenta_contable,
+                    COALESCE(RTRIM(c.CodCta2), RTRIM(t.codcta2)) as cuenta_contable2
+                FROM AlmTabla t
+                LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Servicio' AND c.Codigo = t.codigo AND c.CodCia = t.codcia
+                WHERE t.tabla = '0017' AND RTRIM(t.codcia) = ?
+                
+                UNION
+                
+                SELECT 
+                    RTRIM(c.Codigo) as codigo,
+                    RTRIM(c.Descripcion) as descripcion,
+                    RTRIM(c.CodCta) as cuenta_contable,
+                    RTRIM(c.CodCta2) as cuenta_contable2
+                FROM CntCuentasContablesCustom c
+                WHERE c.Tipo = 'Servicio' AND RTRIM(c.CodCia) = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM AlmTabla t 
+                      WHERE t.tabla = '0017' AND RTRIM(t.codigo) = RTRIM(c.Codigo) AND RTRIM(t.codcia) = ?
+                  )
+            """
+            params = [codcia.strip(), codcia.strip(), codcia.strip()]
+                
+        elif tipo == 'Gasto':
+            query = f"""
+                SELECT 
+                    RTRIM(t.CODCGAS) as codigo, 
+                    COALESCE(RTRIM(c.Descripcion), RTRIM(t.DESCGAS)) as descripcion,
+                    COALESCE(RTRIM(c.CodCta), RTRIM(t.CODCTA)) as cuenta_contable,
+                    COALESCE(RTRIM(c.CodCta2), {congasto_col}) as cuenta_contable2
+                FROM CONGASTO t
+                LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Gasto' AND c.Codigo = t.CODCGAS AND c.CodCia = t.CODCIA
+                WHERE RTRIM(t.CODCIA) = ?
+                
+                UNION
+                
+                SELECT 
+                    RTRIM(c.Codigo) as codigo,
+                    RTRIM(c.Descripcion) as descripcion,
+                    RTRIM(c.CodCta) as cuenta_contable,
+                    RTRIM(c.CodCta2) as cuenta_contable2
+                FROM CntCuentasContablesCustom c
+                WHERE c.Tipo = 'Gasto' AND RTRIM(c.CodCia) = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM CONGASTO t 
+                      WHERE RTRIM(t.CODCGAS) = RTRIM(c.Codigo) AND RTRIM(t.CODCIA) = ?
+                  )
+            """
+            params = [codcia.strip(), codcia.strip(), codcia.strip()]
+        else:
+            raise HTTPException(status_code=400, detail="Tipo inválido")
+            
+        if q_clean:
+            query = f"""
+                SELECT codigo, descripcion, cuenta_contable, cuenta_contable2
+                FROM (
+                    {query}
+                ) AS combined
+                WHERE (codigo LIKE ? OR descripcion LIKE ?)
+            """
+            params.extend([q_clean, q_clean])
+            
+        cursor.execute(query, tuple(params))
+        cols = [c[0] for c in cursor.description]
+        rows = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        return rows
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/config-cuentas")
+def save_config_cuentas(data: ConfigCuentasSave):
+    """Guardar o actualizar la sobreescritura de cuenta contable para un ítem en CntCuentasContablesCustom."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    try:
+        cursor = conn.cursor()
+        
+        # Verificar si ya existe una sobreescritura para este tipo, codigo y codcia
+        cursor.execute("""
+            SELECT Id FROM CntCuentasContablesCustom
+            WHERE Tipo=? AND Codigo=? AND CodCia=?
+        """, (data.tipo, data.codigo, data.codcia))
+        row = cursor.fetchone()
+        
+        # Normalizar strings vacíos a None
+        c1 = data.codcta.strip() if data.codcta else None
+        c2 = data.codcta2.strip() if data.codcta2 else None
+        d_val = data.descripcion.strip() if data.descripcion else None
+        
+        if c1 == "": c1 = None
+        if c2 == "": c2 = None
+        if d_val == "": d_val = None
+        
+        if row:
+            cursor.execute("""
+                UPDATE CntCuentasContablesCustom
+                SET CodCta=?, CodCta2=?, Descripcion=?
+                WHERE Id=?
+            """, (c1, c2, d_val, row[0]))
+        else:
+            cursor.execute("""
+                INSERT INTO CntCuentasContablesCustom (Tipo, Codigo, CodCia, CodCta, CodCta2, Descripcion)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (data.tipo, data.codigo, data.codcia, c1, c2, d_val))
+            
+        conn.commit()
+        return {"status": "success", "message": "Configuración de cuenta contable guardada exitosamente"}
+    except Exception as e:
+        conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()

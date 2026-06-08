@@ -19,6 +19,15 @@ let currentDetailLabel = '';
 
 const API_BASE = '/api/cuentas-cobrar';
 const fmt = (n) => new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+const getCurrencySymbol = (codmon) => codmon === 2 ? '$' : 'S/';
+const formatTotals = (items, field, separator = ' | ') => {
+    const penSum = items.reduce((s, r) => s + (r.CODMON === 1 ? (r[field + '_orig'] || 0) : 0), 0);
+    const usdSum = items.reduce((s, r) => s + (r.CODMON === 2 ? (r[field + '_orig'] || 0) : 0), 0);
+    let parts = [];
+    if (penSum !== 0 || usdSum === 0) parts.push(`S/ ${fmt(penSum)}`);
+    if (usdSum !== 0) parts.push(`$ ${fmt(usdSum)}`);
+    return parts.join(separator);
+};
 
 // ─── Init ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,6 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
         placeholder: "Seleccione empresa(s)",
         allowClear: true,
         width: '100%'
+    });
+
+    $('#filterVendedor').select2({
+        placeholder: "Todos los vendedores",
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#filterCia').on('change', function() {
+        loadVendedores();
     });
 
     document.getElementById('reportForm').addEventListener('submit', (e) => {
@@ -66,7 +85,10 @@ function debounce(fn, ms) {
 // ─── Load Empresas ───────────────────────────────────────────────
 async function loadEmpresas() {
     try {
-        const res = await fetch(`${API_BASE}/empresas`);
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/permisos/empresas/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         const empresas = await res.json();
         const sel = document.getElementById('filterCia');
         sel.innerHTML = ''; // Start clean without default option for Select2 multi
@@ -82,6 +104,50 @@ async function loadEmpresas() {
     }
 }
 
+// ─── Load Vendedores ─────────────────────────────────────────────
+async function loadVendedores() {
+    const codciaArr = $('#filterCia').val();
+    const sel = document.getElementById('filterVendedor');
+    if (!codciaArr || codciaArr.length === 0) {
+        sel.innerHTML = '';
+        $('#filterVendedor').val(null).trigger('change');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`${API_BASE}/vendedores?codcia=${codciaArr.join(',')}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Error al cargar vendedores');
+        const vendedores = await res.json();
+        
+        sel.innerHTML = '';
+        
+        const grouped = {};
+        vendedores.forEach(v => {
+            if (!grouped[v.codcia]) grouped[v.codcia] = [];
+            grouped[v.codcia].push(v);
+        });
+        
+        for (const cia in grouped) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `Empresa ${cia}`;
+            grouped[cia].forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.codigo;
+                opt.textContent = `${v.codigo} - ${v.nombre}`;
+                optgroup.appendChild(opt);
+            });
+            sel.appendChild(optgroup);
+        }
+        
+        $('#filterVendedor').trigger('change');
+    } catch (err) {
+        console.error('Error loading vendedores:', err);
+    }
+}
+
 function setDefaultDates() {
     const now = new Date();
     document.getElementById('fechaFin').value = now.toISOString().slice(0, 10);
@@ -93,6 +159,8 @@ function setDefaultDates() {
 async function generateReport() {
     const codciaArr = $('#filterCia').val();
     const codcia = codciaArr ? codciaArr.join(',') : '';
+    const vendedorArr = $('#filterVendedor').val();
+    const vendedor = vendedorArr ? vendedorArr.join(',') : '';
     const fechaInicio = document.getElementById('fechaInicio').value;
     const fechaFin = document.getElementById('fechaFin').value;
 
@@ -101,8 +169,11 @@ async function generateReport() {
     showLoader(true);
 
     try {
-        const url = `${API_BASE}/report?codcia=${codcia}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
-        const res = await fetch(url);
+        const token = localStorage.getItem('yelave_token');
+        const url = `${API_BASE}/report?codcia=${codcia}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}&vendedor=${vendedor}`;
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
 
@@ -117,8 +188,10 @@ async function generateReport() {
         updateKPIs(result);
 
         // Load summary for charts
-        const sumUrl = `${API_BASE}/summary?codcia=${codcia}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
-        const sumRes = await fetch(sumUrl);
+        const sumUrl = `${API_BASE}/summary?codcia=${codcia}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}&vendedor=${vendedor}`;
+        const sumRes = await fetch(sumUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         summaryData = await sumRes.json();
         
         // Re-calculate vendors summary locally using aliases
@@ -153,16 +226,24 @@ function updateKPIs(result) {
     const totalImporte = data.reduce((s, r) => s + (r.imptot || 0), 0);
     const totalActa = data.reduce((s, r) => s + (r.acta || 0), 0);
 
-    document.getElementById('kpiSaldo').textContent = `S/ ${fmt(totalSaldo)}`;
-    document.getElementById('kpiSaldoSub').textContent = `${data.length} documentos pendientes`;
-    document.getElementById('kpiImporte').textContent = `S/ ${fmt(totalImporte)}`;
-    document.getElementById('kpiImporteSub').textContent = `Total facturado`;
-    document.getElementById('kpiActa').textContent = `S/ ${fmt(totalActa)}`;
-    document.getElementById('kpiActaSub').textContent = `${((totalActa / (totalImporte || 1)) * 100).toFixed(1)}% cobrado`;
+    const saldoPEN = data.reduce((s, r) => s + (r.CODMON === 1 ? (r.saldo_orig || 0) : 0), 0);
+    const saldoUSD = data.reduce((s, r) => s + (r.CODMON === 2 ? (r.saldo_orig || 0) : 0), 0);
+    const importePEN = data.reduce((s, r) => s + (r.CODMON === 1 ? (r.imptot_orig || 0) : 0), 0);
+    const importeUSD = data.reduce((s, r) => s + (r.CODMON === 2 ? (r.imptot_orig || 0) : 0), 0);
+    const actaPEN = data.reduce((s, r) => s + (r.CODMON === 1 ? (r.acta_orig || 0) : 0), 0);
+    const actaUSD = data.reduce((s, r) => s + (r.CODMON === 2 ? (r.acta_orig || 0) : 0), 0);
+
+    document.getElementById('kpiSaldo').innerHTML = formatTotals(data, 'saldo', '<br>');
+    document.getElementById('kpiSaldoSub').textContent = `S/ ${fmt(saldoPEN)} + $ ${fmt(saldoUSD)} (${data.length} docs)`;
+    document.getElementById('kpiImporte').innerHTML = formatTotals(data, 'imptot', '<br>');
+    document.getElementById('kpiImporteSub').textContent = `S/ ${fmt(importePEN)} + $ ${fmt(importeUSD)}`;
+    document.getElementById('kpiActa').innerHTML = formatTotals(data, 'acta', '<br>');
+    document.getElementById('kpiActaSub').textContent = `S/ ${fmt(actaPEN)} + $ ${fmt(actaUSD)} (${((totalActa / (totalImporte || 1)) * 100).toFixed(1)}% cobrado)`;
     document.getElementById('kpiDocs').textContent = data.length.toLocaleString();
     const facts = data.filter(r => (r.coddoc || '').includes('FACT')).length;
     const boles = data.filter(r => (r.coddoc || '').includes('BOLE')).length;
-    document.getElementById('kpiDocsSub').textContent = `${facts} FACT + ${boles} BOLE`;
+    const ncs = data.filter(r => (r.coddoc || '').includes('N/A') || (r.coddoc || '').includes('N/C') || (r.coddoc || '').includes('N/CR')).length;
+    document.getElementById('kpiDocsSub').textContent = `${facts} FACT + ${boles} BOLE + ${ncs} N/C`;
 }
 
 // ─── Search ──────────────────────────────────────────────────────
@@ -218,15 +299,12 @@ function renderTable() {
     }
 
     // Totals footer
-    const totalImporte = filteredData.reduce((s, r) => s + (r.imptot || 0), 0);
-    const totalActa = filteredData.reduce((s, r) => s + (r.acta || 0), 0);
-    const totalSaldo = filteredData.reduce((s, r) => s + (r.saldo || 0), 0);
     tfoot.innerHTML = `
         <tr class="total-row">
             <td colspan="7" style="text-align:right; font-weight:700;">TOTALES (${filteredData.length} docs)</td>
-            <td class="text-right">${fmt(totalImporte)}</td>
-            <td class="text-right">${fmt(totalActa)}</td>
-            <td class="text-right" style="color:#ef4444;">${fmt(totalSaldo)}</td>
+            <td class="text-right">${formatTotals(filteredData, 'imptot', '<br>')}</td>
+            <td class="text-right">${formatTotals(filteredData, 'acta', '<br>')}</td>
+            <td class="text-right" style="color:#ef4444;">${formatTotals(filteredData, 'saldo', '<br>')}</td>
             <td colspan="3"></td>
         </tr>
     `;
@@ -236,9 +314,11 @@ function renderTable() {
 }
 
 function renderRow(r) {
-    const docBadge = (r.coddoc || '').includes('FACT')
-        ? '<span class="badge-doc badge-fact">FACT</span>'
-        : '<span class="badge-doc badge-bole">BOLE</span>';
+    let docBadge = '';
+    if ((r.coddoc || '').includes('FACT')) docBadge = '<span class="badge-doc badge-fact">FACT</span>';
+    else if ((r.coddoc || '').includes('BOLE')) docBadge = '<span class="badge-doc badge-bole">BOLE</span>';
+    else docBadge = `<span class="badge-doc badge-ncre" style="background:#f59e0b; color:#fff; font-size:0.7rem; font-weight:600; padding:2px 4px; border-radius:4px;">${(r.coddoc || '').trim()}</span>`;
+    const sym = getCurrencySymbol(r.CODMON);
     return `<tr>
         <td class="text-center" style="font-weight:600; color:var(--text-light);">${r.codcia || ''}</td>
         <td>${r.fchdoc || ''}</td>
@@ -247,9 +327,9 @@ function renderRow(r) {
         <td>${r.nrodoc || ''}</td>
         <td>${r.codaux || ''}</td>
         <td title="${r.nomaux || ''}">${(r.nomaux || '').substring(0, 40)}</td>
-        <td class="text-right">${fmt(r.imptot)}</td>
-        <td class="text-right">${fmt(r.acta)}</td>
-        <td class="text-right" style="color:#f87171; font-weight:600;">${fmt(r.saldo)}</td>
+        <td class="text-right">${sym} ${fmt(r.imptot_orig)}</td>
+        <td class="text-right">${sym} ${fmt(r.acta_orig)}</td>
+        <td class="text-right" style="color:#f87171; font-weight:600;">${sym} ${fmt(r.saldo_orig)}</td>
         <td>${r.vendedor_homologado || r.nomven || ''}</td>
         <td>${r.nompgo || ''}</td>
         <td>${r.nomsol || ''}</td>
@@ -275,18 +355,18 @@ function renderGroupedRows(allData, pageData, groupBy) {
     let html = '';
     sortedKeys.forEach(key => {
         const items = groups[key];
-        const gImporte = items.reduce((s, r) => s + (r.imptot || 0), 0);
-        const gActa = items.reduce((s, r) => s + (r.acta || 0), 0);
-        const gSaldo = items.reduce((s, r) => s + (r.saldo || 0), 0);
+        const dispImporte = formatTotals(items, 'imptot', '<br>');
+        const dispActa = formatTotals(items, 'acta', '<br>');
+        const dispSaldo = formatTotals(items, 'saldo', '<br>');
 
         html += `<tr style="background:rgba(99,102,241,0.08);">
             <td colspan="7" style="font-weight:700; color:#818cf8; padding:0.6rem 0.75rem;">
                 <i class="fas fa-layer-group me-1" style="opacity:0.5;"></i> ${key}
                 <span style="font-weight:400; color:rgba(255,255,255,0.35); margin-left:8px;">(${items.length} docs)</span>
             </td>
-            <td class="text-right" style="font-weight:700; color:#818cf8;">${fmt(gImporte)}</td>
-            <td class="text-right" style="font-weight:700; color:#818cf8;">${fmt(gActa)}</td>
-            <td class="text-right" style="font-weight:700; color:#f87171;">${fmt(gSaldo)}</td>
+            <td class="text-right" style="font-weight:700; color:#818cf8;">${dispImporte}</td>
+            <td class="text-right" style="font-weight:700; color:#818cf8;">${dispActa}</td>
+            <td class="text-right" style="font-weight:700; color:#f87171;">${dispSaldo}</td>
             <td colspan="3"></td>
         </tr>`;
 
@@ -517,12 +597,19 @@ function showSummary(type, btn) {
 
     const maxSaldo = items.length > 0 ? Math.max(...items.map(i => i.saldo || 0)) : 1;
 
+    const fmtGroupValue = (penVal, usdVal) => {
+        let parts = [];
+        if (penVal > 0 || usdVal === 0) parts.push(`S/ ${fmt(penVal)}`);
+        if (usdVal > 0) parts.push(`$ ${fmt(usdVal)}`);
+        return parts.join('<br>');
+    };
+
     if (type === 'clientes') {
         body.innerHTML = items.map(i => `
             <tr>
                 <td>${i.codaux || ''}</td>
                 <td>${(i.nomaux || '').substring(0, 40)}</td>
-                <td class="text-right" style="font-weight:600; color:#f87171;">S/ ${fmt(i.saldo)}</td>
+                <td class="text-right" style="font-weight:600; color:#f87171;">${fmtGroupValue(i.saldo_pen, i.saldo_usd)}</td>
                 <td class="text-center">${i.count}</td>
                 <td class="bar-cell"><div class="summary-bar"><div class="summary-bar-fill" style="width:${((i.saldo / maxSaldo) * 100).toFixed(1)}%"></div></div></td>
                 <td class="text-center">
@@ -534,8 +621,8 @@ function showSummary(type, btn) {
         body.innerHTML = items.map(i => `
             <tr>
                 <td style="font-weight:500;">${i.label}</td>
-                <td class="text-right" style="font-weight:600; color:#f87171;">S/ ${fmt(i.saldo)}</td>
-                <td class="text-right">S/ ${fmt(i.importe)}</td>
+                <td class="text-right" style="font-weight:600; color:#f87171;">${fmtGroupValue(i.saldo_pen, i.saldo_usd)}</td>
+                <td class="text-right">${fmtGroupValue(i.importe_pen, i.importe_usd)}</td>
                 <td class="text-center">${i.count}</td>
                 <td class="bar-cell"><div class="summary-bar"><div class="summary-bar-fill" style="width:${((i.saldo / maxSaldo) * 100).toFixed(1)}%"></div></div></td>
                 <td class="text-center">
@@ -552,7 +639,10 @@ function buildExportRows(format) {
     const bodyRows = [];
     
     // Helper to format currency
-    const fVal = (val) => format === 'pdf' ? fmt(val) : val;
+    const fVal = (val, codmon) => {
+        const sym = getCurrencySymbol(codmon);
+        return `${sym} ${fmt(val)}`;
+    };
     // Helper to format string length
     const fStr = (str, len) => format === 'pdf' && str ? str.substring(0, len) : (str || '');
 
@@ -560,7 +650,7 @@ function buildExportRows(format) {
         filteredData.forEach(r => {
             bodyRows.push([
                 r.codcia, r.fchdoc, r.coddoc, r.serie, r.nrodoc, r.codaux,
-                fStr(r.nomaux, 30), fVal(r.imptot), fVal(r.acta), fVal(r.saldo),
+                fStr(r.nomaux, 30), fVal(r.imptot_orig, r.CODMON), fVal(r.acta_orig, r.CODMON), fVal(r.saldo_orig, r.CODMON),
                 fStr(r.vendedor_homologado || r.nomven, 18), fStr(r.nompgo, 15), fStr(r.nomsol, 15)
             ]);
         });
@@ -581,16 +671,16 @@ function buildExportRows(format) {
 
         Object.keys(groups).sort().forEach(key => {
             const items = groups[key];
-            const gImporte = items.reduce((s, r) => s + (r.imptot || 0), 0);
-            const gActa = items.reduce((s, r) => s + (r.acta || 0), 0);
-            const gSaldo = items.reduce((s, r) => s + (r.saldo || 0), 0);
+            const gImporte = formatTotals(items, 'imptot', format === 'pdf' ? ' \n ' : ' | ');
+            const gActa = formatTotals(items, 'acta', format === 'pdf' ? ' \n ' : ' | ');
+            const gSaldo = formatTotals(items, 'saldo', format === 'pdf' ? ' \n ' : ' | ');
             
-            bodyRows.push([`── [ ${labelName}: ${key} ] ──`, '', '', '', '', `(${items.length} docs)`, '', fVal(gImporte), fVal(gActa), fVal(gSaldo), '', '', '']);
+            bodyRows.push([`── [ ${labelName}: ${key} ] ──`, '', '', '', '', `(${items.length} docs)`, '', gImporte, gActa, gSaldo, '', '', '']);
             
             items.forEach(r => {
                 bodyRows.push([
                     r.codcia, r.fchdoc, r.coddoc, r.serie, r.nrodoc, r.codaux,
-                    fStr(r.nomaux, 30), fVal(r.imptot), fVal(r.acta), fVal(r.saldo),
+                    fStr(r.nomaux, 30), fVal(r.imptot_orig, r.CODMON), fVal(r.acta_orig, r.CODMON), fVal(r.saldo_orig, r.CODMON),
                     fStr(r.vendedor_homologado || r.nomven, 18), fStr(r.nompgo, 15), fStr(r.nomsol, 15)
                 ]);
             });
@@ -619,10 +709,10 @@ function exportToExcel() {
     const dataRows = buildExportRows('excel');
 
     // Totals
-    const totalImporte = filteredData.reduce((s, r) => s + (r.imptot || 0), 0);
-    const totalActa = filteredData.reduce((s, r) => s + (r.acta || 0), 0);
-    const totalSaldo = filteredData.reduce((s, r) => s + (r.saldo || 0), 0);
-    dataRows.push(['', '', '', '', '', 'TOTAL GENERAL', '', totalImporte, totalActa, totalSaldo, '', '', '']);
+    const totalImporteDisp = formatTotals(filteredData, 'imptot', ' | ');
+    const totalActaDisp = formatTotals(filteredData, 'acta', ' | ');
+    const totalSaldoDisp = formatTotals(filteredData, 'saldo', ' | ');
+    dataRows.push(['', '', '', '', '', 'TOTAL GENERAL', '', totalImporteDisp, totalActaDisp, totalSaldoDisp, '', '', '']);
 
     const allRows = [...headerRows, ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(allRows);
@@ -630,7 +720,7 @@ function exportToExcel() {
     // Column widths
     ws['!cols'] = [
         { wch: 8 }, { wch: 12 }, { wch: 6 }, { wch: 6 }, { wch: 14 }, { wch: 14 }, { wch: 35 },
-        { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 22 }, { wch: 25 },
+        { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 25 },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -664,17 +754,19 @@ function exportToPDF() {
     const body = buildExportRows('pdf');
 
     // Totals
-    const totalImporte = filteredData.reduce((s, r) => s + (r.imptot || 0), 0);
-    const totalActa = filteredData.reduce((s, r) => s + (r.acta || 0), 0);
-    const totalSaldo = filteredData.reduce((s, r) => s + (r.saldo || 0), 0);
-    body.push(['', '', '', '', '', '', 'TOTAL GENERAL', fmt(totalImporte), fmt(totalActa), fmt(totalSaldo), '', '', '']);
+    const totalImporteDisp = formatTotals(filteredData, 'imptot', ' \n ');
+    const totalActaDisp = formatTotals(filteredData, 'acta', ' \n ');
+    const totalSaldoDisp = formatTotals(filteredData, 'saldo', ' \n ');
+    body.push(['', '', '', '', '', '', 'TOTAL GENERAL', totalImporteDisp, totalActaDisp, totalSaldoDisp, '', '', '']);
 
     doc.autoTable({
         head,
         body,
         startY: 25,
         theme: 'striped',
-        styles: { fontSize: 6, cellPadding: 1 },
+        styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'ellipsize' },
+        headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255], fontSize: 6, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 255] },
         columnStyles: {
             7: { halign: 'right' },
             8: { halign: 'right' },
@@ -696,14 +788,6 @@ function exportToPDF() {
                     }
                 }
             }
-        },
-        styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'ellipsize' },
-        headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255], fontSize: 6, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 245, 255] },
-        columnStyles: {
-            6: { halign: 'right' },
-            7: { halign: 'right' },
-            8: { halign: 'right', textColor: [220, 38, 38] },
         },
         didParseCell: (data) => {
             if (data.row.index === body.length - 1) {
@@ -759,33 +843,32 @@ function showSummaryDetail(type, label) {
         tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No se encontraron documentos en la vista actual.</td></tr>';
         tfoot.innerHTML = '';
     } else {
-        tbody.innerHTML = currentDetailData.map(r => `
-            <tr>
-                <td class="text-center" style="font-weight:600; color:var(--text-light);">${r.codcia || ''}</td>
-                <td>${r.fchdoc || ''}</td>
-                <td class="text-center">${(r.coddoc || '').includes('FACT') ? '<span class="badge-doc badge-fact">FACT</span>' : '<span class="badge-doc badge-bole">BOLE</span>'}</td>
-                <td>${r.serie}-${r.nrodoc}</td>
-                <td>${r.codaux}</td>
-                <td title="${r.nomaux}">${(r.nomaux || '').substring(0,30)}</td>
-                <td title="${r.vendedor_homologado || r.nomven}">${(r.vendedor_homologado || r.nomven || '').substring(0,15)}</td>
-                <td title="${r.nompgo}">${(r.nompgo || '').substring(0,15)}</td>
-                <td title="${r.nomsol}">${(r.nomsol || '').substring(0,15)}</td>
-                <td class="text-right">${fmt(r.imptot)}</td>
-                <td class="text-right">${fmt(r.acta)}</td>
-                <td class="text-right" style="color:#f87171; font-weight:600;">${fmt(r.saldo)}</td>
-            </tr>
-        `).join('');
-        
-        const tImporte = currentDetailData.reduce((s, r) => s + (r.imptot || 0), 0);
-        const tActa = currentDetailData.reduce((s, r) => s + (r.acta || 0), 0);
-        const tSaldo = currentDetailData.reduce((s, r) => s + (r.saldo || 0), 0);
+        tbody.innerHTML = currentDetailData.map(r => {
+            const sym = getCurrencySymbol(r.CODMON);
+            return `
+                <tr>
+                    <td class="text-center" style="font-weight:600; color:var(--text-light);">${r.codcia || ''}</td>
+                    <td>${r.fchdoc || ''}</td>
+                    <td class="text-center">${(r.coddoc || '').includes('FACT') ? '<span class="badge-doc badge-fact">FACT</span>' : '<span class="badge-doc badge-bole">BOLE</span>'}</td>
+                    <td>${r.serie}-${r.nrodoc}</td>
+                    <td>${r.codaux}</td>
+                    <td title="${r.nomaux}">${(r.nomaux || '').substring(0,30)}</td>
+                    <td title="${r.vendedor_homologado || r.nomven}">${(r.vendedor_homologado || r.nomven || '').substring(0,15)}</td>
+                    <td title="${r.nompgo}">${(r.nompgo || '').substring(0,15)}</td>
+                    <td title="${r.nomsol}">${(r.nomsol || '').substring(0,15)}</td>
+                    <td class="text-right">${sym} ${fmt(r.imptot_orig)}</td>
+                    <td class="text-right">${sym} ${fmt(r.acta_orig)}</td>
+                    <td class="text-right" style="color:#f87171; font-weight:600;">${sym} ${fmt(r.saldo_orig)}</td>
+                </tr>
+            `;
+        }).join('');
         
         tfoot.innerHTML = `
             <tr class="total-row">
                 <td colspan="9" class="text-right">TOTALES (${currentDetailData.length} docs)</td>
-                <td class="text-right">${fmt(tImporte)}</td>
-                <td class="text-right">${fmt(tActa)}</td>
-                <td class="text-right">${fmt(tSaldo)}</td>
+                <td class="text-right">${formatTotals(currentDetailData, 'imptot', '<br>')}</td>
+                <td class="text-right">${formatTotals(currentDetailData, 'acta', '<br>')}</td>
+                <td class="text-right">${formatTotals(currentDetailData, 'saldo', '<br>')}</td>
             </tr>
         `;
     }
@@ -801,23 +884,26 @@ function exportSummaryDetail(format) {
     const { jsPDF } = window.jspdf;
     
     const head = [['Empresa', 'Fecha', 'T.D.', 'Serie - N° Doc.', 'Código', 'Cliente', 'Vendedor', 'F. Pago', 'Tienda Rendición', 'Importe', 'A Cta', 'Saldo']];
-    const dataRows = currentDetailData.map(r => [
-        r.codcia, r.fchdoc, r.coddoc, `${r.serie}-${r.nrodoc}`, r.codaux,
-        (r.nomaux || '').substring(0,30), (r.vendedor_homologado || r.nomven || '').substring(0,18),
-        (r.nompgo || '').substring(0,15), (r.nomsol || '').substring(0,15),
-        format === 'pdf' ? fmt(r.imptot) : r.imptot,
-        format === 'pdf' ? fmt(r.acta) : r.acta,
-        format === 'pdf' ? fmt(r.saldo) : r.saldo
-    ]);
+    const dataRows = currentDetailData.map(r => {
+        const sym = getCurrencySymbol(r.CODMON);
+        return [
+            r.codcia, r.fchdoc, r.coddoc, `${r.serie}-${r.nrodoc}`, r.codaux,
+            (r.nomaux || '').substring(0,30), (r.vendedor_homologado || r.nomven || '').substring(0,18),
+            (r.nompgo || '').substring(0,15), (r.nomsol || '').substring(0,15),
+            `${sym} ${fmt(r.imptot_orig)}`,
+            `${sym} ${fmt(r.acta_orig)}`,
+            `${sym} ${fmt(r.saldo_orig)}`
+        ];
+    });
     
-    const tImporte = currentDetailData.reduce((s, r) => s + (r.imptot || 0), 0);
-    const tActa = currentDetailData.reduce((s, r) => s + (r.acta || 0), 0);
-    const tSaldo = currentDetailData.reduce((s, r) => s + (r.saldo || 0), 0);
+    const totalImporteDisp = formatTotals(currentDetailData, 'imptot', format === 'pdf' ? ' \n ' : ' | ');
+    const totalActaDisp = formatTotals(currentDetailData, 'acta', format === 'pdf' ? ' \n ' : ' | ');
+    const totalSaldoDisp = formatTotals(currentDetailData, 'saldo', format === 'pdf' ? ' \n ' : ' | ');
     
     dataRows.push(['', '', '', '', '', '', '', '', 'TOTALES', 
-        format === 'pdf' ? fmt(tImporte) : tImporte,
-        format === 'pdf' ? fmt(tActa) : tActa,
-        format === 'pdf' ? fmt(tSaldo) : tSaldo
+        totalImporteDisp,
+        totalActaDisp,
+        totalSaldoDisp
     ]);
 
     if (format === 'excel') {
@@ -828,7 +914,7 @@ function exportSummaryDetail(format) {
             ...dataRows
         ];
         const ws = XLSX.utils.aoa_to_sheet(allRows);
-        ws['!cols'] = [{wch:8}, {wch:12}, {wch:6}, {wch:16}, {wch:12}, {wch:35}, {wch:20}, {wch:15}, {wch:20}, {wch:14}, {wch:14}, {wch:14}];
+        ws['!cols'] = [{wch:8}, {wch:12}, {wch:6}, {wch:16}, {wch:12}, {wch:35}, {wch:20}, {wch:15}, {wch:20}, {wch:18}, {wch:18}, {wch:18}];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
         XLSX.writeFile(wb, `Detalle_${currentDetailLabel.replace(/[/\\?%*:|"<>]/g, '-')}.xlsx`);
@@ -892,11 +978,16 @@ function recalcSummaryVendedor() {
         const alias = homologacionMap[orig] || orig || '(Sin Vendedor)';
         
         if (!grouped[alias]) {
-            grouped[alias] = { label: alias, saldo: 0, importe: 0, count: 0 };
+            grouped[alias] = { label: alias, saldo: 0, importe: 0, count: 0,
+                               saldo_pen: 0, saldo_usd: 0, importe_pen: 0, importe_usd: 0 };
         }
         grouped[alias].saldo += item.saldo || 0;
         grouped[alias].importe += item.importe || 0;
         grouped[alias].count += item.count || 0;
+        grouped[alias].saldo_pen += item.saldo_pen || 0;
+        grouped[alias].saldo_usd += item.saldo_usd || 0;
+        grouped[alias].importe_pen += item.importe_pen || 0;
+        grouped[alias].importe_usd += item.importe_usd || 0;
     });
     
     // Sort combined alias descending

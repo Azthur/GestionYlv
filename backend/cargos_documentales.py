@@ -2156,9 +2156,14 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
                   SELECT 1 FROM CntCargosDetalle d2
                   INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
                   WHERE (
-                        (RTRIM(d.NroOrdenCompra) != '' AND RTRIM(d2.NroOrdenCompra) = RTRIM(d.NroOrdenCompra))
-                        OR 
                         (RTRIM(d.NroFactura) != '' AND RTRIM(d.NroFactura) != '-' AND RTRIM(d2.NroFactura) = RTRIM(d.NroFactura))
+                        OR
+                        (
+                            (d.NroFactura IS NULL OR RTRIM(d.NroFactura) = '' OR RTRIM(d.NroFactura) = '-')
+                            AND RTRIM(d.NroOrdenCompra) != ''
+                            AND RTRIM(d2.NroOrdenCompra) = RTRIM(d.NroOrdenCompra)
+                            AND (d2.NroFactura IS NULL OR RTRIM(d2.NroFactura) = '' OR RTRIM(d2.NroFactura) = '-')
+                        )
                   )
                     AND d2.TipoOc = d.TipoOc
                     AND RTRIM(d2.CodCiaOc) = RTRIM(d.CodCiaOc)
@@ -2926,6 +2931,16 @@ def get_pago_publico(uuid: str):
         pago = dict(zip(cols, row))
 
         codcia_pago = (pago.get('CodCia') or '').strip()
+
+        # Enriquecer datos de la empresa (nomcia, ruccia)
+        try:
+            cursor.execute("SELECT RTRIM(nomcia), RTRIM(ruccia) FROM AdmMcias WHERE RTRIM(codcia) = ?", (codcia_pago,))
+            erow = cursor.fetchone()
+            pago['EmpresaNombre'] = erow[0] if erow else 'Tesorería'
+            pago['EmpresaRuc'] = erow[1] if erow else ''
+        except Exception:
+            pago['EmpresaNombre'] = 'Tesorería'
+            pago['EmpresaRuc'] = ''
 
         # Enrich banco name
         banco_cod = (pago.get('BancoPago') or '').strip()

@@ -1298,11 +1298,19 @@ async function loadAllCobranzas() {
                         </button>`;
                         if (row.Conciliado && row.MatchId) {
                             const matchObj = Object.assign({}, row, { _showMatch: true });
-                            html += `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(matchObj)})' title="Ver match bancario" style="color: var(--success); border-color: var(--success);">
+                            html += `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(matchObj)})' title="Ver match bancario" style="color: var(--success); border-color: var(--success); margin-right: 4px;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
                                     <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
                                     <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
+                                </svg>
+                            </button>`;
+                        }
+                        if (row.CajaFlgEst === 'C') {
+                            html += `<button class="btn-icon btn-revert-caja-tbl" onclick="confirmRevertirCaja('${row.NroCaja}')" title="Revertir Caja a EMITIDO" style="color: #ef4444; border-color: #ef4444;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                    <polyline points="3 3 3 8 8 8"></polyline>
                                 </svg>
                             </button>`;
                         }
@@ -1417,9 +1425,16 @@ async function openReport(cajaId = null) {
         const fechaCaja = box.fecha ? new Date(box.fecha).toLocaleDateString() : '---';
         
         const allMatched = box.items.length > 0 && box.items.every(i => i.Conciliado);
-        const matchStatusBadge = allMatched ? 
-            `<span style="background:#10b981; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">✓ CAJA CONCILIADA TOTALMENTE</span>` : 
-            `<span style="background:#f59e0b; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">⏳ CAJA PENDIENTE</span>`;
+        const isClosed = box.items.length > 0 && box.items.some(i => i.CajaFlgEst === 'C');
+        let matchStatusBadge = '';
+        if (isClosed) {
+            matchStatusBadge = `<span style="background:#059669; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold; margin-right: 8px;">🔒 CERRADO (CONCILIADO Y CERRADO)</span>`;
+            matchStatusBadge += `<button class="btn btn-sm btn-revert-caja" onclick="confirmRevertirCaja('${boxKey}')" style="background:#ef4444; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:bold; cursor:pointer; vertical-align: middle;">Revertir a EMITIDO</button>`;
+        } else {
+            matchStatusBadge = allMatched ? 
+                `<span style="background:#10b981; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">✓ CAJA CONCILIADA TOTALMENTE</span>` : 
+                `<span style="background:#f59e0b; color:white; padding: 4px 12px; border-radius:12px; font-size: 0.8rem; font-weight:bold;">⏳ CAJA PENDIENTE</span>`;
+        }
 
         html += `
             <div class="report-header" style="page-break-before: always; color: black; background: white; padding: 15px 20px 5px;">
@@ -1835,8 +1850,18 @@ async function generateDetailedPDFReport() {
     });
 
     try {
-        const conciliados = bankMovements.filter(m => m.Estado === 'Conciliado');
-        const pendientes = bankMovements.filter(m => m.Estado !== 'Conciliado');
+        let filteredBankMovements = bankMovements;
+        const chkIngresos = document.getElementById('chkOnlyIngresosBanco');
+        if (chkIngresos && chkIngresos.checked) {
+            filteredBankMovements = filteredBankMovements.filter(m => parseFloat(m.Monto || 0) > 0);
+        }
+        const chkPendiente = document.getElementById('chkOnlyPendienteBanco');
+        if (chkPendiente && chkPendiente.checked) {
+            filteredBankMovements = filteredBankMovements.filter(m => m.Estado === 'Pendiente');
+        }
+
+        const conciliados = filteredBankMovements.filter(m => m.Estado === 'Conciliado');
+        const pendientes = filteredBankMovements.filter(m => m.Estado !== 'Conciliado');
 
         // Cargar detalles de conciliación en paralelo
         const detailedConciliados = await Promise.all(conciliados.map(async (m) => {
@@ -2719,6 +2744,122 @@ async function clearAllConciliaciones() {
             Swal.fire({ title: 'Error', text: 'No se pudieron limpiar las conciliaciones', icon: 'error', confirmButtonColor: '#2b3954' });
         } else {
             showToast('Error al limpiar las conciliaciones', 'error');
+        }
+    }
+}
+
+// ─── CLOSE AND REVERT CONCILIADO CAJAS (UI) ───────────────────
+
+async function cerrarCancelacionDocumentos() {
+    if (typeof Swal === 'undefined') {
+        alert('Swal is not defined');
+        return;
+    }
+
+    const result = await Swal.fire({
+        title: '¿Cerrar Cancelación de Documentos?',
+        text: 'Esta operación cambiará el estado de todas las cajas conciliadas en el periodo a CERRADO (FLGEST=C).',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, Cerrar',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if (result.isConfirmed) {
+        Swal.fire({
+            title: 'Procesando...',
+            html: 'Cerrando cancelaciones en la base de datos...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        try {
+            const selectEmpresa = document.getElementById('selectEmpresa').value;
+            const selectBanco = document.getElementById('selectBanco').value;
+            const selectYear = document.getElementById('selectYear').value;
+            const selectMonth = document.getElementById('selectMonth').value;
+            
+            const params = new URLSearchParams();
+            if (selectEmpresa) params.append('codcia', selectEmpresa);
+            if (selectBanco) params.append('bank_code', selectBanco);
+            if (selectYear) params.append('year', selectYear);
+            if (selectMonth) params.append('month', selectMonth);
+            
+            const res = await fetch(`/api/conciliacion/cerrar-cajas?${params.toString()}`, {
+                method: 'POST'
+            });
+            if (!res.ok) throw new Error('Error al cerrar cajas');
+            const data = await res.json();
+            
+            Swal.close();
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#059669'
+            });
+            
+            // Reload all cobranzas to reflect state
+            await loadAllCobranzas();
+        } catch (err) {
+            Swal.close();
+            console.error(err);
+            Swal.fire('Error', 'No se pudieron cerrar las cancelaciones.', 'error');
+        }
+    }
+}
+
+async function confirmRevertirCaja(boxKey) {
+    if (typeof Swal === 'undefined') {
+        alert('Swal is not defined');
+        return;
+    }
+
+    const parts = boxKey.split('-');
+    if (parts.length < 3) return;
+    const codcia = parts[0];
+    const coddoc = parts[1];
+    const nrodoc = parts.slice(2).join('-');
+    
+    const result = await Swal.fire({
+        title: '¿Revertir Caja a EMITIDO?',
+        text: `Esto cambiará el estado de la caja ${boxKey} a EMITIDO (FLGEST=P).`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, revertir',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if (result.isConfirmed) {
+        try {
+            const res = await fetch('/api/conciliacion/revertir-caja', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codcia, coddoc, nrodoc })
+            });
+            if (!res.ok) throw new Error('Error al revertir caja');
+            const data = await res.json();
+            showToast(data.message, 'success');
+            
+            // Close modal to reset state
+            closeReport();
+            
+            // Reload all cobranzas to reflect state
+            await loadAllCobranzas();
+            
+            // Re-open the report to show updated status after data reloaded
+            setTimeout(() => {
+                openReport(boxKey);
+            }, 300);
+        } catch (err) {
+            console.error(err);
+            showToast('Error al revertir el estado de la caja', 'error');
         }
     }
 }

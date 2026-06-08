@@ -358,6 +358,10 @@ function switchTab(tabId, btn) {
     if (tabId === 'tab-permisos') loadRolesForSelect();
     if (tabId === 'tab-roles') loadRoles();
     if (tabId === 'tab-empresas') loadUsersForSelect();
+    if (tabId === 'tab-vendedores') {
+        loadVendedorUsersForSelect();
+        loadVendedorCiasForSelect();
+    }
 }
 
 // ─── Permisos ────────────────────────────────
@@ -748,6 +752,142 @@ async function saveUserEmpresas() {
         if (!res.ok) throw new Error('Error al guardar');
         const data = await res.json();
         alert(data.message || 'Empresas actualizadas');
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// ─── Vendedores ──────────────────────────────
+async function loadVendedorUsersForSelect() {
+    const sel = document.getElementById('selVendedorUser');
+    if (sel.options.length > 1) return; // Already loaded
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const users = await res.json();
+        window._webUsersCache = users; // Cache users list
+        
+        sel.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
+        users.forEach(u => {
+            sel.insertAdjacentHTML('beforeend', `<option value="${u.login}">${u.nombre || u.login} (${u.login})</option>`);
+        });
+    } catch (e) { console.error('Error loading users for vendor select', e); }
+}
+
+async function loadVendedorCiasForSelect() {
+    const sel = document.getElementById('selVendedorCia');
+    if (sel.options.length > 1) return; // Already loaded
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch('/api/permisos/empresas/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const empresas = await res.json();
+        
+        sel.innerHTML = '<option value="">-- Seleccionar Empresa --</option>';
+        empresas.forEach(e => {
+            sel.insertAdjacentHTML('beforeend', `<option value="${e.codcia}">${e.codcia} - ${e.nomcia}</option>`);
+        });
+    } catch (e) { console.error('Error loading empresas for vendor select', e); }
+}
+
+async function loadUserVendedores() {
+    const login = document.getElementById('selVendedorUser').value;
+    const codcia = document.getElementById('selVendedorCia').value;
+    const container = document.getElementById('vendedores-checkboxes');
+    
+    if (!login || !codcia) {
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Seleccione un usuario y una empresa.</p>';
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        if (!token) throw new Error('Sesión expirada o no válida. Identifíquese de nuevo.');
+        
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Cargando vendedores...</p>';
+
+        const [allVendorsRes, userVendorsRes] = await Promise.all([
+            fetch(`/api/admin/vendedores?codcia=${codcia}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch(`/api/admin/usuario-vendedores/${login}?codcia=${codcia}`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        if (!allVendorsRes.ok) {
+            const err = await allVendorsRes.json();
+            throw new Error(err.detail || 'Error al cargar catálogo de vendedores');
+        }
+        if (!userVendorsRes.ok) {
+            const err = await userVendorsRes.json();
+            throw new Error(err.detail || 'Error al cargar vendedores del usuario');
+        }
+
+        const allVendors = await allVendorsRes.json();
+        const userVendors = await userVendorsRes.json();
+
+        const assignedSet = new Set(Array.isArray(userVendors) ? userVendors.map(v => v.trim()) : []);
+        
+        if (allVendors.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No se encontraron vendedores en esta empresa.</p>';
+            return;
+        }
+
+        // Check if user has PuedeVerTodo
+        const userObj = window._webUsersCache ? window._webUsersCache.find(u => String(u.login).trim().toUpperCase() === String(login).trim().toUpperCase()) : null;
+        const canSeeAll = userObj ? !!userObj.puede_ver_todo : false;
+
+        let html = '';
+        if (canSeeAll) {
+            html += `
+                <div style="grid-column: 1 / -1; padding: 1rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; color: #10b981; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>💡</span>
+                    <span>Este usuario tiene habilitada la opción <strong>"Puede Ver Todos los Registros"</strong> en su perfil. Actualmente visualiza todos los vendedores sin restricciones.</span>
+                </div>
+            `;
+        }
+
+        html += allVendors.map(v => {
+            const cod = (v.codigo || '').trim();
+            const nom = (v.nombre || '').trim();
+            const checked = assignedSet.has(cod) ? 'checked' : '';
+            return `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem 1rem;border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;font-size:0.85rem;">
+                <input type="checkbox" class="vendedor-cb" value="${cod}" ${checked} style="width:16px;height:16px;cursor:pointer;">
+                <strong>${cod}</strong> - ${nom}
+            </label>`;
+        }).join('');
+
+        container.innerHTML = html;
+    } catch (e) {
+        console.error('loadUserVendedores error:', e);
+        container.innerHTML = `<p style="color:var(--danger); padding:1rem; border:1px dashed var(--danger); border-radius:8px; background:var(--danger-bg);">
+            <strong>Error:</strong> ${e.message}
+        </p>`;
+    }
+}
+
+async function saveUserVendedores() {
+    const login = document.getElementById('selVendedorUser').value;
+    const codcia = document.getElementById('selVendedorCia').value;
+    if (!login || !codcia) { alert('Seleccione usuario y empresa primero'); return; }
+    
+    const checked = document.querySelectorAll('.vendedor-cb:checked');
+    const vendedores = Array.from(checked).map(cb => cb.value);
+    
+    try {
+        const token = localStorage.getItem('yelave_token');
+        const res = await fetch(`/api/admin/usuario-vendedores/${login}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codcia, vendedores })
+        });
+        if (!res.ok) throw new Error('Error al guardar');
+        const data = await res.json();
+        alert(data.message || 'Vendedores actualizados');
     } catch (e) {
         alert('Error: ' + e.message);
     }

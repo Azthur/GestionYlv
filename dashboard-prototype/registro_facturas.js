@@ -319,7 +319,9 @@ async function loadSunatInvoice(btn) {
                     igv: igv,
                     total: total,
                     icbperItem: parseFloat(item.mtoICBPER) || 0,
-                    descItem: parseFloat(item.mtoDesc) || 0
+                    descItem: parseFloat(item.mtoDesc) || 0,
+                    tipoOp: igv > 0 ? 'gravada' : 'inafecta',
+                    porcIgv: igv > 0 ? 18.0 : 0.0
                 });
             });
         } else {
@@ -328,7 +330,9 @@ async function loadSunatInvoice(btn) {
             if (bg > 0) {
                 invoiceItems.push({
                     codigo: 'GEN', desc: 'Por el servicio / compra', und: 'ZZ',
-                    cant: 1, pu: bg, vv: bg, igv: igv, total: bg + igv
+                    cant: 1, pu: bg, vv: bg, igv: igv, total: bg + igv,
+                    tipoOp: igv > 0 ? 'gravada' : 'inafecta',
+                    porcIgv: igv > 0 ? 18.0 : 0.0
                 });
             }
         }
@@ -928,11 +932,18 @@ function processConfirmConciliacionOC() {
             
             item.cant = row.cantIngresar;
             item.vv = item.cant * item.pu;
-            item.igv = item.vv * 0.18;
+            const rate = item.porcIgv !== undefined ? item.porcIgv / 100 : 0.18;
+            item.igv = item.vv * rate;
             item.total = item.vv + item.igv;
             
             item.fromOC = true;
             item.oc_origen = ocOrigenTracker;
+            if (item.tipoOp === undefined) item.tipoOp = 'gravada';
+            if (item.porcIgv === undefined) item.porcIgv = 18.0;
+            // Propagar cuenta contable de la OC si el item no la tiene
+            if (!item.cuentaContable && d.cuenta_contable) {
+                item.cuentaContable = d.cuenta_contable;
+            }
         } else {
             // No existe en factura (Ítem NUEVO inyectado de la OC)
             const vv = row.cantIngresar * row.precioOc;
@@ -948,7 +959,10 @@ function processConfirmConciliacionOC() {
                 igv: igv,
                 total: vv + igv,
                 fromOC: true,
-                oc_origen: ocOrigenTracker
+                oc_origen: ocOrigenTracker,
+                cuentaContable: d.cuenta_contable || '',
+                tipoOp: 'gravada',
+                porcIgv: 18.0
             });
         }
     });
@@ -972,7 +986,7 @@ function clearOC() {
 function renderInvoiceItems() {
     const tb = document.getElementById('invItemsTbody');
     if (invoiceItems.length === 0) {
-        tb.innerHTML = '<tr id="invNoItems"><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-muted);">Sin ítems. Busque un comprobante SUNAT, cargue una OC o agregue ítems manualmente.</td></tr>';
+        tb.innerHTML = '<tr id="invNoItems"><td colspan="14" style="text-align:center; padding:2rem; color:var(--text-muted);">Sin ítems. Busque un comprobante SUNAT, cargue una OC o agregue ítems manualmente.</td></tr>';
         updateTotals(0,0,0);
         return;
     }
@@ -1015,6 +1029,8 @@ function renderInvoiceItems() {
                     </div>
                 </td>
                 <td><input type="text" class="item-input-edit" placeholder="Opcional..." value="${it.codProv || ''}" onchange="updateItem(${i}, 'codProv', this.value)" title="Código de Referencia del Proveedor / Factura"></td>
+                <td><input type="text" class="item-input-edit" placeholder="Opcional..." value="${it.cuentaContable || ''}" onchange="updateItem(${i}, 'cuentaContable', this.value)" title="Cuenta Contable"></td>
+                <td><input type="text" class="item-input-edit" placeholder="Opcional..." value="${it.codcta2 || ''}" onchange="updateItem(${i}, 'codcta2', this.value)" title="Cta. Contable 2"></td>
                 <td>
                     <input type="text" class="item-input-edit" style="width:100%;" value="${it.desc}" onchange="updateItem(${i}, 'desc', this.value)">
                     ${it.oc_origen ? `<div style="font-size:0.65rem; color:#f59e0b; margin-top:2px; font-weight:600;">Origen: ${it.oc_origen}</div>` : ''}
@@ -1113,10 +1129,11 @@ async function executeCatalogSearch(q) {
                     return `
                     <div style="padding:0.75rem 1rem; border:1px solid var(--border-soft); border-radius:8px; cursor:pointer; font-size:0.85rem; transition:all 0.15s; background:white; display:flex; gap:1rem; align-items:center;" 
                           onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='var(--border-soft)'; this.style.transform='none';"
-                          onclick="selectModalItem('${escapeHtml(it.codigo)}', '${escapeHtml(it.descripcion)}')">
+                          onclick="selectModalItem('${escapeHtml(it.codigo)}', '${escapeHtml(it.descripcion)}', '${escapeHtml(it.cuenta_contable || '')}', '${escapeHtml(it.cuenta_contable2 || '')}')">
                           <span style="display:inline-block; padding:0.2rem 0.5rem; font-size:0.7rem; font-weight:600; border-radius:4px; ${badgeColor.replace(/bg-([a-z]+)-100/g, 'background:#eff6ff').replace(/text-([a-z]+)-800/g, 'color:#1e40af')} text-transform:uppercase; min-width:70px; text-align:center;">${it.tipo}</span> 
                           <span style="font-weight:600; min-width:100px;">${it.codigo}</span> 
                           <span>${it.descripcion}</span>
+                          <span style="color:#64748b; font-size:0.8rem; margin-left:auto; font-weight:500;">Cta: ${it.cuenta_contable || 'Sin Cuenta'} | Cta2: ${it.cuenta_contable2 || 'Sin Cuenta'}</span>
                     </div>`
                 }).join('');
             }
@@ -1134,7 +1151,7 @@ function openNewItemSearch() {
     setTimeout(() => document.getElementById('catalogoSearchInput').focus(), 100);
 }
 
-function selectModalItem(codigo, desc) {
+function selectModalItem(codigo, desc, cuentaContable, cuentaContable2) {
     closeDialog('modalSearchItem');
     const idxStr = document.getElementById('searchItemTargetIndex').value;
     
@@ -1143,6 +1160,8 @@ function selectModalItem(codigo, desc) {
         document.getElementById('manualDesc').value = codigo === 'USER-LIBRE' ? desc : (codigo + ' - ' + desc);
         document.getElementById('manualCant').value = '1.00';
         document.getElementById('manualPrecio').value = '0.00';
+        document.getElementById('manualCuentaContable').value = cuentaContable || '';
+        document.getElementById('manualCuentaContable2').value = cuentaContable2 || '';
         document.getElementById('manualTipoOp').value = 'gravada';
         document.getElementById('manualPorcIgv').value = '18.0';
         document.getElementById('manualIncluyeIgv').value = 'SI';
@@ -1150,6 +1169,8 @@ function selectModalItem(codigo, desc) {
         
         // Save the chosen code temporally to an attribute to be able to push it properly
         document.getElementById('modalManualEntry').setAttribute('data-pending-code', codigo === 'USER-LIBRE' ? 'MANUAL' : codigo);
+        document.getElementById('modalManualEntry').setAttribute('data-pending-cuenta', cuentaContable || '');
+        document.getElementById('modalManualEntry').setAttribute('data-pending-cuenta2', cuentaContable2 || '');
         document.getElementById('modalManualEntry').setAttribute('data-edit-index', '-1');
         
         document.getElementById('modalManualEntry').classList.add('active');
@@ -1159,6 +1180,8 @@ function selectModalItem(codigo, desc) {
         if (!isNaN(idx) && invoiceItems[idx]) {
             invoiceItems[idx].codigo = codigo;
             invoiceItems[idx].desc = desc;
+            invoiceItems[idx].cuentaContable = cuentaContable || '';
+            invoiceItems[idx].codcta2 = cuentaContable2 || '';
             renderInvoiceItems();
         }
     }
@@ -1171,7 +1194,10 @@ function updateItem(index, field, value) {
     if (field === 'cant' || field === 'pu' || field === 'igv') {
         it[field] = parseFloat(value) || 0;
         it.vv = it.cant * it.pu;
-        if (field !== 'igv') it.igv = it.vv * 0.18;
+        if (field !== 'igv') {
+            const rate = it.porcIgv !== undefined ? it.porcIgv / 100 : 0.18;
+            it.igv = it.vv * rate;
+        }
         it.total = it.vv + it.igv;
     } else {
         it[field] = value;
@@ -1183,11 +1209,15 @@ function addInvoiceItem() {
     document.getElementById('manualDesc').value = '';
     document.getElementById('manualCant').value = '1.00';
     document.getElementById('manualPrecio').value = '0.00';
+    document.getElementById('manualCuentaContable').value = '';
+    document.getElementById('manualCuentaContable2').value = '';
     document.getElementById('manualTipoOp').value = 'gravada';
     document.getElementById('manualPorcIgv').value = '18.0';
     document.getElementById('manualIncluyeIgv').value = 'SI';
     toggleManualIgvOptions();
     document.getElementById('modalManualEntry').setAttribute('data-edit-index', '-1');
+    document.getElementById('modalManualEntry').setAttribute('data-pending-cuenta', '');
+    document.getElementById('modalManualEntry').setAttribute('data-pending-cuenta2', '');
     document.getElementById('modalManualEntry').classList.add('active');
     setTimeout(() => document.getElementById('manualDesc').focus(), 100);
 }
@@ -1199,10 +1229,12 @@ function editInvoiceItem(index) {
     document.getElementById('manualDesc').value = it.desc;
     document.getElementById('manualCant').value = it.cant;
     document.getElementById('manualPrecio').value = it.pu;
+    document.getElementById('manualCuentaContable').value = it.cuentaContable || '';
+    document.getElementById('manualCuentaContable2').value = it.codcta2 || '';
     document.getElementById('manualTipoOp').value = it.tipoOp || 'gravada';
     
     if ((it.tipoOp || 'gravada') === 'gravada') {
-        const perc = it.vv > 0 ? (it.igv / it.vv) * 100 : 18.0;
+        const perc = it.porcIgv !== undefined && it.porcIgv !== null ? it.porcIgv : (it.vv > 0 ? (it.igv / it.vv) * 100 : 18.0);
         document.getElementById('manualPorcIgv').value = perc.toFixed(1);
     } else if (it.tipoOp === 'retencion_rh') {
         document.getElementById('manualPorcIgv').value = '0.0';
@@ -1218,6 +1250,8 @@ function editInvoiceItem(index) {
     
     document.getElementById('modalManualEntry').setAttribute('data-edit-index', index);
     document.getElementById('modalManualEntry').setAttribute('data-pending-code', it.codigo);
+    document.getElementById('modalManualEntry').setAttribute('data-pending-cuenta', it.cuentaContable || '');
+    document.getElementById('modalManualEntry').setAttribute('data-pending-cuenta2', it.codcta2 || '');
     document.getElementById('modalManualEntry').classList.add('active');
 }
 
@@ -1259,6 +1293,8 @@ function injectManualItem() {
     
     const cant = parseFloat(document.getElementById('manualCant').value) || 1;
     let precio = parseFloat(document.getElementById('manualPrecio').value) || 0;
+    const cuenta = document.getElementById('manualCuentaContable').value.trim();
+    const cuenta2 = document.getElementById('manualCuentaContable2').value.trim();
     
     const op = document.getElementById('manualTipoOp').value;
     const porcIgv = op === 'gravada' ? (parseFloat(document.getElementById('manualPorcIgv').value) || 18.0) : 0;
@@ -1296,7 +1332,7 @@ function injectManualItem() {
     const codeToInject = document.getElementById('modalManualEntry').getAttribute('data-pending-code') || 'MANUAL';
     
     const obj = {
-        codigo: codeToInject, 
+        codigo: codeToInject,
         desc: desc,
         und: 'NIU',
         cant: cant,
@@ -1304,7 +1340,10 @@ function injectManualItem() {
         vv: vv,
         igv: igv,
         total: total,
-        tipoOp: op
+        tipoOp: op,
+        porcIgv: porcIgv,
+        cuentaContable: cuenta,
+        codcta2: cuenta2
     };
     
     // Store retention % for re-editing
@@ -1645,30 +1684,112 @@ async function handleItemFileUpload(index, obsField, input) {
     }
 }
 
+function updateIgvLabelPercent(percent) {
+    const labelEl = document.getElementById('invIgvLabel');
+    if (labelEl) {
+        const displayPercent = Number(percent) % 1 === 0 ? parseInt(percent) : Number(percent).toFixed(1);
+        labelEl.textContent = `IGV (${displayPercent}%):`;
+    }
+}
+
+function recalculateGrandTotal() {
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        const valStr = (el.tagName === 'INPUT' ? el.value : el.textContent) || '0';
+        return parseFloat(valStr.replace(/,/g, '')) || 0;
+    };
+    const gravado = getVal('invGravadoDisplay');
+    const igv = getVal('invIGVDisplay');
+    const inafecto = getVal('invInafectoDisplay');
+    const exonerado = getVal('invExoneradoDisplay');
+    const anticipos = getVal('invAnticiposDisplay');
+    const isc = getVal('invISCDisplay');
+    const icbper = getVal('invICBPERDisplay');
+    const otrosCargos = getVal('invOtrosCargosDisplay');
+    const otrosTrib = getVal('invOtrosTribDisplay');
+    
+    const calculatedTotal = gravado + exonerado + inafecto + igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    
+    const totalEl = document.getElementById('invTotalDisplay');
+    if (totalEl) {
+        totalEl.textContent = fmtNum(calculatedTotal);
+    }
+}
+window.recalculateGrandTotal = recalculateGrandTotal;
+
 function updateTotals(subt, igv, tot, totG=0, totE=0, totI=0) {
-    document.getElementById('invSubTotalDisplay').textContent = fmtNum(subt);
-    document.getElementById('invIGVDisplay').textContent = fmtNum(igv);
-    document.getElementById('invTotalDisplay').textContent = fmtNum(tot);
+    const setValLocal = (id, v) => {
+        const el = document.getElementById(id);
+        if(el) {
+            if (el.tagName === 'INPUT') {
+                el.value = v !== undefined && v !== null ? parseFloat(v) : 0;
+            } else {
+                el.textContent = fmtNum(v || 0);
+            }
+        }
+    };
+
+    setValLocal('invSubTotalDisplay', subt);
+    setValLocal('invIGVDisplay', igv);
     
     const gEl = document.getElementById('invGravadoDisplay');
     const eEl = document.getElementById('invExoneradoDisplay');
     const iEl = document.getElementById('invInafectoDisplay');
     
-    // Si viene de items y los totales desagregados son mayores a 0, actualizar
-    if (gEl && (parseFloat(gEl.textContent) === 0 || totG > 0)) gEl.textContent = fmtNum(totG > 0 ? totG : subt);
-    if (eEl && totE > 0) eEl.textContent = fmtNum(totE);
-    if (iEl && totI > 0) iEl.textContent = fmtNum(totI);
+    if (invoiceItems.length > 0) {
+        if (gEl) setValLocal('invGravadoDisplay', totG);
+        if (eEl) setValLocal('invExoneradoDisplay', totE);
+        if (iEl) setValLocal('invInafectoDisplay', totI);
+    } else {
+        if (gEl) {
+            const currentGrav = parseFloat((gEl.textContent || '0').replace(/,/g, '')) || 0;
+            if (currentGrav === 0 || totG > 0) {
+                setValLocal('invGravadoDisplay', totG > 0 ? totG : subt);
+            }
+        }
+        if (eEl && totE > 0) setValLocal('invExoneradoDisplay', totE);
+        if (iEl && totI > 0) setValLocal('invInafectoDisplay', totI);
+    }
+    
     // Ensure ICBPER from items
     let icbperTotal = 0;
     invoiceItems.forEach(i => { if(i.icbper) icbperTotal += i.icbper; });
-    const icbEl = document.getElementById('invICBPERDisplay');
-    if (icbEl) icbEl.textContent = fmtNum(icbperTotal);
+    setValLocal('invICBPERDisplay', icbperTotal);
+
+    // Update dynamic IGV percent label
+    let igvPercent = 18.0;
+    const gravadaItem = invoiceItems.find(it => (it.tipoOp === 'gravada' || !it.tipoOp) && it.porcIgv !== undefined && it.porcIgv !== null);
+    if (gravadaItem) {
+        igvPercent = gravadaItem.porcIgv;
+    } else {
+        const manualPorcIgvEl = document.getElementById('manualPorcIgv');
+        if (manualPorcIgvEl && parseFloat(manualPorcIgvEl.value) > 0) {
+            igvPercent = parseFloat(manualPorcIgvEl.value);
+        }
+    }
+    updateIgvLabelPercent(igvPercent);
+
+    // Calculate final total including inafecto and exonerado inputs
+    recalculateGrandTotal();
 }
 
 function setSummaryFromSUNAT(data) {
     // Called when extracting CPE from SUNAT API — fills all breakdown fields
     console.log('setSummaryFromSUNAT called with data:', data);
-    const setVal = (id, v) => { const el = document.getElementById(id); if(el) { el.textContent = fmtNum(v || 0); console.log(`Set ${id} to ${fmtNum(v || 0)}`); } else { console.warn(`Element ${id} not found`); }};
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if(el) {
+            if (el.tagName === 'INPUT') {
+                el.value = v !== undefined && v !== null ? parseFloat(v) : 0;
+            } else {
+                el.textContent = fmtNum(v || 0);
+            }
+            console.log(`Set ${id} to ${v}`);
+        } else {
+            console.warn(`Element ${id} not found`);
+        }
+    };
     setVal('invGravadoDisplay', data.MtoBIGravadaDG || data.mtoBIGravadaDG || data.mtoOperGravada);
     setVal('invExoneradoDisplay', data.mtoOperExonerada || data.MtoOperExonerada);
     setVal('invInafectoDisplay', data.MtoValorAdqNG || data.mtoValorAdqNG || data.mtoOperInafecta);
@@ -1705,6 +1826,59 @@ function setSummaryFromSUNAT(data) {
         setInput('invCreditoFecPlazo', fecPlazo);
         setInput('invCreditoMtoPendiente', fmtNum(total));
     }
+    
+    // Update dynamic IGV percentage label and recalculate
+    const grav = data.MtoBIGravadaDG || data.mtoBIGravadaDG || data.mtoOperGravada || 0;
+    const igvVal = data.MtoIgvIpmDG || data.mtoIgvIpmDG || data.mtoIGV || 0;
+    let igvPercent = 18.0;
+    if (grav > 0 && igvVal > 0) {
+        igvPercent = Math.round((igvVal / grav) * 100);
+    }
+    updateIgvLabelPercent(igvPercent);
+    recalculateGrandTotal();
+}
+
+function renderDocsRelacionados() {
+    const docsDiv = document.getElementById('docsRelacionadosList');
+    if (!docsDiv) return;
+    
+    const docs = window.currentCpeData?.informacionDocumentosRelacionados || [];
+    if (docs.length === 0) {
+        docsDiv.innerHTML = '<div style="color:var(--text-muted);font-style:italic;">No hay documentos relacionados</div>';
+        const badge = document.getElementById('badgeGuias');
+        if (badge) {
+            badge.style.display = 'none';
+            badge.textContent = '';
+        }
+        return;
+    }
+    
+    let html = '<div style="display:flex; flex-direction:column; gap:0.5rem;">';
+    docs.forEach((doc, idx) => {
+        const label = doc.desCpeRel || doc.codCpeRel || 'Guía de Remisión';
+        const serie = doc.numSerieDocRel || '';
+        const numero = doc.numDocRel || '';
+        const text = serie ? `${serie}-${numero}` : numero;
+        
+        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <div>
+                    <span style="font-weight:600; color:#92400e;">${label}</span>
+                    <span style="margin-left:0.5rem; font-weight:500;">${text}</span>
+                </div>
+            </div>
+            <button type="button" onclick="eliminarGuiaManual(${idx})" style="color:#ef4444; border:none; background:none; cursor:pointer; font-size:1.1rem; padding:0 0.2rem;">&times;</button>
+        </div>`;
+    });
+    html += '</div>';
+    docsDiv.innerHTML = html;
+    
+    const badge = document.getElementById('badgeGuias');
+    if (badge) {
+        badge.style.display = 'inline-flex';
+        badge.textContent = `${docs.length} doc(s)`;
+    }
 }
 
 function agregarGuiaManual() {
@@ -1712,37 +1886,59 @@ function agregarGuiaManual() {
     const guia = guiaInput.value.trim();
     if (!guia) return;
     
-    const listDiv = document.getElementById('docsRelacionadosList');
-    const currentText = listDiv.textContent;
-    
-    if (currentText === 'Sin documentos relacionados') {
-        listDiv.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid #e2e8f0;">
-            <span>${guia}</span>
-            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">×</button>
-        </div>`;
-    } else {
-        listDiv.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid #e2e8f0;">
-            <span>${guia}</span>
-            <button onclick="this.parentElement.remove()" style="color:#ef4444; border:none; background:none; cursor:pointer;">×</button>
-        </div>`;
+    if (!window.currentCpeData) {
+        window.currentCpeData = {};
     }
+    if (!window.currentCpeData.informacionDocumentosRelacionados) {
+        window.currentCpeData.informacionDocumentosRelacionados = [];
+    }
+    
+    const parts = guia.split('-');
+    let serie = '';
+    let numero = '';
+    if (parts.length === 2) {
+        serie = parts[0].trim().toUpperCase();
+        numero = parts[1].trim();
+    } else {
+        numero = guia;
+    }
+    
+    window.currentCpeData.informacionDocumentosRelacionados.push({
+        desCpeRel: 'Guía de Remisión',
+        codCpeRel: '09',
+        numSerieDocRel: serie,
+        numDocRel: numero
+    });
     
     guiaInput.value = '';
-    
-    const badge = document.getElementById('badgeGuias');
-    if (badge) {
-        badge.style.display = 'inline-flex';
-        badge.textContent = 'docs';
+    renderDocsRelacionados();
+}
+
+function eliminarGuiaManual(index) {
+    if (window.currentCpeData && window.currentCpeData.informacionDocumentosRelacionados) {
+        window.currentCpeData.informacionDocumentosRelacionados.splice(index, 1);
+        renderDocsRelacionados();
     }
 }
+
+window.eliminarGuiaManual = eliminarGuiaManual;
 
 function setSummaryFromCPE(cpeData, sunatRow) {
     // Función enriquecida que lee TODA la data del XML (datoscperecibido)
     console.log('setSummaryFromCPE called with cpeData:', cpeData);
     console.log('setSummaryFromCPE called with sunatRow:', sunatRow);
     
-    const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = fmtNum(v || 0); };
-    const setInput = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if(el) {
+            if (el.tagName === 'INPUT') {
+                el.value = v !== undefined && v !== null ? parseFloat(v) : 0;
+            } else {
+                el.textContent = fmtNum(v || 0);
+            }
+        }
+    };
+    const setInput = (id, v) => { const el = document.getElementById(id); if(el) { el.value = v || ''; }; };
     
     // Decidir de donde leer los montos: procedenciaMasiva o procedenciaIndivual
     const pm = cpeData.procedenciaMasiva || {};
@@ -1900,29 +2096,23 @@ function setSummaryFromCPE(cpeData, sunatRow) {
     
     // GUIAS DE REMISION / DOCS RELACIONADOS
     if (cpeData.informacionDocumentosRelacionados && cpeData.informacionDocumentosRelacionados.length > 0) {
-        const docsDiv = document.getElementById('docsRelacionadosList');
-        if (docsDiv) {
-            let html = '<div style="display:flex; flex-direction:column; gap:0.5rem;">';
-            cpeData.informacionDocumentosRelacionados.forEach(doc => {
-                html += '<div style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; background:#fffbeb; border:1px solid #fde68a; border-radius:6px;">';
-                html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
-                html += '<div><span style="font-weight:600; color:#92400e;">' + (doc.desCpeRel || doc.codCpeRel) + '</span>';
-                html += '<span style="margin-left:0.5rem; font-weight:500;">' + (doc.numSerieDocRel || '') + '-' + (doc.numDocRel || '') + '</span></div>';
-                html += '</div>';
-            });
-            html += '</div>';
-            docsDiv.innerHTML = html;
-        }
+        renderDocsRelacionados();
         const secGuias = document.getElementById('secGuias');
         if (secGuias) secGuias.open = true;
-        const badgeGuias = document.getElementById('badgeGuias');
-        if (badgeGuias) { badgeGuias.style.display = 'inline-flex'; badgeGuias.textContent = cpeData.informacionDocumentosRelacionados.length + ' doc(s)'; }
     }
     
     // OBSERVACION SUNAT
     if (cpeData.desObservacion && cpeData.desObservacion !== '-') {
         setInput('invObservaciones', cpeData.desObservacion.trim());
     }
+    
+    // Update dynamic IGV percentage label and recalculate
+    let igvPercent = 18.0;
+    if (gravado > 0 && igv > 0) {
+        igvPercent = Math.round((igv / gravado) * 100);
+    }
+    updateIgvLabelPercent(igvPercent);
+    recalculateGrandTotal();
 }
 
 function clearInvoiceForm() {
@@ -1950,7 +2140,16 @@ function clearInvoiceForm() {
     if (adjInput) adjInput.value = '';
     window.pendingAdjuntos = [];
 
-    const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = fmtNum(v || 0); };
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if(el) {
+            if (el.tagName === 'INPUT') {
+                el.value = v !== undefined && v !== null ? parseFloat(v) : 0;
+            } else {
+                el.textContent = fmtNum(v || 0);
+            }
+        }
+    };
     setVal('invGravadoDisplay', 0);
     setVal('invExoneradoDisplay', 0);
     setVal('invInafectoDisplay', 0);
@@ -2047,11 +2246,55 @@ async function registrarFactura() {
 
     const dirEmisorEl = document.getElementById('invDirEmisor');
     
-    // Compute totals from items
-    let subTotalCalc = 0, igvCalc = 0, totalCalc = 0;
-    invoiceItems.forEach(i => { subTotalCalc += i.vv; igvCalc += i.igv; totalCalc += i.total; });
-    console.log('registrarFactura - Calculated totals:', { subTotalCalc, igvCalc, totalCalc });
+    // Compute totals from summary panel to include manual edits
+    const mtoGravadoVal = parseFloat((document.getElementById('invGravadoDisplay')?.textContent || '0').replace(/,/g, '')) || 0;
+    const mtoExoneradoVal = (() => {
+        const el = document.getElementById('invExoneradoDisplay');
+        if (!el) return 0;
+        const valStr = el.tagName === 'INPUT' ? el.value : el.textContent;
+        return parseFloat((valStr || '0').replace(/,/g, '')) || 0;
+    })();
+    const mtoInafectoVal = (() => {
+        const el = document.getElementById('invInafectoDisplay');
+        if (!el) return 0;
+        const valStr = el.tagName === 'INPUT' ? el.value : el.textContent;
+        return parseFloat((valStr || '0').replace(/,/g, '')) || 0;
+    })();
+    const mtoIgvVal = parseFloat((document.getElementById('invIGVDisplay')?.textContent || '0').replace(/,/g, '')) || 0;
+    const mtoTotalVal = parseFloat((document.getElementById('invTotalDisplay')?.textContent || '0').replace(/,/g, '')) || 0;
+
+    console.log('registrarFactura - Screen totals:', { mtoGravadoVal, mtoExoneradoVal, mtoInafectoVal, mtoIgvVal, mtoTotalVal });
     console.log('registrarFactura - invoiceItems:', invoiceItems);
+
+    // CHECK MISSING CUENTAS CONTABLES
+    let missingCuentas = false;
+    for (let it of invoiceItems) {
+        if (!it.cuentaContable || !it.cuentaContable.trim() || !it.codcta2 || !it.codcta2.trim()) {
+            missingCuentas = true;
+            break;
+        }
+    }
+
+    if (missingCuentas) {
+        const conf = await Swal.fire({
+            icon: 'warning',
+            title: '<span style="color: #ef4444; font-size: 1.8rem; font-weight: 700;">¡ADVERTENCIA CONTABLE!</span>',
+            html: `
+                <div style="font-size: 1.15rem; line-height: 1.6; text-align: center; padding: 0.5rem 0;">
+                    <p style="margin-bottom: 1rem;">Esta compra, servicios o gastos <strong>no tienen cuentas contables</strong> registradas (Cta. Contable o Cta. Contable 2 vacías).</p>
+                    <p style="font-weight: 600; color: #d97706; margin-bottom: 1.5rem;">Favor de solicitar al área contable que registre su cuenta contable.</p>
+                    <p style="font-size: 0.95rem; color: #64748b;">¿Desea continuar con el registro de todas formas?</p>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar de todas formas',
+            cancelButtonText: 'Cancelar y revisar',
+            confirmButtonColor: '#d97706',
+            cancelButtonColor: '#2563eb',
+            width: '620px'
+        });
+        if (!conf.isConfirmed) return;
+    }
 
     const payload = {
         id: window.editingFacturaId,
@@ -2065,13 +2308,13 @@ async function registrarFactura() {
         fec_vencimiento: document.getElementById('invFecVenc')?.value || document.getElementById('invCreditoFecPlazo')?.value || document.getElementById('invFecEmision')?.value || null,
         cod_moneda: normMoneda(document.getElementById('invMoneda')?.value),
         tipo_cambio: parseFloat(document.getElementById('invTipoCambio')?.value) || 1.0,
-        sub_total: subTotalCalc,
-        igv: igvCalc,
-        total: totalCalc,
+        sub_total: mtoGravadoVal + mtoExoneradoVal + mtoInafectoVal,
+        igv: mtoIgvVal,
+        total: mtoTotalVal,
         // Accounting breakdown (read from summary panel)
-        mto_gravado: parseFloat((document.getElementById('invGravadoDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
-        mto_exonerado: parseFloat((document.getElementById('invExoneradoDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
-        mto_inafecto: parseFloat((document.getElementById('invInafectoDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
+        mto_gravado: mtoGravadoVal,
+        mto_exonerado: mtoExoneradoVal,
+        mto_inafecto: mtoInafectoVal,
         mto_anticipos: parseFloat((document.getElementById('invAnticiposDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
         mto_isc: parseFloat((document.getElementById('invISCDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
         mto_icbper: parseFloat((document.getElementById('invICBPERDisplay')?.textContent || '0').replace(/,/g, '')) || 0,
@@ -2156,6 +2399,10 @@ async function registrarFactura() {
             mto_icbper_item: i.icbperItem || 0,
             mto_descuento: i.descItem || 0,
             cantidad_oc: i.fromOC && window.currentOCDetalle ? (window.currentOCDetalle.find(o=>o.codigo===i.codigo)||{}).canpend || null : null,
+            cuenta_contable: i.cuentaContable || null,
+            codcta2: i.codcta2 || null,
+            porc_igv: i.tipoOp === 'retencion_rh' ? (i.porcRetencion || 8.0) : (i.porcIgv !== undefined ? i.porcIgv : (i.tipoOp === 'gravada' ? 18.0 : 0.0)),
+            tipo_op: i.tipoOp || 'gravada',
             extra_data: (() => {
                 if (!i.extraData) return null;
                 const { files, ...rest } = i.extraData;
@@ -2744,19 +2991,7 @@ async function openEditRegistro(id) {
         if (cab.DocsRelacionadosJson) {
             try {
                 window.currentCpeData.informacionDocumentosRelacionados = JSON.parse(cab.DocsRelacionadosJson);
-                const docsDiv = document.getElementById('docsRelacionadosList');
-                if (docsDiv) {
-                    let html = '<div style="display:flex; flex-direction:column; gap:0.5rem;">';
-                    window.currentCpeData.informacionDocumentosRelacionados.forEach(doc => {
-                        html += '<div style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; background:#fffbeb; border:1px solid #fde68a; border-radius:6px;">';
-                        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
-                        html += '<div><span style="font-weight:600; color:#92400e;">' + (doc.desCpeRel || doc.codCpeRel || 'Doc') + '</span>';
-                        html += '<span style="margin-left:0.5rem; font-weight:500;">' + (doc.numSerieDocRel || '') + '-' + (doc.numDocRel || '') + '</span></div>';
-                        html += '</div>';
-                    });
-                    html += '</div>';
-                    docsDiv.innerHTML = html;
-                }
+                renderDocsRelacionados();
             } catch(e) {
                 console.error('Error parsing DocsRelacionadosJson:', e);
             }
@@ -2817,11 +3052,41 @@ async function openEditRegistro(id) {
                 vv: it.SubTotal || 0,
                 igv: it.IGV || 0,
                 total: it.Total || 0,
-                tipoOp: (it.IGV > 0) ? 'gravada' : 'inafecta',
+                tipoOp: it.TipoOp || ((it.IGV > 0) ? 'gravada' : 'inafecta'),
+                porcIgv: it.PorcIgv !== undefined && it.PorcIgv !== null ? it.PorcIgv : ((it.IGV > 0) ? 18.0 : 0.0),
+                porcRetencion: (it.TipoOp || ((it.IGV > 0) ? 'gravada' : 'inafecta')) === 'retencion_rh' ? (it.PorcIgv || 8.0) : null,
+                cuentaContable: it.CuentaContable || '',
+                codcta2: it.codcta2 || '',
                 extraData: extraData
             };
         });
         renderInvoiceItems();
+
+        // Assign explicit cabecera values for inafecta/exonerada if saved in DB
+        const setValLocal = (id, v) => {
+            const el = document.getElementById(id);
+            if(el) {
+                if (el.tagName === 'INPUT') {
+                    el.value = v !== undefined && v !== null ? parseFloat(v) : 0;
+                } else {
+                    el.textContent = fmtNum(v || 0);
+                }
+            }
+        };
+        if (cab.MtoInafecto !== undefined && cab.MtoInafecto !== null) {
+            setValLocal('invInafectoDisplay', cab.MtoInafecto);
+        }
+        if (cab.MtoExonerado !== undefined && cab.MtoExonerado !== null) {
+            setValLocal('invExoneradoDisplay', cab.MtoExonerado);
+        }
+
+        // Determine dynamic IGV percentage
+        const gravadaItem = invoiceItems.find(it => (it.tipoOp === 'gravada' || !it.tipoOp) && it.porcIgv !== undefined && it.porcIgv !== null);
+        const igvPercent = gravadaItem ? gravadaItem.porcIgv : 18.0;
+        updateIgvLabelPercent(igvPercent);
+
+        // Recalculate total
+        recalculateGrandTotal();
 
         // Set mode to manual since we're editing
         setInvoiceMode('manual');

@@ -484,7 +484,10 @@ def get_purchase_order_report(
         total_received = 0
         total_invoiced = 0
         
-        for row in cursor.fetchall():
+        # Pre-fetch all rows to avoid cursor conflicts during account resolution
+        detail_rows = cursor.fetchall()
+        
+        for row in detail_rows:
             # Skip items flagged as eliminated (flgest = '*')
             if row.flgest and row.flgest.strip() == '*':
                 continue
@@ -521,6 +524,36 @@ def get_purchase_order_report(
                 line_status = "Completo"
             elif compare_qty > 0:
                 line_status = "Parcial"
+            
+            # ── Resolve CuentaContable based on OC type ──
+            cuenta_contable = ""
+            codmat_val = (row.codmat or "").strip()
+            try:
+                if t_oc == 'M' and codmat_val:
+                    # Productos: AlmmMatg → familia → AlmTabla tabla '0001' → codcta
+                    cursor.execute("""
+                        SELECT RTRIM(f.codcta) as codcta
+                        FROM AlmmMatg m
+                        LEFT JOIN AlmTabla f ON f.tabla = '0001' 
+                            AND RTRIM(f.codigo) = RTRIM(m.codfam) 
+                            AND f.codcia = m.codcia
+                        WHERE RTRIM(m.codcia) = ? AND RTRIM(m.codmat) = ?
+                    """, (codcia, codmat_val))
+                    cta_row = cursor.fetchone()
+                    if cta_row and cta_row.codcta:
+                        cuenta_contable = cta_row.codcta.strip()
+                elif t_oc in ('S', 'T') and codmat_val:
+                    # Servicios/Contable: AlmTabla tabla '0017' → codcta
+                    cursor.execute("""
+                        SELECT RTRIM(codcta) as codcta
+                        FROM AlmTabla
+                        WHERE tabla = '0017' AND RTRIM(codcia) = ? AND RTRIM(codigo) = ?
+                    """, (codcia, codmat_val))
+                    cta_row = cursor.fetchone()
+                    if cta_row and cta_row.codcta:
+                        cuenta_contable = cta_row.codcta.strip()
+            except Exception:
+                cuenta_contable = ""
                 
             items.append({
                 "nroitm": int(row.nroitm) if row.nroitm else 0,
@@ -537,6 +570,7 @@ def get_purchase_order_report(
                 "impigv": float(row.impigv) if row.impigv else 0,
                 "imptot": float(row.imptot) if row.imptot else 0,
                 "notas": notes,
+                "cuenta_contable": cuenta_contable,
             })
             
         # Overall order receive status

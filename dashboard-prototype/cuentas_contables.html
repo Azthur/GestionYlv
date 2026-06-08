@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Configuración de Cuentas Contables</title>
+    <meta name="description" content="Módulo de configuración y homologación de cuentas contables del ERP">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="contabilidad.css">
+    <script src="auth-guard.js"></script>
+    <style>
+        .cta-save-btn {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary-border);
+            padding: 0.4rem 0.8rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .cta-save-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+            transform: translateY(-1px);
+        }
+        .cta-save-btn.edit-btn {
+            color: #8b5cf6;
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+        .cta-save-btn.edit-btn:hover {
+            background: #8b5cf6;
+            color: white;
+            border-color: #8b5cf6;
+            box-shadow: 0 2px 6px rgba(139, 92, 246, 0.2);
+        }
+        .cta-input-cell {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.825rem;
+            letter-spacing: 0.05em;
+            text-align: center;
+            border-radius: var(--radius-sm);
+            transition: all 0.25s ease;
+        }
+        [data-theme="dark"] .cta-input-cell {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+        [data-theme="dark"] .cta-input-cell:focus {
+            border-color: var(--primary) !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- El Sidebar y Topbar se inyectan dinámicamente vía sidebar.js -->
+        <main class="main-content">
+            <section class="content fade-in">
+                <!-- Sync/Company Bar -->
+                <div class="cnt-sync-bar" style="margin-bottom:1.25rem;">
+                    <div class="filter-group" style="flex:2;">
+                        <label for="cntEmpresa" style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Empresa activa</label>
+                        <select id="cntEmpresa" class="modern-input" style="height:40px; font-weight:500;">
+                            <option value="" disabled selected>Cargando empresas...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="cnt-tabs" style="gap:0.5rem; margin-bottom:1.25rem;">
+                    <button class="cnt-tab-btn active" onclick="switchTab('Producto')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.4rem;">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        </svg>
+                        Materiales / Productos (Tipo M)
+                    </button>
+                    <button class="cnt-tab-btn" onclick="switchTab('Servicio')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.4rem;">
+                            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/>
+                        </svg>
+                        Servicios (Tipo S)
+                    </button>
+                    <button class="cnt-tab-btn" onclick="switchTab('Gasto')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="margin-right:0.4rem;">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                            <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                        Gastos
+                    </button>
+                </div>
+
+                <!-- Search/Buscador y Acciones -->
+                <div class="cnt-sync-bar" style="margin-bottom:1.25rem;">
+                    <div class="filter-group" style="flex: 1;">
+                        <label for="searchQuery" style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Buscar por código o descripción</label>
+                        <input type="text" id="searchQuery" class="modern-input" placeholder="Escriba código o palabra clave y presione Enter..." style="height:40px;" onkeyup="if(event.key==='Enter')loadCuentas()">
+                    </div>
+                    <div class="filter-group" style="flex: 0.15; min-width: 100px; align-self: flex-end;">
+                        <button class="btn btn-primary" onclick="loadCuentas()" style="height:40px; width: 100%; font-size:0.85rem; font-weight:600;">
+                            Buscar
+                        </button>
+                    </div>
+                    <div class="filter-group" style="flex: 0.2; min-width: 160px; align-self: flex-end;">
+                        <button class="btn" onclick="openNewCategoryModal()" style="height:40px; width: 100%; font-size:0.85rem; font-weight:600; background:#8b5cf6; color:white; border:none; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.25);">
+                            ＋ Nueva Categoría
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cuentas Table Wrapper -->
+                <div class="card glass-panel" style="padding: 1.25rem; border-radius: var(--radius-lg); overflow:hidden;">
+                    <div style="overflow-x:auto;">
+                        <table class="display nowrap" style="width:100%; border-collapse:collapse;" id="cuentasTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%; padding: 0.75rem 1rem; text-align: left;">Código</th>
+                                    <th style="width: 45%; padding: 0.75rem 1rem; text-align: left;">Descripción</th>
+                                    <th style="width: 15%; padding: 0.75rem 1rem; text-align: center;">Cuenta Contable</th>
+                                    <th style="width: 15%; padding: 0.75rem 1rem; text-align: center;">Cuenta Contable 2</th>
+                                    <th style="width: 10%; padding: 0.75rem 1rem; text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuentasTbody">
+                                <tr>
+                                    <td colspan="5" style="text-align:center; padding:4rem; color:var(--text-muted); font-size:0.9rem;">
+                                        Seleccione empresa y busque para cargar datos.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Nueva Categoría -->
+    <div class="modal-overlay" id="newCategoryModal" onclick="closeNewCategoryModal(event)">
+        <div class="modal glass-modal" style="max-width:500px; width:95%; border-radius: 12px; padding: 1.5rem;" onclick="event.stopPropagation()">
+            <div class="modal-header" style="border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Crear Nueva Categoría / Concepto</h3>
+                <button class="close-btn" onclick="closeNewCategoryModal(null)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 1.25rem 0; display:flex; flex-direction:column; gap:1rem;">
+                <div class="form-field" style="display:flex; flex-direction:column; gap:0.3rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Tipo de Concepto</label>
+                    <select id="newCatTipo" class="modern-input" style="height:38px; background:var(--bg-app); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); padding: 0 0.5rem;">
+                        <option value="Producto">Material / Producto (Tipo M)</option>
+                        <option value="Servicio">Servicio (Tipo S)</option>
+                        <option value="Gasto">Gasto / Concepto Contable</option>
+                    </select>
+                </div>
+                <div class="form-field" style="display:flex; flex-direction:column; gap:0.3rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Código de Concepto</label>
+                    <input type="text" id="newCatCodigo" class="modern-input" placeholder="Ej. FAM_LIMPIEZA, SERV_TRASLADO" style="height:38px; text-transform:uppercase; padding: 0 0.5rem; border:1px solid var(--border); border-radius:6px;">
+                </div>
+                <div class="form-field" style="display:flex; flex-direction:column; gap:0.3rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Descripción / Nombre</label>
+                    <input type="text" id="newCatDesc" class="modern-input" placeholder="Ej. Servicios de Pintura en General" style="height:38px; padding: 0 0.5rem; border:1px solid var(--border); border-radius:6px;">
+                </div>
+                <div class="form-field" style="display:flex; flex-direction:column; gap:0.3rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Cuenta Contable Principal</label>
+                    <input type="text" id="newCatCta1" class="modern-input" placeholder="Opcional. Ej. 6311204" style="height:38px; font-family:monospace; padding: 0 0.5rem; border:1px solid var(--border); border-radius:6px;">
+                </div>
+                <div class="form-field" style="display:flex; flex-direction:column; gap:0.3rem;">
+                    <label style="font-weight:600; font-size:0.8rem; color:var(--text-muted);">Cuenta Contable Destino / IGV</label>
+                    <input type="text" id="newCatCta2" class="modern-input" placeholder="Opcional. Ej. 40111" style="height:38px; font-family:monospace; padding: 0 0.5rem; border:1px solid var(--border); border-radius:6px;">
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.75rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                <button class="btn btn-outline" onclick="closeNewCategoryModal(null)" style="padding: 0.5rem 1rem; border:1px solid var(--border); border-radius:6px; cursor:pointer;">Cancelar</button>
+                <button class="btn btn-primary" onclick="submitNewCategory()" style="padding: 0.5rem 1.5rem; background:#8b5cf6; border-color:#8b5cf6; color:white; border-radius:6px; cursor:pointer; font-weight:600;">Registrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="sidebar.js"></script>
+    
+    <script>
+        'use strict';
+        let currentTipo = 'Producto'; // Producto, Servicio, Gasto
+        let currentCodCia = '';
+
+        function checkAuth() {
+            const token = localStorage.getItem('yelave_token');
+            if (!token) { window.location.href = 'login.html'; return null; }
+            try {
+                const user = JSON.parse(localStorage.getItem('yelave_user'));
+                if (!user) throw new Error();
+                return user;
+            } catch(e) { window.location.href = 'login.html'; return null; }
+        }
+
+        function switchTab(tipo) {
+            currentTipo = tipo;
+            document.querySelectorAll('.cnt-tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            document.getElementById('searchQuery').value = '';
+            loadCuentas();
+        }
+
+        async function loadCompanies() {
+            try {
+                const token = localStorage.getItem('yelave_token');
+                const res = await fetch('/api/permisos/empresas/me', { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+                if (!res.ok) throw new Error();
+                const companies = await res.json();
+                
+                const sel = document.getElementById('cntEmpresa');
+                if (sel) {
+                    sel.innerHTML = '<option value="" disabled selected>Seleccione Empresa...</option>';
+                    companies.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.codcia; opt.textContent = `${c.codcia} - ${c.nomcia}`;
+                        sel.appendChild(opt);
+                    });
+                }
+
+                // Restore default selection
+                const savedCia = localStorage.getItem('cnt_saved_cia');
+                const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+                const defaultCia = savedCia || cu.codcia || (companies.length > 0 ? companies[0].codcia : '');
+
+                if (defaultCia && sel) {
+                    if (Array.from(sel.options).some(o => o.value === defaultCia)) {
+                        sel.value = defaultCia;
+                        currentCodCia = defaultCia;
+                        loadCuentas();
+                    }
+                }
+            } catch(e) {
+                console.error('Error loadCompanies:', e);
+                document.getElementById('cntEmpresa').innerHTML = '<option value="" disabled>Sin acceso a empresas</option>';
+            }
+        }
+
+        const escapeHtml = (unsafe) => {
+            if (!unsafe) return '';
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        };
+
+        async function loadCuentas() {
+            const sel = document.getElementById('cntEmpresa');
+            if (!sel || !sel.value) return;
+            currentCodCia = sel.value;
+            localStorage.setItem('cnt_saved_cia', currentCodCia);
+
+            const q = document.getElementById('searchQuery').value.trim();
+            const tbody = document.getElementById('cuentasTbody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:4rem; color:var(--text-muted); font-size:0.9rem;">Cargando datos...</td></tr>';
+            window.cuentasData = {};
+
+            try {
+                const token = localStorage.getItem('yelave_token');
+                let url = `/api/contabilidad/config-cuentas?codcia=${currentCodCia}&tipo=${currentTipo}`;
+                if (q) url += `&q=${encodeURIComponent(q)}`;
+
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Error al cargar cuentas contables');
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:4rem; color:var(--text-muted); font-size:0.9rem;">No se encontraron registros.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(row => {
+                    const c1 = row.cuenta_contable || '';
+                    const c2 = row.cuenta_contable2 || '';
+                    const cleanDesc = (row.descripcion || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    
+                    window.cuentasData[row.codigo] = {
+                        tipo: currentTipo,
+                        codigo: row.codigo,
+                        descripcion: row.descripcion || '',
+                        cuenta_contable: c1,
+                        cuenta_contable2: c2
+                    };
+
+                    return `
+                        <tr style="border-bottom:1px solid var(--border);">
+                            <td style="font-weight: 600; color: var(--primary); font-family: monospace; padding:0.8rem 1rem;">${row.codigo}</td>
+                            <td style="padding:0.8rem 1rem; white-space:normal; max-width:400px; word-wrap:break-word;">${row.descripcion || '-'}</td>
+                            <td style="padding:0.6rem 1rem;">
+                                <input type="text" class="item-input-edit cta-input-cell" style="width: 100%;" 
+                                    id="cta_${currentTipo}_${row.codigo}" value="${c1}" placeholder="Cta. Principal">
+                            </td>
+                            <td style="padding:0.6rem 1rem;">
+                                <input type="text" class="item-input-edit cta-input-cell" style="width: 100%;" 
+                                    id="cta2_${currentTipo}_${row.codigo}" value="${c2}" placeholder="Cta. Destino / IGV">
+                            </td>
+                            <td style="text-align: center; padding:0.6rem 1rem;">
+                                <div style="display: inline-flex; gap: 0.4rem; justify-content: center; align-items: center;">
+                                    <button class="cta-save-btn" onclick="saveOverride('${row.codigo}', '${cleanDesc}')" title="Guardar cuentas rápido">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                            <polyline points="17 21 17 13 7 13 7 21"/>
+                                        </svg>
+                                        Guardar
+                                    </button>
+                                    <button class="cta-save-btn edit-btn" onclick="openCategoryModal('edit', '${row.codigo}')" title="Editar categoría completa">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                        </svg>
+                                        Editar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:4rem; color:var(--danger); font-size:0.9rem;">${e.message}</td></tr>`;
+            }
+        }
+
+        async function saveOverride(codigo, descripcion) {
+            const cta1 = document.getElementById(`cta_${currentTipo}_${codigo}`).value.trim();
+            const cta2 = document.getElementById(`cta2_${currentTipo}_${codigo}`).value.trim();
+
+            try {
+                const token = localStorage.getItem('yelave_token');
+                const payload = {
+                    codcia: currentCodCia,
+                    tipo: currentTipo,
+                    codigo: codigo,
+                    descripcion: descripcion,
+                    codcta: cta1 || null,
+                    codcta2: cta2 || null
+                };
+
+                const res = await fetch('/api/contabilidad/config-cuentas', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Error al guardar');
+
+                // Visual premium micro-feedback toast
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Guardado!',
+                    text: `Cuenta contable para ${codigo} actualizada con éxito.`,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+
+                if (window.cuentasData && window.cuentasData[codigo]) {
+                    window.cuentasData[codigo].cuenta_contable = cta1;
+                    window.cuentasData[codigo].cuenta_contable2 = cta2;
+                }
+
+            } catch(e) {
+                console.error(e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al Guardar',
+                    text: e.message
+                });
+            }
+        }
+
+        function openCategoryModal(mode = 'create', codigo = null) {
+            const modalTitle = document.querySelector('#newCategoryModal h3');
+            const selectTipo = document.getElementById('newCatTipo');
+            const inputCodigo = document.getElementById('newCatCodigo');
+            const submitBtn = document.querySelector('#newCategoryModal .modal-footer .btn-primary');
+
+            if (mode === 'edit' && codigo && window.cuentasData && window.cuentasData[codigo]) {
+                const data = window.cuentasData[codigo];
+                modalTitle.textContent = 'Editar Categoría / Concepto';
+                selectTipo.value = data.tipo;
+                selectTipo.disabled = true;
+                
+                inputCodigo.value = data.codigo;
+                inputCodigo.disabled = true;
+                
+                document.getElementById('newCatDesc').value = data.descripcion || '';
+                document.getElementById('newCatCta1').value = data.cuenta_contable || '';
+                document.getElementById('newCatCta2').value = data.cuenta_contable2 || '';
+                
+                submitBtn.textContent = 'Guardar Cambios';
+            } else {
+                modalTitle.textContent = 'Crear Nueva Categoría / Concepto';
+                selectTipo.value = currentTipo;
+                selectTipo.disabled = false;
+                
+                inputCodigo.value = '';
+                inputCodigo.disabled = false;
+                
+                document.getElementById('newCatDesc').value = '';
+                document.getElementById('newCatCta1').value = '';
+                document.getElementById('newCatCta2').value = '';
+                
+                submitBtn.textContent = 'Registrar';
+            }
+            
+            document.getElementById('newCategoryModal').classList.add('active');
+        }
+
+        function openNewCategoryModal() {
+            openCategoryModal('create');
+        }
+
+        function closeNewCategoryModal(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('newCategoryModal').classList.remove('active');
+            document.getElementById('newCatTipo').disabled = false;
+            document.getElementById('newCatCodigo').disabled = false;
+        }
+
+        async function submitNewCategory() {
+            const selectTipo = document.getElementById('newCatTipo');
+            const inputCodigo = document.getElementById('newCatCodigo');
+            
+            const tipo = selectTipo.value;
+            const codigo = inputCodigo.value.trim().toUpperCase();
+            const desc = document.getElementById('newCatDesc').value.trim();
+            const cta1 = document.getElementById('newCatCta1').value.trim();
+            const cta2 = document.getElementById('newCatCta2').value.trim();
+
+            if (!codigo || !desc) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campos requeridos',
+                    text: 'Debe ingresar el código y la descripción de la categoría.'
+                });
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('yelave_token');
+                const payload = {
+                    codcia: currentCodCia,
+                    tipo: tipo,
+                    codigo: codigo,
+                    descripcion: desc,
+                    codcta: cta1 || null,
+                    codcta2: cta2 || null
+                };
+
+                Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+                const res = await fetch('/api/contabilidad/config-cuentas', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Error al guardar la categoría');
+
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Guardado!',
+                    text: 'La categoría ha sido guardada exitosamente.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+                closeNewCategoryModal(null);
+                
+                if (tipo === currentTipo) {
+                    loadCuentas();
+                }
+
+            } catch(e) {
+                console.error(e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al Registrar',
+                    text: e.message
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = checkAuth();
+            if (!user) return;
+            await loadCompanies();
+
+            // Listen to company changes
+            document.getElementById('cntEmpresa').addEventListener('change', () => {
+                loadCuentas();
+            });
+        });
+    </script>
+</body>
+</html>

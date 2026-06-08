@@ -1175,9 +1175,10 @@ def get_todas_cobranzas(
                 m.NomAux as RazonSocial,
                 m.codmon,
                 c.nombco as CuentaNombre,
+                c.flgest as CajaFlgEst,
                 rd.Id as MatchId,
                 rd.BankMovementId as BankId,
-                CASE WHEN (rd.Id IS NOT NULL OR m.FlgEst = 'C') THEN 1 ELSE 0 END as IsConciliado,
+                CASE WHEN (rd.Id IS NOT NULL OR m.FlgEst = 'C' OR c.flgest = 'C') THEN 1 ELSE 0 END as IsConciliado,
                 -- Buscar el nombre de la cuenta o POS
                 ISNULL(p.DESTARJ, t.Nombre) as GroupName,
                 -- Buscar la fecha original del documento (CcbRGdoc)
@@ -1295,6 +1296,7 @@ def get_todas_cobranzas(
                 "Dolares": dolares,
                 "MatchId": r['MatchId'],
                 "BankId": r['BankId'],
+                "CajaFlgEst": (r.get('CajaFlgEst') or '').strip(),
                 "Conciliado": str(r.get('IsConciliado', '0')).strip() == '1'
             })
             
@@ -1642,3 +1644,115 @@ def execute_cleaning_rules():
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+
+# ─── CLOSE AND REVERT CONCILIADO CAJAS ─────────────────────────
+
+class RevertCajaRequest(BaseModel):
+    codcia: str
+    coddoc: str
+    nrodoc: str
+
+
+@router.post("/cerrar-cajas")
+def cerrar_cajas(
+    year: Optional[str] = None,
+    month: Optional[str] = None,
+    codcia: Optional[str] = None,
+    bank_code: Optional[str] = None
+):
+    """
+    Cierra todas las cajas (CcbICaja) que posean al menos un movimiento conciliado
+    (ReconciliationDetail) en el período o filtros especificados.
+    Pasa flgest de 'P' (EMITIDO) a 'C' (CERRADO).
+    """
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        query = """
+            UPDATE c
+            SET c.flgest = 'C'
+            FROM CcbICaja c
+            WHERE c.flgest = 'P'
+              AND EXISTS (
+                  SELECT 1
+                  FROM CcbMVtos m
+                  JOIN ReconciliationDetail rd ON rd.MatchCodCia = m.CodCia
+                      AND rd.MatchCoddoc = m.coddoc
+                      AND rd.MatchNrodoc = m.nrodoc
+                      AND rd.MatchNroitm = m.nroitm
+                  WHERE m.CodCia = c.codcia
+                    AND m.coddoc = c.coddoc
+                    AND m.nrodoc = c.nrodoc
+        """
+        params = []
+        if year:
+            query += " AND m.anos = ?"
+            params.append(year)
+        if month:
+            query += " AND m.mes = ?"
+            params.append(month.zfill(2))
+        if codcia:
+            if bank_code:
+                query += " AND (m.CodCia = ? OR (m.tpopgo = '1' AND m.CodCom = ? AND m.CodDep = ?))"
+                params.extend([codcia, codcia, bank_code])
+            else:
+                query += " AND m.CodCia = ?"
+                params.append(codcia)
+
+        query += " )" # Cierra el EXISTS
+
+        cursor.execute(query, params)
+        updated_count = cursor.rowcount
+        conn.commit()
+        
+        return {
+            "status": "success",
+            "message": f"Se cerraron {updated_count} cajas correctamente.",
+            "closed_count": updated_count
+        }
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/revertir-caja")
+def revertir_caja(request: RevertCajaRequest):
+    """
+    Revierte el estado de una caja específica (CcbICaja) de 'C' (CERRADO) a 'P' (EMITIDO).
+    """
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE CcbICaja
+            SET flgest = 'P'
+            WHERE codcia = ? AND coddoc = ? AND nrodoc = ? AND flgest = 'C'
+        """, (request.codcia, request.coddoc, request.nrodoc))
+        
+        updated_count = cursor.rowcount
+        conn.commit()
+        
+        if updated_count == 0:
+            cursor.execute("SELECT flgest FROM CcbICaja WHERE codcia = ? AND coddoc = ? AND nrodoc = ?", (request.codcia, request.coddoc, request.nrodoc))
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Caja no encontrada.")
+            else:
+                return {"status": "success", "message": f"La caja ya estaba en estado {row[0]}."}
+                
+        return {"status": "success", "message": "Caja revertida a EMITIDO (FLGEST=P) correctamente."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+

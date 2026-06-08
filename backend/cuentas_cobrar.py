@@ -5,13 +5,15 @@ Soporta filtros por empresa/fecha, agrupación dinámica,
 y datos agregados para gráficos.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Optional
 from datetime import datetime
 
 router = APIRouter(prefix="/api/cuentas-cobrar", tags=["Cuentas por Cobrar"])
 
 from database import get_db_connection
+from auth import get_current_user
+
 
 
 def _row_to_dict(cursor, row):
@@ -50,11 +52,70 @@ def get_empresas():
         conn.close()
 
 
+@router.get("/vendedores")
+def get_vendedores(codcia: str = Query(...), current_user: dict = Depends(get_current_user)):
+    """
+    Lista los vendedores permitidos para el usuario actual en las empresas especificadas.
+    """
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        cursor = conn.cursor()
+        login = current_user["login"]
+        
+        # Split codcia
+        codcias = [c.strip() for c in codcia.split(",") if c.strip()]
+        if not codcias:
+            return []
+            
+        placeholders = ",".join("?" for _ in codcias)
+        
+        # 1. Verificar si el usuario PuedeVerTodo
+        rol = current_user.get("rol", "USER")
+        cursor.execute("SELECT rol, ISNULL(PuedeVerTodo, 0) FROM WebUsers WHERE login = ?", (login,))
+        row = cursor.fetchone()
+        db_rol = row[0].strip() if row and row[0] else rol
+        db_puede_ver_todo = row[1] if row else False
+        
+        is_admin = login.strip().upper() == "71941916JL" or db_rol.upper() == "ADMIN"
+        puede_ver_todo = is_admin or db_puede_ver_todo
+        
+        if puede_ver_todo:
+            # Traer todos los vendedores de las empresas
+            cursor.execute(
+                f"SELECT RTRIM(codcia) as codcia, RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) IN ({placeholders}) AND RTRIM(tabla) = '0009' ORDER BY codcia, codigo",
+                codcias
+            )
+            vendedores = [{"codcia": r[0], "codigo": r[1], "nombre": r[2]} for r in cursor.fetchall()]
+        else:
+            # Traer solo los vendedores asignados en WebUserVendors
+            cursor.execute(
+                f"""
+                SELECT RTRIM(vt.codcia) as codcia, RTRIM(vt.codigo) AS codigo, RTRIM(vt.nombre) AS nombre 
+                FROM VtaTabla vt
+                INNER JOIN WebUserVendors wuv ON RTRIM(vt.codigo) = RTRIM(wuv.codven) AND RTRIM(vt.codcia) = RTRIM(wuv.codcia)
+                WHERE RTRIM(vt.codcia) IN ({placeholders}) AND RTRIM(vt.tabla) = '0009' AND RTRIM(wuv.login) = ?
+                ORDER BY vt.codcia, vt.codigo
+                """,
+                (*codcias, login.strip())
+            )
+            vendedores = [{"codcia": r[0], "codigo": r[1], "nombre": r[2]} for r in cursor.fetchall()]
+            
+        return vendedores
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 @router.get("/report")
 def get_report(
     codcia: str = Query(..., description="Códigos de empresa (separados por coma, ej: 001,002)"),
     fecha_inicio: str = Query(..., description="Fecha inicio YYYY-MM-DD"),
     fecha_fin: str = Query(..., description="Fecha fin YYYY-MM-DD"),
+    vendedor: Optional[str] = Query(None, description="Filtros por código de vendedor (separados por coma)"),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Reporte principal de Saldos por Cobrar.
@@ -74,15 +135,82 @@ def get_report(
             
         placeholders = ",".join("?" for _ in codcias)
 
+        # ── Verificar visibilidad del usuario ──
+        login = current_user["login"]
+        rol = current_user.get("rol", "USER")
+        cursor.execute("SELECT rol, ISNULL(PuedeVerTodo, 0) FROM WebUsers WHERE login = ?", (login,))
+        row = cursor.fetchone()
+        db_rol = row[0].strip() if row and row[0] else rol
+        db_puede_ver_todo = row[1] if row else False
+        
+        is_admin = login.strip().upper() == "71941916JL" or db_rol.upper() == "ADMIN"
+        puede_ver_todo = is_admin or db_puede_ver_todo
+
+        allowed_vendedores = []
+        if not puede_ver_todo:
+            # Traer códigos de vendedor permitidos para este usuario en las empresas seleccionadas
+            placeholders_cias_user = ",".join("?" for _ in codcias)
+            cursor.execute(
+                f"SELECT RTRIM(codven) FROM WebUserVendors WHERE RTRIM(login) = ? AND RTRIM(codcia) IN ({placeholders_cias_user})",
+                (login.strip(), *codcias)
+            )
+            allowed_vendedores = [r[0].strip() for r in cursor.fetchall()]
+            if not allowed_vendedores:
+                # Si el usuario restringido no tiene vendedores asignados, retornar vacío de inmediato
+                return {
+                    "empresa": {
+                        "codcia": codcia,
+                        "nomcia": "Sin Acceso",
+                        "empresas": []
+                    },
+                    "fecha_inicio": fecha_inicio,
+                    "fecha_fin": fecha_fin,
+                    "total_registros": 0,
+                    "data": [],
+                }
+
+        # Parsear vendedores seleccionados en el filtro
+        req_vendedores = []
+        if vendedor:
+            req_vendedores = [v.strip() for v in vendedor.split(",") if v.strip()]
+
+        # Determinar qué vendedores se filtrarán en la BD
+        filter_vendedores = []
+        apply_vendor_filter = False
+
+        if not puede_ver_todo:
+            apply_vendor_filter = True
+            if req_vendedores:
+                # Intersectar solicitados con permitidos
+                filter_vendedores = list(set(req_vendedores) & set(allowed_vendedores))
+                if not filter_vendedores:
+                    # Forzar a no devolver nada
+                    filter_vendedores = ["__NONE__"]
+            else:
+                filter_vendedores = allowed_vendedores
+        else:
+            if req_vendedores:
+                apply_vendor_filter = True
+                filter_vendedores = req_vendedores
+
+        # Construir cláusula de filtro por vendedor
+        vendor_filter_clause = ""
+        if apply_vendor_filter:
+            placeholders_vendedores = ",".join("?" for _ in filter_vendedores)
+            vendor_filter_clause = f"AND RTRIM(A.codven) IN ({placeholders_vendedores})"
+
         # ── Main UNION query (replica FoxPro logic) ──
         query = f"""
         SELECT c.codcia, c.fchdoc, c.coddoc, c.serie, c.nrodoc, c.codaux, c.nomaux,
-               CASE WHEN c.CODMON = 1 THEN c.imptot ELSE c.imptot * c.TPOCMB END AS imptot,
-               CASE WHEN c.CODMON = 1 THEN c.acta  ELSE (c.imptot * c.TPOCMB) - (c.saldo * c.TPOCMB) END AS acta,
-               CASE WHEN c.CODMON = 1 THEN c.saldo ELSE c.saldo * c.TPOCMB END AS saldo,
-               c.imptot AS imptot_orig,
-               c.acta AS acta_orig,
-               c.saldo AS saldo_orig,
+               CASE WHEN RTRIM(c.coddoc) IN ('N/A', 'N/C', 'N/CR') THEN -1 ELSE 1 END * 
+                 (CASE WHEN c.CODMON = 1 THEN c.imptot ELSE c.imptot * c.TPOCMB END) AS imptot,
+               CASE WHEN RTRIM(c.coddoc) IN ('N/A', 'N/C', 'N/CR') THEN -1 ELSE 1 END * 
+                 (CASE WHEN c.CODMON = 1 THEN c.acta  ELSE (c.imptot * c.TPOCMB) - (c.saldo * c.TPOCMB) END) AS acta,
+               CASE WHEN RTRIM(c.coddoc) IN ('N/A', 'N/C', 'N/CR') THEN -1 ELSE 1 END * 
+                 (CASE WHEN c.CODMON = 1 THEN c.saldo ELSE c.saldo * c.TPOCMB END) AS saldo,
+               CASE WHEN RTRIM(c.coddoc) IN ('N/A', 'N/C', 'N/CR') THEN -c.imptot ELSE c.imptot END AS imptot_orig,
+               CASE WHEN RTRIM(c.coddoc) IN ('N/A', 'N/C', 'N/CR') THEN -c.acta ELSE c.acta END AS acta_orig,
+               CASE WHEN RTRIM(c.coddoc) IN ('N/A', 'N/C', 'N/CR') THEN -c.saldo ELSE c.saldo END AS saldo_orig,
                c.nomven, c.nompgo, c.nomsol, c.CODMON, c.TPOCMB
         FROM (
             -- UNION 1: Documents with matching VtaVPedi (NomSol not null)
@@ -108,11 +236,12 @@ def get_report(
                AND A.codaux = B.codaux
             WHERE A.codcia IN ({placeholders})
               AND NOT (B.NomSol IS NULL)
-              AND A.coddoc IN ('BOLE', 'FACT')
+              AND RTRIM(A.coddoc) IN ('FACT', 'BOLE', 'N/A', 'N/C', 'N/CR')
               AND A.fchdoc >= CONVERT(datetime, ?, 120)
               AND A.fchdoc <= CONVERT(datetime, ?, 120)
               AND A.flgest <> 'E'
               AND A.sdodoc > 0
+              {vendor_filter_clause}
 
             UNION ALL
 
@@ -139,12 +268,13 @@ def get_report(
                AND A.codaux = B.codaux
             WHERE A.codcia IN ({placeholders})
               AND (B.NomSol IS NULL)
-              AND A.coddoc IN ('BOLE', 'FACT')
+              AND RTRIM(A.coddoc) IN ('FACT', 'BOLE', 'N/A', 'N/C', 'N/CR')
               AND (A.nroref = '' OR A.nroref IS NULL)
               AND A.fchdoc >= CONVERT(datetime, ?, 120)
               AND A.fchdoc <= CONVERT(datetime, ?, 120)
               AND A.flgest <> 'E'
               AND A.sdodoc > 0
+              {vendor_filter_clause}
 
             UNION ALL
 
@@ -175,21 +305,24 @@ def get_report(
                AND B.codaux = C.codaux
             WHERE A.codcia IN ({placeholders})
               AND A.nroref <> ''
-              AND A.coddoc IN ('BOLE', 'FACT')
+              AND RTRIM(A.coddoc) IN ('FACT', 'BOLE', 'N/A', 'N/C', 'N/CR')
               AND A.fchdoc >= CONVERT(datetime, ?, 120)
               AND A.fchdoc <= CONVERT(datetime, ?, 120)
               AND A.flgest <> 'E'
               AND A.sdodoc > 0
+              {vendor_filter_clause}
         ) c
         WHERE c.saldo > 0
         ORDER BY c.codcia, c.coddoc, c.serie, c.nrodoc, c.fchdoc
         """
 
-        # Parametros de fecha intercalados con los placeholders
+        # Parametros de fecha y vendedor intercalados con los placeholders
         params = []
         for _ in range(3):
             params.extend(codcias)
             params.extend([fecha_inicio, fecha_fin])
+            if apply_vendor_filter:
+                params.extend(filter_vendedores)
 
         cursor.execute(query, params)
         rows = [_row_to_dict(cursor, r) for r in cursor.fetchall()]
@@ -254,13 +387,15 @@ def get_summary(
     codcia: str = Query(...),
     fecha_inicio: str = Query(...),
     fecha_fin: str = Query(...),
+    vendedor: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Datos agregados para KPIs y gráficos.
     Re-usa la query del reporte principal y agrega en Python.
     """
     # Re-use report endpoint for data
-    report = get_report(codcia, fecha_inicio, fecha_fin)
+    report = get_report(codcia, fecha_inicio, fecha_fin, vendedor, current_user)
     data = report["data"]
 
     if not data:
@@ -314,21 +449,25 @@ def get_summary(
             k = k.strip() or "(Sin datos)"
             if k not in groups:
                 groups[k] = {"label": k, "saldo": 0, "importe": 0, "count": 0,
-                             "saldo_pen": 0, "saldo_usd": 0}
+                             "saldo_pen": 0, "saldo_usd": 0, "importe_pen": 0, "importe_usd": 0}
             codmon = r.get("CODMON", 1) or 1
             groups[k]["saldo"] += r.get("saldo", 0) or 0
             groups[k]["importe"] += r.get("imptot", 0) or 0
             groups[k]["count"] += 1
             if codmon == 1:
                 groups[k]["saldo_pen"] += r.get("saldo", 0) or 0
+                groups[k]["importe_pen"] += r.get("imptot", 0) or 0
             else:
                 groups[k]["saldo_usd"] += r.get("saldo_orig", 0) or 0
+                groups[k]["importe_usd"] += r.get("imptot_orig", 0) or 0
         result = sorted(groups.values(), key=lambda x: -x["saldo"])
         for g in result:
             g["saldo"] = round(g["saldo"], 2)
             g["importe"] = round(g["importe"], 2)
             g["saldo_pen"] = round(g["saldo_pen"], 2)
             g["saldo_usd"] = round(g["saldo_usd"], 2)
+            g["importe_pen"] = round(g["importe_pen"], 2)
+            g["importe_usd"] = round(g["importe_usd"], 2)
         return result
 
     by_vendedor = group_sum("nomven")

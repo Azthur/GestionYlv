@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Auditoría de Comprobantes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <style>
+        :root {
+            --accent: var(--primary);
+            --glass-bg: var(--bg-card);
+            --glass-border: var(--border);
+        }
+        .search-box {
+            position: relative;
+        }
+        .search-box input {
+            padding-left: 2.2rem;
+        }
+        .search-box .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        .loader-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .loader-overlay.active {
+            display: flex;
+        }
+        .loader-ring {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        /* Tab panels styling */
+        .nav-tabs-glass {
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 1rem;
+        }
+        .nav-tabs-glass .nav-link {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-muted);
+            padding: 0.75rem 1.25rem;
+            font-weight: 500;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-tabs-glass .nav-link:hover {
+            color: var(--text-primary);
+            border-bottom-color: var(--border-dark);
+        }
+        .nav-tabs-glass .nav-link.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            font-weight: 600;
+        }
+        .tab-content {
+            margin-top: -1px;
+        }
+        /* Modal Visualizador overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            z-index: 1060;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .glass-modal {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            color: var(--text-secondary);
+            position: relative;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            width: 95%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-header h3 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin: 0;
+            color: var(--accent);
+        }
+        .modal-header .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .modal-header .close-btn:hover {
+            color: var(--text-primary);
+        }
+        .modal-body {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        /* Simulated SUNAT invoice/guia document layout */
+        .sunat-doc {
+            background: #ffffff;
+            color: #1e293b;
+            padding: 2.5rem;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            font-size: 0.85rem;
+            line-height: 1.4;
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        .sunat-doc h4, .sunat-doc h5 {
+            color: #0f172a;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        .sunat-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #cbd5e1;
+            padding-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
+            gap: 1.5rem;
+        }
+        .sunat-header-left {
+            flex: 1;
+        }
+        .sunat-header-ruc {
+            border: 2px solid #0f172a;
+            border-radius: 6px;
+            padding: 1rem;
+            text-align: center;
+            min-width: 240px;
+            background: #f8fafc;
+        }
+        .sunat-header-ruc h4 {
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+        .sunat-header-ruc .doc-type {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            color: #2563eb;
+            margin-bottom: 0.5rem;
+        }
+        .sunat-header-ruc .doc-num {
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+        .sunat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .sunat-panel {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .sunat-panel h5 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 0.25rem;
+        }
+        .sunat-row {
+            display: flex;
+            margin-bottom: 0.4rem;
+        }
+        .sunat-row strong {
+            width: 120px;
+            flex-shrink: 0;
+            color: #475569;
+        }
+        .sunat-row span {
+            color: #1e293b;
+        }
+        .sunat-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+        }
+        .sunat-table th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            padding: 0.6rem 0.8rem;
+            border-bottom: 2px solid #cbd5e1;
+            text-align: left;
+        }
+        .sunat-table td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+            vertical-align: top;
+        }
+        .sunat-table .text-right {
+            text-align: right;
+        }
+        .sunat-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1.25rem;
+        }
+        .sunat-totals {
+            width: 280px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .sunat-total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.4rem;
+            font-size: 0.8rem;
+        }
+        .sunat-total-row.grand-total {
+            border-top: 1px solid #cbd5e1;
+            padding-top: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #2563eb;
+        }
+        .sunat-hash-box {
+            font-size: 0.72rem;
+            color: #64748b;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+            border-radius: 6px;
+            word-break: break-all;
+            flex: 1;
+        }
+        .btn-export-excel {
+            background: rgba(16, 185, 129, 0.15) !important;
+            border-color: rgba(16, 185, 129, 0.3) !important;
+            color: #10b981 !important;
+        }
+        .btn-export-excel:hover {
+            background: rgba(16, 185, 129, 0.25) !important;
+        }
+        .btn-export-pdf {
+            background: rgba(239, 68, 68, 0.15) !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+            color: #ef4444 !important;
+        }
+        .btn-export-pdf:hover {
+            background: rgba(239, 68, 68, 0.25) !important;
+        }
+        /* Select2 theme matching */
+        .select2-dropdown {
+            background-color: #1e293b !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+        }
+        .select2-container--default .select2-selection--single {
+            background-color: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 10px !important;
+            height: 38px !important;
+            color: #fff !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #fff !important;
+            line-height: 36px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+        }
+        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+            background-color: var(--accent) !important;
+            color: #fff !important;
+        }
+        
+        /* Theme Overrides for Light Mode */
+        [data-theme="light"] .select2-container--default .select2-selection--single {
+            background-color: #fff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        [data-theme="light"] .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #334155 !important;
+        }
+        [data-theme="light"] .select2-dropdown {
+            background-color: #fff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        [data-theme="light"] .select2-container--default .select2-results__option--selected {
+            background-color: rgba(37, 99, 235, 0.1) !important;
+            color: #2563eb !important;
+        }
+        [data-theme="light"] .glass-modal {
+            background: #ffffff;
+            color: #334155;
+            border-color: #cbd5e1;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .report-table-wrapper {
+            overflow-x: auto;
+            max-height: 65vh;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        /* Column search input styling */
+        .column-filter {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text-primary) !important;
+            font-size: 0.7rem !important;
+            padding: 3px 6px !important;
+            border-radius: 6px !important;
+            width: 100% !important;
+            font-weight: 500 !important;
+        }
+        [data-theme="light"] .column-filter {
+            background: #fff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        
+        /* Pagination style rules */
+        .pagination-info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .page-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .page-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+        }
+        .page-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        [data-theme="light"] .page-btn {
+            background: #fff;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+        [data-theme="light"] .page-btn:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+        [data-theme="light"] .page-btn.active {
+            color: #fff;
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #detailModal, #detailModal * {
+                visibility: visible;
+            }
+            #detailModal {
+                position: absolute;
+                left: 0; top: 0; width: 100%;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+            }
+            .modal-header, .modal-header * {
+                display: none !important;
+            }
+            .sunat-doc {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+    </style>
+    <script src="auth-guard.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <main class="main-content">
+            
+            <!-- Loader -->
+            <div class="loader-overlay" id="loaderOverlay">
+                <div class="loader-ring"></div>
+                <div class="loader-text">Consultando comprobantes...</div>
+            </div>
+
+            <div class="container-fluid py-4 px-4">
+                
+                <!-- Filters -->
+                <div class="card corporate-panel p-4 mb-4">
+                    <form id="auditForm" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Empresa</label>
+                            <select class="form-select" id="filterCia" required style="width: 100%;">
+                                <option value="">Cargando empresas...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Año</label>
+                            <select class="form-select" id="filterYear" required>
+                                <option value="2026" selected>2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Mes</label>
+                            <select class="form-select" id="filterMonth" required>
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05" selected>Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="search-box">
+                                <label class="form-label">Filtrar tabla</label>
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" class="form-control" id="tableSearch" placeholder="Documento, cliente, ruc...">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-accent w-100" id="btnConsultar">
+                                <i class="fas fa-sync me-1"></i>Consultar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tabs Pills -->
+                <ul class="nav nav-tabs nav-tabs-glass mb-0" id="auditTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-ventas" data-bs-toggle="tab" data-bs-target="#pane-ventas" type="button" role="tab">
+                            <i class="fas fa-receipt me-1"></i>Ventas (Boletas, Facturas, N/C)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-guias" data-bs-toggle="tab" data-bs-target="#pane-guias" type="button" role="tab">
+                            <i class="fas fa-truck me-1"></i>Guías de Remisión
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="auditTabContent">
+                    
+                    <!-- ================= VENTAS TAB ================= -->
+                    <div class="tab-pane fade show active" id="pane-ventas" role="tabpanel">
+                        <div class="card corporate-panel p-3" style="border-radius: 0 0 16px 16px; border-top: none;">
+                            
+                            <!-- Sales KPIs -->
+                            <div class="cards-grid mb-4">
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon success">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>Total Ventas Facturado</h3>
+                                        <div class="stat-value" id="kpiSalesTotal">S/ 0.00</div>
+                                        <div class="stat-trend neutral" id="kpiSalesTotalSub">S/ 0.00 + $ 0.00</div>
+                                    </div>
+                                </div>
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon info">
+                                        <i class="fas fa-file-invoice"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>Documentos Emitidos</h3>
+                                        <div class="stat-value" id="kpiSalesCount">0</div>
+                                        <div class="stat-trend neutral" id="kpiSalesCountSub">0 FACT + 0 BOLE + 0 N/C</div>
+                                    </div>
+                                </div>
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon warning">
+                                        <i class="fas fa-percentage"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>Detracción Afectos</h3>
+                                        <div class="stat-value" id="kpiSalesDetrac">0</div>
+                                        <div class="stat-trend neutral" id="kpiSalesDetracSub">Comprobantes afectos</div>
+                                    </div>
+                                </div>
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon primary">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>Anulados ERP (Estado E)</h3>
+                                        <div class="stat-value" id="kpiSalesAnul">0</div>
+                                        <div class="stat-trend neutral" id="kpiSalesAnulSub">0.0% de anulación</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Toolbar -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="pagination-info" id="salesTableInfo">Mostrando 0 comprobantes</div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-glass btn-export-excel" onclick="exportSalesExcel()">
+                                        <i class="fas fa-file-excel me-1"></i>Excel
+                                    </button>
+                                    <button class="btn btn-glass btn-export-pdf" onclick="exportSalesPDF()">
+                                        <i class="fas fa-file-pdf me-1"></i>PDF
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Sales Table -->
+                            <div class="report-table-wrapper">
+                                <table class="report-table" id="salesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Empresa</th>
+                                            <th>Fecha</th>
+                                            <th class="text-center">T.D.</th>
+                                            <th>Serie - N° Doc</th>
+                                            <th>Cliente</th>
+                                            <th class="text-right">Importe</th>
+                                            <th class="text-right">IGV</th>
+                                            <th class="text-right">Total</th>
+                                            <th class="text-center">Pedido / OC</th>
+                                            <th class="text-center">Guía Ref.</th>
+                                            <th class="text-center">Detrac.</th>
+                                            <th>Estado SUNAT</th>
+                                            <th class="text-center">Estado ERP</th>
+                                            <th class="text-center">Acciones</th>
+                                        </tr>
+                                        <tr class="filter-row">
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="salesTableBody">
+                                        <tr><td colspan="14" class="text-center py-4 text-muted">Haga clic en Consultar para cargar la información</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ================= GUIAS TAB ================= -->
+                    <div class="tab-pane fade" id="pane-guias" role="tabpanel">
+                        <div class="card corporate-panel p-3" style="border-radius: 0 0 16px 16px; border-top: none;">
+                            
+                            <!-- Referral Guides KPIs -->
+                            <div class="cards-grid mb-4">
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon info">
+                                        <i class="fas fa-truck"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>Guías Emitidas</h3>
+                                        <div class="stat-value" id="kpiGuiasCount">0</div>
+                                        <div class="stat-trend neutral" id="kpiGuiasCountSub">Total guías en el mes</div>
+                                    </div>
+                                </div>
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon success">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>SUNAT Éxito</h3>
+                                        <div class="stat-value" id="kpiGuiasExito">0</div>
+                                        <div class="stat-trend neutral" id="kpiGuiasExitoSub">Enviadas correctamente</div>
+                                    </div>
+                                </div>
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon warning">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>SUNAT Error</h3>
+                                        <div class="stat-value" id="kpiGuiasError">0</div>
+                                        <div class="stat-trend neutral" id="kpiGuiasErrorSub">Errores de validación</div>
+                                    </div>
+                                </div>
+                                <div class="card corporate-panel stat-card">
+                                    <div class="stat-icon primary">
+                                        <i class="fas fa-ban"></i>
+                                    </div>
+                                    <div class="stat-details">
+                                        <h3>Guías Anuladas</h3>
+                                        <div class="stat-value" id="kpiGuiasAnul">0</div>
+                                        <div class="stat-trend neutral" id="kpiGuiasAnulSub">Estado E</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Toolbar -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="pagination-info" id="guiasTableInfo">Mostrando 0 guías</div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-glass btn-export-excel" onclick="exportGuiasExcel()">
+                                        <i class="fas fa-file-excel me-1"></i>Excel
+                                    </button>
+                                    <button class="btn btn-glass btn-export-pdf" onclick="exportGuiasPDF()">
+                                        <i class="fas fa-file-pdf me-1"></i>PDF
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Guias Table -->
+                            <div class="report-table-wrapper">
+                                <table class="report-table" id="guiasTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Empresa</th>
+                                            <th>Fecha</th>
+                                            <th>N° Guía</th>
+                                            <th>Destinatario</th>
+                                            <th>Pto. Partida / Pto. Llegada</th>
+                                            <th>Transportista</th>
+                                            <th>Vehículo / Conductor</th>
+                                            <th class="text-center">Pedido / Factura</th>
+                                            <th>Estado SUNAT</th>
+                                            <th class="text-center">Estado ERP</th>
+                                            <th class="text-center">Acciones</th>
+                                        </tr>
+                                        <tr class="filter-row">
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th><input type="text" class="column-filter" placeholder="Filtrar..."></th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="guiasTableBody">
+                                        <tr><td colspan="11" class="text-center py-4 text-muted">Haga clic en Consultar para cargar la información</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div><!-- /tab-content -->
+
+            </div>
+
+            <!-- Modal: Detalle de Comprobante / Guía (SUNAT Visualizer) -->
+            <div class="modal-overlay" id="detailModal">
+                <div class="glass-modal" style="max-width: 900px; width: 95%;">
+                    <div class="modal-header">
+                        <h3 id="modalTitle">Visualizador de Comprobante</h3>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-glass btn-sm" onclick="window.print()" title="Imprimir Comprobante">
+                                <i class="fas fa-print"></i> Imprimir
+                            </button>
+                            <button class="close-btn" onclick="closeDetailModal()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modal-body" id="modalBody">
+                        <!-- Contenido dinámico SUNAT inyectado aquí -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Historial de Pagos y Saldo de Documento -->
+            <div class="modal-overlay" id="paymentsModal">
+                <div class="glass-modal" style="max-width: 850px; width: 95%; background: var(--bg-app); border: 1px solid var(--border-dark);">
+                    <div class="modal-header">
+                        <h3 style="color: var(--accent); font-weight: 700; font-family: 'Outfit', sans-serif;">Historial de Pagos y Saldo</h3>
+                        <button class="close-btn" onclick="closePaymentsModal()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="paymentsModalBody" style="padding: 1.5rem; overflow-y: auto;">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/auditoria-comprobantes.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

@@ -142,6 +142,8 @@ creation_scripts = [
         Total DECIMAL(12,2) NULL,
         CantidadOC DECIMAL(12,4) NULL,
         CantidadAlmacen DECIMAL(12,4) NULL,
+        PorcIgv DECIMAL(5,2) NULL,
+        TipoOp VARCHAR(50) NULL,
         CONSTRAINT FK_CntFacturaDet_Cab FOREIGN KEY (FacturaCabId) REFERENCES CntFacturaCab(Id) ON DELETE CASCADE
     );
     """,

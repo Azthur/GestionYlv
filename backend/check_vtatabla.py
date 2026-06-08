@@ -8,35 +8,19 @@ def inspect_vtatabla():
         return
     
     cursor = conn.cursor()
-    # Check what columns VtaTabla has:
     try:
         cursor.execute("SELECT TOP 1 * FROM VtaTabla")
         cols = [column[0] for column in cursor.description]
         print("VtaTabla Columns:", cols)
         
-        # Look at CA00 (Movilidades)
-        cursor.execute("SELECT TOP 5 * FROM VtaTabla WHERE RTRIM(Tabla) = 'CA00'")
-        print("\nCA00 (Movilidades) Sample:")
+        # Look at '0009' (Salespeople)
+        cursor.execute("SELECT TOP 10 * FROM VtaTabla WHERE RTRIM(Tabla) = '0009'")
+        print("\n0009 (Salespeople) Sample:")
         for row in cursor.fetchall():
-            print(dict(zip(cols, row)))
-
-        # Look at CHOO (Choferes)
-        cursor.execute("SELECT TOP 5 * FROM VtaTabla WHERE RTRIM(Tabla) = 'CHOO'")
-        print("\nCHOO (Choferes) Sample:")
-        for row in cursor.fetchall():
-            print(dict(zip(cols, row)))
+            print({col: str(val).strip() if isinstance(val, str) else val for col, val in zip(cols, row)})
             
     except Exception as e:
         print("Error VtaTabla:", e)
-
-    # Check if there are tables for Reparto
-    try:
-        cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Reparto%' OR TABLE_NAME LIKE '%Recojo%' OR TABLE_NAME LIKE '%Ruta%'")
-        print("\nRelated Tables:")
-        for row in cursor.fetchall():
-            print(row.TABLE_NAME)
-    except Exception as e:
-        pass
 
     conn.close()
 

@@ -1014,6 +1014,8 @@
                                         <th style="width:50px;">Más</th>
                                         <th style="width:120px;">Cód. Artículo</th>
                                         <th style="width:110px;">Cód. Prov.</th>
+                                        <th style="width:110px;">Cta. Contable</th>
+                                        <th style="width:110px;">Cta. Contable 2</th>
                                         <th>Descripción</th>
                                         <th style="width:55px;">Und</th>
                                         <th style="width:75px; text-align:right;">Cant.</th>
@@ -1053,13 +1055,11 @@
                                         </div>
                                         <div
                                             style="display:flex; justify-content:space-between; gap:1.5rem; font-size:0.8rem; color:var(--text-muted);">
-                                            <span>Op. Inafecta:</span> <span id="invInafectoDisplay"
-                                                style="color:var(--text-main); font-weight:500;">0.00</span>
+                                            <span>Op. Inafecta:</span> <input type="number" step="0.01" id="invInafectoDisplay" style="color:var(--text-main); font-weight:500; background:transparent; border:1px solid var(--border-soft); border-radius:4px; padding:2px 6px; text-align:right; width:90px; outline:none;" value="0.00" oninput="recalculateGrandTotal()">
                                         </div>
                                         <div
                                             style="display:flex; justify-content:space-between; gap:1.5rem; font-size:0.8rem; color:var(--text-muted);">
-                                            <span>Op. Exonerada:</span> <span id="invExoneradoDisplay"
-                                                style="color:var(--text-main); font-weight:500;">0.00</span>
+                                            <span>Op. Exonerada:</span> <input type="number" step="0.01" id="invExoneradoDisplay" style="color:var(--text-main); font-weight:500; background:transparent; border:1px solid var(--border-soft); border-radius:4px; padding:2px 6px; text-align:right; width:90px; outline:none;" value="0.00" oninput="recalculateGrandTotal()">
                                         </div>
                                         <div style="display:none;"><span id="invAnticiposDisplay">0.00</span><span
                                                 id="invISCDisplay">0.00</span><span
@@ -1073,7 +1073,7 @@
                                         style="display:flex; flex-direction:column; gap:0.25rem; justify-content:flex-end;">
                                         <div
                                             style="display:flex; justify-content:space-between; gap:1.5rem; font-size:0.85rem; color:var(--text-muted); font-weight:500;">
-                                            <span>IGV (18%):</span> <span id="invIGVDisplay"
+                                            <span id="invIgvLabel">IGV (18%):</span> <span id="invIGVDisplay"
                                                 style="color:var(--text-main);">0.00</span>
                                         </div>
                                         <div
@@ -1611,6 +1611,17 @@
                             <label>Anotación / Descripción del Concepto</label>
                             <input type="text" id="manualDesc" class="modern-input"
                                 placeholder="Ej. Flete por transporte..." required>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Cuenta Contable</label>
+                            <input type="text" id="manualCuentaContable" class="modern-input"
+                                placeholder="Opcional. Ej. 6311204">
+                        </div>
+                        <div class="input-group">
+                            <label>Cuenta Contable 2</label>
+                            <input type="text" id="manualCuentaContable2" class="modern-input"
+                                placeholder="Opcional. Ej. 40111">
                         </div>
 
                         <div style="display:flex; gap:1rem;">

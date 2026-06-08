@@ -1282,11 +1282,19 @@ async function loadAllCobranzas() {
                         </button>`;
                         if (row.Conciliado && row.MatchId) {
                             const matchObj = Object.assign({}, row, { _showMatch: true });
-                            html += `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(matchObj)})' title="Ver match bancario" style="color: var(--success); border-color: var(--success);">
+                            html += `<button class="btn-icon" onclick='viewItemDetails(${JSON.stringify(matchObj)})' title="Ver match bancario" style="color: var(--success); border-color: var(--success); margin-right: 4px;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
                                     <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
                                     <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
+                                </svg>
+                            </button>`;
+                        }
+                        if (row.CajaFlgEst === 'C') {
+                            html += `<button class="btn-icon btn-revert-caja-tbl" onclick="confirmRevertirCaja('${row.NroCaja}')" title="Revertir Caja a EMITIDO" style="color: #ef4444; border-color: #ef4444;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                    <polyline points="3 3 3 8 8 8"></polyline>
                                 </svg>
                             </button>`;
                         }

@@ -175,6 +175,7 @@
                 <button class="tab-btn" onclick="switchTab('tab-permisos', this)" style="padding:0.75rem 1.5rem; border:none; background:none; cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-muted); border-bottom:2px solid transparent; transition:all 0.3s;">Permisos por Rol</button>
                 <button class="tab-btn" onclick="switchTab('tab-roles', this)" style="padding:0.75rem 1.5rem; border:none; background:none; cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-muted); border-bottom:2px solid transparent; transition:all 0.3s;">Roles</button>
                 <button class="tab-btn" onclick="switchTab('tab-empresas', this)" style="padding:0.75rem 1.5rem; border:none; background:none; cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-muted); border-bottom:2px solid transparent; transition:all 0.3s;">Empresas x Usuario</button>
+                <button class="tab-btn" onclick="switchTab('tab-vendedores', this)" style="padding:0.75rem 1.5rem; border:none; background:none; cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-muted); border-bottom:2px solid transparent; transition:all 0.3s;">Vendedores x Usuario</button>
             </div>
 
             <!-- TAB: Usuarios -->
@@ -323,6 +324,30 @@
                     <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Si no se asigna ninguna empresa, el usuario verá todas. Marque las que desea restringir.</p>
                     <div id="empresas-checkboxes" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:0.5rem;">
                         <p style="color:var(--text-muted);font-size:0.85rem;">Seleccione un usuario para ver sus empresas asignadas.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: Vendedores por Usuario -->
+            <section class="content fade-in tab-panel" id="tab-vendedores" style="display:none;">
+                <div class="card glass-panel" style="padding:1.5rem;">
+                    <div class="table-header" style="margin-bottom:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                        <h3>Vendedores por Usuario</h3>
+                        <div class="select-wrapper" style="min-width:200px;">
+                            <select id="selVendedorUser" onchange="loadUserVendedores()" style="padding:0.5rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;">
+                                <option value="">-- Seleccionar Usuario --</option>
+                            </select>
+                        </div>
+                        <div class="select-wrapper" style="min-width:200px;">
+                            <select id="selVendedorCia" onchange="loadUserVendedores()" style="padding:0.5rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;">
+                                <option value="">-- Seleccionar Empresa --</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveUserVendedores()" style="margin-left:auto;padding:0.5rem 1.25rem;font-size:0.8rem;">Guardar Vendedores</button>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Marque los vendedores asociados a este usuario para la empresa seleccionada.</p>
+                    <div id="vendedores-checkboxes" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:0.5rem;">
+                        <p style="color:var(--text-muted);font-size:0.85rem;">Seleccione un usuario y una empresa para ver sus vendedores asignados.</p>
                     </div>
                 </div>
             </section>

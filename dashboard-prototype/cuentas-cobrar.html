@@ -929,10 +929,15 @@
         <!-- Filters -->
         <div class="glass-card p-4 mb-4 fade-in-up fade-in-up-1 filters-section" id="filtersCard">
             <form id="reportForm" class="row g-3 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Empresa(s)</label>
                     <select class="form-select" id="filterCia" multiple="multiple" required>
                         <option value="">Cargando...</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Vendedor(es)</label>
+                    <select class="form-select" id="filterVendedor" multiple="multiple">
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -943,7 +948,7 @@
                     <label class="form-label">Fecha Fin</label>
                     <input type="date" class="form-control" id="fechaFin" required>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="search-box">
                         <label class="form-label">Buscar</label>
                         <i class="fas fa-search search-icon"></i>
@@ -1313,7 +1318,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    <script src="js/cuentas-cobrar.js?v=2.1"></script>
+    <script src="js/cuentas-cobrar.js?v=2.2"></script>
     <script src="sidebar.js"></script>
         </main>
     </div>

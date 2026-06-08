@@ -171,9 +171,12 @@ def _seed_initial_data(cursor, conn):
 
         ('registro_facturas',   'Registro Facturas',    '/registro_facturas.html',  'Contabilidad',   22, None),
         ('trazabilidad_global', 'Trazabilidad Global',  '/trazabilidad_global.html','Contabilidad',   23, None),
+        ('auditoria_comprobantes', 'Auditoría Comprobantes', '/auditoria-comprobantes.html', 'Contabilidad', 24, None),
+        ('cuentas_contables',   'Cuentas Contables',    '/cuentas_contables.html',  'Contabilidad',   25, None),
         ('conciliacion',        'Conciliación Bancaria','/conciliacion.html',       'Finanzas',       30, None),
         ('cuentas_cobrar',      'Cuentas por Cobrar',   '/cuentas-cobrar.html',     'Finanzas',       31, None),
-        ('pagos_tesoreria',     'Pagos Tesorería',      '/pagos_tesoreria.html',    'Finanzas',       32, None),
+        ('historial_cancelaciones', 'Historial Cancelaciones', '/historial-cancelaciones.html', 'Finanzas', 32, None),
+        ('pagos_tesoreria',     'Pagos Tesorería',      '/pagos_tesoreria.html',    'Finanzas',       33, None),
         ('planilla_movilidad',  'Planilla Movilidad',   '/planilla_movilidad.html', 'Gastos y Movilidad', 40, None),
         ('historial_planillas', 'Historial Planillas',  '/historial_planillas.html','Gastos y Movilidad', 41, None),
         ('rendicion_gastos',    'Rendición de Gastos',  '/rendicion_gastos.html',   'Gastos y Movilidad', 42, None),
@@ -223,9 +226,9 @@ def _seed_initial_data(cursor, conn):
         # Definir permisos por rol
         role_perms = {
             'LOGISTICA': ['logistics', 'orders', 'contabilidad', 'cargos_documentales', 'registro_facturas'],
-            'CONTABILIDAD': ['orders', 'contabilidad', 'cargos_documentales', 'registro_facturas', 'conciliacion', 'cuentas_cobrar'],
-            'CONTROL_INTERNO': ['conciliacion', 'cuentas_cobrar'],
-            'COMERCIAL': ['conciliacion', 'cuentas_cobrar'],
+            'CONTABILIDAD': ['orders', 'contabilidad', 'cargos_documentales', 'registro_facturas', 'conciliacion', 'cuentas_cobrar', 'historial_cancelaciones'],
+            'CONTROL_INTERNO': ['conciliacion', 'cuentas_cobrar', 'historial_cancelaciones'],
+            'COMERCIAL': ['conciliacion', 'cuentas_cobrar', 'historial_cancelaciones'],
             'TESORERIA': ['cargos_documentales', 'pagos_tesoreria', 'conciliacion'],
             'FINANZAS': ['planilla_movilidad', 'historial_planillas', 'rendicion_gastos', 'historial_rendiciones', 'revision_rendiciones', 'conciliacion', 'pagos_tesoreria'],
             'GERENCIA': list(modulos_map.keys()),  # Todo visible
@@ -246,6 +249,61 @@ def _seed_initial_data(cursor, conn):
 
         conn.commit()
         print("  → Permisos iniciales insertados")
+
+    # Asegurar permisos del módulo auditoria_comprobantes para ADMIN y CONTABILIDAD
+    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'auditoria_comprobantes'")
+    m_row = cursor.fetchone()
+    if m_row:
+        mid = m_row[0]
+        # ADMIN
+        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?", (mid,))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('ADMIN', ?, 1, 1, 1, 1)", (mid,))
+        # CONTABILIDAD
+        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'CONTABILIDAD' AND ModuloId = ?", (mid,))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)", (mid,))
+        conn.commit()
+
+    # Asegurar permisos del módulo historial_cancelaciones para ADMIN, CONTABILIDAD, CONTROL_INTERNO y COMERCIAL
+    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'historial_cancelaciones'")
+    hc_row = cursor.fetchone()
+    if hc_row:
+        hc_mid = hc_row[0]
+        # ADMIN
+        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?", (hc_mid,))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('ADMIN', ?, 1, 1, 1, 1)", (hc_mid,))
+        # CONTABILIDAD, CONTROL_INTERNO, COMERCIAL
+        for role in ['CONTABILIDAD', 'CONTROL_INTERNO', 'COMERCIAL']:
+            cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = ? AND ModuloId = ?", (role, hc_mid))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES (?, ?, 1, 1, 0, 0)", (role, hc_mid))
+        conn.commit()
+
+    # Asegurar módulo y permisos de cuentas_contables para ADMIN y CONTABILIDAD
+    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'cuentas_contables'")
+    cc_row = cursor.fetchone()
+    if not cc_row:
+        cursor.execute("""
+            INSERT INTO WebModulos (Codigo, Nombre, RutaHtml, Seccion, Orden)
+            VALUES ('cuentas_contables', 'Cuentas Contables', '/cuentas_contables.html', 'Contabilidad', 25)
+        """)
+        conn.commit()
+        cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'cuentas_contables'")
+        cc_row = cursor.fetchone()
+        
+    if cc_row:
+        cc_mid = cc_row[0]
+        # ADMIN
+        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?", (cc_mid,))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('ADMIN', ?, 1, 1, 1, 1)", (cc_mid,))
+        # CONTABILIDAD
+        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'CONTABILIDAD' AND ModuloId = ?", (cc_mid,))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)", (cc_mid,))
+        conn.commit()
 
 
 # ══════════════════════════════════════════════════════
@@ -606,7 +664,68 @@ def save_user_tipooc(login: str, params: TiposOcUsuarioSave, admin: dict = Depen
         raise HTTPException(500, str(e))
     finally:
         conn.close()
+
 # ══════════════════════════════════════════════════════
+#  ADMIN: Vendedores por Usuario
+# ══════════════════════════════════════════════════════
+
+class VendedoresUsuarioSave(BaseModel):
+    codcia: str
+    vendedores: List[str]
+
+@router.get("/admin/vendedores")
+def get_all_vendedores(codcia: str = Query(...), admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) = ? AND RTRIM(tabla) = '0009' ORDER BY codigo",
+            (codcia.strip(),)
+        )
+        return [{"codigo": r[0], "nombre": r[1]} for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@router.get("/admin/usuario-vendedores/{login}")
+def get_user_vendedores(login: str, codcia: str = Query(...), admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT RTRIM(codven) FROM WebUserVendors WHERE RTRIM(login) = ? AND RTRIM(codcia) = ?",
+            (login.strip(), codcia.strip())
+        )
+        return [row[0] for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@router.post("/admin/usuario-vendedores/{login}")
+def save_user_vendedores(login: str, params: VendedoresUsuarioSave, admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM WebUserVendors WHERE RTRIM(login) = ? AND RTRIM(codcia) = ?",
+            (login.strip(), params.codcia.strip())
+        )
+        for codven in params.vendedores:
+            cursor.execute(
+                "INSERT INTO WebUserVendors (login, codcia, codven) VALUES (?, ?, ?)",
+                (login.strip(), params.codcia.strip(), codven.strip())
+            )
+        conn.commit()
+        return {"status": "success", "message": f"Vendedores de '{login}' para empresa '{params.codcia}' actualizados"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, str(e))
+    finally:
+        conn.close()
+
+# ══════════════════════════════════════════════════════
+
 
 @router.get("/auth/verify")
 def verify_token(current_user: dict = Depends(get_current_user)):
