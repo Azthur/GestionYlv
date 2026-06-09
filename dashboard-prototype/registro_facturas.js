@@ -48,6 +48,11 @@ const escapeHtml = (unsafe) => {
          .replace(/"/g, "&quot;")
          .replace(/'/g, "&#039;");
 };
+const escapeClick = (unsafe) => {
+    return escapeHtml(unsafe)
+         .replace(/&#039;/g, "\\&#039;")
+         .replace(/&quot;/g, "\\&quot;");
+};
 // ─── Currency Helpers ────────────
 // Normaliza cualquier valor de moneda a '1' o '2'
 function normMoneda(v) {
@@ -525,7 +530,7 @@ async function searchPendingOC() {
 
             html += `<tr>
                 <td style="white-space:nowrap;">
-                    <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; background:#f59e0b; color:white; border:none;" onclick="loadOCDetails('${o.nrodoc}', '${o.tipooc}', '${o.anos}', '${o.ruc}', '${escapeHtml(o.proveedor)}', '${monStr}', '${escapeHtml(factVincStr)}')">Vincular</button>
+                    <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; background:#f59e0b; color:white; border:none;" onclick="loadOCDetails('${o.nrodoc}', '${o.tipooc}', '${o.anos}', '${o.ruc}', '${escapeClick(o.proveedor)}', '${monStr}', '${escapeClick(factVincStr)}')">Vincular</button>
                     <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem; color:#f59e0b; border:1px solid #f59e0b; margin-left:4px;" onclick="previewOCDetails('${o.nrodoc}', '${o.tipooc}', '${o.anos}')" title="Ver Contenido OC">Ver Info</button>
                 </td>
                 <td><span style="font-weight:600;">${o.tipooc}</span> ${o.nrodoc}</td>
@@ -1129,7 +1134,7 @@ async function executeCatalogSearch(q) {
                     return `
                     <div style="padding:0.75rem 1rem; border:1px solid var(--border-soft); border-radius:8px; cursor:pointer; font-size:0.85rem; transition:all 0.15s; background:white; display:flex; gap:1rem; align-items:center;" 
                           onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='var(--border-soft)'; this.style.transform='none';"
-                          onclick="selectModalItem('${escapeHtml(it.codigo)}', '${escapeHtml(it.descripcion)}', '${escapeHtml(it.cuenta_contable || '')}', '${escapeHtml(it.cuenta_contable2 || '')}')">
+                          onclick="selectModalItem('${escapeClick(it.codigo)}', '${escapeClick(it.descripcion)}', '${escapeClick(it.cuenta_contable || '')}', '${escapeClick(it.cuenta_contable2 || '')}')">
                           <span style="display:inline-block; padding:0.2rem 0.5rem; font-size:0.7rem; font-weight:600; border-radius:4px; ${badgeColor.replace(/bg-([a-z]+)-100/g, 'background:#eff6ff').replace(/text-([a-z]+)-800/g, 'color:#1e40af')} text-transform:uppercase; min-width:70px; text-align:center;">${it.tipo}</span> 
                           <span style="font-weight:600; min-width:100px;">${it.codigo}</span> 
                           <span>${it.descripcion}</span>

@@ -450,6 +450,7 @@ def get_purchase_order_report(
                     INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
                     WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
                       AND ',' + REPLACE(RTRIM(fc.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(r.NroDoc) + ',%'
+                      AND RTRIM(fc.TipoOc) = RTRIM(r.TipoOc)
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
                       AND ABS(fd.PrecioUnitario - r.PreUni) < 0.01
                       AND fc.Estado != 'Anulada'
@@ -460,6 +461,7 @@ def get_purchase_order_report(
                     INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
                     WHERE RTRIM(fc.CodCia) = RTRIM(r.CodCia)
                       AND ',' + REPLACE(RTRIM(fc.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + RTRIM(r.NroDoc) + ',%'
+                      AND RTRIM(fc.TipoOc) = RTRIM(r.TipoOc)
                       AND RTRIM(fd.CodMaterial) = RTRIM(r.CodMat)
                       AND ABS(fd.PrecioUnitario - r.PreUni) < 0.01
                       AND fc.Estado != 'Anulada'

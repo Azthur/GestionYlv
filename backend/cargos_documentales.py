@@ -541,7 +541,7 @@ def get_ocs_disponibles_ssr(request: Request):
             
         cursor.execute('''
             SELECT RTRIM(f.NroOrdenCompra), RTRIM(f.Serie) + '-' + RTRIM(f.Numero), f.Total, f.FecEmision, f.Uuid, f.Id,
-                   RTRIM(f.CodTipoDoc), f.FecVencimiento, RTRIM(tbl.Nombre), RTRIM(f.NumRucProveedor)
+                   RTRIM(f.CodTipoDoc), f.FecVencimiento, RTRIM(tbl.Nombre), RTRIM(f.NumRucProveedor), RTRIM(f.TipoOc)
             FROM CntFacturaCab f 
             INNER JOIN #TempOcs t ON ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + t.nrodoc + ',%'
             LEFT JOIN AlmTabla tbl ON tbl.CodCia = f.CodCia AND tbl.Tabla = '0006' AND tbl.Codigo = f.CodTipoDoc
@@ -556,13 +556,15 @@ def get_ocs_disponibles_ssr(request: Request):
                 'tipo_comp_desc': r[8] if r[8] else ('Otros' if not r[6] else r[6]),
                 'ruc': r[9].strip() if r[9] else ""
             }
+            t_oc = r[10].strip().upper() if r[10] else ""
             if raw_ocs:
                 for oc in raw_ocs.split(','):
                     oc_clean = oc.strip()
                     if oc_clean:
-                        if oc_clean not in factura_map:
-                            factura_map[oc_clean] = []
-                        factura_map[oc_clean].append(val)
+                        key = f"{oc_clean}|{t_oc}"
+                        if key not in factura_map:
+                            factura_map[key] = []
+                        factura_map[key].append(val)
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
         pedida_map = {f"{r[0].strip()}|{r[1].strip()}": float(r[2] or 0) for r in cursor.fetchall()}
@@ -585,7 +587,7 @@ def get_ocs_disponibles_ssr(request: Request):
         results = []
         for d in base_ocs:
             nro = d['nrodoc']
-            fac_list_raw = factura_map.get(nro, [])
+            fac_list_raw = factura_map.get(f"{nro}|{d['tipooc'].strip().upper()}", [])
             fac_list = [f for f in fac_list_raw if f['ruc'] == d.get('ruc', '').strip()]
             ped = pedida_map.get(f"{nro}|{d['tipooc'].strip()}", 0.0)
             rec = recibida_map.get(nro, 0.0)
@@ -784,20 +786,21 @@ def get_cargos_detallado(
 
         # Build maps using SQL JOINs
         cursor.execute('''
-            SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.Id), RTRIM(f.NumRucProveedor)
+            SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.Id), RTRIM(f.NumRucProveedor), RTRIM(f.TipoOc)
             FROM CntFacturaCab f INNER JOIN #TempOcs t ON ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + t.nrodoc + ',%'
-            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor
+            WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor, f.TipoOc
         ''', (codcia.strip(),))
         factura_map = {}
         for r in cursor.fetchall():
             raw_ocs = r[0]
             invoice_data = {'factura': r[1], 'uuid': r[2], 'fac_id': r[3]}
             ruc = r[4].strip() if r[4] else ""
+            t_oc = r[5].strip().upper() if r[5] else ""
             if raw_ocs:
                 for oc in raw_ocs.split(','):
                     oc_clean = oc.strip()
                     if oc_clean:
-                        factura_map[f"{oc_clean}|{ruc}"] = invoice_data
+                        factura_map[f"{oc_clean}|{ruc}|{t_oc}"] = invoice_data
 
         cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
         pedida_map = {f"{r[0].strip()}|{r[1].strip()}": float(r[2] or 0) for r in cursor.fetchall()}
@@ -811,8 +814,9 @@ def get_cargos_detallado(
             ncond = d['NroOrdenCompra']
             if not ncond: ncond = ""
             ncond = ncond.strip()
+            t_oc_val = d.get('TipoOc', '').strip().upper()
 
-            fac_info = factura_map.get(f"{ncond}|{d.get('RucProveedor', '').strip()}", {})
+            fac_info = factura_map.get(f"{ncond}|{d.get('RucProveedor', '').strip()}|{t_oc_val}", {})
             # Only override if detail doesn't already have a valid NroFactura recorded
             if not d.get('NroFactura') or d['NroFactura'] == '-':
                 d['NroFactura'] = fac_info.get('factura', '')
@@ -964,7 +968,7 @@ def get_ocs_disponibles(
             
         # Bulk Fetch Facturas
         cursor.execute('''
-            SELECT RTRIM(NroOrdenCompra), RTRIM(Serie) + '-' + RTRIM(Numero), Total, FecEmision, Uuid, Id
+            SELECT RTRIM(NroOrdenCompra), RTRIM(Serie) + '-' + RTRIM(Numero), Total, FecEmision, Uuid, Id, RTRIM(TipoOc)
             FROM CntFacturaCab f INNER JOIN #TempOcs t ON ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + t.nrodoc + ',%'
             WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada'
         ''', (codcia.strip(),))
@@ -972,11 +976,12 @@ def get_ocs_disponibles(
         for r in cursor.fetchall():
             raw_ocs = r[0]
             invoice_data = {'factura': r[1], 'total_factura': r[2], 'fec_factura': r[3], 'factura_uuid': r[4], 'fac_id': r[5]}
+            t_oc = r[6].strip().upper() if r[6] else ""
             if raw_ocs:
                 for oc in raw_ocs.split(','):
                     oc_clean = oc.strip()
                     if oc_clean:
-                        factura_map[oc_clean] = invoice_data
+                        factura_map[f"{oc_clean}|{t_oc}"] = invoice_data
 
         # Bulk Fetch Pedida
         cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
@@ -1046,7 +1051,7 @@ def get_ocs_disponibles(
                         # Can't bypass if Logistica already grabbed it and it's pending/rejected.
                         continue
 
-            fac_info = factura_map.get(nro, {})
+            fac_info = factura_map.get(f"{nro}|{tipooc.upper()}", {})
             ped = pedida_map.get(nro, 0.0)
             rec = recibida_map.get(nro, 0.0)
             
@@ -1170,7 +1175,8 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                 
                 query = f"""
                     SELECT RTRIM(NroOrdenCompra), RTRIM(Serie)+'-'+RTRIM(Numero), RTRIM(Uuid),
-                           FecEmision, FecVencimiento, ISNULL(CodTipoDoc,'01'), Total, RTRIM(CodMoneda)
+                           FecEmision, FecVencimiento, ISNULL(CodTipoDoc,'01'), Total, RTRIM(CodMoneda),
+                           RTRIM(TipoOc)
                     FROM CntFacturaCab
                     WHERE RTRIM(CodCia) = ? AND Estado != 'Anulada'
                       AND ({' OR '.join(where_clauses)})
@@ -1188,11 +1194,15 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                         'Total': float(row[6]) if row[6] else 0,
                         'CodMoneda': row[7]
                     }
+                    t_oc = row[8].strip().upper() if len(row) > 8 and row[8] else ""
                     factura_fechas_map[serie_num] = fechas_data
+                    if t_oc:
+                        factura_fechas_map[(serie_num, t_oc)] = fechas_data
                     if raw_ocs:
                         for oc in raw_ocs.split(','):
                             oc_clean = oc.strip()
                             if oc_clean:
+                                factura_map[(oc_clean, serie_num, t_oc)] = uuid_val
                                 factura_map[(oc_clean, serie_num)] = uuid_val
             except Exception as e:
                 import traceback; traceback.print_exc()
@@ -1221,13 +1231,15 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                 cursor.execute(f"""
                     SELECT RTRIM(Serie)+'-'+RTRIM(Numero), RTRIM(Uuid), 
                            FecEmision, FecVencimiento, RTRIM(NroOrdenCompra),
-                           ISNULL(CodTipoDoc,'01'), Total, RTRIM(CodMoneda)
+                           ISNULL(CodTipoDoc,'01'), Total, RTRIM(CodMoneda),
+                           RTRIM(TipoOc)
                     FROM CntFacturaCab
                     WHERE RTRIM(CodCia) = ? AND RTRIM(Serie)+'-'+RTRIM(Numero) IN ({ph}) AND Estado != 'Anulada'
                 """, (codcia.strip(), *chunk))
                 for row in cursor.fetchall():
                     serie_num = row[0]
                     stripped_sn = strip_fac(serie_num)
+                    t_oc = row[8].strip().upper() if len(row) > 8 and row[8] else ""
                     if stripped_sn not in factura_fechas_map:
                         factura_fechas_map[stripped_sn] = {
                             'FechaEmision': row[2],
@@ -1237,9 +1249,15 @@ def get_pagos_pendientes(codcia: str = Query(...)):
                             'Total': float(row[6]) if row[6] else 0,
                             'CodMoneda': row[7]
                         }
+                    if t_oc and (stripped_sn, t_oc) not in factura_fechas_map:
+                        factura_fechas_map[(stripped_sn, t_oc)] = factura_fechas_map[stripped_sn]
                     oc = (row[4] or '').strip()
+                    if (oc, stripped_sn, t_oc) not in factura_map:
+                        factura_map[(oc, stripped_sn, t_oc)] = row[1]
                     if (oc, stripped_sn) not in factura_map:
                         factura_map[(oc, stripped_sn)] = row[1]
+                    if ('', stripped_sn, t_oc) not in factura_map:
+                        factura_map[('', stripped_sn, t_oc)] = row[1]
                     if ('', stripped_sn) not in factura_map:
                         factura_map[('', stripped_sn)] = row[1]
             except Exception as e:
@@ -1301,31 +1319,48 @@ def get_pagos_pendientes(codcia: str = Query(...)):
             # Enlaces a documentos — buscar por (nro_oc, nro_fac) O por ('', nro_fac) para facturas sin OC
             nro_fac_stripped = strip_fac(nro_fac) if 'strip_fac' in locals() else nro_fac
             
-            r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac_stripped), None)
+            tipo_oc = (r.get('TipoOc') or '').strip().upper()
+            r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac_stripped, tipo_oc), None)
             if not r['FacturaUuid'] and nro_fac_stripped:
-                # Intentar con nro_fac original (sin strip)
+                r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac_stripped), None)
+            if not r['FacturaUuid'] and nro_fac:
+                r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac, tipo_oc), None)
+            if not r['FacturaUuid'] and nro_fac:
                 r['FacturaUuid'] = factura_map.get((nro_oc, nro_fac), None)
             if not r['FacturaUuid'] and nro_fac_stripped:
+                r['FacturaUuid'] = factura_map.get(('', nro_fac_stripped, tipo_oc), None)
+            if not r['FacturaUuid'] and nro_fac_stripped:
                 r['FacturaUuid'] = factura_map.get(('', nro_fac_stripped), None)
+            if not r['FacturaUuid'] and nro_fac:
+                r['FacturaUuid'] = factura_map.get(('', nro_fac, tipo_oc), None)
             if not r['FacturaUuid'] and nro_fac:
                 r['FacturaUuid'] = factura_map.get(('', nro_fac), None)
             if not r['FacturaUuid'] and (nro_fac_stripped or nro_fac):
                 # Buscar sin importar la OC
                 search_vals = set(filter(None, [nro_fac, nro_fac_stripped]))
                 for k, v in factura_map.items():
-                    if k[1] in search_vals and v:
+                    if len(k) >= 2 and k[1] in search_vals and v:
                         r['FacturaUuid'] = v
                         break
             # También intentar desde factura_fechas_map
             if not r['FacturaUuid'] and nro_fac_stripped:
-                fac_entry = factura_fechas_map.get(nro_fac_stripped) or factura_fechas_map.get(nro_fac)
+                fac_entry = (
+                    factura_fechas_map.get((nro_fac_stripped, tipo_oc)) or 
+                    factura_fechas_map.get((nro_fac, tipo_oc)) or 
+                    factura_fechas_map.get(nro_fac_stripped) or 
+                    factura_fechas_map.get(nro_fac)
+                )
                 if fac_entry and fac_entry.get('Uuid'):
                     r['FacturaUuid'] = fac_entry['Uuid']
 
             # Fechas de factura desde CntFacturaCab
-            fac_info = factura_fechas_map.get(nro_fac_stripped, {})
-            if not fac_info and nro_fac:
-                fac_info = factura_fechas_map.get(nro_fac, {})
+            fac_info = (
+                factura_fechas_map.get((nro_fac_stripped, tipo_oc)) or
+                factura_fechas_map.get((nro_fac, tipo_oc)) or
+                factura_fechas_map.get(nro_fac_stripped) or
+                factura_fechas_map.get(nro_fac) or
+                {}
+            )
             if fac_info:
                 fe = fac_info.get('FechaEmision')
                 fv = fac_info.get('FechaVencimiento')

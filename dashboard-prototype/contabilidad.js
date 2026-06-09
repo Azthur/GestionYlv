@@ -45,6 +45,11 @@ const escapeHtml = (unsafe) => {
          .replace(/"/g, "&quot;")
          .replace(/'/g, "&#039;");
 };
+const escapeClick = (unsafe) => {
+    return escapeHtml(unsafe)
+         .replace(/&#039;/g, "\\&#039;")
+         .replace(/&quot;/g, "\\&quot;");
+};
 
 const fmtNum = (val, dec = 2) => {
     if (val === null || val === undefined || isNaN(val)) return '0.00';
@@ -368,7 +373,7 @@ async function loadTokens() {
                     <div class="cnt-token-field"><span class="tlabel">Corporativo:</span><span class="tvalue" title="${t.TokenCorpo || ''}">${mask(t.TokenCorpo)}</span></div>
                 </div>
                 <div class="cnt-token-card-actions">
-                    <button class="btn btn-outline" onclick="editToken(${t.Id}, '${t.CodCia.trim()}','${t.NumRuc}','${escapeHtml(t.NomEmpresa)}','${t.TokenMisCompras||''}','${t.TokenDatosCpe||''}','${t.TokenCorpo||''}')" style="flex:1; font-size:0.725rem; padding:0.35rem;">Editar</button>
+                    <button class="btn btn-outline" onclick="editToken(${t.Id}, '${t.CodCia.trim()}','${t.NumRuc}','${escapeClick(t.NomEmpresa)}','${t.TokenMisCompras||''}','${t.TokenDatosCpe||''}','${t.TokenCorpo||''}')" style="flex:1; font-size:0.725rem; padding:0.35rem;">Editar</button>
                     <button class="btn btn-outline" onclick="deleteToken(${t.Id})" style="font-size:0.725rem; padding:0.35rem 0.75rem; color:#ef4444; border-color:#fecaca;">Eliminar</button>
                 </div>
             </div>`;

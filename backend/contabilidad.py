@@ -1683,7 +1683,7 @@ def get_trazabilidad_global(
 
         # FACTURAS
         fac_query = f"""
-            SELECT RTRIM(fc.NroOrdenCompra) as nrodoc, RTRIM(fd.CodMaterial) as codmat,
+            SELECT RTRIM(fc.NroOrdenCompra) as nrodoc, RTRIM(fc.TipoOc) as tipooc, RTRIM(fd.CodMaterial) as codmat,
                    SUM(fd.Cantidad) as total_facturado, MAX(fd.PrecioUnitario) as p_unitario, MAX(fc.CodMoneda) as cod_moneda,
                    MAX(fd.Inci) as inci, MAX(fd.Fabricante) as fabricante, MAX(fd.FechaVencimientoItem) as fecha_vencimiento_item,
                    MAX(fd.Obs1) as obs1, MAX(fd.Obs2) as obs2, MAX(fd.Obs3) as obs3, MAX(fd.Obs4) as obs4,
@@ -1691,21 +1691,22 @@ def get_trazabilidad_global(
             FROM CntFacturaDet fd
             INNER JOIN CntFacturaCab fc ON fd.FacturaCabId = fc.Id
             WHERE RTRIM(fc.CodCia) = ? AND RTRIM(fc.NroOrdenCompra) IN ({placeholders_oc}) AND fc.Estado != 'Anulada'
-            GROUP BY RTRIM(fc.NroOrdenCompra), RTRIM(fd.CodMaterial)
+            GROUP BY RTRIM(fc.NroOrdenCompra), RTRIM(fc.TipoOc), RTRIM(fd.CodMaterial)
         """
         cursor.execute(fac_query, tuple([codcia.strip()] + nrodocs_list))
         factura_by_oc_mat = {}
         for row in cursor.fetchall():
             if not row.nrodoc or not row.codmat: continue
             p_unit = float(row.p_unitario) if row.p_unitario else 0
-            key = f"{row.nrodoc}_{row.codmat}_{p_unit}"
+            t_oc = str(row.tipooc).strip().upper() if row.tipooc else ""
+            key = f"{row.nrodoc}_{t_oc}_{row.codmat}_{p_unit}"
             factura_by_oc_mat[key] = {
                 "cant": float(row.total_facturado) if row.total_facturado else 0,
                 "preuni": p_unit,
                 "cod_moneda": str(row.cod_moneda).strip() if row.cod_moneda else "",
                 "inci": row.inci if row.inci else "",
                 "fabricante": row.fabricante if row.fabricante else "",
-                "fecha_vencimiento_item": row.fecha_vencimiento_item.strftime("%Y-%m-%d") if row.fecha_vencimiento_item else "",
+                "fecha_vencimiento_item": _format_date(row.fecha_vencimiento_item) if row.fecha_vencimiento_item else "",
                 "obs1": row.obs1 if row.obs1 else "",
                 "obs2": row.obs2 if row.obs2 else "",
                 "obs3": row.obs3 if row.obs3 else "",
@@ -1722,9 +1723,9 @@ def get_trazabilidad_global(
             return cod
 
         for it in oc_items:
-            # Use codmat+preuni key for proper matching when same code has different prices
-            mat_price_key = f"{it['nrodoc']}_{it['codmat']}_{it['preuni']}"
-            a_info = almacen_by_oc_mat.get(mat_price_key, {})
+            t_oc = str(it['tipooc']).strip().upper() if it['tipooc'] else ""
+            mat_price_key = f"{it['nrodoc']}_{t_oc}_{it['codmat']}_{it['preuni']}"
+            a_info = almacen_by_oc_mat.get(f"{it['nrodoc']}_{it['codmat']}_{it['preuni']}", {})
             # Fallback: try without price only when there's a single entry for that nrodoc+codmat
             if not a_info:
                 fallback_keys = [k for k in almacen_by_oc_mat if k.startswith(f"{it['nrodoc']}_{it['codmat']}_")]
@@ -1734,14 +1735,15 @@ def get_trazabilidad_global(
             
             f_info = factura_by_oc_mat.get(mat_price_key, {})
             if not f_info:
-                fallback_fkeys = [k for k in factura_by_oc_mat if k.startswith(f"{it['nrodoc']}_{it['codmat']}_")]
+                prefix = f"{it['nrodoc']}_{t_oc}_{it['codmat']}_"
+                fallback_fkeys = [k for k in factura_by_oc_mat if k.startswith(prefix)]
                 if len(fallback_fkeys) == 1:
                     f_info = factura_by_oc_mat.get(fallback_fkeys[0], {})
-            cant_facturada = f_info.get("cant", 0)
+            cant_facturada = f_info.get("cant", 0) if isinstance(f_info, dict) else 0
 
             warnings = []
             oc_m = it["oc_moneda"]
-            fac_m = map_moneda(f_info.get("cod_moneda")) if f_info.get("cod_moneda") else oc_m
+            fac_m = map_moneda(f_info.get("cod_moneda")) if isinstance(f_info, dict) and f_info.get("cod_moneda") else oc_m
             alm_m = map_moneda(a_info.get("cod_moneda")) if isinstance(a_info, dict) and a_info.get("cod_moneda") else oc_m
 
             # Strict validations
@@ -1854,54 +1856,61 @@ def get_trazabilidad(
 
         # 2. Detalles de ingresos a almacén (documentos específicos)
         movimientos_almacen = []
-        cursor.execute("""
-            SELECT 
-                RTRIM(almcen) as almcen, RTRIM(tipmov) as tipmov, 
-                RTRIM(codmov) as codmov, RTRIM(nrodoc) as nrodoc,
-                fchdoc, RTRIM(codmat) as codmat, candes,
-                preuni, RTRIM(codmon) as codmon
-            FROM AlmRMovm
-            WHERE RTRIM(CodCia) = ? AND LTRIM(RTRIM(ordcmp)) = ?
-            ORDER BY fchdoc, nrodoc
-        """, (codcia.strip(), nrodoc.strip()))
-        
-        movs_cols = [c[0] for c in cursor.description]
         almacen_by_mat = {}
-        for r in cursor.fetchall():
-            d = dict(zip(movs_cols, r))
-            if d.get('fchdoc'): d['fchdoc'] = d['fchdoc'].strftime("%Y-%m-%d")
-            d['candes'] = float(d['candes']) if d.get('candes') else 0
-            d['preuni'] = float(d['preuni']) if d.get('preuni') else 0
-            d['codmon_desc'] = map_moneda(d.get('codmon'))
-            movimientos_almacen.append(d)
+        if not tipo_oc or tipo_oc.strip().upper() == 'M':
+            cursor.execute("""
+                SELECT 
+                    RTRIM(almcen) as almcen, RTRIM(tipmov) as tipmov, 
+                    RTRIM(codmov) as codmov, RTRIM(nrodoc) as nrodoc,
+                    fchdoc, RTRIM(codmat) as codmat, candes,
+                    preuni, RTRIM(codmon) as codmon
+                FROM AlmRMovm
+                WHERE RTRIM(CodCia) = ? AND LTRIM(RTRIM(ordcmp)) = ?
+                ORDER BY fchdoc, nrodoc
+            """, (codcia.strip(), nrodoc.strip()))
             
-            # Map for item aggregation - key by codmat+preuni to handle
-            # duplicate codes with different prices
-            m = d['codmat'].strip()
-            p = d['preuni']
-            mat_price_key = f"{m}_{p}"
-            if mat_price_key not in almacen_by_mat:
-                almacen_by_mat[mat_price_key] = {"cant": 0, "preuni": p, "cod_moneda": d.get('codmon', '')}
-            almacen_by_mat[mat_price_key]["cant"] += d['candes']
-            if float(d['preuni']) > 0:
-                almacen_by_mat[mat_price_key]["preuni"] = float(d['preuni'])
-            if d.get('codmon') and d.get('codmon').strip() != '':
-                almacen_by_mat[mat_price_key]["cod_moneda"] = d.get('codmon', '')
+            movs_cols = [c[0] for c in cursor.description]
+            for r in cursor.fetchall():
+                d = dict(zip(movs_cols, r))
+                if d.get('fchdoc'): d['fchdoc'] = _format_date(d['fchdoc'])
+                d['candes'] = float(d['candes']) if d.get('candes') else 0
+                d['preuni'] = float(d['preuni']) if d.get('preuni') else 0
+                d['codmon_desc'] = map_moneda(d.get('codmon'))
+                movimientos_almacen.append(d)
+                
+                # Map for item aggregation - key by codmat+preuni to handle
+                # duplicate codes with different prices
+                m = d['codmat'].strip()
+                p = d['preuni']
+                mat_price_key = f"{m}_{p}"
+                if mat_price_key not in almacen_by_mat:
+                    almacen_by_mat[mat_price_key] = {"cant": 0, "preuni": p, "cod_moneda": d.get('codmon', '')}
+                almacen_by_mat[mat_price_key]["cant"] += d['candes']
+                if float(d['preuni']) > 0:
+                    almacen_by_mat[mat_price_key]["preuni"] = float(d['preuni'])
+                if d.get('codmon') and d.get('codmon').strip() != '':
+                    almacen_by_mat[mat_price_key]["cod_moneda"] = d.get('codmon', '')
 
-        # 3. Facturas vinculadas a esta OC
+        # 3. Facturas vinculadas a esta OC (filtrada por tipo_oc para evitar cruces)
         facturas = []
-        cursor.execute("""
+        fac_q = """
             SELECT f.Id, f.Serie, f.Numero, f.NumRucProveedor, f.NomProveedor,
                    f.FecEmision, f.Total, f.Estado, f.CodMoneda, f.Uuid
             FROM CntFacturaCab f
             WHERE RTRIM(f.CodCia) = ? AND f.NroOrdenCompra = ? AND f.Estado != 'Anulada'
-            ORDER BY f.FecEmision
-        """, (codcia.strip(), nrodoc.strip()))
+        """
+        fac_params = [codcia.strip(), nrodoc.strip()]
+        if tipo_oc:
+            fac_q += " AND RTRIM(f.TipoOc) = ?"
+            fac_params.append(tipo_oc.strip())
+        fac_q += " ORDER BY f.FecEmision"
+
+        cursor.execute(fac_q, tuple(fac_params))
         fac_cols = [c[0] for c in cursor.description]
         for r in cursor.fetchall():
             d = dict(zip(fac_cols, r))
             if d.get('FecEmision'):
-                d['FecEmision'] = d['FecEmision'].strftime("%Y-%m-%d")
+                d['FecEmision'] = _format_date(d['FecEmision'])
             if d.get('Total') is not None:
                 d['Total'] = float(d['Total'])
             facturas.append(d)
@@ -1919,7 +1928,7 @@ def get_trazabilidad(
         cursor.execute(q_oc, tuple(p_oc))
         row_oc = cursor.fetchone()
         oc_moneda = "1" if row_oc and str(row_oc[0]).strip() in ("1", "1.0", "S/") else "2"
-        fch_oc = row_oc[1].strftime("%Y-%m-%d") if row_oc and row_oc[1] else None
+        fch_oc = _format_date(row_oc[1]) if row_oc and row_oc[1] else None
 
         facturado_by_mat = {}
         factura_ids = [f['Id'] for f in facturas]
