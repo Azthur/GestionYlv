@@ -72,6 +72,7 @@ def get_vendedores(codcia: str = Query(...), current_user: dict = Depends(get_cu
         placeholders = ",".join("?" for _ in codcias)
         
         # 1. Verificar si el usuario PuedeVerTodo
+        login = current_user.get("login", "")
         rol = current_user.get("rol", "USER")
         cursor.execute("SELECT rol, ISNULL(PuedeVerTodo, 0) FROM WebUsers WHERE login = ?", (login,))
         row = cursor.fetchone()
@@ -87,20 +88,55 @@ def get_vendedores(codcia: str = Query(...), current_user: dict = Depends(get_cu
                 f"SELECT RTRIM(codcia) as codcia, RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) IN ({placeholders}) AND RTRIM(tabla) = '0009' ORDER BY codcia, codigo",
                 codcias
             )
-            vendedores = [{"codcia": r[0], "codigo": r[1], "nombre": r[2]} for r in cursor.fetchall()]
-        else:
-            # Traer solo los vendedores asignados en WebUserVendors
+            vendedores = [{"codcia": r[0], "codigo": f"V_{r[1]}", "nombre": f"[Vendedor] {r[2]}"} for r in cursor.fetchall()]
+            
+            # Traer todas las tiendas
             cursor.execute(
-                f"""
-                SELECT RTRIM(vt.codcia) as codcia, RTRIM(vt.codigo) AS codigo, RTRIM(vt.nombre) AS nombre 
-                FROM VtaTabla vt
-                INNER JOIN WebUserVendors wuv ON RTRIM(vt.codigo) = RTRIM(wuv.codven) AND RTRIM(vt.codcia) = RTRIM(wuv.codcia)
-                WHERE RTRIM(vt.codcia) IN ({placeholders}) AND RTRIM(vt.tabla) = '0009' AND RTRIM(wuv.login) = ?
-                ORDER BY vt.codcia, vt.codigo
-                """,
-                (*codcias, login.strip())
+                f"SELECT RTRIM(codcia) as codcia, RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) IN ({placeholders}) AND RTRIM(tabla) = 'CLIE' ORDER BY codcia, codigo",
+                codcias
             )
-            vendedores = [{"codcia": r[0], "codigo": r[1], "nombre": r[2]} for r in cursor.fetchall()]
+            tiendas = [{"codcia": r[0], "codigo": f"T_{r[1]}", "nombre": f"[Tienda] {r[2]}"} for r in cursor.fetchall()]
+            vendedores.extend(tiendas)
+        else:
+            # Traer vendedores asignados
+            cursor.execute(
+                f"SELECT RTRIM(codven) FROM WebUserVendors WHERE RTRIM(login) = ? AND RTRIM(codcia) IN ({placeholders})",
+                (login.strip(), *codcias)
+            )
+            allowed_vendedores = [r[0].strip() for r in cursor.fetchall()]
+            
+            # Traer tiendas asignadas
+            cursor.execute(
+                f"SELECT RTRIM(codsol) FROM WebUserTiendas WHERE RTRIM(login) = ? AND RTRIM(codcia) IN ({placeholders})",
+                (login.strip(), *codcias)
+            )
+            allowed_tiendas = [r[0].strip() for r in cursor.fetchall()]
+            
+            # Auto-traducir códigos de vendedor Yxx a códigos de tienda 0xx
+            for v in list(allowed_vendedores):
+                if v.startswith("Y") and len(v) == 3:
+                    allowed_tiendas.append("0" + v[1:])
+            
+            vendedores = []
+            tiendas = []
+            
+            if allowed_vendedores:
+                placeholders_v = ",".join("?" for _ in allowed_vendedores)
+                cursor.execute(
+                    f"SELECT RTRIM(codcia) as codcia, RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) IN ({placeholders}) AND RTRIM(tabla) = '0009' AND RTRIM(codigo) IN ({placeholders_v}) ORDER BY codcia, codigo",
+                    (*codcias, *allowed_vendedores)
+                )
+                vendedores = [{"codcia": r[0], "codigo": f"V_{r[1]}", "nombre": f"[Vendedor] {r[2]}"} for r in cursor.fetchall()]
+                
+            if allowed_tiendas:
+                placeholders_t = ",".join("?" for _ in allowed_tiendas)
+                cursor.execute(
+                    f"SELECT RTRIM(codcia) as codcia, RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) IN ({placeholders}) AND RTRIM(tabla) = 'CLIE' AND RTRIM(codigo) IN ({placeholders_t}) ORDER BY codcia, codigo",
+                    (*codcias, *allowed_tiendas)
+                )
+                tiendas = [{"codcia": r[0], "codigo": f"T_{r[1]}", "nombre": f"[Tienda] {r[2]}"} for r in cursor.fetchall()]
+                
+            vendedores.extend(tiendas)
             
         return vendedores
     except Exception as e:
@@ -147,16 +183,32 @@ def get_report(
         puede_ver_todo = is_admin or db_puede_ver_todo
 
         allowed_vendedores = []
+        allowed_tiendas = []
         if not puede_ver_todo:
-            # Traer códigos de vendedor permitidos para este usuario en las empresas seleccionadas
             placeholders_cias_user = ",".join("?" for _ in codcias)
+            
+            # Vendedores permitidos
             cursor.execute(
                 f"SELECT RTRIM(codven) FROM WebUserVendors WHERE RTRIM(login) = ? AND RTRIM(codcia) IN ({placeholders_cias_user})",
                 (login.strip(), *codcias)
             )
             allowed_vendedores = [r[0].strip() for r in cursor.fetchall()]
-            if not allowed_vendedores:
-                # Si el usuario restringido no tiene vendedores asignados, retornar vacío de inmediato
+            
+            # Tiendas permitidas
+            cursor.execute(
+                f"SELECT RTRIM(codsol) FROM WebUserTiendas WHERE RTRIM(login) = ? AND RTRIM(codcia) IN ({placeholders_cias_user})",
+                (login.strip(), *codcias)
+            )
+            allowed_tiendas = [r[0].strip() for r in cursor.fetchall()]
+
+            # Auto-traducir códigos de vendedor Yxx a códigos de tienda 0xx
+            for v in list(allowed_vendedores):
+                if v.startswith("Y") and len(v) == 3:
+                    allowed_tiendas.append("0" + v[1:])
+                    allowed_vendedores.remove(v)
+
+            if not allowed_vendedores and not allowed_tiendas:
+                # Si el usuario restringido no tiene asignado ni vendedor ni tienda
                 return {
                     "empresa": {
                         "codcia": codcia,
@@ -171,33 +223,66 @@ def get_report(
 
         # Parsear vendedores seleccionados en el filtro
         req_vendedores = []
+        req_tiendas = []
         if vendedor:
-            req_vendedores = [v.strip() for v in vendedor.split(",") if v.strip()]
+            for v in vendedor.split(","):
+                v = v.strip()
+                if v.startswith("V_"):
+                    code = v[2:]
+                    if code.startswith("Y") and len(code) == 3:
+                        req_tiendas.append("0" + code[1:])
+                    else:
+                        req_vendedores.append(code)
+                elif v.startswith("T_"):
+                    req_tiendas.append(v[2:])
+                elif v:
+                    if v.startswith("Y") and len(v) == 3:
+                        req_tiendas.append("0" + v[1:])
+                    else:
+                        req_vendedores.append(v)
 
-        # Determinar qué vendedores se filtrarán en la BD
-        filter_vendedores = []
         apply_vendor_filter = False
+        apply_tienda_filter = False
+        filter_vendedores = []
+        filter_tiendas = []
 
         if not puede_ver_todo:
-            apply_vendor_filter = True
-            if req_vendedores:
-                # Intersectar solicitados con permitidos
-                filter_vendedores = list(set(req_vendedores) & set(allowed_vendedores))
-                if not filter_vendedores:
-                    # Forzar a no devolver nada
-                    filter_vendedores = ["__NONE__"]
-            else:
-                filter_vendedores = allowed_vendedores
+            if allowed_vendedores:
+                apply_vendor_filter = True
+                if req_vendedores:
+                    filter_vendedores = list(set(req_vendedores) & set(allowed_vendedores))
+                    if not filter_vendedores: filter_vendedores = ["__NONE__"]
+                else:
+                    filter_vendedores = allowed_vendedores
+            elif allowed_tiendas:
+                # Si no tiene vendedores pero si tiendas
+                apply_tienda_filter = True
+                if req_tiendas:
+                    filter_tiendas = list(set(req_tiendas) & set(allowed_tiendas))
+                    if not filter_tiendas: filter_tiendas = ["__NONE__"]
+                else:
+                    filter_tiendas = allowed_tiendas
         else:
             if req_vendedores:
                 apply_vendor_filter = True
                 filter_vendedores = req_vendedores
+            if req_tiendas:
+                apply_tienda_filter = True
+                filter_tiendas = req_tiendas
 
-        # Construir cláusula de filtro por vendedor
+        # Construir cláusula de filtro por vendedor y tienda
         vendor_filter_clause = ""
+        tienda_filter_clause_b = ""
+        tienda_filter_clause_c = ""
+        
         if apply_vendor_filter:
             placeholders_vendedores = ",".join("?" for _ in filter_vendedores)
             vendor_filter_clause = f"AND RTRIM(A.codven) IN ({placeholders_vendedores})"
+            
+        if apply_tienda_filter:
+            placeholders_tiendas = ",".join("?" for _ in filter_tiendas)
+            tienda_filter_clause_b = f"AND RTRIM(B.codsol) IN ({placeholders_tiendas})"
+            tienda_filter_clause_c = f"AND RTRIM(C.codsol) IN ({placeholders_tiendas})" 
 
         # ── Main UNION query (replica FoxPro logic) ──
         query = f"""
@@ -225,7 +310,7 @@ def get_report(
                    A.sdodoc AS saldo,
                    A.nomven,
                    A.nompgo,
-                   B.NomSol AS nomsol,
+                   B.NomSol AS nomsol, B.codsol AS codsol_col,
                    A.CODMON,
                    A.TPOCMB
             FROM CcbRGdoc A
@@ -241,7 +326,7 @@ def get_report(
               AND A.fchdoc <= CONVERT(datetime, ?, 120)
               AND A.flgest <> 'E'
               AND A.sdodoc > 0
-              {vendor_filter_clause}
+              {vendor_filter_clause} {tienda_filter_clause_b}
 
             UNION ALL
 
@@ -257,7 +342,7 @@ def get_report(
                    A.sdodoc AS saldo,
                    A.nomven,
                    A.nompgo,
-                   '' AS nomsol,
+                   '' AS nomsol, '' AS codsol_col,
                    A.CODMON,
                    A.TPOCMB
             FROM CcbRGdoc A
@@ -275,6 +360,7 @@ def get_report(
               AND A.flgest <> 'E'
               AND A.sdodoc > 0
               {vendor_filter_clause}
+              {'' if not apply_tienda_filter else 'AND 1=0'}
 
             UNION ALL
 
@@ -290,7 +376,7 @@ def get_report(
                    A.sdodoc AS saldo,
                    A.nomven,
                    A.nompgo,
-                   ISNULL(C.NomSol, '') AS nomsol,
+                   ISNULL(C.NomSol, '') AS nomsol, ISNULL(C.codsol, '') AS codsol_col,
                    A.CODMON,
                    A.TPOCMB
             FROM CcbRGdoc A
@@ -311,6 +397,7 @@ def get_report(
               AND A.flgest <> 'E'
               AND A.sdodoc > 0
               {vendor_filter_clause}
+              {tienda_filter_clause_c}
         ) c
         WHERE c.saldo > 0
         ORDER BY c.codcia, c.coddoc, c.serie, c.nrodoc, c.fchdoc
@@ -318,11 +405,23 @@ def get_report(
 
         # Parametros de fecha y vendedor intercalados con los placeholders
         params = []
-        for _ in range(3):
-            params.extend(codcias)
-            params.extend([fecha_inicio, fecha_fin])
-            if apply_vendor_filter:
-                params.extend(filter_vendedores)
+        # UNION 1 params
+        params.extend(codcias)
+        params.extend([fecha_inicio, fecha_fin])
+        if apply_vendor_filter: params.extend(filter_vendedores)
+        if apply_tienda_filter: params.extend(filter_tiendas)
+        
+        # UNION 2 params
+        params.extend(codcias)
+        params.extend([fecha_inicio, fecha_fin])
+        if apply_vendor_filter: params.extend(filter_vendedores)
+        # no tienda filter applied here (using 1=0)
+        
+        # UNION 3 params
+        params.extend(codcias)
+        params.extend([fecha_inicio, fecha_fin])
+        if apply_vendor_filter: params.extend(filter_vendedores)
+        if apply_tienda_filter: params.extend(filter_tiendas)
 
         cursor.execute(query, params)
         rows = [_row_to_dict(cursor, r) for r in cursor.fetchall()]
@@ -361,6 +460,14 @@ def get_report(
             g = grupo_map.get(vendedor, {})
             row["nomgru"] = g.get("nomgru", "")
             row["tienda"] = g.get("tienda", "")
+            codsol = row.get("codsol_col", "").strip()
+            row["codsol"] = codsol
+            nomsol = row.get("nomsol", "")
+            if nomsol and isinstance(nomsol, str):
+                nomsol = nomsol.strip()
+                if nomsol and codsol:
+                    row["nomsol"] = f"{codsol} - {nomsol}"
+            
             # Round monetary values
             for field in ("imptot", "acta", "saldo", "imptot_orig", "acta_orig", "saldo_orig"):
                 if row.get(field) is not None:

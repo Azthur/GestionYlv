@@ -107,6 +107,19 @@ def setup_permisos_tables():
         """)
         conn.commit()
 
+        # Tabla de tiendas rendición por usuario
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='WebUserTiendas' AND xtype='U')
+            CREATE TABLE WebUserTiendas (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                login VARCHAR(50) NOT NULL,
+                codcia CHAR(3) NOT NULL,
+                codsol VARCHAR(10) NOT NULL,
+                CONSTRAINT UQ_User_Tienda UNIQUE (login, codcia, codsol)
+            )
+        """)
+        conn.commit()
+
         # Modificar WebUsers si no tiene PuedeVerTodo
         cursor.execute("""
             IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('WebUsers') AND name = 'PuedeVerTodo')
@@ -718,6 +731,65 @@ def save_user_vendedores(login: str, params: VendedoresUsuarioSave, admin: dict 
             )
         conn.commit()
         return {"status": "success", "message": f"Vendedores de '{login}' para empresa '{params.codcia}' actualizados"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, str(e))
+    finally:
+        conn.close()
+
+# ══════════════════════════════════════════════════════
+#  ADMIN: Tiendas Rendición por Usuario
+# ══════════════════════════════════════════════════════
+
+class TiendasUsuarioSave(BaseModel):
+    codcia: str
+    tiendas: List[str]
+
+@router.get("/admin/tiendas-rendicion")
+def get_all_tiendas(codcia: str = Query(...), admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT RTRIM(codigo) AS codigo, RTRIM(nombre) AS nombre FROM VtaTabla WHERE RTRIM(codcia) = ? AND RTRIM(tabla) = 'CLIE' ORDER BY codigo",
+            (codcia.strip(),)
+        )
+        return [{"codigo": r[0], "nombre": r[1]} for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@router.get("/admin/usuario-tiendas/{login}")
+def get_user_tiendas(login: str, codcia: str = Query(...), admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT RTRIM(codsol) FROM WebUserTiendas WHERE RTRIM(login) = ? AND RTRIM(codcia) = ?",
+            (login.strip(), codcia.strip())
+        )
+        return [row[0] for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@router.post("/admin/usuario-tiendas/{login}")
+def save_user_tiendas(login: str, params: TiendasUsuarioSave, admin: dict = Depends(get_current_active_admin)):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM WebUserTiendas WHERE RTRIM(login) = ? AND RTRIM(codcia) = ?",
+            (login.strip(), params.codcia.strip())
+        )
+        for codsol in params.tiendas:
+            cursor.execute(
+                "INSERT INTO WebUserTiendas (login, codcia, codsol) VALUES (?, ?, ?)",
+                (login.strip(), params.codcia.strip(), codsol.strip())
+            )
+        conn.commit()
+        return {"status": "success", "message": f"Tiendas de '{login}' para empresa '{params.codcia}' actualizadas"}
     except Exception as e:
         conn.rollback()
         raise HTTPException(500, str(e))

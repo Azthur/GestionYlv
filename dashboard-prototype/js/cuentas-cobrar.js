@@ -889,7 +889,7 @@ function exportSummaryDetail(format) {
         return [
             r.codcia, r.fchdoc, r.coddoc, `${r.serie}-${r.nrodoc}`, r.codaux,
             (r.nomaux || '').substring(0,30), (r.vendedor_homologado || r.nomven || '').substring(0,18),
-            (r.nompgo || '').substring(0,15), (r.nomsol || '').substring(0,15),
+            (r.nompgo || '').substring(0,15), (r.codsol ? r.codsol + '-' : '') + (r.nomsol || '').substring(0,15),
             `${sym} ${fmt(r.imptot_orig)}`,
             `${sym} ${fmt(r.acta_orig)}`,
             `${sym} ${fmt(r.saldo_orig)}`
