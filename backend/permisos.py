@@ -295,27 +295,70 @@ def _seed_initial_data(cursor, conn):
         conn.commit()
 
     # Asegurar módulo y permisos de cuentas_contables para ADMIN y CONTABILIDAD
-    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'cuentas_contables'")
-    cc_row = cursor.fetchone()
-    if not cc_row:
-        cursor.execute("""
+    cursor.execute("""
+        IF NOT EXISTS (SELECT 1 FROM WebModulos WHERE Codigo = 'cuentas_contables')
+        BEGIN
             INSERT INTO WebModulos (Codigo, Nombre, RutaHtml, Seccion, Orden)
             VALUES ('cuentas_contables', 'Cuentas Contables', '/cuentas_contables.html', 'Contabilidad', 25)
-        """)
-        conn.commit()
-        cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'cuentas_contables'")
-        cc_row = cursor.fetchone()
-        
+        END
+    """)
+    conn.commit()
+    
+    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'cuentas_contables'")
+    cc_row = cursor.fetchone()
     if cc_row:
         cc_mid = cc_row[0]
-        # ADMIN
-        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?", (cc_mid,))
-        if not cursor.fetchone():
-            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('ADMIN', ?, 1, 1, 1, 1)", (cc_mid,))
-        # CONTABILIDAD
-        cursor.execute("SELECT Id FROM WebPermisos WHERE Rol = 'CONTABILIDAD' AND ModuloId = ?", (cc_mid,))
-        if not cursor.fetchone():
-            cursor.execute("INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar) VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)", (cc_mid,))
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('ADMIN', ?, 1, 1, 1, 1)
+            END
+        """, (cc_mid, cc_mid))
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'CONTABILIDAD' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)
+            END
+        """, (cc_mid, cc_mid))
+        conn.commit()
+
+    # Asegurar módulo y permisos de movimientos_almacen para ADMIN, LOGISTICA y CONTABILIDAD
+    cursor.execute("""
+        IF NOT EXISTS (SELECT 1 FROM WebModulos WHERE Codigo = 'movimientos_almacen')
+        BEGIN
+            INSERT INTO WebModulos (Codigo, Nombre, RutaHtml, Seccion, Orden)
+            VALUES ('movimientos_almacen', 'Movimientos Almacén', '/movimientos_almacen.html', 'Logística', 13)
+        END
+    """)
+    conn.commit()
+    
+    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'movimientos_almacen'")
+    ma_row = cursor.fetchone()
+    if ma_row:
+        ma_mid = ma_row[0]
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('ADMIN', ?, 1, 1, 1, 1)
+            END
+        """, (ma_mid, ma_mid))
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'LOGISTICA' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('LOGISTICA', ?, 1, 1, 0, 0)
+            END
+        """, (ma_mid, ma_mid))
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'CONTABILIDAD' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)
+            END
+        """, (ma_mid, ma_mid))
         conn.commit()
 
 

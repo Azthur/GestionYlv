@@ -949,6 +949,9 @@ function processConfirmConciliacionOC() {
             if (!item.cuentaContable && d.cuenta_contable) {
                 item.cuentaContable = d.cuenta_contable;
             }
+            if (!item.codcta2 && d.cuenta_contable2) {
+                item.codcta2 = d.cuenta_contable2;
+            }
         } else {
             // No existe en factura (Ítem NUEVO inyectado de la OC)
             const vv = row.cantIngresar * row.precioOc;
@@ -966,6 +969,7 @@ function processConfirmConciliacionOC() {
                 fromOC: true,
                 oc_origen: ocOrigenTracker,
                 cuentaContable: d.cuenta_contable || '',
+                codcta2: d.cuenta_contable2 || '',
                 tipoOp: 'gravada',
                 porcIgv: 18.0
             });

@@ -2191,7 +2191,7 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
                   SELECT 1 FROM CntCargosDetalle d2
                   INNER JOIN CntCargosDocumentales c2 ON d2.CargoId = c2.Id
                   WHERE (
-                        (RTRIM(d.NroFactura) != '' AND RTRIM(d.NroFactura) != '-' AND RTRIM(d2.NroFactura) = RTRIM(d.NroFactura))
+                        (RTRIM(d.NroFactura) != '' AND RTRIM(d.NroFactura) != '-' AND RTRIM(d2.NroFactura) = RTRIM(d.NroFactura) AND RTRIM(d2.RucProveedor) = RTRIM(d.RucProveedor))
                         OR
                         (
                             (d.NroFactura IS NULL OR RTRIM(d.NroFactura) = '' OR RTRIM(d.NroFactura) = '-')

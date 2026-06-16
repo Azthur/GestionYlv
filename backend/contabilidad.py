@@ -2932,6 +2932,32 @@ def get_config_cuentas(codcia: str = Query(...), tipo: str = Query(...), q: Opti
                   )
             """
             params = [codcia.strip(), codcia.strip(), codcia.strip()]
+        elif tipo == 'Almacen':
+            query = """
+                SELECT 
+                    RTRIM(t.tipmov) + '-' + RTRIM(t.codmov) as codigo, 
+                    COALESCE(RTRIM(c.Descripcion), RTRIM(t.desmov)) as descripcion,
+                    RTRIM(c.CodCta) as cuenta_contable,
+                    RTRIM(c.CodCta2) as cuenta_contable2
+                FROM almTmovm t
+                LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Almacen' AND c.Codigo = (RTRIM(t.tipmov) + '-' + RTRIM(t.codmov)) AND c.CodCia = t.codcia
+                WHERE RTRIM(t.codcia) = ?
+                
+                UNION
+                
+                SELECT 
+                    RTRIM(c.Codigo) as codigo,
+                    RTRIM(c.Descripcion) as descripcion,
+                    RTRIM(c.CodCta) as cuenta_contable,
+                    RTRIM(c.CodCta2) as cuenta_contable2
+                FROM CntCuentasContablesCustom c
+                WHERE c.Tipo = 'Almacen' AND RTRIM(c.CodCia) = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM almTmovm t 
+                      WHERE (RTRIM(t.tipmov) + '-' + RTRIM(t.codmov)) = RTRIM(c.Codigo) AND RTRIM(t.codcia) = ?
+                  )
+            """
+            params = [codcia.strip(), codcia.strip(), codcia.strip()]
         else:
             raise HTTPException(status_code=400, detail="Tipo inválido")
             

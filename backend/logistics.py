@@ -529,33 +529,52 @@ def get_purchase_order_report(
             
             # ── Resolve CuentaContable based on OC type ──
             cuenta_contable = ""
+            cuenta_contable2 = ""
             codmat_val = (row.codmat or "").strip()
             try:
                 if t_oc == 'M' and codmat_val:
-                    # Productos: AlmmMatg → familia → AlmTabla tabla '0001' → codcta
+                    # Productos: AlmmMatg → familia → AlmTabla tabla '0001' / CntCuentasContablesCustom
                     cursor.execute("""
-                        SELECT RTRIM(f.codcta) as codcta
+                        SELECT 
+                            COALESCE(RTRIM(c.CodCta), RTRIM(f.codcta)) as cuenta_contable,
+                            COALESCE(RTRIM(c.CodCta2), RTRIM(f.codcta2)) as cuenta_contable2
                         FROM AlmmMatg m
-                        LEFT JOIN AlmTabla f ON f.tabla = '0001' 
-                            AND RTRIM(f.codigo) = RTRIM(m.codfam) 
-                            AND f.codcia = m.codcia
+                        LEFT JOIN AlmTabla f ON f.tabla = '0001' AND RTRIM(f.codigo) = RTRIM(m.codfam) AND f.codcia = m.codcia
+                        LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Producto' AND c.Codigo = m.codfam AND c.CodCia = m.codcia
                         WHERE RTRIM(m.codcia) = ? AND RTRIM(m.codmat) = ?
                     """, (codcia, codmat_val))
                     cta_row = cursor.fetchone()
-                    if cta_row and cta_row.codcta:
-                        cuenta_contable = cta_row.codcta.strip()
+                    if cta_row:
+                        cuenta_contable = cta_row.cuenta_contable.strip() if cta_row.cuenta_contable else ""
+                        cuenta_contable2 = cta_row.cuenta_contable2.strip() if cta_row.cuenta_contable2 else ""
                 elif t_oc in ('S', 'T') and codmat_val:
-                    # Servicios/Contable: AlmTabla tabla '0017' → codcta
+                    # Servicios/Contable: AlmTabla tabla '0017' / CntCuentasContablesCustom
                     cursor.execute("""
-                        SELECT RTRIM(codcta) as codcta
-                        FROM AlmTabla
-                        WHERE tabla = '0017' AND RTRIM(codcia) = ? AND RTRIM(codigo) = ?
+                        SELECT 
+                            COALESCE(RTRIM(c.CodCta), RTRIM(t.codcta)) as cuenta_contable,
+                            COALESCE(RTRIM(c.CodCta2), RTRIM(t.codcta2)) as cuenta_contable2
+                        FROM AlmTabla t
+                        LEFT JOIN CntCuentasContablesCustom c ON c.Tipo = 'Servicio' AND c.Codigo = t.codigo AND c.CodCia = t.codcia
+                        WHERE t.tabla = '0017' AND RTRIM(t.codcia) = ? AND RTRIM(t.codigo) = ?
                     """, (codcia, codmat_val))
                     cta_row = cursor.fetchone()
-                    if cta_row and cta_row.codcta:
-                        cuenta_contable = cta_row.codcta.strip()
+                    if cta_row:
+                        cuenta_contable = cta_row.cuenta_contable.strip() if cta_row.cuenta_contable else ""
+                        cuenta_contable2 = cta_row.cuenta_contable2.strip() if cta_row.cuenta_contable2 else ""
+                    else:
+                        # try CntCuentasContablesCustom directly
+                        cursor.execute("""
+                            SELECT RTRIM(CodCta) as cuenta_contable, RTRIM(CodCta2) as cuenta_contable2
+                            FROM CntCuentasContablesCustom
+                            WHERE Tipo = 'Servicio' AND RTRIM(CodCia) = ? AND RTRIM(Codigo) = ?
+                        """, (codcia, codmat_val))
+                        cta_row = cursor.fetchone()
+                        if cta_row:
+                            cuenta_contable = cta_row.cuenta_contable.strip() if cta_row.cuenta_contable else ""
+                            cuenta_contable2 = cta_row.cuenta_contable2.strip() if cta_row.cuenta_contable2 else ""
             except Exception:
                 cuenta_contable = ""
+                cuenta_contable2 = ""
                 
             items.append({
                 "nroitm": int(row.nroitm) if row.nroitm else 0,
@@ -573,6 +592,7 @@ def get_purchase_order_report(
                 "imptot": float(row.imptot) if row.imptot else 0,
                 "notas": notes,
                 "cuenta_contable": cuenta_contable,
+                "cuenta_contable2": cuenta_contable2,
             })
             
         # Overall order receive status
@@ -788,6 +808,334 @@ def get_warehouse_entry(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+
+def encode_public_key(codcia: str, almcen: str, tipmov: str, codmov: str, nrodoc: str) -> str:
+    return f"{codcia.strip()}-{tipmov.strip()}{codmov.strip()}-{nrodoc.strip()}"
+
+def query_warehouse_movement_voucher_data(
+    codcia: str,
+    almcen: str,
+    tipmov: str,
+    codmov: str,
+    nrodoc: str
+):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+        
+    try:
+        cursor = conn.cursor()
+        codcia_s = codcia.strip()
+        almcen_s = almcen.strip()
+        tipmov_s = tipmov.strip()
+        codmov_s = codmov.strip()
+        nrodoc_s = nrodoc.strip()
+        
+        # 1. Datos de la empresa
+        cursor.execute("""
+            SELECT RTRIM(NomCia) as nomcia, RTRIM(DirCia) as dircia, RTRIM(RucCia) as ruccia
+            FROM AdmMcias WHERE RTRIM(CodCia) = ?
+        """, (codcia_s,))
+        cia_row = cursor.fetchone()
+        company = {
+            "nomcia": cia_row.nomcia if cia_row else "",
+            "dircia": cia_row.dircia if cia_row else "",
+            "ruccia": cia_row.ruccia if cia_row else ""
+        }
+        
+        # 2. Cabecera del voucher (AlmVMovm)
+        cursor.execute("""
+            SELECT 
+                fchdoc, codmon, tpocmb, tpocmbe,
+                RTRIM(codpro) as codpro, RTRIM(codcli) as codcli,
+                RTRIM(ordtra) as ordtra, RTRIM(codcos) as codcos,
+                RTRIM(glodoc) as glodoc, RTRIM(usuario) as usuario,
+                RTRIM(nroref1) as nroref1, RTRIM(nroref2) as nroref2, RTRIM(nroref3) as nroref3,
+                RTRIM(flgest) as flgest, RTRIM(ordcmp) as ordcmp
+            FROM AlmVMovm 
+            WHERE RTRIM(codcia) = ? AND RTRIM(almcen) = ? 
+              AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ? AND RTRIM(nrodoc) = ?
+        """, (codcia_s, almcen_s, tipmov_s, codmov_s, nrodoc_s))
+        
+        h_row = cursor.fetchone()
+        if not h_row:
+            raise HTTPException(status_code=404, detail="Movimiento de almacén no encontrado")
+            
+        # Descripción del almacén
+        cursor.execute("""
+            SELECT RTRIM(nombre) as nombre FROM AlmTabla 
+            WHERE RTRIM(codcia) = ? AND RTRIM(tabla) = 'ALMC' AND RTRIM(codigo) = ?
+        """, (codcia_s, almcen_s))
+        alm_row = cursor.fetchone()
+        des_almacen = alm_row.nombre if alm_row else ""
+        
+        # Descripción del tipo de movimiento
+        cursor.execute("""
+            SELECT RTRIM(desmov) as desmov,
+                   RTRIM(gloref1) as gloref1, RTRIM(gloref2) as gloref2, RTRIM(gloref3) as gloref3
+            FROM almTmovm 
+            WHERE RTRIM(codcia) = ? AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ?
+        """, (codcia_s, tipmov_s, codmov_s))
+        mov_row = cursor.fetchone()
+        des_movimiento = mov_row.desmov if mov_row else ""
+        
+        # Nombre del proveedor/cliente
+        nom_proveedor = ""
+        ruc_proveedor = ""
+        if h_row.codpro and h_row.codpro.strip():
+            cursor.execute("""
+                SELECT RTRIM(nomaux) as nomaux, RTRIM(codaux) as codaux 
+                FROM CbdMauxi 
+                WHERE RTRIM(codcia) = ? AND RTRIM(codaux) = ?
+            """, (codcia_s, h_row.codpro.strip()))
+            prov_row = cursor.fetchone()
+            if prov_row:
+                nom_proveedor = prov_row.nomaux or ""
+                ruc_proveedor = prov_row.codaux or ""
+        elif h_row.codcli and h_row.codcli.strip():
+            cursor.execute("""
+                SELECT RTRIM(nomaux) as nomaux, RTRIM(codaux) as codaux 
+                FROM CbdMauxi 
+                WHERE RTRIM(codcia) = ? AND RTRIM(codaux) = ?
+            """, (codcia_s, h_row.codcli.strip()))
+            cli_row = cursor.fetchone()
+            if cli_row:
+                nom_proveedor = cli_row.nomaux or ""
+                ruc_proveedor = cli_row.codaux or ""
+        
+        # Moneda
+        moneda_str = "S/."
+        cod_mon = str(h_row.codmon).strip() if h_row.codmon else "1"
+        if cod_mon == "2":
+            moneda_str = "US$"
+        elif cod_mon == "3":
+            moneda_str = "Eu$"
+        
+        # Formato de referencias
+        refs = []
+        if mov_row:
+            for i in range(1, 4):
+                glo = getattr(mov_row, f'gloref{i}', None)
+                nro = getattr(h_row, f'nroref{i}', None)
+                if glo and glo.strip() and nro and nro.strip():
+                    refs.append(f"{glo.strip()} - {nro.strip()}")
+        
+        # Generar public key para el voucher
+        public_key = encode_public_key(codcia_s, almcen_s, tipmov_s, codmov_s, nrodoc_s)
+
+        header = {
+            "almacen": almcen_s,
+            "des_almacen": des_almacen,
+            "tipmov": tipmov_s,
+            "codmov": codmov_s,
+            "des_movimiento": des_movimiento,
+            "nrodoc": nrodoc_s,
+            "fchdoc": h_row.fchdoc.strftime("%d/%m/%Y") if h_row.fchdoc else "",
+            "moneda": moneda_str,
+            "tipo_cambio": float(h_row.tpocmb) if h_row.tpocmb else 0,
+            "proveedor": nom_proveedor,
+            "ruc_proveedor": ruc_proveedor,
+            "observacion": h_row.glodoc or "",
+            "usuario": h_row.usuario or "",
+            "ordcmp": h_row.ordcmp.strip() if h_row.ordcmp else "",
+            "referencias": refs,
+            "estado": h_row.flgest or "",
+            "public_key": public_key
+        }
+        
+        # 3. Items del voucher (AlmRMovm)
+        cursor.execute("""
+            SELECT 
+                nroitm, RTRIM(codmat) as codmat, RTRIM(desmat) as desmat,
+                RTRIM(undstk) as undstk, facequ, candes, preuni, impcto,
+                RTRIM(nrolote) as nrolote, fchlote
+            FROM AlmRMovm 
+            WHERE RTRIM(codcia) = ? AND RTRIM(almcen) = ? 
+              AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ? AND RTRIM(nrodoc) = ?
+            ORDER BY nroitm
+        """, (codcia_s, almcen_s, tipmov_s, codmov_s, nrodoc_s))
+        
+        items = []
+        total_cantidad = 0
+        total_precio = 0
+        total_importe = 0
+        
+        for it in cursor.fetchall():
+            cant = float(it.candes) if it.candes else 0
+            precio = float(it.preuni) if it.preuni else 0
+            importe = float(it.impcto) if it.impcto else cant * precio
+            
+            total_cantidad += cant
+            total_precio += precio
+            total_importe += importe
+            
+            items.append({
+                "nroitm": int(it.nroitm) if it.nroitm else 0,
+                "codmat": it.codmat or "",
+                "desmat": it.desmat or "",
+                "undstk": it.undstk or "",
+                "nrolote": it.nrolote or "",
+                "fchlote": it.fchlote.strftime("%d/%m/%Y") if it.fchlote else "",
+                "candes": cant,
+                "preuni": precio,
+                "impcto": importe
+            })
+        
+        header["total_cantidad"] = total_cantidad
+        header["total_precio"] = total_precio
+        header["total_importe"] = total_importe
+        
+        return {"company": company, "header": header, "items": items}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/warehouse-movements")
+def get_warehouse_movements(
+    codcia: str = Query(...),
+    year: Optional[str] = Query(None),
+    period: Optional[str] = Query(None),
+    tipmov: Optional[str] = Query(None),
+    search: Optional[str] = Query(None)
+):
+    """Listar cabeceras de movimientos de almacén (AlmVMovm) filtradas y ordenadas."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+        
+    try:
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                RTRIM(av.codcia) as codcia,
+                RTRIM(av.almcen) as almcen,
+                RTRIM(av.tipmov) as tipmov,
+                RTRIM(av.codmov) as codmov,
+                RTRIM(av.nrodoc) as nrodoc,
+                av.fchdoc as fchdoc,
+                RTRIM(av.codpro) as codpro,
+                RTRIM(av.codcli) as codcli,
+                RTRIM(av.flgest) as flgest,
+                RTRIM(av.usuario) as usuario,
+                RTRIM(av.glodoc) as glodoc,
+                RTRIM(av.ordcmp) as ordcmp,
+                RTRIM(alm.nombre) as des_almacen,
+                RTRIM(tm.desmov) as des_movimiento,
+                COALESCE(RTRIM(p.nomaux), RTRIM(c.nomaux), '') as nomaux
+            FROM AlmVMovm av
+            LEFT JOIN AlmTabla alm ON alm.codcia = av.codcia AND alm.tabla = 'ALMC' AND alm.codigo = av.almcen
+            LEFT JOIN almTmovm tm ON tm.codcia = av.codcia AND tm.tipmov = av.tipmov AND tm.codmov = av.codmov
+            LEFT JOIN CbdMauxi p ON p.codcia = av.codcia AND p.codaux = av.codpro
+            LEFT JOIN CbdMauxi c ON c.codcia = av.codcia AND c.codaux = av.codcli
+            WHERE RTRIM(av.codcia) = ? AND av.flgest IN ('P', 'A', 'C')
+        """
+        params = [codcia.strip()]
+        
+        if year and year != "0":
+            query += " AND YEAR(av.fchdoc) = ?"
+            params.append(int(year))
+        if period and period != "0":
+            query += " AND MONTH(av.fchdoc) = ?"
+            params.append(int(period))
+        if tipmov:
+            query += " AND RTRIM(av.tipmov) = ?"
+            params.append(tipmov.strip())
+        if search:
+            query += " AND (av.nrodoc LIKE ? OR av.ordcmp LIKE ? OR p.nomaux LIKE ? OR c.nomaux LIKE ?)"
+            s_pattern = f"%{search.strip()}%"
+            params.extend([s_pattern, s_pattern, s_pattern, s_pattern])
+            
+        query += " ORDER BY av.fchdoc DESC, av.nrodoc DESC"
+        
+        cursor.execute(query, tuple(params))
+        cols = [c[0] for c in cursor.description]
+        rows = []
+        for r in cursor.fetchall():
+            d = dict(zip(cols, r))
+            if d.get("fchdoc"):
+                d["fchdoc"] = d["fchdoc"].strftime("%Y-%m-%d")
+            
+            # Generate public key
+            c = d.get("codcia", "").strip()
+            a = d.get("almcen", "").strip()
+            tm = d.get("tipmov", "").strip()
+            cm = d.get("codmov", "").strip()
+            nd = d.get("nrodoc", "").strip()
+            d["public_key"] = encode_public_key(c, a, tm, cm, nd)
+            
+            rows.append(d)
+        return rows
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/warehouse-movements/voucher")
+def get_warehouse_movement_voucher(
+    codcia: str = Query(...),
+    almcen: str = Query(...),
+    tipmov: str = Query(...),
+    codmov: str = Query(...),
+    nrodoc: str = Query(...)
+):
+    """Obtiene el detalle de cabecera e ítems de un movimiento de almacén específico."""
+    return query_warehouse_movement_voucher_data(codcia, almcen, tipmov, codmov, nrodoc)
+
+
+@router.get("/public/warehouse-movements/voucher/{key}")
+def get_public_warehouse_movement_voucher(key: str):
+    """Obtiene el detalle de un movimiento de almacén específico de manera pública usando la llave única."""
+    try:
+        parts = key.strip().split("-")
+        if len(parts) != 3:
+            raise HTTPException(status_code=400, detail="Formato de clave inválido. Debe ser codcia-Movimiento-nrodoc")
+        
+        codcia_s, movimiento_s, nrodoc_s = parts
+        codcia_s = codcia_s.strip()
+        movimiento_s = movimiento_s.strip()
+        nrodoc_s = nrodoc_s.strip()
+        
+        if len(movimiento_s) < 2:
+            raise HTTPException(status_code=400, detail="Formato de Movimiento inválido")
+            
+        tipmov = movimiento_s[0]
+        codmov = movimiento_s[1:]
+        
+        # Consultar la base de datos para resolver almcen
+        conn = get_db_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Error de base de datos")
+            
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT TOP 1 RTRIM(almcen) as almcen 
+                FROM AlmVMovm 
+                WHERE RTRIM(codcia) = ? AND RTRIM(tipmov) = ? AND RTRIM(codmov) = ? AND RTRIM(nrodoc) = ?
+                ORDER BY fchdoc DESC
+            """, (codcia_s, tipmov, codmov, nrodoc_s))
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Movimiento de almacén no encontrado")
+            almcen_s = row.almcen
+        finally:
+            conn.close()
+            
+        return query_warehouse_movement_voucher_data(codcia_s, almcen_s, tipmov, codmov, nrodoc_s)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # ─── Attachments System ─────────────────────────
 

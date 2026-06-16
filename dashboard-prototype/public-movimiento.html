@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Voucher de Almacén Público</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: #f1f5f9;
+            color: #1e293b;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .public-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            max-width: 950px;
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .public-actions-bar {
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .public-actions-bar h1 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e3a5f;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-print {
+            background: #1e3a5f;
+            color: #ffffff;
+            border: none;
+            padding: 0.5rem 1.25rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-print:hover {
+            background: #0f243d;
+            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.15);
+        }
+
+        .btn-print svg {
+            stroke: currentColor;
+        }
+
+        .voucher-content-wrapper {
+            position: relative;
+            padding: 1.5rem;
+        }
+
+        /* ─── Watermarks ─── */
+        .watermark-container {
+            position: relative;
+        }
+
+        .watermark-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            font-size: 4rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            pointer-events: none;
+            z-index: 10;
+            white-space: nowrap;
+            opacity: 0.08;
+            width: 100%;
+            text-align: center;
+        }
+
+        .wm-anulado { color: #ef4444; }
+        .wm-completo { color: #22c55e; }
+
+        /* ─── Header Band ─── */
+        .report-header-band {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 1.25rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 3px solid #1e3a5f;
+        }
+
+        .report-company-info h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e3a5f;
+            margin: 0 0 0.2rem 0;
+        }
+
+        .report-company-info p {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .report-oc-badge {
+            text-align: right;
+            background: #1e3a5f;
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            min-width: 200px;
+        }
+
+        .report-oc-badge .oc-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.8;
+        }
+
+        .report-oc-badge .oc-number {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0.15rem 0;
+        }
+
+        .report-oc-badge .oc-date {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        /* ─── Info Box ─── */
+        .report-supplier-box {
+            display: grid;
+            grid-template-columns: 110px 1fr 110px 1fr;
+            gap: 0.3rem 0.5rem;
+            font-size: 0.775rem;
+            padding: 0.85rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+        }
+
+        .report-supplier-box .lbl {
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .report-supplier-box .val {
+            color: #0f172a;
+        }
+
+        .report-supplier-box .val-full {
+            color: #0f172a;
+            grid-column: span 3;
+        }
+
+        /* ─── Table ─── */
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.25rem;
+            font-size: 0.775rem;
+        }
+
+        .report-table th {
+            background: #e2e8f0;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #334155;
+            padding: 0.4rem 0.4rem !important;
+            border: 1px solid #cbd5e1;
+            text-align: left;
+            position: relative !important; /* Desactivar sticky que desalinea horizontalmente */
+        }
+
+        .report-table td {
+            border: 1px solid #e2e8f0;
+            padding: 0.4rem 0.4rem !important;
+            vertical-align: top;
+        }
+
+        .report-table td:nth-child(3) {
+            white-space: normal !important;
+            word-break: break-word;
+        }
+
+        .report-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        /* ─── Badges ─── */
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge.approved { background: #dcfce7; color: #166534; }
+        .badge.pending { background: #fef9c3; color: #854d0e; }
+        .badge.canceled { background: #fee2e2; color: #991b1b; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .public-card {
+                box-shadow: none;
+                border: none;
+                max-width: none;
+                width: 100%;
+            }
+
+            .public-actions-bar {
+                display: none !important;
+            }
+
+            .voucher-content-wrapper {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="public-card">
+        <!-- Top bar actions -->
+        <div class="public-actions-bar">
+            <h1>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2.5" width="18" height="18">
+                    <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                YELAVE ERP - Visor de Movimiento
+            </h1>
+            <button class="btn-print" onclick="window.print()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Imprimir Documento
+            </button>
+        </div>
+
+        <!-- Render Content -->
+        <div class="voucher-content-wrapper" id="publicVoucherContent">
+            <div style="text-align:center; padding:5rem; color:#64748b; font-size:0.95rem;">
+                Cargando información del movimiento...
+            </div>
+        </div>
+    </div>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        const fmtNum = (val, dec = 2) => {
+            if (val === null || val === undefined || isNaN(val)) return '0.00';
+            return parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        };
+
+        function formatStatus(status) {
+            const s = String(status || '').trim().toUpperCase();
+            let watermark = '';
+            let badge = '';
+
+            if (s === 'A' || s === 'ANULADO') {
+                watermark = '<div class="watermark-text wm-anulado">ANULADO</div>';
+                badge = '<span class="badge canceled">ANULADO</span>';
+            } else if (s === 'C' || s === 'CERRADO') {
+                watermark = '<div class="watermark-text wm-completo">CERRADO</div>';
+                badge = '<span class="badge approved">CERRADO</span>';
+            } else if (s === 'P' || s === 'PENDIENTE') {
+                badge = '<span class="badge pending">PENDIENTE</span>';
+            } else {
+                badge = `<span class="badge pending">${s || 'SIN ESTADO'}</span>`;
+            }
+            
+            return { watermark, badge };
+        }
+
+        async function initPublicVoucher() {
+            const container = document.getElementById('publicVoucherContent');
+            
+            // Get public key from query string
+            const params = new URLSearchParams(window.location.search);
+            const key = params.get('almv') || params.get('key');
+
+            if (!key) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:4rem; color:#ef4444; font-weight:600;">
+                        ⚠ Error: Falta el parámetro 'almv' o 'key' en la URL.
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/logistics/public/warehouse-movements/voucher/${key}`);
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || 'No se pudo recuperar el voucher.');
+                }
+                const data = await res.json();
+
+                const h = data.header;
+                const co = data.company;
+                const isAnulado = h.estado && h.estado.trim().toUpperCase() === 'A';
+                const statusInfo = formatStatus(h.estado);
+
+                let html = '';
+
+                if (statusInfo.watermark) {
+                    html += statusInfo.watermark;
+                }
+
+                // Title Banner
+                html += `
+                    <div style="text-align:center; font-weight:700; font-size:1.15rem; color:#1e3a5f; margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                        📦 Detalle de Movimiento de Almacén
+                    </div>
+                    <div class="report-header-band">
+                        <div class="report-company-info">
+                            <h2>${co.nomcia || 'EMPRESA'}</h2>
+                            <p>${co.dircia || ''}</p>
+                            <p>RUC: <strong>${co.ruccia || ''}</strong></p>
+                        </div>
+                        <div class="report-oc-badge">
+                            <div class="oc-label">DOCUMENTO N°</div>
+                            <div class="oc-number">${h.nrodoc}</div>
+                            <div class="oc-date">${h.fchdoc}</div>
+                        </div>
+                    </div>
+                `;
+
+                // Details Box
+                html += `
+                    <div class="report-supplier-box">
+                        <span class="lbl">Almacén :</span><span class="val">${h.almacen} - ${h.des_almacen || ''}</span>
+                        <span class="lbl">Movimiento :</span><span class="val"><strong>${h.tipmov} ${h.codmov}</strong> &nbsp; ${h.des_movimiento || ''}</span>
+                        <span class="lbl">Auxiliar :</span><span class="val-full">${h.ruc_proveedor ? h.ruc_proveedor + ' &nbsp; ' : ''}${h.proveedor || '-'}</span>
+                        <span class="lbl">Moneda :</span><span class="val">${h.moneda}</span>
+                        <span class="lbl">T. Cambio :</span><span class="val">${fmtNum(h.tipo_cambio, 4)}</span>
+                        <span class="lbl">Usuario :</span><span class="val"><strong>${h.usuario}</strong></span>
+                        <span class="lbl">O. Compra :</span><span class="val">${h.ordcmp || '-'}</span>
+                    </div>
+                `;
+
+                // Reference docs
+                if (h.referencias && h.referencias.length > 0) {
+                    html += `
+                        <div style="font-size:0.775rem; padding:0.6rem 1rem; background:#f0f4ff; border:1px solid #c7d2fe; border-radius:6px; margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:1.5rem;">
+                            <strong>Documentos de Referencia:</strong>
+                            ${h.referencias.map(r => `<span>${r}</span>`).join('')}
+                        </div>
+                    `;
+                }
+
+                // Glosa
+                if (h.observacion) {
+                    html += `
+                        <div style="font-size:0.8rem; margin-bottom:1.25rem; background: #f8fafc; padding: 0.6rem 0.85rem; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <strong>Observación/Glosa:</strong> ${h.observacion}
+                        </div>
+                    `;
+                }
+
+                // Anulado banner
+                if (isAnulado) {
+                    html += `
+                        <div style="text-align:center; padding:0.75rem; background:#fee2e2; border:2px solid #ef4444; border-radius:8px; margin-bottom:1.25rem; font-weight:700; color:#991b1b; font-size:1rem; letter-spacing:2px;">
+                            ** MOVIMIENTO ANULADO **
+                        </div>
+                    `;
+                }
+
+                // Items table
+                html += `
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:center;">Ite</th>
+                                <th>Artículo</th>
+                                <th>Descripción</th>
+                                <th style="text-align:center;">Unidad</th>
+                                <th>Nro. Lote</th>
+                                <th style="text-align:center;">Fch. Vto</th>
+                                <th style="text-align:right;">Cantidad</th>
+                                <th style="text-align:right;">Precio</th>
+                                <th style="text-align:right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                if (data.items.length === 0) {
+                    html += '<tr><td colspan="9" style="text-align:center; color:#64748b; padding:2rem;">El movimiento no contiene ítems.</td></tr>';
+                } else {
+                    data.items.forEach(it => {
+                        html += `
+                            <tr>
+                                <td style="text-align:center; font-weight:600; color:#475569;">${it.nroitm}</td>
+                                <td style="font-family:monospace; font-size:0.725rem; font-weight:500;">${it.codmat}</td>
+                                <td style="font-weight:500; color:#0f172a;">${it.desmat}</td>
+                                <td style="text-align:center; font-size:0.75rem; color:#475569;">${it.undstk}</td>
+                                <td style="font-family:monospace; font-size:0.725rem;">${it.nrolote || ''}</td>
+                                <td style="font-size:0.75rem; text-align:center; color:#475569;">${it.fchlote || ''}</td>
+                                <td style="text-align:right; font-weight:600;">${fmtNum(it.candes, 4)}</td>
+                                <td style="text-align:right; color:#475569;">${fmtNum(it.preuni, 6)}</td>
+                                <td style="text-align:right; font-weight:700; color:var(--primary);">${fmtNum(it.impcto, 6)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                html += `
+                        </tbody>
+                        <tfoot>
+                            <tr style="border-top:2px solid #1e3a5f; font-weight:bold; background:#f8fafc;">
+                                <td colspan="6" style="text-align:right; font-weight:700; font-size:0.85rem; padding: 0.5rem 1rem; border-top:2px solid #1e3a5f !important;">TOTAL :</td>
+                                <td style="text-align:right; font-weight:600; font-size:0.85rem; color:#1e293b; border-top:2px solid #1e3a5f !important;">${fmtNum(h.total_cantidad, 4)}</td>
+                                <td style="text-align:right; font-weight:600; font-size:0.85rem; color:#1e293b; border-top:2px solid #1e3a5f !important;">${fmtNum(h.total_precio, 6)}</td>
+                                <td style="text-align:right; font-weight:700; color:var(--primary); font-size:0.9rem; border-top:2px solid #1e3a5f !important; white-space:nowrap;">${h.moneda} ${fmtNum(h.total_importe, 6)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+
+                container.innerHTML = html;
+                document.title = `YELAVE - Movimiento ${h.nrodoc}`;
+
+            } catch(e) {
+                console.error(e);
+                container.innerHTML = `
+                    <div style="text-align:center; padding:5rem; color:#ef4444;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom:1rem;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <br>
+                        <strong>Error al cargar el movimiento</strong>
+                        <p style="font-size:0.85rem; color:#64748b; margin-top:0.5rem;">${e.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initPublicVoucher);
+    </script>
+</body>
+</html>

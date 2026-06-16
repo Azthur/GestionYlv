@@ -1,26 +1,13 @@
-import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "backend"))
-from database import get_db_connection
+import urllib.request
+import json
 
-conn = get_db_connection()
-cursor = conn.cursor()
-
-# Find cargo CARGO-0034
-print("--- CARGO-0034 Headers across all companies ---")
-cursor.execute("SELECT * FROM CntCargosDocumentales WHERE NroCargo = 'CARGO-0034'")
-cols = [col[0] for col in cursor.description]
-rows = cursor.fetchall()
-for row in rows:
-    cargo_dict = dict(zip(cols, row))
-    print(cargo_dict)
-    cargo_id = cargo_dict['Id']
-    codcia = cargo_dict['CodCia']
-    
-    print(f"\n--- Details for Cargo ID {cargo_id} (Cia {codcia}) ---")
-    cursor.execute("SELECT * FROM CntCargosDetalle WHERE CargoId = ?", (cargo_id,))
-    dcols = [col[0] for col in cursor.description]
-    for drow in cursor.fetchall():
-        print(dict(zip(dcols, drow)))
-
-conn.close()
+url = "http://localhost:8000/api/cargos/documentos-aceptados-tesoreria?codcia=003"
+try:
+    print(f"Fetching: {url}")
+    with urllib.request.urlopen(url) as response:
+        data = json.loads(response.read().decode('utf-8'))
+        print(f"Total documents returned: {len(data)}")
+        for idx, doc in enumerate(data):
+            print(f"[{idx+1}] NroOrdenCompra: {doc.get('NroOrdenCompra')}, NroFactura: {doc.get('NroFactura')}, Proveedor: {doc.get('Proveedor')}, Ruc: {doc.get('RucProveedor')}")
+except Exception as e:
+    print(f"Error calling API: {e}")
