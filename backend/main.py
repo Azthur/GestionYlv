@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pyodbc
 import anyio
 
-from database import get_db_connection
+from database import get_db_connection, setup_periodos_contables_tables
 
 app = FastAPI(title="YELAVE ERP API")
 
@@ -84,6 +84,7 @@ app.include_router(dashboard_gerencial_router)
 # Crear tablas al iniciar
 setup_permisos_tables()
 setup_chat_tables()
+setup_periodos_contables_tables()
 
 # Configure CORS
 app.add_middleware(

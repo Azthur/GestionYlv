@@ -7,7 +7,7 @@ import shutil
 import json
 import uuid
 
-from database import get_db_connection
+from database import get_db_connection, get_fec_periodo_contable
 
 def normalize_moneda_valor(v):
     """Normaliza cualquier valor de moneda a '1' (Soles) o '2' (Dólares)"""
@@ -332,6 +332,8 @@ async def create_planilla(
         cursor = conn.cursor()
         det = json.loads(detalle)
         
+        fec_periodo_contable_val = get_fec_periodo_contable(conn, codcia, fecha_emision)
+
         if id:
             planilla_id = id
             cursor.execute("SELECT NroPlanilla, UuidLink FROM FinPlanillaMovilidadCab WHERE Id=?", (planilla_id,))
@@ -341,9 +343,9 @@ async def create_planilla(
             
             cursor.execute("""
                 UPDATE FinPlanillaMovilidadCab 
-                SET FechaEmision=?, Periodo=?, CodAux=?, NomAux=?, RucDni=?, TotalGastado=?
+                SET FechaEmision=?, Periodo=?, CodAux=?, NomAux=?, RucDni=?, TotalGastado=?, FecPeriodoContable=?
                 WHERE Id=?
-            """, (fecha_emision, periodo, codaux, nomaux, rucdni, total_gastado, planilla_id))
+            """, (fecha_emision, periodo, codaux, nomaux, rucdni, total_gastado, fec_periodo_contable_val, planilla_id))
             cursor.execute("DELETE FROM FinPlanillaMovilidadDet WHERE PlanillaId=?", (planilla_id,))
         else:
             # Generar correlativo NroPlanilla: PGM-{RucDni}-{YYYY}-000N
@@ -361,10 +363,10 @@ async def create_planilla(
             
             cursor.execute("""
                 INSERT INTO FinPlanillaMovilidadCab 
-                (CodCia, NroPlanilla, FechaEmision, Periodo, CodAux, NomAux, RucDni, TotalGastado, Estado, UsuarioRegistro, UuidLink)
+                (CodCia, NroPlanilla, FechaEmision, Periodo, CodAux, NomAux, RucDni, TotalGastado, Estado, UsuarioRegistro, UuidLink, FecPeriodoContable)
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'REGISTRADO', ?, ?)
-            """, (codcia, nro_planilla, fecha_emision, periodo, codaux, nomaux, rucdni, total_gastado, usuario, uuid_val))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'REGISTRADO', ?, ?, ?)
+            """, (codcia, nro_planilla, fecha_emision, periodo, codaux, nomaux, rucdni, total_gastado, usuario, uuid_val, fec_periodo_contable_val))
             planilla_id = cursor.fetchone()[0]
             
         # 2. Detalle
@@ -585,6 +587,8 @@ async def create_rendicion(
         # Normalizar moneda a '1' o '2'
         moneda = normalize_moneda_valor(moneda)
         
+        fec_periodo_contable_val = get_fec_periodo_contable(conn, codcia, fecha)
+        
         if id:
             rendicion_id = id
             cursor.execute("SELECT NroRendicion, UuidLink FROM FinRendicionGastosCab WHERE Id=?", (rendicion_id,))
@@ -595,9 +599,10 @@ async def create_rendicion(
             cursor.execute("""
                 UPDATE FinRendicionGastosCab 
                 SET Fecha=?, Periodo=?, Moneda=?, CodAux=?, NomAux=?, RucDni=?,
-                    TipoRendicion=?, SaldoInicial=?, SaldoFinal=?, TotalGastado=?, TotalReembolso=?
+                    TipoRendicion=?, SaldoInicial=?, SaldoFinal=?, TotalGastado=?, TotalReembolso=?,
+                    FecPeriodoContable=?
                 WHERE Id=?
-            """, (fecha, periodo, moneda, codaux, nomaux, rucdni, tipo_rendicion, saldo_inicial, saldo_final, total_gastado, total_reembolso, rendicion_id))
+            """, (fecha, periodo, moneda, codaux, nomaux, rucdni, tipo_rendicion, saldo_inicial, saldo_final, total_gastado, total_reembolso, fec_periodo_contable_val, rendicion_id))
             
             # Liberar facturas o planillas anteriores asociadas
             cursor.execute("UPDATE FinPlanillaMovilidadCab SET Estado = 'REGISTRADO' WHERE Id IN (SELECT DocReferenciaId FROM FinRendicionGastosDet WHERE RendicionId=? AND TipoDoc='PGM-Planilla')", (rendicion_id,))
@@ -620,11 +625,11 @@ async def create_rendicion(
             cursor.execute("""
                 INSERT INTO FinRendicionGastosCab
                 (CodCia, NroRendicion, Fecha, Periodo, Moneda, CodAux, NomAux, RucDni, 
-                 TipoRendicion, SaldoInicial, SaldoFinal, TotalGastado, TotalReembolso, Estado, UsuarioRegistro, UuidLink)
+                 TipoRendicion, SaldoInicial, SaldoFinal, TotalGastado, TotalReembolso, Estado, UsuarioRegistro, UuidLink, FecPeriodoContable)
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'REGISTRADO', ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'REGISTRADO', ?, ?, ?)
             """, (codcia, nro_rendicion, fecha, periodo, moneda, codaux, nomaux, rucdni, 
-                  tipo_rendicion, saldo_inicial, saldo_final, total_gastado, total_reembolso, usuario, uuid_val))
+                  tipo_rendicion, saldo_inicial, saldo_final, total_gastado, total_reembolso, usuario, uuid_val, fec_periodo_contable_val))
             rendicion_id = cursor.fetchone()[0]
             
         # 2. Detalle

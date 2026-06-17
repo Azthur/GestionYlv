@@ -12,7 +12,7 @@ import json
 import uuid
 import os
 import shutil
-from database import get_db_connection
+from database import get_db_connection, get_fec_periodo_contable
 from auth import get_current_user
 router = APIRouter(prefix="/api/contabilidad", tags=["Contabilidad"])
 
@@ -226,6 +226,7 @@ class FacturaCreate(BaseModel):
     # Docs relacionados y XML raw
     docs_relacionados_json: Optional[str] = None
     xml_data_json: Optional[str] = None
+    permitir_edicion_contable: Optional[bool] = False
     items: List[FacturaDetItem] = []
 
 class EnrichBatchRequest(BaseModel):
@@ -1075,12 +1076,18 @@ def crear_factura(data: FacturaCreate):
         # SET ARITHABORT ON is needed when inserting into tables with computed columns or indexed views
         cursor.execute("SET ARITHABORT ON")
 
+        fec_periodo_contable_val = get_fec_periodo_contable(conn, data.codcia, data.fec_emision)
+
         if data.id:
             # Bloqueo por estado CONTABILIZADO o CERRADO
             cursor.execute("SELECT Estado FROM CntFacturaCab WHERE Id = ?", (data.id,))
             current_status = cursor.fetchone()
             if current_status and current_status[0] in ['Cerrado', 'Contabilizado']:
-                raise HTTPException(status_code=403, detail=f"No se puede modificar una factura en estado {current_status[0]}")
+                status_val = current_status[0].strip()
+                if status_val == 'Contabilizado' and getattr(data, 'permitir_edicion_contable', False):
+                    pass
+                else:
+                    raise HTTPException(status_code=403, detail=f"No se puede modificar una factura en estado {status_val}")
 
             # Si CreditoFecPlazo está presente, usarlo como FecVencimiento principal
             # Fallback: credito_fec_plazo -> fec_vencimiento -> fec_emision
@@ -1105,6 +1112,7 @@ def crear_factura(data: FacturaCreate):
                     DocModificaSerie=?, DocModificaNumero=?, DocModificaTipo=?, DocModificaFecha=?,
                     CreditoMtoPendiente=?, CreditoFecPlazo=?, CreditoNumCuotas=?, CreditoCuotasJson=?,
                     DocsRelacionadosJson=?, XmlDataJson=?,
+                    FecPeriodoContable=?,
                     UpdatedAt=GETDATE()
                 WHERE Id=?
             """, (
@@ -1125,6 +1133,7 @@ def crear_factura(data: FacturaCreate):
                 data.doc_modifica_serie, data.doc_modifica_numero, data.doc_modifica_tipo, _safe_date(data.doc_modifica_fecha),
                 data.credito_mto_pendiente, _safe_date(data.credito_fec_plazo), data.credito_num_cuotas, data.credito_cuotas_json,
                 data.docs_relacionados_json, data.xml_data_json,
+                fec_periodo_contable_val,
                 data.id
             ))
             factura_id = data.id
@@ -1152,9 +1161,9 @@ def crear_factura(data: FacturaCreate):
                     CodTipoNota, DesTipoNota, DesMotivo,
                     DocModificaSerie, DocModificaNumero, DocModificaTipo, DocModificaFecha,
                     CreditoMtoPendiente, CreditoFecPlazo, CreditoNumCuotas, CreditoCuotasJson,
-                    DocsRelacionadosJson, XmlDataJson
+                    DocsRelacionadosJson, XmlDataJson, FecPeriodoContable
                 ) OUTPUT INSERTED.Id
-                VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,GETDATE(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 data.codcia.strip(), data.num_ruc_proveedor, data.nom_proveedor, data.cod_tipo_doc, data.serie, data.numero,
                 _safe_date(data.fec_emision), fec_vencimiento_val, data.cod_moneda, data.tipo_cambio,
@@ -1172,7 +1181,7 @@ def crear_factura(data: FacturaCreate):
                 data.cod_tipo_nota, data.des_tipo_nota, data.des_motivo,
                 data.doc_modifica_serie, data.doc_modifica_numero, data.doc_modifica_tipo, _safe_date(data.doc_modifica_fecha),
                 data.credito_mto_pendiente, _safe_date(data.credito_fec_plazo), data.credito_num_cuotas, data.credito_cuotas_json,
-                data.docs_relacionados_json, data.xml_data_json
+                data.docs_relacionados_json, data.xml_data_json, fec_periodo_contable_val
             ))
             factura_id = int(cursor.fetchone()[0])
 
@@ -1300,7 +1309,8 @@ def list_facturas(
                    CodMoneda, TipoCambio, SubTotal, IGV, OtrosTributos, Total,
                    NroOrdenCompra, TipoOc, AnosOc,
                    Estado, ModoRegistro, CreatedAt, CreatedBy,
-                   CreditoFecPlazo, CreditoNumCuotas, CreditoMtoPendiente
+                   CreditoFecPlazo, CreditoNumCuotas, CreditoMtoPendiente,
+                   FecPeriodoContable
             FROM CntFacturaCab
             WHERE RTRIM(CodCia) = ?
         """
@@ -1332,6 +1342,8 @@ def list_facturas(
                 d['FecEmision'] = _format_date(d['FecEmision'], "%Y-%m-%d")
             if d.get('FecVencimiento'):
                 d['FecVencimiento'] = _format_date(d['FecVencimiento'], "%Y-%m-%d")
+            if d.get('FecPeriodoContable'):
+                d['FecPeriodoContable'] = _format_date(d['FecPeriodoContable'], "%Y-%m-%d")
             if d.get('CreatedAt'):
                 d['CreatedAt'] = _format_date(d['CreatedAt'], "%Y-%m-%d %H:%M")
             for k in ['SubTotal','IGV','OtrosTributos','Total','TipoCambio']:
@@ -1389,7 +1401,7 @@ def get_factura_detail(factura_id: int):
         cols = [c[0] for c in cursor.description]
         cab = dict(zip(cols, row))
         # Format dates
-        for k in ['FecEmision','FecVencimiento','FecRegistro','CreditoFecPlazo']:
+        for k in ['FecEmision','FecVencimiento','FecRegistro','CreditoFecPlazo','FecPeriodoContable']:
             if cab.get(k):
                 cab[k] = _format_date(cab[k], "%Y-%m-%d")
         if cab.get('CreatedAt'):
@@ -3024,3 +3036,71 @@ def save_config_cuentas(data: ConfigCuentasSave):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+
+# ════════════════════════════════════════════════════════════
+#  PERIODOS CONTABLES
+# ════════════════════════════════════════════════════════════
+
+class PeriodoContableSave(BaseModel):
+    codcia: str
+    ano: int
+    mes: int
+    estado: str  # 'ABIERTO' or 'CERRADO'
+
+@router.get("/periodos")
+def get_periodos(codcia: str = Query(...)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT Id, RTRIM(CodCia) as CodCia, Ano, Mes, RTRIM(Estado) as Estado
+            FROM CntPeriodoContable
+            WHERE RTRIM(CodCia) = ?
+            ORDER BY Ano DESC, Mes DESC
+        """, (codcia.strip(),))
+        cols = [col[0] for col in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/periodos")
+def save_periodo(data: PeriodoContableSave):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+    try:
+        cursor = conn.cursor()
+        estado_val = data.estado.strip().upper()
+        if estado_val not in ('ABIERTO', 'CERRADO'):
+            raise HTTPException(status_code=400, detail="Estado inválido. Use ABIERTO o CERRADO.")
+            
+        cursor.execute(
+            "SELECT Id FROM CntPeriodoContable WHERE RTRIM(CodCia)=? AND Ano=? AND Mes=?",
+            (data.codcia.strip(), data.ano, data.mes)
+        )
+        row = cursor.fetchone()
+        if row:
+            cursor.execute(
+                "UPDATE CntPeriodoContable SET Estado=? WHERE Id=?",
+                (estado_val, row[0])
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO CntPeriodoContable (CodCia, Ano, Mes, Estado) VALUES (?, ?, ?, ?)",
+                (data.codcia.strip(), data.ano, data.mes, estado_val)
+            )
+        conn.commit()
+        return {"status": "success", "message": "Periodo contable guardado correctamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+

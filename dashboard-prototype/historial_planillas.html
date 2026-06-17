@@ -40,6 +40,7 @@
                     <thead>
                         <tr>
                             <th>FECHA EMISIÓN</th>
+                            <th>F. PER. CONTABLE</th>
                             <th>NRO PLANILLA</th>
                             <th>TRABAJADOR</th>
                             <th>TOTAL</th>
@@ -115,6 +116,7 @@
                     
                     tbl.row.add([
                         h.FechaEmision || '',
+                        h.FecPeriodoContable ? h.FecPeriodoContable.substring(0,10) : '-',
                         h.NroPlanilla || '',
                         h.NomAux || '',
                         `S/ ${(h.TotalGastado || 0).toFixed(2)}`,

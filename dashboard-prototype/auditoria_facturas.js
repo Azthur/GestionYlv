@@ -2121,7 +2121,7 @@ function setSummaryFromCPE(cpeData, sunatRow) {
 
 function clearInvoiceForm() {
     document.querySelectorAll('.modern-input').forEach(el => {
-        if (el.id !== 'invTipoDoc' && el.id !== 'invMoneda' && el.id !== 'cntEmpresa') {
+        if (el.id !== 'invTipoDoc' && el.id !== 'invMoneda' && el.id !== 'cntEmpresa' && !el.id.startsWith('histFilter')) {
             el.value = '';
         }
     });
@@ -2187,31 +2187,59 @@ async function registrarFactura() {
     const codcia = getSelectedCia();
     if (!codcia) return;
 
-    if (!document.getElementById('invRucProv').value || !document.getElementById('invSerie').value || !document.getElementById('invNumero').value) {
-        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'RUC, Serie y NÃºmero son obligatorios para guardar la cabecera.'});
+    const invRucProvVal = document.getElementById('invRucProv')?.value.trim();
+    const invNomProvVal = document.getElementById('invNomProv')?.value.trim();
+    const invTipoDocVal = document.getElementById('invTipoDoc')?.value;
+    const invSerieVal = document.getElementById('invSerie')?.value.trim();
+    const invNumeroVal = document.getElementById('invNumero')?.value.trim();
+    const invFecEmisionVal = document.getElementById('invFecEmision')?.value;
+    const invMonedaVal = document.getElementById('invMoneda')?.value;
+
+    if (!invRucProvVal || !invNomProvVal || !invTipoDocVal || !invSerieVal || !invNumeroVal || !invFecEmisionVal || !invMonedaVal) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'RUC, Razón Social, Tipo de Comprobante, Serie, Número, Fecha de Emisión y Moneda son obligatorios para guardar.'
+        });
         return;
+    }
+
+    if (invTipoDocVal === '07' || invTipoDocVal === '87' || invTipoDocVal === '08') {
+        const docModTipo = document.getElementById('invDocModificaTipo')?.value.trim();
+        const docModSerie = document.getElementById('invDocModificaSerie')?.value.trim();
+        const docModNumero = document.getElementById('invDocModificaNumero')?.value.trim();
+        const docModFecha = document.getElementById('invDocModificaFecha')?.value;
+
+        if (!docModTipo || !docModSerie || !docModNumero || !docModFecha) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Para notas de crédito/débito, los campos Tipo, Serie, Número y Fecha del Documento que Modifica son obligatorios.'
+            });
+            return;
+        }
     }
 
     if (!document.getElementById('invObservaciones') || !document.getElementById('invObservaciones').value.trim()) {
-        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'El campo Observaciones es obligatorio.'});
+        Swal.fire({icon:'warning', title:'Atención', text:'El campo Observaciones es obligatorio.'});
         return;
     }
 
-    // Validar InformaciÃ³n de Pago/CrÃ©ditos
+    // Validar Información de Pago/Créditos
     const creditoFecPlazo = document.getElementById('invCreditoFecPlazo')?.value;
     const creditoNumCuotas = document.getElementById('invCreditoNumCuotas')?.value;
     if (!creditoFecPlazo && !creditoNumCuotas) {
-        Swal.fire({icon:'warning', title:'AtenciÃ³n', text:'InformaciÃ³n de Pago/CrÃ©ditos es obligatoria. Por favor complete la fecha de plazo o el nÃºmero de cuotas.'});
+        Swal.fire({icon:'warning', title:'Atención', text:'Información de Pago/Créditos es obligatoria. Por favor complete la fecha de plazo o el número de cuotas.'});
         return;
     }
 
     if (invoiceItems.length === 0) {
-        const conf = await Swal.fire({
-            icon:'warning', title:'Sin Ã­tems',
-            text:'EstÃ¡ a punto de guardar una factura sin detalle. Â¿Desea continuar?',
-            showCancelButton: true, confirmButtonText: 'SÃ­, guardar', cancelButtonText: 'Cancelar'
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Debe agregar al menos una Línea de Facturación para poder registrar.'
         });
-        if (!conf.isConfirmed) return;
+        return;
     }
 
     // VALIDACION CANTIDAD CONTRA OC
@@ -2280,29 +2308,26 @@ async function registrarFactura() {
     }
 
     if (missingCuentas) {
-        const conf = await Swal.fire({
-            icon: 'warning',
-            title: '<span style="color: #ef4444; font-size: 1.8rem; font-weight: 700;">¡ADVERTENCIA CONTABLE!</span>',
+        Swal.fire({
+            icon: 'error',
+            title: '<span style="color: #ef4444; font-size: 1.8rem; font-weight: 700;">¡ERROR CONTABLE!</span>',
             html: `
                 <div style="font-size: 1.15rem; line-height: 1.6; text-align: center; padding: 0.5rem 0;">
                     <p style="margin-bottom: 1rem;">Esta compra, servicios o gastos <strong>no tienen cuentas contables</strong> registradas (Cta. Contable o Cta. Contable 2 vacías).</p>
-                    <p style="font-weight: 600; color: #d97706; margin-bottom: 1.5rem;">Favor de solicitar al área contable que registre su cuenta contable.</p>
-                    <p style="font-size: 0.95rem; color: #64748b;">¿Desea continuar con el registro de todas formas?</p>
+                    <p style="font-weight: 600; color: #ef4444; margin-bottom: 1.5rem;">Debe completar la cuenta contable y la cuenta contable 2 de cada ítem para poder registrar el comprobante.</p>
                 </div>
             `,
-            showCancelButton: true,
-            confirmButtonText: 'Sí, continuar de todas formas',
-            cancelButtonText: 'Cancelar y revisar',
-            confirmButtonColor: '#d97706',
-            cancelButtonColor: '#2563eb',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#2563eb',
             width: '620px'
         });
-        if (!conf.isConfirmed) return;
+        return;
     }
 
     const payload = {
         id: window.editingFacturaId,
         codcia,
+        permitir_edicion_contable: document.getElementById('checkEditarContable')?.checked || false,
         num_ruc_proveedor: document.getElementById('invRucProv').value.trim(),
         nom_proveedor: document.getElementById('invNomProv').value.trim(),
         cod_tipo_doc: document.getElementById('invTipoDoc').value,
@@ -2507,11 +2532,74 @@ async function registrarFactura() {
     }
 }
 
+// --- Filter helpers ---
+function initHistorialFilters() {
+    const today = new Date();
+    const currentYr = today.getFullYear();
+    const currentMth = String(today.getMonth() + 1).padStart(2, '0');
+    
+    // Fill year select
+    const yrSel = document.getElementById('histFilterAno');
+    if (yrSel) {
+        yrSel.innerHTML = '';
+        for (let y = currentYr - 2; y <= currentYr + 2; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (y === currentYr) opt.selected = true;
+            yrSel.appendChild(opt);
+        }
+        const optAll = document.createElement('option');
+        optAll.value = 'all';
+        optAll.textContent = '-- Todos --';
+        yrSel.appendChild(optAll);
+    }
+    
+    const mesSel = document.getElementById('histFilterMes');
+    if (mesSel) {
+        mesSel.value = currentMth;
+    }
+}
+
+function applyHistorialFilters() {
+    if (!window.lastFetchedFacturas) return;
+    
+    const filterTipo = document.getElementById('histFilterTipo').value;
+    const filterAno = document.getElementById('histFilterAno').value;
+    const filterMes = document.getElementById('histFilterMes').value;
+    
+    let filteredList = window.lastFetchedFacturas;
+    
+    if (filterAno !== 'all' || filterMes !== 'all') {
+        filteredList = window.lastFetchedFacturas.filter(f => {
+            let dateStr = '';
+            if (filterTipo === 'per_contable') {
+                dateStr = f.FecPeriodoContable || f.FecEmision;
+            } else {
+                dateStr = f.FecEmision;
+            }
+            
+            if (!dateStr) return false;
+            
+            const parts = dateStr.substring(0, 10).split('-'); // [YYYY, MM, DD]
+            if (parts.length < 2) return false;
+            
+            const yr = parts[0];
+            const mth = parts[1];
+            
+            const matchYr = (filterAno === 'all' || yr === filterAno);
+            const matchMes = (filterMes === 'all' || mth === filterMes);
+            
+            return matchYr && matchMes;
+        });
+    }
+    
+    renderFacturasTable(filteredList);
+}
+
 async function loadFacturas() {
     const codcia = getSelectedCia();
     if (!codcia) return;
-
-    if (dtFacturas) { dtFacturas.destroy(); dtFacturas = null; }
 
     try {
         const user = JSON.parse(localStorage.getItem('yelave_user') || '{}');
@@ -2521,75 +2609,96 @@ async function loadFacturas() {
         const res = await fetch(`/api/contabilidad/facturas?codcia=${codcia}`);
         if (!res.ok) throw new Error('Error al cargar');
         const list = await res.json();
-
-        const data = list.map(f => {
-            const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota CrÃ©dito', '08': '08-Nota DÃ©bito', '87': '87-Nota CrÃ©dito Esp.', '00': '00-Otros' };
-            const tipoComprobante = tipoMap[f.CodTipoDoc] || `${f.CodTipoDoc}-Otro`;
-            const fechaRegistro = f.CreatedAt ? f.CreatedAt.substring(0,10) : '-';
-            const fechaVencimiento = f.FecVencimiento ? f.FecVencimiento.substring(0,10) : (f.CreditoFecPlazo ? f.CreditoFecPlazo.substring(0,10) : '-');
-            
-            const isNC = (f.CodTipoDoc === '07' || f.CodTipoDoc === '87');
-            const modifier = isNC ? -1 : 1;
-            const amtDisplay = isNC ? `<span style="color:#ef4444; font-weight:600;">${fmtNum(f.Total * modifier)}</span>` : fmtNum(f.Total);
-            
-            const estadoRaw = (f.Estado || '').trim().toUpperCase();
-            const estadoBadge = 
-                (estadoRaw === 'ANULADA' || estadoRaw === 'ELIMINADO') ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : 
-                (estadoRaw === 'CERRADO') ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ð CERRADO</span>' :
-                (estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ð CONTABILIZADA</span>' :
-                (estadoRaw === 'REGISTRADA' || estadoRaw === 'REGISTRADO') ? '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADA</span>' :
-                `<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">${f.Estado || 'SIN ESTADO'}</span>`;
-            const isLocked = (estadoRaw === 'CERRADO' || estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA');
-
-            return [
-                f.Id,
-                `${f.Serie||''}-${f.Numero||''}`,
-                tipoComprobante,
-                f.FecEmision ? f.FecEmision.substring(0,10) : '-',
-                fechaRegistro,
-                fechaVencimiento,
-                (f.NomProveedor||'').substring(0,35),
-                f.NumRucProveedor || '-',
-                monLabel(f.CodMoneda),
-                amtDisplay,
-                f.NroOrdenCompra ? f.NroOrdenCompra.split(',').map(oc => (f.TipoOc||'') + oc.trim()).join(', ') : '-',
-                f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
-                f.CreatedBy || 'SISTEMA',
-                estadoBadge,
-                `<div style="display:flex; justify-content:center; gap:4px; white-space:nowrap;">
-                    <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="viewFacturaDetail(${f.Id})" title="Ver Detalle"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                    ${isLocked 
-                        ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Editar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
-                          `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>` +
-                          ((estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? `<button class="btn-flat" style="padding:4px; color:#f59e0b; margin-left:2px;" onclick="revertirEstado(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Revertir a REGISTRADA"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg></button>` : '')
-                        : `<button class="btn-flat" style="padding:4px; color:#f59e0b;" onclick="openEditRegistro(${f.Id})" title="Editar / Adjuntar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>` + 
-                          `<button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="eliminarFactura(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Eliminar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
-                    }
-                </div>`
-            ];
-        });
-
-        dtFacturas = $('#facturasTable').DataTable({
-            data: data, destroy: true,
-            deferRender: true, order: [[0, 'desc']], pageLength: 15, scrollX: true,
-            autoWidth: false,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-            dom: '<"dt-top"lfB>rt<"dt-bottom"ip>',
-            buttons: [
-                { extend: 'excelHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Excel', className: 'btn-export', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12] } },
-                { extend: 'pdfHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF', className: 'btn-export', orientation: 'landscape', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12] } },
-                { extend: 'print', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Imprimir', className: 'btn-export', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12] } }
-            ],
-            columnDefs: [
-                { targets: 10, width: '80px', orderable: false, className: 'dt-body-center' },
-                { targets: 5, className: 'dt-body-right' }
-            ]
-        });
         
+        window.lastFetchedFacturas = list;
+        
+        if (!window.historialFiltersInitialized) {
+            initHistorialFilters();
+            window.historialFiltersInitialized = true;
+        }
+        
+        applyHistorialFilters();
     } catch(err) {
         const tbEl = document.getElementById('historialTbody');
-        if(tbEl) tbEl.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#ef4444;">${err.message}</td></tr>`;
+        if(tbEl) tbEl.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#ef4444;">${err.message}</td></tr>`;
     }
+}
+
+function renderFacturasTable(list) {
+    if (dtFacturas) { dtFacturas.destroy(); dtFacturas = null; }
+    
+    const checkEditarContable = document.getElementById('checkEditarContable');
+    const allowEditContable = checkEditarContable && checkEditarContable.checked;
+
+    const data = list.map(f => {
+        const tipoMap = { '01': '01-Factura', '02': '02-Recibo Honorarios', '03': '03-Boleta', '07': '07-Nota Crédito', '08': '08-Nota Débito', '87': '87-Nota Crédito Esp.', '00': '00-Otros' };
+        const tipoComprobante = tipoMap[f.CodTipoDoc] || `${f.CodTipoDoc}-Otro`;
+        const fechaRegistro = f.CreatedAt ? f.CreatedAt.substring(0,10) : '-';
+        const fechaVencimiento = f.FecVencimiento ? f.FecVencimiento.substring(0,10) : (f.CreditoFecPlazo ? f.CreditoFecPlazo.substring(0,10) : '-');
+        
+        const isNC = (f.CodTipoDoc === '07' || f.CodTipoDoc === '87');
+        const modifier = isNC ? -1 : 1;
+        const amtDisplay = isNC ? `<span style="color:#ef4444; font-weight:600;">${fmtNum(f.Total * modifier)}</span>` : fmtNum(f.Total);
+        
+        const estadoRaw = (f.Estado || '').trim().toUpperCase();
+        const estadoBadge = 
+            (estadoRaw === 'ANULADA' || estadoRaw === 'ELIMINADO') ? '<span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">ELIMINADO</span>' : 
+            (estadoRaw === 'CERRADO') ? '<span style="background:#faf5ff;color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">🔒 CERRADO</span>' :
+            (estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') ? '<span style="background:#fefce8;color:#a16207;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">📘 CONTABILIZADA</span>' :
+            (estadoRaw === 'REGISTRADA' || estadoRaw === 'REGISTRADO') ? '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">REGISTRADA</span>' :
+            `<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">${f.Estado || 'SIN ESTADO'}</span>`;
+            
+        // Lock rules for edit: Cerrado is always locked. 
+        // Contabilizado/Contabilizada is locked UNLESS allowEditContable is true.
+        const isLockedForEdit = (estadoRaw === 'CERRADO') || ((estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') && !allowEditContable);
+        const isLockedForDelete = (estadoRaw === 'CERRADO' || estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA');
+
+        return [
+            f.Id,
+            `${f.Serie||''}-${f.Numero||''}`,
+            tipoComprobante,
+            f.FecEmision ? f.FecEmision.substring(0,10) : '-',
+            fechaRegistro,
+            fechaVencimiento,
+            f.FecPeriodoContable ? f.FecPeriodoContable.substring(0,10) : '-',
+            (f.NomProveedor||'').substring(0,35),
+            f.NumRucProveedor || '-',
+            monLabel(f.CodMoneda),
+            amtDisplay,
+            f.NroOrdenCompra ? f.NroOrdenCompra.split(',').map(oc => (f.TipoOc||'') + oc.trim()).join(', ') : '-',
+            f.ModoRegistro === 'AUTO' ? '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">AUTO</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">MANUAL</span>',
+            f.CreatedBy || 'SISTEMA',
+            estadoBadge,
+            `<div style="display:flex; justify-content:center; gap:4px; white-space:nowrap;">
+                <button class="btn-flat" style="padding:4px; color:#2563eb;" onclick="viewFacturaDetail(${f.Id})" title="Ver Detalle"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                ${isLockedForEdit 
+                    ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Editar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>`
+                    : `<button class="btn-flat" style="padding:4px; color:#f59e0b;" onclick="openEditRegistro(${f.Id})" title="Editar / Adjuntar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>`
+                }
+                ${isLockedForDelete
+                    ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
+                    : `<button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="eliminarFactura(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Eliminar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
+                }
+            </div>`
+        ];
+    });
+
+    dtFacturas = $('#facturasTable').DataTable({
+        data: data, destroy: true,
+        deferRender: true, order: [[0, 'desc']], pageLength: 10, scrollX: true,
+        autoWidth: false,
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+        dom: '<"dt-top"lfB>rt<"dt-bottom"ip>',
+        buttons: [
+            { extend: 'excelHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Excel', className: 'btn-export', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] } },
+            { extend: 'pdfHtml5', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF', className: 'btn-export', orientation: 'landscape', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] } },
+            { extend: 'print', text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Imprimir', className: 'btn-export', exportOptions: { columns: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] } }
+        ],
+        columnDefs: [
+            { targets: 11, width: '80px', orderable: false, className: 'dt-body-center' },
+            { targets: 5, className: 'dt-body-right' }
+        ]
+    });
 }
 
 async function viewFacturaDetail(id) {

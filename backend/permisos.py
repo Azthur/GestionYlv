@@ -158,7 +158,7 @@ def _seed_initial_data(cursor, conn):
         for r in roles:
             cursor.execute("INSERT INTO WebRoles (Codigo, Nombre, Descripcion) VALUES (?,?,?)", r)
         conn.commit()
-        print("  → Roles iniciales insertados")
+        print("  -> Roles iniciales insertados")
 
     # ── Seed Módulos ──
     modulos = [
@@ -186,6 +186,7 @@ def _seed_initial_data(cursor, conn):
         ('trazabilidad_global', 'Trazabilidad Global',  '/trazabilidad_global.html','Contabilidad',   23, None),
         ('auditoria_comprobantes', 'Auditoría Comprobantes', '/auditoria-comprobantes.html', 'Contabilidad', 24, None),
         ('cuentas_contables',   'Cuentas Contables',    '/cuentas_contables.html',  'Contabilidad',   25, None),
+        ('periodos_contables',  'Periodos Contables',   '/periodos_contables.html', 'Contabilidad',   26, None),
         ('conciliacion',        'Conciliación Bancaria','/conciliacion.html',       'Finanzas',       30, None),
         ('cuentas_cobrar',      'Cuentas por Cobrar',   '/cuentas-cobrar.html',     'Finanzas',       31, None),
         ('historial_cancelaciones', 'Historial Cancelaciones', '/historial-cancelaciones.html', 'Finanzas', 32, None),
@@ -219,7 +220,7 @@ def _seed_initial_data(cursor, conn):
                 INSERT INTO WebModulos (Codigo, Nombre, RutaHtml, Seccion, Orden, ParentId)
                 VALUES (?,?,?,?,?,?)
             """, (m[0], m[1], m[2], m[3], m[4], parent_id))
-            print(f"  → Módulo {m[0]} insertado")
+            print(f"  -> Módulo {m[0]} insertado")
             conn.commit()
 
     # ── Seed Permisos por rol ──
@@ -239,7 +240,7 @@ def _seed_initial_data(cursor, conn):
         # Definir permisos por rol
         role_perms = {
             'LOGISTICA': ['logistics', 'orders', 'contabilidad', 'cargos_documentales', 'registro_facturas'],
-            'CONTABILIDAD': ['orders', 'contabilidad', 'cargos_documentales', 'registro_facturas', 'conciliacion', 'cuentas_cobrar', 'historial_cancelaciones'],
+            'CONTABILIDAD': ['orders', 'contabilidad', 'cargos_documentales', 'registro_facturas', 'conciliacion', 'cuentas_cobrar', 'historial_cancelaciones', 'periodos_contables'],
             'CONTROL_INTERNO': ['conciliacion', 'cuentas_cobrar', 'historial_cancelaciones'],
             'COMERCIAL': ['conciliacion', 'cuentas_cobrar', 'historial_cancelaciones'],
             'TESORERIA': ['cargos_documentales', 'pagos_tesoreria', 'conciliacion'],
@@ -261,7 +262,7 @@ def _seed_initial_data(cursor, conn):
                     """, (rol, modulos_map[codigo]))
 
         conn.commit()
-        print("  → Permisos iniciales insertados")
+        print("  -> Permisos iniciales insertados")
 
     # Asegurar permisos del módulo auditoria_comprobantes para ADMIN y CONTABILIDAD
     cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'auditoria_comprobantes'")
@@ -322,6 +323,36 @@ def _seed_initial_data(cursor, conn):
                 VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)
             END
         """, (cc_mid, cc_mid))
+        conn.commit()
+
+    # Asegurar módulo y permisos de periodos_contables para ADMIN y CONTABILIDAD
+    cursor.execute("""
+        IF NOT EXISTS (SELECT 1 FROM WebModulos WHERE Codigo = 'periodos_contables')
+        BEGIN
+            INSERT INTO WebModulos (Codigo, Nombre, RutaHtml, Seccion, Orden)
+            VALUES ('periodos_contables', 'Periodos Contables', '/periodos_contables.html', 'Contabilidad', 26)
+        END
+    """)
+    conn.commit()
+    
+    cursor.execute("SELECT Id FROM WebModulos WHERE Codigo = 'periodos_contables'")
+    pc_row = cursor.fetchone()
+    if pc_row:
+        pc_mid = pc_row[0]
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'ADMIN' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('ADMIN', ?, 1, 1, 1, 1)
+            END
+        """, (pc_mid, pc_mid))
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM WebPermisos WHERE Rol = 'CONTABILIDAD' AND ModuloId = ?)
+            BEGIN
+                INSERT INTO WebPermisos (Rol, ModuloId, PuedeVer, PuedeEditar, PuedeEliminar, PuedeAprobar)
+                VALUES ('CONTABILIDAD', ?, 1, 1, 0, 0)
+            END
+        """, (pc_mid, pc_mid))
         conn.commit()
 
     # Asegurar módulo y permisos de movimientos_almacen para ADMIN, LOGISTICA y CONTABILIDAD

@@ -40,6 +40,7 @@
                     <thead>
                         <tr>
                             <th>FECHA EMISIÓN</th>
+                            <th>F. PER. CONTABLE</th>
                             <th>NRO RENDICIÓN</th>
                             <th>TRABAJADOR/SOCIO</th>
                             <th>MON</th>
@@ -132,6 +133,7 @@
                     const sym = monSym(h.Moneda);
                     tbl.row.add([
                         h.Fecha || '',
+                        h.FecPeriodoContable ? h.FecPeriodoContable.substring(0,10) : '-',
                         h.NroRendicion || '',
                         h.NomAux || '',
                         sym === '$' ? 'USD' : 'PEN',

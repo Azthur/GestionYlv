@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YELAVE - Control de Periodos Contables</title>
+    <meta name="description" content="Gestión y cierre de periodos contables mensuales por empresa del ERP">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="contabilidad.css">
+    <script src="auth-guard.js"></script>
+    <style>
+        /* Modern Switch Styling */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        input:checked + .slider {
+            background-color: var(--success);
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        
+        /* Month Grid UI */
+        .months-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .month-card {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-xl);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .month-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+            border-color: rgba(37, 99, 235, 0.2);
+        }
+        .month-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0;
+        }
+        .month-status-badge {
+            align-self: flex-start;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0.5rem;
+        }
+        .status-abierto {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+        .status-cerrado {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+        
+        /* Year Picker */
+        .year-picker {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 0.25rem;
+        }
+        .year-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+        .year-btn:hover {
+            background: var(--primary-fade);
+            color: var(--primary);
+        }
+        .year-display {
+            font-size: 1.1rem;
+            font-weight: 700;
+            min-width: 60px;
+            text-align: center;
+            color: var(--text-main);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar and Topbar are dynamically injected via sidebar.js -->
+        <main class="main-content">
+            <section class="content fade-in">
+                
+                <!-- Toolbar: Cia and Year -->
+                <div class="cnt-sync-bar" style="margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+                    <div class="filter-group" style="flex: 2; min-width: 280px;">
+                        <label for="cntEmpresa" style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; display: block;">Empresa activa</label>
+                        <select id="cntEmpresa" class="modern-input" style="height: 42px; font-weight: 500; width: 100%;">
+                            <option value="" disabled selected>Cargando empresas...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group" style="flex: 1; min-width: 180px;">
+                        <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; display: block;">Año de consulta</label>
+                        <div class="year-picker" style="height: 42px; box-sizing: border-box;">
+                            <button class="year-btn" onclick="changeYear(-1)" title="Año Anterior">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                </svg>
+                            </button>
+                            <span class="year-display" id="yearVal">2026</span>
+                            <button class="year-btn" onclick="changeYear(1)" title="Siguiente Año">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group" style="flex: 0.5; min-width: 120px;">
+                        <button class="btn btn-primary" onclick="loadPeriodos()" style="height: 42px; width: 100%; font-size: 0.85rem; font-weight: 600;">
+                            Refrescar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Alert -->
+                <div class="card glass-panel" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-left: 4px solid var(--primary);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="color: var(--primary); flex-shrink: 0;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <p style="margin: 0; font-size: 0.825rem; color: var(--text-muted); line-height: 1.4;">
+                        <strong>Información:</strong> Los periodos que no han sido creados explícitamente se consideran <strong>Abiertos</strong> por defecto. Al cerrar un mes, los nuevos comprobantes (Facturas, Planillas, Rendiciones) emitidos en ese mes guardarán su Fecha de Periodo Contable trasladada al primer día del siguiente mes abierto disponible.
+                    </p>
+                </div>
+
+                <!-- Month Cards Container -->
+                <div class="months-grid" id="monthsContainer">
+                    <!-- Cards will be dynamically loaded here -->
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="periodos_contables.js"></script>
+</body>
+</html>
