@@ -51,10 +51,16 @@ async function loadCompanies() {
         if (companies.length > 0) {
             fallback = companies[0].CodCia || companies[0].codcia || '';
         }
-        const defaultCia = cached || cu.codcia || fallback;
+        const defaultCia = (cached || cu.codcia || fallback || '').trim();
 
         if (defaultCia) {
             select.value = defaultCia;
+            if (select.value !== defaultCia) {
+                select.value = "";
+            }
+            onCiaChange();
+        } else {
+            select.value = "";
             onCiaChange();
         }
     } catch (err) {
@@ -70,7 +76,23 @@ function onCiaChange() {
         loadParametros();
         loadPendientes();
         loadHistorialPagos();
+    } else {
+        localStorage.removeItem('yelave_codcia');
+        clearAllData();
     }
+}
+
+function clearAllData() {
+    if (pendientesDT) { pendientesDT.destroy(); pendientesDT = null; }
+    if (historialPagosDT) { historialPagosDT.destroy(); historialPagosDT = null; }
+    
+    document.getElementById('pendientesTbody').innerHTML = '<tr><td colspan="13" style="text-align:center; padding:2rem; color:#94a3b8;">Seleccione una empresa para ver los pendientes de pago.</td></tr>';
+    document.getElementById('historialPagosTbody').innerHTML = '<tr><td colspan="12" style="text-align:center; padding:2rem; color:#94a3b8;">Seleccione una empresa para ver el historial de pagos.</td></tr>';
+    
+    document.getElementById('statPendientes').textContent = '0';
+    document.getElementById('statMontoPend').textContent = 'S/ 0.00';
+    document.getElementById('statPagados').textContent = '0';
+    document.getElementById('statMontoPagado').textContent = 'S/ 0.00';
 }
 
 // ════════════════════════════════════════════════════════════
@@ -322,7 +344,16 @@ async function loadPendientes() {
             let importePagar = parseFloat(c.ImportePrincipal || 0);
             if (isNC) importePagar = -Math.abs(importePagar);
             const montoPagado = parseFloat(c.MontoPagado || 0);
-            const saldo = importePagar - montoPagado;
+            let saldo = 0;
+            if (isNC) {
+                saldo = importePagar - montoPagado;
+            } else {
+                if (montoPagado < 0) {
+                    saldo = importePagar - Math.abs(montoPagado);
+                } else {
+                    saldo = importePagar - montoPagado;
+                }
+            }
 
             // Tipo OC Label
             let tipoOcBadge = '';
@@ -403,8 +434,8 @@ async function loadPendientes() {
             if (isNC) {
                 btnHtml = `<button class="btn-action" style="padding:0.25rem 0.5rem; font-size:0.7rem; background:#ef4444; color:white;" onclick="abrirModalAplicarNC('${c.DetalleId}', '${provEsc}', '${c.NroFactura||''}', ${saldo}, '${moneda}', '${codcia}')">✅ Aplicar NC</button>`;
             } else {
-                btnHtml = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${tOc||''}', '${provEsc}', '${c.NroFactura||''}', ${saldo}, '${moneda}')">💸 Pagar</button>`;
-                btnHtml += `<br><button class="btn-action" style="padding:0.2rem 0.4rem; font-size:0.65rem; background:#10b981; color:white; margin-top:2px;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${tOc||''}', '${provEsc}', '${c.NroFactura||''}', 0, '${moneda}', true)">✅ Aplicar</button>`;
+                btnHtml = `<button class="btn-action primary" style="padding:0.25rem 0.5rem; font-size:0.7rem;" onclick="openModalPagoFlexible('${c.DetalleId}', '${c.TipoDocumento||'OC'}', '${codcia}', '${c.NroOrdenCompra||''}', '${tOc||''}', '${provEsc}', '${c.NroFactura||''}', ${saldo}, '${moneda}', false, '${(tipoLabel||'').replace(/'/g, "\\'")}')">💸 Pagar</button>`;
+                btnHtml += `<br><button class="btn-action" style="padding:0.2rem 0.4rem; font-size:0.65rem; background:#d97706; color:white; margin-top:2px;" onclick="abrirModalJalarAnticipo('${c.DetalleId}', '${provEsc}', '${c.RucProveedor || ''}', '${c.NroFactura || c.NroDocPrincipal || ''}', ${saldo}, '${moneda}', '${codcia}')">🔗 Jalar Anticipo</button>`;
             }
 
             // 13 columnas
@@ -517,7 +548,10 @@ async function loadHistorialPagos() {
                 adjBadge = `<div style="font-size:0.75rem;">${links}</div>`;
             }
             const simbolo = p.Moneda === 'USD' ? '$' : 'S/';
-            const tipLabel = p.TipoComprobanteDesc || p.TipoComprobante || (p.TipoDocumento === 'RENDICION' ? 'Rendición' : 'OC');
+            let tipLabel = p.TipoComprobanteDesc || p.TipoComprobante || (p.TipoDocumento === 'RENDICION' ? 'Rendición' : 'OC');
+            if (p.NroOrdenCompra && p.NroOrdenCompra.startsWith('RG-')) {
+                tipLabel = 'Rendición';
+            }
             const montoVal = parseFloat(p.MontoPago || 0);
             const montoColor = montoVal < 0 ? '#ef4444' : 'inherit';
 
@@ -740,6 +774,8 @@ function openModalPago(detalleId, codcia, nrodoc, tipooc, proveedor, factura, mo
     document.getElementById('pago_monto').value = monto || '';
     document.getElementById('pago_adjuntos').value = '';
     document.getElementById('pago_notas').value = '';
+    const esAnticipoCheck = document.getElementById('pago_es_anticipo');
+    if (esAnticipoCheck) esAnticipoCheck.checked = false;
 
     // Show summary
     document.getElementById('modalPagoTitle').textContent = `Pago — OC ${nrodoc}`;
@@ -766,6 +802,17 @@ async function submitPago() {
         return;
     }
 
+    // Validar campos obligatorios
+    const notas = document.getElementById('pago_notas').value.trim();
+    if (!notas) {
+        Swal.fire('Atención', 'El campo de Notas es obligatorio.', 'warning');
+        return;
+    }
+    if (uploadedFiles.length === 0) {
+        Swal.fire('Atención', 'Debe adjuntar al menos un comprobante o voucher.', 'warning');
+        return;
+    }
+
     let formData = new FormData();
     formData.append('usuario', currentUser);
     formData.append('moneda', document.getElementById('pago_moneda').value);
@@ -774,10 +821,15 @@ async function submitPago() {
     formData.append('tipo', document.getElementById('pago_tipo').value);
     formData.append('fecha', document.getElementById('pago_fecha').value);
     formData.append('nro_operacion', document.getElementById('pago_nro_operacion').value);
-    formData.append('notas', document.getElementById('pago_notas').value);
+    formData.append('notas', notas);
     
     const conceptoEl = document.getElementById('pago_concepto');
-    if(conceptoEl) formData.append('concepto_pago', conceptoEl.value);
+    let conceptoVal = conceptoEl ? conceptoEl.value : '';
+    const esAnticipoCheck = document.getElementById('pago_es_anticipo');
+    if (esAnticipoCheck && esAnticipoCheck.checked) {
+        conceptoVal = '0002';
+    }
+    formData.append('concepto_pago', conceptoVal);
 
     // Usar uploadedFiles[] en vez del input file
     for (let i = 0; i < uploadedFiles.length; i++) {
@@ -786,6 +838,15 @@ async function submitPago() {
 
     formData.append('detalle_ids', idDetalle);
     formData.append('codcia', codcia);
+
+    const montosAplicados = document.getElementById('pago_montos_aplicados').value;
+    if (montosAplicados) {
+        formData.append('montos_aplicados', montosAplicados);
+    }
+    const grupoAplicacion = document.getElementById('pago_grupo_aplicacion').value;
+    if (grupoAplicacion) {
+        formData.append('grupo_aplicacion', grupoAplicacion);
+    }
 
     try {
         document.getElementById('modalPago').classList.remove('active');
@@ -810,11 +871,16 @@ async function submitPago() {
     }
 }
 
-async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, tipooc, proveedor, factura, montoPagar, moneda, isRegularizacion = false) {
+async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, tipooc, proveedor, factura, montoPagar, moneda, isRegularizacion = false, tipoComprobante = '', montosAplicadosVal = '', grupoAplicacionVal = '') {
     document.getElementById('pago_idDetalle').value = detalleIds;
     document.getElementById('pago_codcia').value = codcia;
     document.getElementById('pago_nrodoc').value = nrodoc;
     document.getElementById('pago_tipooc').value = tipooc || 'O';
+
+    const maEl = document.getElementById('pago_montos_aplicados');
+    if (maEl) maEl.value = montosAplicadosVal || '';
+    const gaEl = document.getElementById('pago_grupo_aplicacion');
+    if (gaEl) gaEl.value = grupoAplicacionVal || '';
 
     // Reset archivos
     uploadedFiles = [];
@@ -827,6 +893,8 @@ async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, 
     document.getElementById('pago_fecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('pago_nro_operacion').value = '';
     document.getElementById('pago_notas').value = '';
+    const esAnticipoCheck = document.getElementById('pago_es_anticipo');
+    if (esAnticipoCheck) esAnticipoCheck.checked = false;
 
     // Set moneda
     document.getElementById('pago_moneda').value = moneda || 'PEN';
@@ -849,15 +917,16 @@ async function openModalPagoFlexible(detalleIds, tipoDocumento, codcia, nrodoc, 
     if (tipoSelect) tipoSelect.value = 'TRANSFERENCIA';
 
     // Determinar label
-    let docLabel = tipoDocumento, docNro = nrodoc;
+    let docLabel = tipoComprobante || tipoDocumento, docNro = nrodoc;
     const sim = moneda === 'USD' ? '$' : 'S/';
 
     const isFacturaDoc = ['FACTURA_SIN_OC', 'FACTURA_SI', 'FACTURA', '01', '03'].includes(tipoDocumento) || tipoDocumento.startsWith('FACT');
 
     if (tipoDocumento === 'OC') { docLabel = 'OC'; docNro = nrodoc; }
-    else if (isFacturaDoc) { docLabel = 'Factura'; docNro = factura || nrodoc; }
     else if (tipoDocumento === 'RENDICION') { docLabel = 'Rendición'; docNro = nrodoc; }
     else if (tipoDocumento === 'MULTI') { docLabel = 'Múltiples Documentos'; docNro = nrodoc; }
+    else if (tipoComprobante) { docLabel = tipoComprobante; docNro = factura || nrodoc; }
+    else if (isFacturaDoc) { docLabel = 'Factura'; docNro = factura || nrodoc; }
 
     if (isRegularizacion) {
         montoPagar = 0;
@@ -984,8 +1053,9 @@ function recalcularAplicarNeto() {
         
         // Es NC/Anticipo si: es NC original O fue marcado como anticipo
         if (isNCOriginal || isAnticipo) {
-            const montoNeg = isAnticipo ? -Math.abs(d.monto) : d.monto;
-            aplicarDocsData.docsNC.push({ ...d, monto: montoNeg, esAnticipo: isAnticipo });
+            const finalEsAnticipo = isAnticipo || d.esAnticipo || false;
+            const montoNeg = finalEsAnticipo ? -Math.abs(d.monto) : d.monto;
+            aplicarDocsData.docsNC.push({ ...d, monto: montoNeg, esAnticipo: finalEsAnticipo });
             sumaNC += montoNeg;
         } else {
             aplicarDocsData.docsFact.push(d);
@@ -1026,9 +1096,32 @@ function renderAplicarDocsLists() {
         aplicarDocsData.docsNC.forEach(d => {
             const label = d.esAnticipo ? '⚡ ANTICIPO' : '📄 NC';
             const labelColor = d.esAnticipo ? '#d97706' : '#dc2626';
-            ncHtml += `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.6rem; background:#fef2f2; border-radius:6px; margin-bottom:4px; font-size:0.8rem;">
-                <span style="font-weight:600; color:${labelColor};">${label}: ${d.nroDoc}</span>
-                <span style="font-weight:700; color:#dc2626;">- ${fmtM(d.monto)}</span>
+            const mMax = d.montoMaximo || Math.abs(d.monto) || 0;
+            const mCur = Math.abs(d.monto) || 0;
+            const rem = Math.max(0, mMax - mCur);
+            
+            ncHtml += `
+            <div style="padding:0.6rem 0.8rem; background:#fef2f2; border-radius:8px; margin-bottom:6px; border:1px solid #fca5a5; font-size:0.8rem; display:flex; flex-direction:column; gap:0.4rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; color:${labelColor}; font-size:0.85rem;">${label}: ${d.nroDoc}</span>
+                    <button type="button" onclick="quitarDocNC(${d.id})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-weight:700; font-size:1.1rem; padding:0 4px;" title="Quitar">✕</button>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:0.5rem; background:white; padding:0.5rem; border-radius:6px; border:1px solid #fecaca;">
+                    <div>
+                        <span style="color:#64748b; font-size:0.7rem; display:block;">Disponible</span>
+                        <strong style="color:#475569;">${sim} ${mMax.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                        <span style="color:#64748b; font-size:0.7rem; display:block;">Amortizar</span>
+                        <input type="number" step="0.01" min="0" max="${mMax}" value="${mCur.toFixed(2)}" 
+                               oninput="changeAmortizacionNC(${d.id}, this.value)" 
+                               style="width:90px; padding:0.2rem 0.4rem; border:1px solid #cbd5e1; border-radius:4px; font-weight:700; color:#dc2626; text-align:right; font-size:0.8rem;">
+                    </div>
+                    <div>
+                        <span style="color:#64748b; font-size:0.7rem; display:block;">Saldo Restante</span>
+                        <strong id="saldo_restante_${d.id}" style="color:#dc2626;">${sim} ${rem.toFixed(2)}</strong>
+                    </div>
+                </div>
             </div>`;
         });
     }
@@ -1090,7 +1183,9 @@ function abrirAplicarSeleccionados() {
                      || tipoComp.toUpperCase().includes('NC')
                      || monto < 0);
 
-        allDocs.push({ id, monto, proveedor, ruc, nroDoc, tipoComp, isNCOriginal });
+        const montoMaximo = Math.abs(monto);
+
+        allDocs.push({ id, monto, montoMaximo, proveedor, ruc, nroDoc, tipoComp, isNCOriginal });
     });
 
     if (errorMoneda) {
@@ -1130,6 +1225,10 @@ async function confirmarAplicarDocs() {
     const codcia = document.getElementById('filterCia').value;
     const notas = document.getElementById('aplicarDocsNotas').value || '';
     
+    const grupoAplicacion = typeof crypto.randomUUID === 'function' 
+        ? crypto.randomUUID() 
+        : 'apply_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
     // Calcular el monto a aplicar a cada documento (distribuir NC a Facturas)
     let totalNC = Math.abs(docsNC.reduce((sum, d) => sum + parseFloat(d.monto), 0));
     const montosMap = {};
@@ -1159,8 +1258,12 @@ async function confirmarAplicarDocs() {
             document.getElementById('modalAplicarDocs').classList.remove('active');
             
             if (irAPago) {
-                // Si va a pagar, cerramos el modal actual y abrimos el de pago para el NETO
-                // Como va a pagar todo, NO le pasamos montos_aplicados para que se pague la totalidad de una vez
+                // Para el pago flexible, creamos un mapa donde las facturas se pagan completas 
+                // y los anticipos se aplican completos.
+                const paymentMontosMap = {};
+                docsNC.forEach(d => { paymentMontosMap[d.id] = -Math.abs(d.monto); });
+                docsFact.forEach(d => { paymentMontosMap[d.id] = parseFloat(d.monto); });
+
                 openModalPagoFlexible(
                     ids.join(','),
                     'MULTI',
@@ -1170,7 +1273,11 @@ async function confirmarAplicarDocs() {
                     'Aplicación NC/Factura',
                     '',
                     neto,
-                    moneda
+                    moneda,
+                    false,
+                    '',
+                    JSON.stringify(paymentMontosMap),
+                    grupoAplicacion
                 );
                 return;
             }
@@ -1203,7 +1310,7 @@ async function confirmarAplicarDocs() {
             formData.append('notas', notaFull);
             
             // Grupo de aplicación para relacionar documentos
-            formData.append('grupo_aplicacion', '');
+            formData.append('grupo_aplicacion', grupoAplicacion);
 
             // Adjuntos
             for (let i = 0; i < aplicarDocsFiles.length; i++) {
@@ -1260,6 +1367,80 @@ async function confirmarAplicarDocs() {
 
     // Neto <= 0: registrar directamente como aplicación parcial/total
     execApply(false);
+}
+
+function quitarDocNC(id) {
+    aplicarDocsData.allDocs = aplicarDocsData.allDocs.filter(d => d.id !== id);
+    aplicarDocsData.ids = aplicarDocsData.allDocs.map(d => d.id);
+    recalcularAplicarNeto();
+}
+
+function changeAmortizacionNC(id, val) {
+    let parsed = parseFloat(val) || 0;
+    if (parsed < 0) parsed = 0;
+    
+    // Buscar documento
+    const doc = aplicarDocsData.allDocs.find(d => d.id === id);
+    if (doc) {
+        const mMax = doc.montoMaximo || Math.abs(doc.monto) || 0;
+        if (parsed > mMax) {
+            parsed = mMax;
+            const inputEl = document.querySelector(`input[oninput*="changeAmortizacionNC(${id},"]`);
+            if (inputEl) inputEl.value = parsed.toFixed(2);
+        }
+        
+        doc.monto = -parsed;
+        
+        const saldoRestanteEl = document.getElementById(`saldo_restante_${id}`);
+        if (saldoRestanteEl) {
+            const sim = aplicarDocsData.moneda === 'USD' ? '$' : 'S/';
+            const rem = Math.max(0, mMax - parsed);
+            saldoRestanteEl.textContent = `${sim} ${rem.toFixed(2)}`;
+        }
+        
+        recalcularAplicarNetoSoloMontos();
+    }
+}
+
+function recalcularAplicarNetoSoloMontos() {
+    const sim = aplicarDocsData.moneda === 'USD' ? '$' : 'S/';
+    let sumaNC = 0, sumaFact = 0;
+    
+    aplicarDocsData.docsNC = [];
+    aplicarDocsData.docsFact = [];
+    
+    aplicarDocsData.allDocs.forEach(d => {
+        const toggleEl = document.getElementById(`anticipo_toggle_${d.id}`);
+        const isAnticipo = toggleEl ? toggleEl.checked : false;
+        const isNCOriginal = d.isNCOriginal;
+        
+        if (isNCOriginal || isAnticipo) {
+            const finalEsAnticipo = isAnticipo || d.esAnticipo || false;
+            const montoNeg = finalEsAnticipo ? -Math.abs(d.monto) : d.monto;
+            aplicarDocsData.docsNC.push({ ...d, monto: montoNeg, esAnticipo: finalEsAnticipo });
+            sumaNC += montoNeg;
+        } else {
+            aplicarDocsData.docsFact.push(d);
+            sumaFact += d.monto;
+        }
+    });
+    
+    const neto = sumaNC + sumaFact;
+    aplicarDocsData.neto = neto;
+    
+    const netoColor = neto <= 0 ? '#10b981' : '#f59e0b';
+    const netoLabel = neto <= 0 ? 'Se compensa totalmente (saldo a favor o cero)' : 'Queda un saldo pendiente por pagar';
+    
+    document.getElementById('aplicarDocsResumen').innerHTML = `
+        <div style="display:flex; justify-content:space-around; margin-bottom:0.5rem;">
+            <div><span style="font-size:0.7rem; color:#dc2626;">NC/Anticipos</span><br><strong style="color:#dc2626;">${sim} ${Math.abs(sumaNC).toLocaleString('es-PE', {minimumFractionDigits: 2})}</strong></div>
+            <div style="font-size:1.2rem; color:#64748b; align-self:center;">→</div>
+            <div><span style="font-size:0.7rem; color:#059669;">Facturas</span><br><strong style="color:#059669;">${sim} ${sumaFact.toLocaleString('es-PE', {minimumFractionDigits: 2})}</strong></div>
+        </div>
+        <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Monto Neto Resultante</div>
+        <div style="font-size:1.3rem; font-weight:800; color:${netoColor};">${sim} ${neto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</div>
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.25rem;">${netoLabel}</div>
+    `;
 }
 
 
@@ -1617,5 +1798,90 @@ async function openTrazaModal(codcia, nrodoc, tipooc, anos) {
         content.innerHTML = html;
     } catch(err) {
         content.innerHTML = `<div style="text-align:center; padding:3rem; color:#ef4444; font-weight:500;">❌ Error: ${err.message}</div>`;
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+//  JALAR / APLICAR ANTICIPO
+// ════════════════════════════════════════════════════════════
+async function abrirModalJalarAnticipo(detalleId, proveedor, ruc, factura, saldo, moneda, codcia) {
+    try {
+        Swal.fire({
+            title: 'Buscando anticipos...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        const res = await axios.get(`/api/cargos/pagos/anticipos-pendientes?ruc=${encodeURIComponent(ruc)}&codcia=${encodeURIComponent(codcia)}`);
+        Swal.close();
+
+        const items = res.data;
+        const targetMoneda = (moneda === '1' || moneda === 'PEN') ? 'PEN' : 'USD';
+
+        // Filtrar por la misma moneda
+        const matches = items.filter(c => {
+            const cMoneda = (c.Moneda === '1' || c.Moneda === 'PEN') ? 'PEN' : 'USD';
+            return cMoneda === targetMoneda;
+        });
+
+        if (matches.length === 0) {
+            Swal.fire('Atención', 'No se encontraron anticipos pagados con la misma moneda para este proveedor.', 'info');
+            return;
+        }
+
+        // Construir la factura seleccionada
+        const selectedFactura = {
+            id: parseInt(detalleId),
+            monto: parseFloat(saldo),
+            montoMaximo: Math.abs(parseFloat(saldo)),
+            proveedor: proveedor,
+            ruc: ruc,
+            nroDoc: factura || 'S/N',
+            tipoComp: '01',
+            isNCOriginal: false,
+            esAnticipo: false
+        };
+
+        // Construir los anticipos a favor
+        const docsNC = matches.map(c => {
+            const maxMonto = Math.abs(parseFloat(c.SaldoAnticipo));
+            return {
+                id: parseInt(c.DetalleId),
+                monto: -maxMonto,
+                montoMaximo: maxMonto,
+                proveedor: c.Proveedor,
+                ruc: c.RucProveedor,
+                nroDoc: `OC ${c.NroOrdenCompra || ''}`,
+                tipoComp: 'ANTICIPO',
+                isNCOriginal: true,
+                esAnticipo: true
+            };
+        });
+
+        const allDocs = [selectedFactura, ...docsNC];
+
+        // Rellenar datos para el modal de Aplicar Documentos
+        aplicarDocsData = {
+            docsNC: docsNC,
+            docsFact: [selectedFactura],
+            allDocs: allDocs,
+            ids: allDocs.map(d => d.id),
+            moneda: targetMoneda,
+            neto: 0
+        };
+
+        // Resetear adjuntos y notas
+        aplicarDocsFiles = [];
+        renderAplicarFileList();
+        document.getElementById('aplicarDocsNotas').value = '';
+
+        // Abrir el modal de Aplicar Documentos
+        document.getElementById('modalAplicarDocs').classList.add('active');
+
+        // Recalcular el neto de la aplicación
+        recalcularAplicarNeto();
+
+    } catch (err) {
+        Swal.fire('Error', String(err), 'error');
     }
 }

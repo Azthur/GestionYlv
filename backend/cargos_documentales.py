@@ -1098,6 +1098,60 @@ def get_ocs_disponibles(
 #  PAGOS TESORERIA - LISTADOS (MUST BE BEFORE /{cargo_id})
 # ════════════════════════════════════════════════════════════
 
+@router.get("/pagos/anticipos-pendientes")
+def get_anticipos_pendientes(ruc: str = Query(...), codcia: str = Query(...)):
+    """Obtener los anticipos con saldo pendiente de aplicar para un proveedor."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                DetalleId,
+                RTRIM(NroOrdenCompra) as NroOrdenCompra,
+                RTRIM(Proveedor) as Proveedor,
+                RTRIM(RucProveedor) as RucProveedor,
+                RTRIM(Moneda) as Moneda,
+                RTRIM(TipoOc) as TipoOc,
+                SUM(MontoPago) as SaldoAnticipo,
+                MAX(FechaPago) as FechaPago,
+                MAX(BancoPago) as BancoPago,
+                MAX(TipoPago) as TipoPago,
+                MAX(NroOperacion) as NroOperacion,
+                MAX(Notas) as Notas
+            FROM FinPagos
+            WHERE RTRIM(CodCia) = ?
+              AND RTRIM(RucProveedor) = ?
+              AND RTRIM(ConceptoPago) = '0002'
+            GROUP BY DetalleId, NroOrdenCompra, Proveedor, RucProveedor, Moneda, TipoOc
+            HAVING SUM(MontoPago) > 0
+            ORDER BY MAX(FechaPago) DESC
+        """, (codcia.strip(), ruc.strip()))
+        cols = [col[0] for col in cursor.description]
+        results = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        
+        # Formatear el saldo, fecha y moneda para JSON
+        for r in results:
+            r['SaldoAnticipo'] = float(r['SaldoAnticipo']) if r['SaldoAnticipo'] is not None else 0.0
+            if r['FechaPago']:
+                r['FechaPago'] = str(r['FechaPago'])
+            
+            # Normalizar moneda
+            mon = (r.get('Moneda') or '1').strip()
+            if mon == '1' or mon == 'PEN':
+                r['Moneda'] = 'PEN'
+            elif mon == '2' or mon == 'USD':
+                r['Moneda'] = 'USD'
+            else:
+                r['Moneda'] = 'PEN'
+        return results
+    except Exception as e:
+        print(f"Error en get_anticipos_pendientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 @router.get("/pagos/pendientes")
 def get_pagos_pendientes(codcia: str = Query(...)):
     """Listar todas las OCs aceptadas en Tesorería que NO han sido pagadas."""
@@ -2241,7 +2295,8 @@ def get_documentos_aceptados_tesoreria(codcia: str = Query(...)):
 
 @router.delete("/pagos/{pago_id}")
 def eliminar_pago(pago_id: int, usuario: str = Query(...)):
-    """Eliminar un pago registrado y revertir el estado del detalle a PENDIENTE"""
+    """Eliminar un pago registrado y revertir el estado del detalle a PENDIENTE.
+    Si pertenece a un grupo de aplicación (compensación), elimina todo el grupo."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Error DB")
@@ -2250,31 +2305,79 @@ def eliminar_pago(pago_id: int, usuario: str = Query(...)):
         cursor.execute("SET ARITHABORT ON")
 
         # Obtener info del pago antes de eliminar
-        cursor.execute("SELECT DetalleId, NroOrdenCompra FROM FinPagos WHERE Id = ?", (pago_id,))
+        cursor.execute("SELECT DetalleId, RTRIM(GrupoAplicacion) FROM FinPagos WHERE Id = ?", (pago_id,))
         pago_row = cursor.fetchone()
         if not pago_row:
             raise HTTPException(status_code=404, detail="Pago no encontrado")
         
-        detalle_id = pago_row[0]
-
-        # Eliminar adjuntos del pago
-        cursor.execute("DELETE FROM FinPagosAdjuntos WHERE PagoId = ?", (pago_id,))
+        detalle_id, grupo_aplicacion = pago_row
         
-        # Eliminar el pago
-        cursor.execute("DELETE FROM FinPagos WHERE Id = ?", (pago_id,))
+        affected_details = []
+        pagos_to_delete = []
 
-        # Verificar si hay otros pagos para este detalle
-        cursor.execute("SELECT COUNT(*) FROM FinPagos WHERE DetalleId = ?", (detalle_id,))
-        otros_pagos = cursor.fetchone()[0]
+        if grupo_aplicacion:
+            # Obtener todos los pagos del mismo grupo
+            cursor.execute("SELECT Id, DetalleId FROM FinPagos WHERE RTRIM(GrupoAplicacion) = ?", (grupo_aplicacion,))
+            for r in cursor.fetchall():
+                pagos_to_delete.append(r[0])
+                if r[1]:
+                    affected_details.append(r[1])
+        else:
+            pagos_to_delete.append(pago_id)
+            if detalle_id:
+                affected_details.append(detalle_id)
 
-        # Si no hay más pagos, revertir estado del detalle
-        if otros_pagos == 0 and detalle_id:
-            cursor.execute("""
-                UPDATE CntCargosDetalle SET EstadoContable = 'PENDIENTE' WHERE Id = ?
-            """, (detalle_id,))
+        # Eliminar adjuntos de todos los pagos a borrar
+        for pid in pagos_to_delete:
+            cursor.execute("DELETE FROM FinPagosAdjuntos WHERE PagoId = ?", (pid,))
+            cursor.execute("DELETE FROM FinPagos WHERE Id = ?", (pid,))
+
+        # Revertir el estado de todos los detalles afectados si no les quedan más pagos
+        cargo_ids = set()
+        for det_id in set(affected_details):
+            # Obtener CargoId
+            cursor.execute("SELECT CargoId FROM CntCargosDetalle WHERE Id = ?", (det_id,))
+            c_row = cursor.fetchone()
+            if c_row:
+                cargo_ids.add(c_row[0])
+
+            cursor.execute("SELECT COUNT(*) FROM FinPagos WHERE DetalleId = ?", (det_id,))
+            restantes = cursor.fetchone()[0]
+            if restantes == 0:
+                cursor.execute("""
+                    UPDATE CntCargosDetalle SET EstadoContable = 'PENDIENTE' WHERE Id = ?
+                """, (det_id,))
+            else:
+                # Si le quedan pagos, verificar si está parcialmente pagado o si vuelve a ser regular
+                cursor.execute("SELECT ISNULL(SUM(MontoPago), 0) FROM FinPagos WHERE DetalleId = ?", (det_id,))
+                neto = float(cursor.fetchone()[0])
+                
+                # Obtener importe principal
+                cursor.execute("SELECT MontoOC, MontoFactura, MontoRendicion, TipoDocumento, TipoOc FROM CntCargosDetalle WHERE Id = ?", (det_id,))
+                dRow = cursor.fetchone()
+                if dRow:
+                    mOC, mFac, mRen, tipo_doc, tipo_oc = dRow
+                    if tipo_doc in ('FACTURA_SIN_OC', 'FACTURA_SI', '01', '03') or tipo_oc == 'FACT':
+                        principal = float(mFac or 0)
+                    elif tipo_doc == 'RENDICION':
+                        principal = float(mRen or 0)
+                    else:
+                        principal = float(mOC or mFac or 0)
+                    
+                    if abs(neto) >= principal:
+                        cursor.execute("UPDATE CntCargosDetalle SET EstadoContable = 'APLICADO' WHERE Id = ?", (det_id,))
+                    else:
+                        cursor.execute("UPDATE CntCargosDetalle SET EstadoContable = 'PENDIENTE' WHERE Id = ?", (det_id,))
+
+        # Revertir el estado del cargo a 'RECIBIDO' si tiene algún detalle no finalizado
+        for cargo_id in cargo_ids:
+            cursor.execute("SELECT COUNT(*) FROM CntCargosDetalle WHERE CargoId = ? AND ISNULL(EstadoContable, '') NOT IN ('PAGADO', 'APLICADO', 'RECHAZADO')", (cargo_id,))
+            not_finished = cursor.fetchone()[0]
+            if not_finished > 0:
+                cursor.execute("UPDATE CntCargosDocumentales SET Estado = 'RECIBIDO' WHERE Id = ?", (cargo_id,))
 
         conn.commit()
-        return {"status": "success", "message": "Pago eliminado correctamente"}
+        return {"status": "success", "message": "Pago(s) eliminado(s) correctamente"}
     except HTTPException:
         raise
     except Exception as e:
@@ -2676,12 +2779,59 @@ async def pagar_cargo_completo(
             raise HTTPException(status_code=404, detail="Detalle no encontrado")
         cargo_id, codcia, nrodoc, tipo_documento, proveedor, ruc, tipo_comp, fec_emi, nro_factura = detRow
 
-        serie, numero = None, None
-        if nro_factura and '-' in nro_factura:
-            parts = nro_factura.split('-', 1)
-            serie = parts[0]
-            numero = parts[1]
+        # Check if it is a Rendición (Rendicion de Gastos)
+        is_rendicion = False
+        if (tipo_documento == 'RG' or 
+            (tipo_comp and 'RENDI' in tipo_comp.upper()) or 
+            (nrodoc and nrodoc.startswith('RG-'))):
+            is_rendicion = True
 
+        serie, numero = None, None
+        if is_rendicion:
+            tipo_comp_codigo = '00'
+            serie = 'RG'
+            # Extract number from nrodoc (e.g. RG-45815875-2026-0002)
+            if nrodoc and '-' in nrodoc:
+                parts = nrodoc.split('-')
+                if len(parts) >= 4:
+                    # 'RG-45815875-2026-0002' -> '2026-0002'
+                    numero = '-'.join(parts[2:])
+                elif len(parts) == 3:
+                    # 'RG-2026-0002' -> '2026-0002'
+                    numero = '-'.join(parts[1:])
+                else:
+                    numero = parts[-1]
+            else:
+                numero = nrodoc or ''
+            
+            # Since it's a Rendición, NroFactura should be set as Serie-Numero (e.g. RG-2026-0002)
+            nro_factura = f"{serie}-{numero}" if numero else serie
+        else:
+            if nro_factura and '-' in nro_factura:
+                parts = nro_factura.split('-', 1)
+                serie = parts[0]
+                numero = parts[1]
+
+            # Resolve TipoComprobante to a 2-digit code
+            tipo_comp_codigo = (tipo_documento or '').strip()
+            if not (tipo_comp_codigo.isdigit() and len(tipo_comp_codigo) == 2):
+                tipo_comp_codigo = (tipo_comp or '').strip()
+                if tipo_comp_codigo and len(tipo_comp_codigo) > 2:
+                    tipo_comp_upper = tipo_comp_codigo.upper()
+                    if 'CREDITO' in tipo_comp_upper or 'NC' in tipo_comp_upper:
+                        tipo_comp_codigo = '07'
+                    elif 'DEBITO' in tipo_comp_upper or ('ND' in tipo_comp_upper and 'RENDI' not in tipo_comp_upper):
+                        tipo_comp_codigo = '08'
+                    elif 'BOLETA' in tipo_comp_upper:
+                        tipo_comp_codigo = '03'
+                    elif 'FACTURA' in tipo_comp_upper:
+                        tipo_comp_codigo = '01'
+                    elif 'HONORARIOS' in tipo_comp_upper or 'RECIBO' in tipo_comp_upper:
+                        tipo_comp_codigo = '02'
+                    else:
+                        tipo_comp_codigo = tipo_comp_codigo[:2]
+
+        fin_tipo_comp = tipo_comp_codigo[:2] if tipo_comp_codigo else ''
         mon_val = '1' if moneda in ('PEN', '1') else '2'
 
         # 2. Registrar en FinPagos (con todos los datos)
@@ -2690,7 +2840,7 @@ async def pagar_cargo_completo(
             (CodCia, NroOrdenCompra, DetalleId, MontoPago, FechaPago, BancoPago, Moneda, TipoPago, NroOperacion, Notas, UsuarioRegistro, TipoDocumento, Proveedor, RucProveedor, TipoComprobante, FechaEmision, Serie, Numero, NroFactura)
             OUTPUT INSERTED.Id
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (codcia, nrodoc, detalle_id, monto, fecha, banco, mon_val, tipo, nro_operacion, notas, usuario, tipo_documento or 'OC', proveedor, ruc, tipo_comp, fec_emi, serie, numero, nro_factura))
+        """, (codcia, nrodoc, detalle_id, monto, fecha, banco, mon_val, tipo, nro_operacion, notas, usuario, tipo_documento or 'OC', proveedor, ruc, fin_tipo_comp, fec_emi, serie, numero, nro_factura))
 
         pago_id = cursor.fetchone()[0]
 
@@ -2796,29 +2946,56 @@ async def pagar_cargo_multiples(
                 clean_tipo_oc = tipo_oc.strip()[:1] if len(tipo_oc.strip()) > 5 else tipo_oc.strip()
                 orders_to_voucher.add((codcia.strip(), clean_tipo_oc, nrodoc.strip()))
             
-            serie, numero = None, None
-            if nro_factura and '-' in nro_factura:
-                parts = nro_factura.split('-', 1)
-                serie = parts[0]
-                numero = parts[1]
+            is_rendicion = False
+            if (tipo_documento == 'RG' or 
+                (tipo_oc and tipo_oc.strip() == 'REND') or 
+                (tipo_comp and 'RENDI' in tipo_comp.upper()) or 
+                (nrodoc and nrodoc.startswith('RG-'))):
+                is_rendicion = True
 
-            # Resolver TipoComprobante: si viene como texto descriptivo, buscar código
-            tipo_comp_codigo = (tipo_comp or '').strip()
-            if tipo_comp_codigo and len(tipo_comp_codigo) > 2:
-                # Es un texto descriptivo, intentar mapear al código
-                tipo_comp_upper = tipo_comp_codigo.upper()
-                if 'CREDITO' in tipo_comp_upper or 'NC' in tipo_comp_upper:
-                    tipo_comp_codigo = '07'
-                elif 'DEBITO' in tipo_comp_upper or 'ND' in tipo_comp_upper:
-                    tipo_comp_codigo = '08'
-                elif 'BOLETA' in tipo_comp_upper:
-                    tipo_comp_codigo = '03'
-                elif 'FACTURA' in tipo_comp_upper:
-                    tipo_comp_codigo = '01'
-                elif 'HONORARIOS' in tipo_comp_upper or 'RECIBO' in tipo_comp_upper:
-                    tipo_comp_codigo = '02'
+            serie, numero = None, None
+            if is_rendicion:
+                tipo_comp_codigo = '00'
+                serie = 'RG'
+                # Extract number from nrodoc (e.g. RG-45815875-2026-0002)
+                if nrodoc and '-' in nrodoc:
+                    parts = nrodoc.split('-')
+                    if len(parts) >= 4:
+                        numero = '-'.join(parts[2:])
+                    elif len(parts) == 3:
+                        numero = '-'.join(parts[1:])
+                    else:
+                        numero = parts[-1]
                 else:
-                    tipo_comp_codigo = tipo_comp_codigo[:2]  # fallback: primeros 2 chars
+                    numero = nrodoc or ''
+                
+                # Since it's a Rendición, NroFactura should be set as Serie-Numero (e.g. RG-2026-0002)
+                nro_factura = f"{serie}-{numero}" if numero else serie
+            else:
+                if nro_factura and '-' in nro_factura:
+                    parts = nro_factura.split('-', 1)
+                    serie = parts[0]
+                    numero = parts[1]
+
+                # Resolver TipoComprobante: si viene como texto descriptivo, buscar código
+                tipo_comp_codigo = (tipo_documento or '').strip()
+                if not (tipo_comp_codigo.isdigit() and len(tipo_comp_codigo) == 2):
+                    tipo_comp_codigo = (tipo_comp or '').strip()
+                    if tipo_comp_codigo and len(tipo_comp_codigo) > 2:
+                        # Es un texto descriptivo, intentar mapear al código
+                        tipo_comp_upper = tipo_comp_codigo.upper()
+                        if 'CREDITO' in tipo_comp_upper or 'NC' in tipo_comp_upper:
+                            tipo_comp_codigo = '07'
+                        elif 'DEBITO' in tipo_comp_upper or ('ND' in tipo_comp_upper and 'RENDI' not in tipo_comp_upper):
+                            tipo_comp_codigo = '08'
+                        elif 'BOLETA' in tipo_comp_upper:
+                            tipo_comp_codigo = '03'
+                        elif 'FACTURA' in tipo_comp_upper:
+                            tipo_comp_codigo = '01'
+                        elif 'HONORARIOS' in tipo_comp_upper or 'RECIBO' in tipo_comp_upper:
+                            tipo_comp_codigo = '02'
+                        else:
+                            tipo_comp_codigo = tipo_comp_codigo[:2]  # fallback: primeros 2 chars
 
             is_nc = tipo_comp_codigo in ('07', '87')
             mult = -1 if is_nc else 1
@@ -2826,6 +3003,8 @@ async def pagar_cargo_multiples(
             monto_ind = 0
             if str(det_id) in montos_map:
                 monto_ind = float(montos_map[str(det_id)])
+            elif len(ids) == 1:
+                monto_ind = float(monto) * mult
             elif tipo_documento in ('FACTURA_SIN_OC', 'FACTURA_SI', '01', '03') or tipo_oc == 'FACT':
                 monto_ind = float(mFac or 0) * mult
             elif tipo_documento == 'RENDICION':
@@ -2841,12 +3020,23 @@ async def pagar_cargo_multiples(
             # Para aplicaciones, no guardar banco
             banco_val = '' if es_aplicacion else banco
             
+            concepto_pago_actual = concepto_pago
+            if monto_ind < 0:
+                # Verificar si este det_id fue originalmente pagado como anticipo
+                cursor.execute("SELECT COUNT(*) FROM FinPagos WHERE DetalleId = ? AND ConceptoPago = '0002'", (det_id,))
+                if cursor.fetchone()[0] > 0:
+                    concepto_pago_actual = '0002'
+                else:
+                    concepto_pago_actual = 'APLICACION_ANTICIPO'
+            elif (tipo in ('APLICACION_ANTICIPO', 'APLICACION')) and monto_ind > 0:
+                concepto_pago_actual = 'APLICACION_ANTICIPO'
+            
             cursor.execute("""
                 INSERT INTO FinPagos
                 (CodCia, NroOrdenCompra, TipoOc, DetalleId, MontoPago, FechaPago, BancoPago, Moneda, TipoPago, NroOperacion, Notas, ConceptoPago, UsuarioRegistro, Proveedor, RucProveedor, TipoComprobante, FechaEmision, Serie, Numero, NroFactura, Uuid, GrupoAplicacion)
                 OUTPUT INSERTED.Id
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (codcia, nrodoc, fin_tipo_oc, det_id, monto_ind, fecha, banco_val, mon_val, tipo, nro_operacion, notas, concepto_pago, usuario, proveedor, ruc, fin_tipo_comp, fec_emi, serie, numero, nro_factura, pago_uuid, grupo_aplicacion or None))
+            """, (codcia, nrodoc, fin_tipo_oc, det_id, monto_ind, fecha, banco_val, mon_val, tipo, nro_operacion, notas, concepto_pago_actual, usuario, proveedor, ruc, fin_tipo_comp, fec_emi, serie, numero, nro_factura, pago_uuid, grupo_aplicacion or None))
             
             p_id = cursor.fetchone()[0]
             pagos_creados.append(p_id)
@@ -2866,14 +3056,17 @@ async def pagar_cargo_multiples(
                 
             marcar_completado = False
             if is_nc:
-                if abs(monto_pagado_total) >= abs(importe_principal):
+                if abs(float(monto_pagado_total)) >= abs(float(importe_principal)) - 0.01:
                     marcar_completado = True
             else:
-                if monto_pagado_total >= importe_principal and importe_principal > 0:
-                    marcar_completado = True
+                # Si se pagó normalmente (monto positivo >= principal)
+                # O si se aplicó como anticipo (monto negativo, y su valor absoluto >= principal)
+                if importe_principal > 0:
+                    if float(monto_pagado_total) >= float(importe_principal) - 0.01 or abs(float(monto_pagado_total)) >= float(importe_principal) - 0.01:
+                        marcar_completado = True
                     
             # Si el pago actual es un pago total o sobrepasa el original, marcar completado
-            if not montos_map:
+            if not montos_map and len(ids) > 1:
                 marcar_completado = True
                 
             if marcar_completado:
@@ -3044,6 +3237,21 @@ def get_pago_publico(uuid: str):
             if fac_row and fac_row[0]:
                 pago['FacturaUuid'] = fac_row[0].strip()
         
+        # Rendición vinculada
+        if pago.get('NroOrdenCompra'):
+            nro_oc = pago['NroOrdenCompra'].strip()
+            if nro_oc.startswith('RG-') or (pago.get('TipoOc') or '').strip() == 'REND':
+                try:
+                    cursor.execute("""
+                        SELECT TOP 1 UuidLink FROM FinRendicionGastosCab
+                        WHERE RTRIM(NroRendicion) = ? AND RTRIM(CodCia) = ?
+                    """, (nro_oc, codcia_pago))
+                    rend_row = cursor.fetchone()
+                    if rend_row and rend_row[0]:
+                        pago['RendicionUuid'] = rend_row[0].strip()
+                except Exception:
+                    pass
+
         # Obtener documentos del mismo GrupoAplicacion
         if pago.get('GrupoAplicacion'):
             cursor.execute("""

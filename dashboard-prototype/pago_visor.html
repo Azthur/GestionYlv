@@ -201,6 +201,9 @@
 
             // Tipo documento
             var tipoDoc = d.TipoComprobanteDesc || d.TipoComprobante || '-';
+            if (d.NroOrdenCompra && d.NroOrdenCompra.startsWith('RG-')) {
+                tipoDoc = 'Rendición';
+            }
 
             // Medio de pago map  
             var medioMap = { 'TRANSFERENCIA':'Transferencia Bancaria', 'CHEQUE':'Cheque', 'EFECTIVO':'Efectivo', 'DEPOSITO':'Depósito', 'TARJETA':'Tarjeta' };
@@ -226,10 +229,29 @@
 
             // Enlaces a documentos relacionados
             var linksHTML = '';
+            
+            // Link a Factura
             if (d.FacturaUuid) {
                 linksHTML += '<a href="/factura_visor.html?uid=' + d.FacturaUuid + '" target="_blank" class="link-card">' +
                     '<span class="icon">📄</span><div class="info"><div class="title">Ver Comprobante ' + (d.NroFactura || '') + '</div><div class="desc">Factura / Boleta vinculada</div></div></a>';
             }
+            
+            // Link a Rendición
+            if (d.RendicionUuid) {
+                linksHTML += '<a href="/visor_rendicion.html?uuid=' + d.RendicionUuid + '" target="_blank" class="link-card">' +
+                    '<span class="icon">📋</span><div class="info"><div class="title">Ver Rendición ' + (d.NroOrdenCompra || '') + '</div><div class="desc">Rendición de Gastos vinculada</div></div></a>';
+            }
+            
+            // Link a Orden de Compra (OC)
+            var nro_oc = d.NroOrdenCompra || '';
+            var isRend = nro_oc.startsWith('RG-') || (d.TipoOc || '').trim() === 'REND';
+            if (nro_oc && nro_oc !== '-' && !isRend) {
+                var cleanTipoOc = (d.TipoOc || 'O').trim();
+                var ocUrl = '/oc_visor.html?nrodoc=' + encodeURIComponent(nro_oc) + '&codcia=' + encodeURIComponent(d.CodCia) + '&tipooc=' + encodeURIComponent(cleanTipoOc);
+                linksHTML += '<a href="' + ocUrl + '" target="_blank" class="link-card">' +
+                    '<span class="icon">📦</span><div class="info"><div class="title">Ver Orden de Compra ' + nro_oc + '</div><div class="desc">Orden de Compra vinculada</div></div></a>';
+            }
+
             var det = d.Detalle || {};
             if (det.NroCargo) {
                 linksHTML += '<div class="link-card" style="cursor:default;"><span class="icon">📋</span><div class="info"><div class="title">Cargo: ' + det.NroCargo + '</div><div class="desc">' + (det.TipoCargo || '') + ' — ' + (det.AreaOrigen || '') + ' → ' + (det.AreaDestino || '') + '</div></div></div>';

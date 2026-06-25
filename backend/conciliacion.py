@@ -1380,8 +1380,10 @@ def get_caja_publica(codigo: str):
                 m.NroDep,
                 m.fchDep,
                 m.CodCom,
-                m.tpopgo
+                m.tpopgo,
+                RTRIM(cia.nomcia) as NomCia
             FROM CcbMVtos m
+            LEFT JOIN AdmMcias cia ON RTRIM(m.CodCia) = RTRIM(cia.codcia)
             LEFT JOIN CcbICaja c ON m.CodCia = c.codcia AND m.coddoc = c.coddoc AND m.nrodoc = c.nrodoc
             LEFT JOIN ReconciliationDetail rd ON rd.MatchCodCia = m.CodCia 
                 AND rd.MatchCoddoc = m.coddoc AND rd.MatchNrodoc = m.nrodoc AND rd.MatchNroitm = m.nroitm
@@ -1452,7 +1454,8 @@ def get_caja_publica(codigo: str):
                 "CajaFlgEst": (r.get('CajaFlgEst') or '').strip(),
                 "Conciliado": str(r.get('IsConciliado', '0')).strip() == '1',
                 "JT": jt,
-                "GroupName": (r.get('GroupName') or r.get('CuentaNombre') or 'VARIOS').strip()
+                "GroupName": (r.get('GroupName') or r.get('CuentaNombre') or 'VARIOS').strip(),
+                "NomCia": (r.get('NomCia') or '').strip()
             })
         
         return enriched

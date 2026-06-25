@@ -91,7 +91,7 @@
                     return;
                 }
 
-                const empresaNombre = "YELAVE INDUSTRIAS S.A.C."; // Idealmente debería venir del API pero usamos genérico
+                const empresaNombre = data[0].NomCia || "YELAVE INDUSTRIAS S.A.C.";
                 const now = new Date().toLocaleDateString();
                 const fechaCaja = data[0].FechaEfe ? new Date(data[0].FechaEfe).toLocaleDateString() : '---';
                 

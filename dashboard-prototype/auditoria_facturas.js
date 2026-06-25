@@ -1713,7 +1713,37 @@ function recalculateGrandTotal() {
     const otrosCargos = getVal('invOtrosCargosDisplay');
     const otrosTrib = getVal('invOtrosTribDisplay');
     
-    const calculatedTotal = gravado + exonerado + inafecto + igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    const isRetencion = invoiceItems.some(it => it.tipoOp === 'retencion_rh') || (document.getElementById('invTipoDoc')?.value === '02');
+    
+    const labelEl = document.getElementById('invIgvLabel');
+    if (labelEl) {
+        if (isRetencion) {
+            const retItem = invoiceItems.find(it => it.tipoOp === 'retencion_rh');
+            const retPercent = retItem ? (retItem.porcRetencion || 8.0) : 8.0;
+            const displayPercent = Number(retPercent) % 1 === 0 ? parseInt(retPercent) : Number(retPercent).toFixed(1);
+            labelEl.textContent = `Retención (${displayPercent}%):`;
+        } else {
+            let igvPercent = 18.0;
+            const gravadaItem = invoiceItems.find(it => (it.tipoOp === 'gravada' || !it.tipoOp) && it.porcIgv !== undefined && it.porcIgv !== null);
+            if (gravadaItem) {
+                igvPercent = gravadaItem.porcIgv;
+            } else {
+                const manualPorcIgvEl = document.getElementById('manualPorcIgv');
+                if (manualPorcIgvEl && parseFloat(manualPorcIgvEl.value) > 0) {
+                    igvPercent = parseFloat(manualPorcIgvEl.value);
+                }
+            }
+            const displayPercent = Number(igvPercent) % 1 === 0 ? parseInt(igvPercent) : Number(igvPercent).toFixed(1);
+            labelEl.textContent = `IGV (${displayPercent}%):`;
+        }
+    }
+    
+    let calculatedTotal;
+    if (isRetencion) {
+        calculatedTotal = gravado + exonerado + inafecto - igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    } else {
+        calculatedTotal = gravado + exonerado + inafecto + igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    }
     
     const totalEl = document.getElementById('invTotalDisplay');
     if (totalEl) {
@@ -2679,6 +2709,10 @@ function renderFacturasTable(list) {
                     ? `<button class="btn-flat" style="padding:4px; color:#cbd5e1; cursor:not-allowed;" title="No se puede Eliminar (${f.Estado})"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
                     : `<button class="btn-flat" style="padding:4px; color:#ef4444;" onclick="eliminarFactura(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Eliminar"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`
                 }
+                ${(estadoRaw === 'CONTABILIZADO' || estadoRaw === 'CONTABILIZADA') 
+                    ? `<button class="btn-flat" style="padding:4px; color:#f59e0b; margin-left:2px;" onclick="revertirEstado(${f.Id}, '${f.Serie||''}-${f.Numero||''}')" title="Revertir a REGISTRADA"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg></button>` 
+                    : ''
+                }
             </div>`
         ];
     });
@@ -2964,7 +2998,7 @@ function printFacturaLocal() {
                     <div><span>Op. Gravada:</span> <span>${fmtNum(data.MtoGravado || data.SubTotal)}</span></div>
                     <div><span>Op. Inafecta:</span> <span>${fmtNum(data.MtoInafecto || 0)}</span></div>
                     <div><span>Op. Exonerada:</span> <span>${fmtNum(data.MtoExonerado || 0)}</span></div>
-                    <div><span>IGV:</span> <span>${fmtNum(data.IGV || (data.Total - data.SubTotal))}</span></div>
+                    <div><span>${data.CodTipoDoc === '02' ? 'Retención:' : 'IGV:'}</span> <span>${fmtNum(data.IGV !== undefined && data.IGV !== null ? data.IGV : (data.CodTipoDoc === '02' ? (data.SubTotal - data.Total) : (data.Total - data.SubTotal)))}</span></div>
                     <div><span>Otros Tributos:</span> <span>${fmtNum(data.OtrosTributos || 0)}</span></div>
                     <div><span>ICBPER:</span> <span>${fmtNum(data.MtoICBPER || 0)}</span></div>
                     <div><span>TOTAL GENERAL:</span> <span>${monSym(data.CodMoneda)} ${fmtNum(data.Total || data.total)}</span></div>
@@ -3321,6 +3355,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentCodCia) {
         loadTiposComprobante(currentCodCia);
         loadFacturas();
+    }
+    
+    const tipoDocEl = document.getElementById('invTipoDoc');
+    if (tipoDocEl) {
+        tipoDocEl.addEventListener('change', () => {
+            recalculateGrandTotal();
+        });
     }
 });
 

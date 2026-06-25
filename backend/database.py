@@ -53,7 +53,11 @@ def get_db_connection():
     eng = init_db_engine()
     try:
         # Get a DBAPI connection mapped closely to pyodbc from the SQLAlchemy Pool
-        return eng.raw_connection()
+        conn = eng.raw_connection()
+        cursor = conn.cursor()
+        cursor.execute("SET ARITHABORT ON")
+        cursor.close()
+        return conn
     except Exception as e:
         print(f"Error getting pooled DB connection: {e}")
         return None

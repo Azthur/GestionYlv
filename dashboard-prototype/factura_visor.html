@@ -392,7 +392,7 @@
                     '<div class="trow"><span class="lb">Op. Gravada:</span><strong>'+fmt(d.MtoGravado||d.SubTotal)+'</strong></div>' +
                     '<div class="trow"><span class="lb">Op. Inafecta:</span><strong>'+fmt(d.MtoInafecto||0)+'</strong></div>' +
                     '<div class="trow"><span class="lb">Op. Exonerada:</span><strong>'+fmt(d.MtoExonerado||0)+'</strong></div>' +
-                    '<div class="trow"><span class="lb">IGV (18%):</span><strong>'+fmt(d.IGV||0)+'</strong></div>' +
+                    '<div class="trow"><span class="lb">'+(d.CodTipoDoc === '02' ? 'Retención:' : 'IGV (18%):')+'</span><strong>'+fmt(d.IGV||0)+'</strong></div>' +
                     '<div class="trow"><span class="lb">Otros Tributos:</span><strong>'+fmt((d.OtrosTributos||0)+(d.MtoICBPER||0)+(d.MtoOtrosCargos||0))+'</strong></div>' +
                     '<div class="tfinal"><strong style="color:#0f172a;">TOTAL:</strong><strong style="font-size:1.25rem;color:#2563eb;">'+monSym(d.CodMoneda)+' '+fmt(d.Total)+'</strong></div>' +
                 '</div>' +

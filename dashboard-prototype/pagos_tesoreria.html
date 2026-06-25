@@ -65,6 +65,7 @@
         .stat-card.warning .stat-value { color: var(--warning); }
 
         /* ─── Modal Overlay ─── */
+        .swal2-container { z-index: 99999 !important; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px); z-index: 10000; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; animation: modFadeIn 0.15s ease-out; }
         @keyframes modFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -208,6 +209,8 @@
                     <input type="hidden" id="pago_codcia">
                     <input type="hidden" id="pago_nrodoc">
                     <input type="hidden" id="pago_tipooc">
+                    <input type="hidden" id="pago_montos_aplicados">
+                    <input type="hidden" id="pago_grupo_aplicacion">
 
                     <!-- FILA 1: Banco Emisor (full width) — al seleccionar banco, se detecta la moneda -->
                     <div style="margin-bottom:1rem;">
@@ -263,9 +266,15 @@
                         <input type="date" id="pago_fecha" required style="width:100%; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
                     </div>
 
+                    <!-- Anticipo Checkbox -->
+                    <div style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; background:#fffbeb; border:1px solid #fde68a; padding:0.6rem 0.8rem; border-radius:6px;">
+                        <input type="checkbox" id="pago_es_anticipo" style="transform:scale(1.2); cursor:pointer;" onchange="if(this.checked) { const conceptoSelect = document.getElementById('pago_concepto'); if(conceptoSelect) { conceptoSelect.value = '0002'; } }">
+                        <label for="pago_es_anticipo" style="font-weight:700; font-size:0.8rem; color:#b45309; cursor:pointer; user-select:none;">⚠️ Marcar como Anticipo / Adelanto a Proveedor</label>
+                    </div>
+
                     <!-- FILA 5: Archivos Adjuntos — Drag & Drop -->
                     <div style="margin-bottom:1rem;">
-                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">📎 Adjuntos (Vouchers, Comprobantes)</label>
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">📎 Adjuntos (Vouchers, Comprobantes) <span style="color:#ef4444;">*</span></label>
                         <div id="dropZone" style="border:2px dashed #94a3b8; border-radius:8px; padding:1rem; text-align:center; cursor:pointer; transition:all 0.2s; background:#fafbfc;"
                              onclick="document.getElementById('pago_adjuntos').click()"
                              ondragover="event.preventDefault(); this.style.borderColor='#2563eb'; this.style.background='#eff6ff';"
@@ -282,8 +291,8 @@
 
                     <!-- FILA 6: Notas -->
                     <div style="margin-bottom:1.25rem;">
-                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Notas (Opcional)</label>
-                        <textarea id="pago_notas" rows="2" style="width:100%; padding:0.5rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; resize:vertical;" placeholder="Observaciones adicionales..."></textarea>
+                        <label style="font-weight:700; font-size:0.8rem; display:block; margin-bottom:0.35rem; color:#334155;">Notas <span style="color:#ef4444;">*</span></label>
+                        <textarea id="pago_notas" rows="2" style="width:100%; padding:0.5rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; resize:vertical;" placeholder="Observaciones obligatorias para el registro..."></textarea>
                     </div>
 
                     <!-- Botones -->
@@ -431,6 +440,50 @@
                 <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1rem;">
                     <button class="btn-action outline" onclick="document.getElementById('modalAplicarDocs').classList.remove('active')">Cancelar</button>
                     <button class="btn-action" style="background:linear-gradient(135deg, #7c3aed, #8b5cf6); color:white; font-weight:700;" onclick="confirmarAplicarDocs()">✅ Confirmar Aplicación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: JALAR ANTICIPO A FACTURA ═══ -->
+    <div class="modal-overlay" id="modalJalarAnticipo">
+        <div class="modal" style="width:90%; max-width:800px; max-height: 90vh;">
+            <div class="modal-header" style="background:#d97706; padding:1rem 1.5rem; justify-content:space-between; color:white; border-radius:12px 12px 0 0;">
+                <h3 style="color:#fff; font-size:1rem; margin:0;" id="modalJalarAnticipoTitle">🔗 Jalar Anticipo a Factura</h3>
+                <button class="close-btn" style="color:#fff; opacity:0.8; background:none; border:none; cursor:pointer;" onclick="document.getElementById('modalJalarAnticipo').classList.remove('active')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:1.5rem; background:#f8fafc; overflow-y:auto; flex:1;">
+                <div id="jalarAnticipoFactInfo" style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; margin-bottom:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <!-- Resumen de la factura inyectado aquí -->
+                </div>
+                <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem; color:#475569;">Seleccione el Anticipo pagado a aplicar:</h4>
+                <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.85rem;" id="jalarAnticiposTable">
+                        <thead style="background:#f1f5f9; text-align:left; color:#475569;">
+                            <tr>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0; width:40px; text-align:center;">Sel.</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0;">Anticipo OC</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0;">Fecha Pago</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0;">Moneda</th>
+                                <th style="padding:0.75rem; border-bottom:1px solid #e2e8f0; text-align:right;">Saldo Disponible</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jalarAnticiposTbody">
+                            <!-- Inyectado aquí -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <input type="hidden" id="jalarFactDetalleId">
+                <input type="hidden" id="jalarFactMonto">
+                <input type="hidden" id="jalarFactMoneda">
+                <input type="hidden" id="jalarFactCodCia">
+                
+                <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1.5rem;">
+                    <button class="btn-action outline" onclick="document.getElementById('modalJalarAnticipo').classList.remove('active')">Cancelar</button>
+                    <button class="btn-action primary" style="background:#d97706; color:white; border:none;" onclick="confirmarJalarAnticipo()">✅ Aplicar Anticipo Seleccionado</button>
                 </div>
             </div>
         </div>

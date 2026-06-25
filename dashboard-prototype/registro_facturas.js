@@ -1718,7 +1718,37 @@ function recalculateGrandTotal() {
     const otrosCargos = getVal('invOtrosCargosDisplay');
     const otrosTrib = getVal('invOtrosTribDisplay');
     
-    const calculatedTotal = gravado + exonerado + inafecto + igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    const isRetencion = invoiceItems.some(it => it.tipoOp === 'retencion_rh') || (document.getElementById('invTipoDoc')?.value === '02');
+    
+    const labelEl = document.getElementById('invIgvLabel');
+    if (labelEl) {
+        if (isRetencion) {
+            const retItem = invoiceItems.find(it => it.tipoOp === 'retencion_rh');
+            const retPercent = retItem ? (retItem.porcRetencion || 8.0) : 8.0;
+            const displayPercent = Number(retPercent) % 1 === 0 ? parseInt(retPercent) : Number(retPercent).toFixed(1);
+            labelEl.textContent = `Retención (${displayPercent}%):`;
+        } else {
+            let igvPercent = 18.0;
+            const gravadaItem = invoiceItems.find(it => (it.tipoOp === 'gravada' || !it.tipoOp) && it.porcIgv !== undefined && it.porcIgv !== null);
+            if (gravadaItem) {
+                igvPercent = gravadaItem.porcIgv;
+            } else {
+                const manualPorcIgvEl = document.getElementById('manualPorcIgv');
+                if (manualPorcIgvEl && parseFloat(manualPorcIgvEl.value) > 0) {
+                    igvPercent = parseFloat(manualPorcIgvEl.value);
+                }
+            }
+            const displayPercent = Number(igvPercent) % 1 === 0 ? parseInt(igvPercent) : Number(igvPercent).toFixed(1);
+            labelEl.textContent = `IGV (${displayPercent}%):`;
+        }
+    }
+    
+    let calculatedTotal;
+    if (isRetencion) {
+        calculatedTotal = gravado + exonerado + inafecto - igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    } else {
+        calculatedTotal = gravado + exonerado + inafecto + igv + isc + icbper + otrosCargos + otrosTrib - anticipos;
+    }
     
     const totalEl = document.getElementById('invTotalDisplay');
     if (totalEl) {
@@ -2961,7 +2991,7 @@ function printFacturaLocal() {
                     <div><span>Op. Gravada:</span> <span>${fmtNum(data.MtoGravado || data.SubTotal)}</span></div>
                     <div><span>Op. Inafecta:</span> <span>${fmtNum(data.MtoInafecto || 0)}</span></div>
                     <div><span>Op. Exonerada:</span> <span>${fmtNum(data.MtoExonerado || 0)}</span></div>
-                    <div><span>IGV:</span> <span>${fmtNum(data.IGV || (data.Total - data.SubTotal))}</span></div>
+                    <div><span>${data.CodTipoDoc === '02' ? 'Retención:' : 'IGV:'}</span> <span>${fmtNum(data.IGV !== undefined && data.IGV !== null ? data.IGV : (data.CodTipoDoc === '02' ? (data.SubTotal - data.Total) : (data.Total - data.SubTotal)))}</span></div>
                     <div><span>Otros Tributos:</span> <span>${fmtNum(data.OtrosTributos || 0)}</span></div>
                     <div><span>ICBPER:</span> <span>${fmtNum(data.MtoICBPER || 0)}</span></div>
                     <div><span>TOTAL GENERAL:</span> <span>${monSym(data.CodMoneda)} ${fmtNum(data.Total || data.total)}</span></div>
@@ -3321,6 +3351,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentCodCia) {
         loadTiposComprobante(currentCodCia);
         loadFacturas();
+    }
+    
+    const tipoDocEl = document.getElementById('invTipoDoc');
+    if (tipoDocEl) {
+        tipoDocEl.addEventListener('change', () => {
+            recalculateGrandTotal();
+        });
     }
 });
 
