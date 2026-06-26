@@ -1,0 +1,252 @@
+DICCIONARIO DE TABLAS - SISTEMA ERP YELAVE
+=========================================
+
+Este documento describe las tablas de la base de datos SQL Server que están conectadas ("amarradas") e integradas en la plataforma web actual (FastAPI / Dashboard). Las tablas están organizadas por módulos funcionales.
+
+--------------------------------------------------------------------------------
+1. MÓDULO DE USUARIOS, ROLES Y SEGURIDAD
+--------------------------------------------------------------------------------
+* WebUsers
+  - Uso: Almacena las cuentas de usuario de la plataforma web, sus contraseñas encriptadas, correos, estado de la cuenta (activo/inactivo), y la fecha de creación.
+  
+* WebRoles
+  - Uso: Define los roles de seguridad disponibles en el sistema (ej. Administrador, Tesorería, Contabilidad, Dirección Técnica, Reparto).
+  
+* WebModulos
+  - Uso: Registra las vistas, opciones de menú y módulos funcionales accesibles en el frontend del ERP web.
+  
+* WebPermisos
+  - Uso: Matriz de control de acceso granular. Asocia los Roles con los Módulos para determinar si un rol tiene acceso de lectura (visualización) y/o escritura (modificación).
+
+* WebUsuarioEmpresa
+  - Uso: Asocia qué usuarios web tienen autorización para operar bajo qué compañías/RUCs específicas (como Botica, Corporación, Industrias, Yelave).
+
+* WebUsuarioTipoOc
+  - Uso: Permisos específicos que determinan qué usuarios pueden gestionar u observar qué tipo de Órdenes de Compra (OC de mercadería, servicios, etc.).
+
+* AdmMUser
+  - Uso: Tabla de usuarios heredada del sistema central ERP o base de datos core, mapeada para compatibilidad de inicio de sesión o auditoría.
+
+* AdmMcias
+  - Uso: Tabla maestra que contiene el listado de empresas/compañías que conforman el grupo empresarial YELAVE, junto con sus datos fiscales (RUC, dirección, etc.).
+
+
+--------------------------------------------------------------------------------
+2. MÓDULO DE LOGÍSTICA, COMPRAS Y REQUERIMIENTOS
+--------------------------------------------------------------------------------
+* CmpROcom
+  - Uso: Cabecera de Órdenes de Compra (OC). Almacena el número de orden, proveedor, RUC, fechas de emisión/entrega, estado de la orden, observaciones generales y totales.
+
+* CmpVOcom
+  - Uso: Detalle de las Órdenes de Compra. Almacena cada artículo o servicio solicitado, cantidad, precio unitario, descuentos e importes parciales de la OC.
+
+* LogOcAcciones
+  - Uso: Historial de auditoría para las Órdenes de Compra. Guarda un log detallado de quién aprobó, rechazó o modificó cada OC y en qué fecha.
+
+* Log_Aprobaciones
+  - Uso: Registro formal de aprobaciones de compras, relacionando el responsable y el estado de aprobación.
+
+* Log_CmpRCoti / Log_CmpVCoti
+  - Uso: Registro de cotizaciones recibidas de proveedores en el proceso logístico (cabecera y detalle).
+
+* Log_ControlCalidad
+  - Uso: Registra las evaluaciones de control de calidad aplicadas a los insumos y materiales recibidos en almacén.
+
+* Purchase_Orders / RawMaterial_Batches
+  - Uso: Tablas del módulo moderno de compras que registran las órdenes de compra y los lotes asociados de materias primas o insumos.
+
+* CmpDRequ / CmpVRequ
+  - Uso: Cabecera y detalle de solicitudes de requerimientos internos de materiales o servicios emitidos por las áreas de la empresa.
+
+* formula / dformula
+  - Uso: Fórmulas o recetas maestras de producción (cabecera y detalle), que indican la cantidad de insumos requeridos por producto final.
+
+
+--------------------------------------------------------------------------------
+3. MÓDULO DE CARGOS DOCUMENTALES (CUENTAS POR PAGAR)
+--------------------------------------------------------------------------------
+* CntCargosDocumentales
+  - Uso: Tabla principal de Cargos. Un "Cargo" es un lote físico/digital de documentos de gastos (facturas, rendiciones) agrupados para ser entregados de un área a otra (ej. de Operaciones a Contabilidad o Tesorería). Registra el Nro. de Cargo, tipo, áreas involucradas, usuario de origen/destino y estado (Pendiente, Recibido, Aprobado).
+
+* CntCargosDetalle
+  - Uso: Detalle de documentos asociados a cada Cargo Documental. Lista las facturas, rendiciones de gastos o planillas de movilidad agrupadas en el cargo con sus respectivos montos, proveedores y estado contable individual.
+
+
+--------------------------------------------------------------------------------
+4. MÓDULO DE FACTURACIÓN Y COMPROBANTES DE PROVEEDORES
+--------------------------------------------------------------------------------
+* CntFacturaCab
+  - Uso: Registro y control de las facturas de proveedores ingresadas al sistema. Almacena el RUC del proveedor, razón social, serie/número, totales, tipo de moneda, orden de compra (OC) relacionada y estado de validación contable.
+
+* CntFacturaDet
+  - Uso: Detalle de los comprobantes/facturas, especificando los artículos, servicios, precios y montos de IGV a nivel de ítem.
+
+* CntFacturaArchivos
+  - Uso: Almacena las rutas de los archivos PDF y XML de las facturas cargadas al ERP web.
+
+* CntFacturaDetArchivos
+  - Uso: Registro de archivos sustento adicionales adjuntados a nivel de detalle de las facturas.
+
+* CntCompras
+  - Uso: Tabla donde se cargan e importan las compras formales informadas a SUNAT para su cotejo y auditoría fiscal.
+
+* CntTokensEmpresa
+  - Uso: Guarda los tokens de acceso y credenciales de APIs de SUNAT para consultas de comprobantes electrónicos.
+
+* CntPeriodoContable
+  - Uso: Controla los periodos contables (mes/año) por empresa que se encuentran cerrados o abiertos, bloqueando el registro de facturas en fechas no autorizadas.
+
+
+--------------------------------------------------------------------------------
+5. MÓDULO DE GASTOS Y RENDICIÓN DE CUENTAS (CAJA CHICA, VIÁTICOS Y MOVILIDAD)
+--------------------------------------------------------------------------------
+* FinRendicionGastosCab
+  - Uso: Cabecera de las rendiciones de cuentas mensuales o por viaje del personal. Guarda datos del colaborador que rinde, fecha, totales gastados, estado y observaciones.
+
+* FinRendicionGastosDet
+  - Uso: Detalle de comprobantes presentados en la rendición (facturas de viáticos, boletas de almuerzo, recibos, etc.) con sus montos e impuestos.
+
+* FinRendicionGastosAdjuntos
+  - Uso: Enlaces y rutas de almacenamiento para las fotos o PDFs de los comprobantes físicos cargados como sustento de la rendición.
+
+* FinPlanillaMovilidadCab
+  - Uso: Registro cabecera de gastos de transporte/movilidad local del personal.
+
+* FinPlanillaMovilidadDet
+  - Uso: Registro del detalle de trayectos de movilidad (fecha, origen, destino, motivo del viaje y costo del pasaje).
+
+* FinPlanillaMovilidadAdjuntos
+  - Uso: Archivos de firmas, planillas escaneadas u hojas de ruta que sustentan la movilidad cobrada.
+
+* CONGASTO
+  - Uso: Catálogo maestro de conceptos o tipos de gastos permitidos en el ERP (ej. Alimentación, Viáticos, Útiles de Oficina).
+
+
+--------------------------------------------------------------------------------
+6. MÓDULO DE TESORERÍA Y PAGOS
+--------------------------------------------------------------------------------
+* FinPagos
+  - Uso: Registro de egresos y pagos. Asocia la programación y ejecución del pago de facturas o rendiciones, indicando la fecha de pago, banco, número de operación y total pagado.
+
+* FinPagosAdjuntos
+  - Uso: Almacena las imágenes o archivos PDF de las constancias de transferencia bancaria, cheques o depósitos que validan el pago contable.
+
+* CjaMTipo
+  - Uso: Catálogo maestro de las cajas de flujo de dinero y cuentas bancarias utilizadas para programar y registrar los egresos de la empresa.
+
+
+--------------------------------------------------------------------------------
+7. MÓDULO DE CONCILIACIÓN BANCARIA
+--------------------------------------------------------------------------------
+* BankMovements
+  - Uso: Movimientos bancarios reales importados desde los estados de cuenta de bancos (BCP, BBVA, etc.) en soles y dólares, indicando fecha, descripción, cargo/abono y saldo.
+
+* BankReconciliation
+  - Uso: Maestro de los estados y consolidaciones de conciliación por cuenta bancaria y periodo.
+
+* ReconciliationDetail
+  - Uso: Tabla puente de emparejamiento. Relaciona qué movimiento de banco (`BankMovements`) corresponde a qué pago de tesorería (`FinPagos`) o cobranza interna del ERP.
+
+* tbl_Conciliados
+  - Uso: Consolidado final de transacciones marcadas como conciliadas exitosamente tras el proceso de validación automática o manual.
+
+* POSTARJE
+  - Uso: Almacena los depósitos provenientes de pasarelas de pago con tarjeta (ej. Izipay) para su posterior cuadre contra las ventas y abonos de banco.
+
+* ReconciliationRules / CleaningRules
+  - Uso: Reglas configuradas para el motor de auto-conciliación (ej. asociar palabras clave de la descripción del banco con cuentas o tipos de movimientos).
+
+
+--------------------------------------------------------------------------------
+8. MÓDULO DE INVENTARIO, ALMACÉN Y KARDEX
+--------------------------------------------------------------------------------
+* AlmmMate / AlmmMatg
+  - Uso: Catálogo maestro general de artículos, insumos, envases y productos terminados en stock (códigos, descripciones, unidades de medida, costos promedio).
+
+* AlmAcmLt
+  - Uso: Control de stock por lote. Registra las cantidades físicas de productos agrupadas por su lote de fabricación y fecha de vencimiento.
+
+* AlmRMovm / AlmVMovm
+  - Uso: Cabecera y detalle de movimientos físicos de almacén. Registra guías de ingreso, vales de salida, transferencias entre almacenes y ajustes de inventario.
+
+* AlmTMovm
+  - Uso: Tabla maestra que define los tipos de movimientos permitidos en el almacén (ej. Compra, Producción, Venta, Mermas).
+
+* AlmTabla
+  - Uso: Catálogo de almacenes físicos registrados en el ERP (ej. Almacén Central, Almacén de Cuarentena, Almacén de Productos Terminados).
+
+* AlmTsalm
+  - Uso: Catálogo de locales o destinos hacia donde se pueden despachar o transferir mercancías.
+
+
+--------------------------------------------------------------------------------
+9. MÓDULO DE PRODUCCIÓN (MANUFACTURA)
+--------------------------------------------------------------------------------
+* Production_Orders
+  - Uso: Órdenes de Producción. Registra la planificación de manufactura, lote final asignado, registro sanitario aplicable, Director Técnico responsable, fecha de inicio, estado (Planificada, En Proceso, Terminada), cantidad planificada y producida.
+
+* Log_Prod_Orden / Log_Prod_Etapas / Log_Prod_Costos
+  - Uso: Módulos de trazabilidad y control de costos en el proceso productivo. Registra el paso de la orden por las etapas de fabricación (mezclado, envasado, acondicionado) y los insumos reales consumidos vs. estándar.
+
+* PROCESOS
+  - Uso: Catálogo de operaciones o fases de los procesos de manufactura definidos en la planta.
+
+
+--------------------------------------------------------------------------------
+10. MÓDULO DE REPARTO Y DISTRIBUCIÓN
+--------------------------------------------------------------------------------
+* LogHojasRuta
+  - Uso: Cabecera de Hojas de Ruta de despacho. Registra el chofer, vehículo (placa), fecha de despacho, estado de la ruta y observaciones.
+
+* LogHojasRutaDet
+  - Uso: Detalle de las Hojas de Ruta. Lista los pedidos, facturas o guías de remisión asignadas a esa unidad de transporte para su despacho físico.
+
+* LogSolicitudesRecojo / LogSolicitudesRecojoDet
+  - Uso: Solicitudes de devolución de mercadería o recojo de insumos en ruta (cabecera y detalle).
+
+* Deliveries
+  - Uso: Registro operativo del estado final de las entregas de mercadería a clientes (Entregado, Rechazado, Parcial).
+
+
+--------------------------------------------------------------------------------
+11. MÓDULO DE CUENTAS POR COBRAR Y VENTAS (ERP CORE INTEGRADO)
+--------------------------------------------------------------------------------
+* CcbRGdoc
+  - Uso: Registro de comprobantes emitidos por la empresa (Facturas y Boletas de venta) pendientes de cobro a clientes.
+
+* CcbMVtos
+  - Uso: Cronograma de vencimientos de las cuentas por cobrar, registrando el número de cuota, fecha de vencimiento e importe adeudado.
+
+* CcbICaja
+  - Uso: Registro de ingresos a caja por conceptos de cobranza a clientes o depósitos recibidos.
+
+* CcbTabla
+  - Uso: Tablas de configuración auxiliar para el módulo de cobranzas (estados, zonas de cobro, etc.).
+
+* VtaVPedi / VtaRPedi
+  - Uso: Pedidos de venta registrados por los canales comerciales (cabecera y detalle).
+
+* VtaVGuia / VtaRGuia
+  - Uso: Guías de Remisión de Ventas emitidas para el transporte de productos a clientes (cabecera y detalle).
+
+* VtaRItem
+  - Uso: Detalle de los ítems y cantidades despachadas en las ventas históricas.
+
+* VtaUbige
+  - Uso: Maestro de departamentos, provincias y distritos de Perú (Ubigeo) utilizado para facturación y rutas de reparto.
+
+* VtaTabla
+  - Uso: Parámetros y tablas de configuración general de ventas (puntos de venta, tarifas, etc.).
+
+* VND_GRUPO
+  - Uso: Agrupaciones y jerarquías de vendedores o fuerzas de venta comerciales.
+
+
+--------------------------------------------------------------------------------
+12. CHAT INTERNO Y AUDITORÍA
+--------------------------------------------------------------------------------
+* WebChatMensajes
+  - Uso: Registro persistente de mensajes de chat en tiempo real enviados entre usuarios del ERP web.
+
+* Traceability_Log
+  - Uso: Bitácora general para auditar operaciones críticas del sistema, registrando quién, cuándo y qué acción realizó sobre los registros.

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama de Entidad-Relación (ER) - ERP Yelave</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f7f6;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.1em;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .carousel-slides {
+            display: flex;
+            transition: transform 0.4s ease-in-out;
+        }
+        .slide {
+            min-width: 100%;
+            padding: 30px 50px;
+            box-sizing: border-box;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 0;
+            border-bottom: 1px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+        .slide p {
+            text-align: left;
+            font-size: 1em;
+            color: #555;
+        }
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(52, 152, 219, 0.7);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            border-radius: 50%;
+            font-size: 18px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        .carousel-btn:hover {
+            background: rgba(52, 152, 219, 1);
+        }
+        .prev { left: 10px; }
+        .next { right: 10px; }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Diagrama de Entidad-Relación (ER) - ERP Yelave</h1>
+    <p>Este documento presenta los diagramas de entidad-relación que describen el modelo de datos activo ("amarrado") en el sistema web del ERP.</p>
+    <p>Para facilitar la comprensión del diseño, los diagramas se han separado por módulos de negocio independientes utilizando un carrusel interactivo.</p>
+
+    <div class="carousel-container">
+        <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
+        <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
+        
+        <div class="carousel-slides" id="slides">
+            
+            <div class="slide">
+                <h2>1. Seguridad, Usuarios y Accesos</h2>
+                <p>El módulo de seguridad gestiona la autenticación, los permisos granulares asignados a roles, el acceso a vistas específicas y la asociación de usuarios con empresas autorizadas del holding.</p>
+                <div class="mermaid">
+erDiagram
+    WebUsers {
+        int Id PK
+        string Username
+        string Password
+        int RoleId FK
+        string Estado
+    }
+    WebRoles {
+        int Id PK
+        string Nombre
+    }
+    WebModulos {
+        int Id PK
+        string Nombre
+        string Ruta
+    }
+    WebPermisos {
+        int Id PK
+        int RoleId FK
+        int ModuloId FK
+        bool Lectura
+        bool Escritura
+    }
+    WebUsuarioEmpresa {
+        int Id PK
+        int UserWebId FK
+        char CodCia FK
+    }
+    AdmMcias {
+        char CodCia PK
+        string NomCia
+        string Ruc
+    }
+    WebUsuarioTipoOc {
+        int Id PK
+        int UserWebId FK
+        string TipoOc
+    }
+    WebChatMensajes {
+        int Id PK
+        int RemitenteId FK
+        int DestinatarioId FK
+        string Mensaje
+    }
+
+    WebUsers }|..|| WebRoles : "pertenece a"
+    WebRoles ||--o{ WebPermisos : "define permisos"
+    WebModulos ||--o{ WebPermisos : "es regulado por"
+    WebUsers ||--o{ WebUsuarioEmpresa : "tiene acceso a"
+    AdmMcias ||--o{ WebUsuarioEmpresa : "vinculada a"
+    WebUsers ||--o{ WebUsuarioTipoOc : "puede gestionar tipo"
+    WebUsers ||--o{ WebChatMensajes : "envía/recibe"
+                </div>
+            </div>
+
+            <div class="slide">
+                <h2>2. Cuentas por Pagar (Cargos y Facturas)</h2>
+                <p>Este sub-sistema permite la carga de facturas de proveedores, su verificación contra las compras informadas a SUNAT, y su agrupación lógica en "Cargos" para derivarlas a aprobación contable.</p>
+                <div class="mermaid">
+erDiagram
+    CntCargosDocumentales {
+        int Id PK
+        string NroCargo
+        string TipoCargo
+        string Estado
+        char CodCia
+    }
+    CntCargosDetalle {
+        int Id PK
+        int CargoId FK
+        string NroFactura FK
+        string NroOrdenCompra
+        decimal MontoFactura
+    }
+    CntFacturaCab {
+        int Id PK
+        string NomProveedor
+        string NumRucProveedor
+        string Serie
+        string Numero
+        decimal Total
+        date FecPeriodoContable FK
+        int IdCompraRef FK
+    }
+    CntFacturaDet {
+        int Id PK
+        int FacturaCabId FK
+        string CodMat
+        decimal Cantidad
+    }
+    CntFacturaArchivos {
+        int Id PK
+        int FacturaCabId FK
+        string RutaArchivo
+    }
+    CntFacturaDetArchivos {
+        int Id PK
+        int FacturaCabId FK
+        string RutaArchivo
+    }
+    CntCompras {
+        int Id PK
+        string NumCDP
+        string NomRazonSocial
+        decimal MtoTotalCp
+    }
+    CntPeriodoContable {
+        int Id PK
+        char CodCia
+        int Ano
+        int Mes
+        string Estado
+    }
+    CmpROcom {
+        string NroOrdenCompra PK
+        char CodCia PK
+        string Proveedor
+    }
+
+    CntCargosDocumentales ||--o{ CntCargosDetalle : "contiene"
+    CntCargosDetalle }|..o| CntFacturaCab : "agrupa/vincula"
+    CntFacturaCab ||--o{ CntFacturaDet : "contiene items"
+    CntFacturaCab ||--o{ CntFacturaArchivos : "tiene adjuntos"
+    CntFacturaCab ||--o{ CntFacturaDetArchivos : "tiene adjuntos items"
+    CntFacturaCab }|..o| CntCompras : "valida datos vs SUNAT"
+    CntFacturaCab }|..o| CmpROcom : "asociada a"
+    CntFacturaCab }|..|| CntPeriodoContable : "valida mes contable"
+                </div>
+            </div>
+
+            <div class="slide">
+                <h2>3. Gastos, Rendiciones y Movilidad</h2>
+                <p>Controla el flujo de caja chica, viáticos y gastos de movilidad del personal. Estos flujos también pueden agruparse en los Cargos Documentales para pase a pago.</p>
+                <div class="mermaid">
+erDiagram
+    FinRendicionGastosCab {
+        int Id PK
+        string Colaborador
+        decimal Total
+        string Estado
+    }
+    FinRendicionGastosDet {
+        int Id PK
+        int RendicionCabId FK
+        int ConceptoGastoId FK
+        string Proveedor
+        decimal Monto
+    }
+    FinRendicionGastosAdjuntos {
+        int Id PK
+        int RendicionCabId FK
+        string RutaArchivo
+    }
+    FinPlanillaMovilidadCab {
+        int Id PK
+        string Colaborador
+        decimal Total
+        date FecPeriodoContable
+    }
+    FinPlanillaMovilidadDet {
+        int Id PK
+        int MovilidadCabId FK
+        string Origen
+        string Destino
+        decimal Costo
+        int ConceptoGastoId FK
+    }
+    FinPlanillaMovilidadAdjuntos {
+        int Id PK
+        int MovilidadCabId FK
+        string RutaArchivo
+    }
+    CONGASTO {
+        int Id PK
+        string DesGasto
+        string CodCta
+    }
+    CntCargosDetalle {
+        int Id PK
+        int CargoId FK
+        decimal MontoRendicion
+    }
+
+    FinRendicionGastosCab ||--o{ FinRendicionGastosDet : "contiene egresos"
+    FinRendicionGastosCab ||--o{ FinRendicionGastosAdjuntos : "posee fotos/sustentos"
+    FinPlanillaMovilidadCab ||--o{ FinPlanillaMovilidadDet : "contiene tramos"
+    FinPlanillaMovilidadCab ||--o{ FinPlanillaMovilidadAdjuntos : "tiene firmas"
+    FinRendicionGastosDet }|..|| CONGASTO : "clasificado como"
+    FinPlanillaMovilidadDet }|..|| CONGASTO : "clasificado como"
+    CntCargosDetalle }|..o| FinRendicionGastosCab : "agrupa en cargo"
+                </div>
+            </div>
+
+            <div class="slide">
+                <h2>4. Tesorería, Pagos y Conciliación Bancaria</h2>
+                <p>Registra los desembolsos de dinero (pagos) para liquidar facturas y rendiciones, y permite conciliar dichos pagos contra los extractos reales de cuentas bancarias.</p>
+                <div class="mermaid">
+erDiagram
+    FinPagos {
+        int Id PK
+        date FechaPago
+        string NroOperacion
+        decimal MontoPagado
+        int FacturaCabId FK
+    }
+    FinPagosAdjuntos {
+        int Id PK
+        int PagoId FK
+        string RutaArchivo
+    }
+    BankMovements {
+        int Id PK
+        date FechaMov
+        string Descripcion
+        decimal Importe
+        string Moneda
+    }
+    ReconciliationDetail {
+        int Id PK
+        int MovementId FK
+        int PagoId FK
+        string Estado
+    }
+    tbl_Conciliados {
+        int Id PK
+        int ConciliacionId
+        string Observacion
+    }
+    POSTARJE {
+        int Id PK
+        date FechaVenta
+        decimal ImporteNeto
+    }
+    CntFacturaCab {
+        int Id PK
+        decimal Total
+    }
+
+    FinPagos ||--o{ FinPagosAdjuntos : "tiene constancia de transferencia"
+    FinPagos }|..o| CntFacturaCab : "cancela deuda"
+    BankMovements ||--o{ ReconciliationDetail : "se asocia en"
+    FinPagos ||--o{ ReconciliationDetail : "se empareja con"
+    ReconciliationDetail }|..|| tbl_Conciliados : "genera registro conciliado"
+    POSTARJE }|..o{ BankMovements : "cuadra abonos de tarjetas"
+                </div>
+            </div>
+
+            <div class="slide">
+                <h2>5. Almacén, Lotes e Inventario (Kardex)</h2>
+                <p>Define el catálogo de materias primas y productos, el almacenamiento detallado por lotes, y los movimientos de entrada, salida y saldo (Kardex).</p>
+                <div class="mermaid">
+erDiagram
+    AlmmMatg {
+        char CodMat PK
+        string DesMat
+        string UndStk
+    }
+    AlmmMate {
+        char CodMat PK
+        char Almcen PK
+        decimal StkAct
+    }
+    AlmAcmLt {
+        string NroLote PK
+        char CodMat PK
+        char Almcen PK
+        decimal CanDes
+        date FchLote
+    }
+    AlmRMovm {
+        string NroDoc PK
+        char CodCia PK
+        date FchDoc
+        char TpoMov FK
+    }
+    AlmVMovm {
+        int Id PK
+        string NroDoc FK
+        char CodMat FK
+        decimal Cantidad
+    }
+    AlmTMovm {
+        char TpoMov PK
+        string DesMov
+    }
+    AlmTabla {
+        char CodAlm PK
+        string DesAlm
+    }
+
+    AlmmMatg ||--o{ AlmmMate : "registra stock en"
+    AlmmMatg ||--o{ AlmAcmLt : "lotes del producto"
+    AlmRMovm ||--o{ AlmVMovm : "contiene items"
+    AlmVMovm }|..|| AlmmMatg : "mueve material"
+    AlmRMovm }|..|| AlmTMovm : "clasificado como tipo"
+    AlmRMovm }|..|| AlmTabla : "origen/destino"
+                </div>
+            </div>
+
+            <div class="slide">
+                <h2>6. Logística, Compras (OC) y Producción</h2>
+                <p>Representa el flujo de abastecimiento y manufactura del negocio. Las Órdenes de Compra (OC) y los pedidos de manufactura generan los lotes de stock de la planta.</p>
+                <div class="mermaid">
+erDiagram
+    CmpROcom {
+        string NroOrdenCompra PK
+        char CodCia PK
+        string Proveedor
+        string Estado
+    }
+    CmpVOcom {
+        int Id PK
+        string NroOrdenCompra FK
+        char CodMat FK
+        decimal Cantidad
+        decimal PreUto
+    }
+    LogOcAcciones {
+        int Id PK
+        string NroOrdenCompra FK
+        string Accion
+        string Usuario
+    }
+    Production_Orders {
+        int Id PK
+        string ProductName
+        string FinalBatchNumber
+        decimal PlannedQuantity
+        string Status
+    }
+    Log_Prod_Orden {
+        int Id PK
+        int ProductionOrderId FK
+        string Observacion
+    }
+    Log_Prod_Etapas {
+        int Id PK
+        int ProductionOrderId FK
+        string Etapa
+    }
+    Log_Prod_Costos {
+        int Id PK
+        int ProductionOrderId FK
+        decimal CostoReal
+    }
+    formula {
+        int Id PK
+        string DesFormula
+    }
+    dformula {
+        int Id PK
+        int FormulaId FK
+        char CodMat FK
+        decimal CantidadStandard
+    }
+    AlmmMatg {
+        char CodMat PK
+    }
+
+    CmpROcom ||--o{ CmpVOcom : "contiene lineas"
+    CmpROcom ||--o{ LogOcAcciones : "registra auditoria de"
+    CmpVOcom }|..|| AlmmMatg : "solicita item"
+    Production_Orders ||--o{ Log_Prod_Orden : "registra historial"
+    Production_Orders ||--o{ Log_Prod_Etapas : "pasa por fases"
+    Production_Orders ||--o{ Log_Prod_Costos : "acumula costos"
+    formula ||--o{ dformula : "compuesta por"
+    dformula }|..|| AlmmMatg : "requiere componente"
+                </div>
+            </div>
+
+            <div class="slide">
+                <h2>7. Distribución, Despacho y Reparto</h2>
+                <p>Mapea el transporte y entrega de pedidos facturados por el área comercial utilizando Hojas de Ruta de los transportistas asignados.</p>
+                <div class="mermaid">
+erDiagram
+    LogHojasRuta {
+        int Id PK
+        string PlacaVehiculo
+        string Chofer
+        string Estado
+    }
+    LogHojasRutaDet {
+        int Id PK
+        int HojaRutaId FK
+        string NroGuia FK
+        string NroFactura
+    }
+    VtaVGuia {
+        string NroGuia PK
+        char CodCia PK
+        string NomAuxCliente
+    }
+    LogSolicitudesRecojo {
+        int Id PK
+        string Chofer
+        string Estado
+    }
+    LogSolicitudesRecojoDet {
+        int Id PK
+        int SolicitudId FK
+        char CodMat FK
+        decimal Cantidad
+    }
+    AlmmMatg {
+        char CodMat PK
+    }
+
+    LogHojasRuta ||--o{ LogHojasRutaDet : "organiza entregas en"
+    LogHojasRutaDet }|..o| VtaVGuia : "incluye despacho de"
+    LogSolicitudesRecojo ||--o{ LogSolicitudesRecojoDet : "contiene recojos"
+    LogSolicitudesRecojoDet }|..|| AlmmMatg : "recupera item"
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+
+    <script>
+        let currentIndex = 0;
+        
+        function moveSlide(direction) {
+            const slides = document.getElementById('slides');
+            const totalSlides = document.querySelectorAll('.slide').length;
+            
+            currentIndex += direction;
+            
+            if (currentIndex < 0) {
+                currentIndex = totalSlides - 1;
+            }
+            if (currentIndex >= totalSlides) {
+                currentIndex = 0;
+            }
+            
+            slides.style.transform = `translateX(-${currentIndex * 100}%)`;
+        }
+    </script>
+
+</body>
+</html>
