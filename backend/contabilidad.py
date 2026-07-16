@@ -2182,6 +2182,12 @@ def mount_file_server():
             mount_point = UPLOAD_DIR
             os.makedirs(mount_point, exist_ok=True)
             
+            # Verificar si ya está montado
+            check_mount = subprocess.run(['mountpoint', '-q', mount_point], capture_output=True)
+            if check_mount.returncode == 0:
+                print(f"El recurso SMB ya está montado en {mount_point}")
+                return True
+            
             # Intentar montar
             mount_cmd = [
                 'mount',

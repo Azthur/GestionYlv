@@ -42,17 +42,23 @@ chmod 600 "$CRED_FILE"
 MOUNT_POINT="/app/gestion-ylv"
 mkdir -p "$MOUNT_POINT"
 
-# Intentar montar
-echo "Intentando montar $SMB_PATH en $MOUNT_POINT"
-if mount -t cifs "$SMB_PATH" "$MOUNT_POINT" \
-    -o "credentials=$CRED_FILE,uid=1000,gid=1000,iocharset=utf8,vers=3.0"; then
-    echo "=== Montaje SMB exitoso ==="
-    # Mostrar espacio disponible
+# Verificar si ya está montado
+if mountpoint -q "$MOUNT_POINT"; then
+    echo "=== El recurso SMB ya está montado en $MOUNT_POINT ==="
     df -h "$MOUNT_POINT"
 else
-    echo "=== ERROR: Montaje SMB falló ==="
-    echo "Los archivos adjuntos no estarán disponibles"
-    # No fallar el inicio del contenedor por esto
+    # Intentar montar
+    echo "Intentando montar $SMB_PATH en $MOUNT_POINT"
+    if mount -t cifs "$SMB_PATH" "$MOUNT_POINT" \
+        -o "credentials=$CRED_FILE,uid=1000,gid=1000,iocharset=utf8,vers=3.0"; then
+        echo "=== Montaje SMB exitoso ==="
+        # Mostrar espacio disponible
+        df -h "$MOUNT_POINT"
+    else
+        echo "=== ERROR: Montaje SMB falló ==="
+        echo "Los archivos adjuntos no estarán disponibles"
+        # No fallar el inicio del contenedor por esto
+    fi
 fi
 
 # Limpiar archivo de credenciales

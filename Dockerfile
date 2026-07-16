@@ -62,4 +62,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 
 # ─── Start the application ──────────────────────────────────────────
 WORKDIR /app/backend
+# Ejecutar montaje SMB en background y luego iniciar uvicorn con 4 workers
 CMD ["/bin/bash", "-c", "/usr/local/bin/mount_smb.sh && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --access-log"]
