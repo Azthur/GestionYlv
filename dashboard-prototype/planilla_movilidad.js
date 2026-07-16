@@ -75,7 +75,7 @@ async function cargarPlanillaParaEditar(id) {
         det.forEach(d => {
             const rId = ++rowCount;
             const tr = document.createElement("tr");
-            tr.id = `row-${rId}`;
+            tr.id = `fila-${rId}`;
             tr.innerHTML = `
                 <td><input type="date" class="f-fecha" value="${d.Fecha}"></td>
                 <td><input type="text" class="f-motivo" placeholder="Ej: Visita Cliente" value="${d.Motivo}" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
@@ -83,7 +83,7 @@ async function cargarPlanillaParaEditar(id) {
                 <td><input type="text" class="f-hasta" placeholder="Destino" value="${d.Hasta}" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></td>
                 <td><input type="number" step="0.01" class="f-monto" value="${d.Monto}" onkeyup="calcularTotal()" onchange="calcularTotal()"></td>
                 <td style="text-align:center;">
-                    <button class="btn-icon text-red" onclick="borrarFila(${rId})" title="Eliminar fila">&#10006;</button>
+                    <button class="btn-icon text-red" onclick="eliminarFila(${rId})" title="Eliminar fila">&#10006;</button>
                 </td>
             `;
             tbody.appendChild(tr);

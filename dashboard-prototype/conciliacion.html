@@ -478,7 +478,7 @@
                                         <th>Monto</th>
                                         <th>Saldo</th>
                                         <th>Sucursal</th>
-                                        <th>NÂ° Operación</th>
+                                        <th>N° Operación</th>
                                         <th>Hora</th>
                                         <th>Referencia</th>
                                         <th>Op. Manual</th>
@@ -538,7 +538,7 @@
                                         <th>nroref</th>
                                         <th>Importe</th>
                                         <th>CodAux</th>
-                                        <th>NÂ° Op. Final</th>
+                                        <th>N° Op. Final</th>
 
                                         <th>Usuario</th>
 
@@ -560,11 +560,11 @@
                 <div class="tab-content fade-in" id="tab-reglas">
                     <div class="card table-container glass-panel" style="max-width: 800px; margin: 0 auto;">
                         <div class="table-header">
-                            <h3>Reglas de Limpieza de NÂ° de Operación (Auto-Match)</h3>
+                            <h3>Reglas de Limpieza de N° de Operación (Auto-Match)</h3>
                             <button class="btn btn-primary" onclick="openRuleModal()">+ Nueva Regla</button>
                         </div>
                         <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">Estas reglas se
-                            ejecutan durante la <b>conciliación automática</b> para normalizar los nÃºmeros de
+                            ejecutan durante la <b>conciliación automática</b> para normalizar los números de
                             operación (Ej: quitar OP- o eliminar ceros a la izquierda).</p>
                         <div class="table-responsive custom-scrollbar">
                             <table class="data-table" id="tableReglas">
@@ -618,7 +618,7 @@
 
                         <h3 style="color: var(--danger); margin-bottom: 1rem;">Zona de Peligro</h3>
                         <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem;">
-                            Las acciones en esta sección son destructivas y no se pueden deshacer. Ãšsalas con extrema
+                            Las acciones en esta sección son destructivas y no se pueden deshacer. Íšsalas con extrema
                             precaución.
                         </p>
 
@@ -838,14 +838,14 @@
             <div style="padding: 1.25rem 1.5rem; text-align: left;">
                 <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.75rem 1rem; font-size: 0.9rem;">
                     <span style="color: #64748b; font-weight: 600;">Empresa:</span>
-                    <span id="importConfirmEmpresa" style="color: #0f172a; font-weight: 700;">â€”</span>
+                    <span id="importConfirmEmpresa" style="color: #0f172a; font-weight: 700;">—</span>
                     <span style="color: #64748b; font-weight: 600;">Banco:</span>
-                    <span id="importConfirmBanco" style="color: #0f172a; font-weight: 700;">â€”</span>
+                    <span id="importConfirmBanco" style="color: #0f172a; font-weight: 700;">—</span>
                     <span style="color: #64748b; font-weight: 600;">Moneda:</span>
-                    <span id="importConfirmMoneda" style="color: #0f172a; font-weight: 700;">â€”</span>
+                    <span id="importConfirmMoneda" style="color: #0f172a; font-weight: 700;">—</span>
                     <span style="color: #64748b; font-weight: 600;">Archivo:</span>
                     <span id="importConfirmArchivo"
-                        style="color: #0f172a; font-weight: 600; word-break: break-all;">â€”</span>
+                        style="color: #0f172a; font-weight: 600; word-break: break-all;">—</span>
                 </div>
             </div>
             <div
@@ -975,7 +975,7 @@
 
     <script src="conciliacion.js?v=6.7"></script>
     <script>
-        // â”€â”€â”€ Sidebar Collapse Logic â”€â”€â”€
+        // ——— Sidebar Collapse Logic ———
         (function () {
             var sidebar = document.getElementById('sidebar');
             if (localStorage.getItem('yelave_sidebar_collapsed') === 'true') {

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
-        /* â”€â”€â”€ Page-specific styles â”€â”€â”€ */
+        /* Í¢ââ¬Í¢ââ¬Í¢ââ¬ Page-specific styles Í¢ââ¬Í¢ââ¬Í¢ââ¬ */
         .glass-panel {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -430,7 +430,7 @@
                                 <div class="form-field">
                                     <label>Contraseña</label>
                                     <div class="input-with-toggle">
-                                        <input type="password" id="inputPassword" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢">
+                                        <input type="password" id="inputPassword" placeholder="">
                                         <button class="toggle-password" onclick="togglePasswordVisibility()"
                                             title="Mostrar/Ocultar">
                                             <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -453,7 +453,7 @@
                                 <div class="form-field">
                                     <label>Contraseña de Red</label>
                                     <div class="input-with-toggle">
-                                        <input type="password" id="inputFilePassword" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢">
+                                        <input type="password" id="inputFilePassword" placeholder="">
                                         <button class="toggle-password" onclick="toggleFilePasswordVisibility()"
                                             title="Mostrar/Ocultar">
                                             <svg id="eyeIconFile" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -524,7 +524,7 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <script>
-        // â”€â”€â”€ Sidebar Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Sidebar Toggle Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
@@ -532,7 +532,7 @@
             overlay.classList.toggle('active', sidebar.classList.contains('open'));
         }
 
-        // â”€â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Toast Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         function showToast(msg, type = 'info') {
             const c = document.getElementById('toastContainer');
             const t = document.createElement('div');
@@ -542,13 +542,13 @@
             setTimeout(() => { t.style.animation = 'slideIn 0.3s ease-out reverse forwards'; setTimeout(() => t.remove(), 300); }, 3500);
         }
 
-        // â”€â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Init Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         document.addEventListener('DOMContentLoaded', () => {
             loadCurrentConfig();
             checkStatus();
         });
 
-        // â”€â”€â”€ Load Current Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Load Current Config Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         async function loadCurrentConfig() {
             try {
                 const res = await fetch('/api/config/db');
@@ -566,7 +566,7 @@
             }
         }
 
-        // â”€â”€â”€ Check Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Check Status Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         async function checkStatus() {
             const indicator = document.getElementById('statusIndicator');
             const text = document.getElementById('statusText');
@@ -602,7 +602,7 @@
             }
         }
 
-        // â”€â”€â”€ Toggle Password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Toggle Password Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         function togglePasswordVisibility() {
             const input = document.getElementById('inputPassword');
             const icon = document.getElementById('eyeIcon');
@@ -627,7 +627,7 @@
             }
         }
 
-        // â”€â”€â”€ Test Connection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Test Connection Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         async function testConnection() {
             const server = document.getElementById('inputServer').value;
             const db = document.getElementById('inputDatabase').value;
@@ -684,7 +684,7 @@
             area.innerHTML = html;
         }
 
-        // â”€â”€â”€ Test File Connection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Test File Connection Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         async function testFileConnection() {
             const fileServer = document.getElementById('inputFileServer').value;
             const fileUser = document.getElementById('inputFileUser').value;
@@ -715,7 +715,7 @@
             }
         }
 
-        // â”€â”€â”€ Save Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Í¢ââ¬Í¢ââ¬Í¢ââ¬ Save Config Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬Í¢ââ¬
         async function saveConfig() {
             const server = document.getElementById('inputServer').value;
             const db = document.getElementById('inputDatabase').value;
