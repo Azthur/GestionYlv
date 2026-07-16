@@ -933,7 +933,8 @@ h6 {
 }
 
 /* ─── Tooltip on hover (collapsed) ─── */
-.sidebar.collapsed .nav-item::after {
+.sidebar.collapsed .nav-item::after,
+.sidebar.collapsed .nav-section-header::after {
     content: attr(data-tooltip);
     position: absolute;
     left: calc(100% + 12px);
@@ -954,7 +955,8 @@ h6 {
     letter-spacing: 0.01em;
 }
 /* Tooltip arrow */
-.sidebar.collapsed .nav-item::before {
+.sidebar.collapsed .nav-item::before,
+.sidebar.collapsed .nav-section-header::before {
     content: '';
     position: absolute;
     left: calc(100% + 6px);
@@ -967,11 +969,13 @@ h6 {
     transition: opacity 0.2s ease;
     z-index: 9999;
 }
-.sidebar.collapsed .nav-item:hover::after {
+.sidebar.collapsed .nav-item:hover::after,
+.sidebar.collapsed .nav-section-header:hover::after {
     opacity: 1;
     transform: translateY(-50%) scale(1);
 }
-.sidebar.collapsed .nav-item:hover::before {
+.sidebar.collapsed .nav-item:hover::before,
+.sidebar.collapsed .nav-section-header:hover::before {
     opacity: 1;
 }
 
@@ -990,6 +994,112 @@ h6 {
 .sidebar.collapsed .user-profile a {
     justify-content: center;
     flex: unset;
+}
+
+/* ─── Section Styles (Main Menus) ─── */
+.nav-section {
+    margin-bottom: 0.25rem;
+}
+
+.nav-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-radius: 8px;
+    margin: 0.25rem 0;
+}
+
+.nav-section-header:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-section-header.active {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--primary);
+}
+
+.nav-section-header.active .nav-icon {
+    color: var(--primary);
+}
+
+.nav-section .submenu-arrow {
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+    transition: transform 0.3s ease;
+    color: var(--text-sidebar);
+}
+
+.nav-section.expanded .submenu-arrow {
+    transform: rotate(180deg);
+}
+
+.nav-section .submenu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    padding-left: 1.5rem;
+}
+
+.nav-section.expanded .submenu {
+    max-height: 500px;
+}
+
+.nav-section .submenu .nav-item {
+    padding-left: 0.5rem;
+}
+
+.nav-section .submenu .nav-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* ─── Collapsed Section Styles ─── */
+.sidebar.collapsed .nav-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar.collapsed .nav-section-header {
+    padding: 0;
+    margin: 0;
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    background: transparent;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar.collapsed .nav-section-header:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar.collapsed .nav-section-header .nav-icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+
+.sidebar.collapsed .nav-text {
+    display: none;
+}
+
+.sidebar.collapsed .submenu-arrow {
+    display: none;
+}
+
+.sidebar.collapsed .submenu {
+    display: none;
+}
+
+.sidebar.collapsed .nav-section:not(.has-submenu) {
+    display: flex;
 }
 
 

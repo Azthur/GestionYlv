@@ -42,8 +42,20 @@
         periodos_contables: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     };
 
+    // ── Iconos para secciones principales ──
+    const SECTION_ICONS = {
+        'Dashboard': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+        'Logística': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+        'Contabilidad': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>',
+        'Finanzas': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+        'Gastos y Movilidad': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+        'Producción': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+        'Distribución': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+        'Sistema': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    };
+
     // ── Secciones con label para agrupar ──
-    const SECTION_ORDER = ['Principal', 'Logística', 'Contabilidad', 'Finanzas', 'Gastos y Movilidad', 'Producción', 'Distribución', 'Sistema'];
+    const SECTION_ORDER = ['Dashboard', 'Logística', 'Contabilidad', 'Finanzas', 'Gastos y Movilidad', 'Producción', 'Distribución', 'Sistema'];
 
     // ── Theme ──
     function getTheme() {
@@ -75,17 +87,41 @@
             const items = sections[secName];
             if (!items || items.length === 0) return;
 
-            if (secName !== 'Principal') {
-                navHtml += `<div class="nav-group-label">${secName}</div>`;
-            }
+            const sectionIcon = SECTION_ICONS[secName] || SECTION_ICONS['Dashboard'];
+            const sectionIconContent = sectionIcon.replace(/<svg[^>]*>/, '').replace('</svg>', '');
 
-            items.forEach(m => {
-                const isActive = currentPath === m.RutaHtml || currentPath === m.RutaHtml.replace('.html', '');
-                const icon = MODULE_ICONS[m.Codigo] || MODULE_ICONS['dashboard'];
-                navHtml += `<a href="${m.RutaHtml}" class="nav-item${isActive ? ' active' : ''}" data-tooltip="${m.Nombre}">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon.replace(/<svg[^>]*>/, '').replace('</svg>', '')}</svg>${m.Nombre}
-                </a>`;
-            });
+            // Check if any item in this section is active
+            const hasActiveItem = items.some(m => currentPath === m.RutaHtml || currentPath === m.RutaHtml.replace('.html', ''));
+
+            if (secName === 'Dashboard') {
+                // Dashboard: show items directly without section header (no submenu)
+                items.forEach(m => {
+                    const isActive = currentPath === m.RutaHtml || currentPath === m.RutaHtml.replace('.html', '');
+                    const icon = MODULE_ICONS[m.Codigo] || MODULE_ICONS['dashboard'];
+                    navHtml += `<a href="${m.RutaHtml}" class="nav-item${isActive ? ' active' : ''}" data-tooltip="${m.Nombre}">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon.replace(/<svg[^>]*>/, '').replace('</svg>', '')}</svg>${m.Nombre}
+                    </a>`;
+                });
+            } else {
+                // Other sections: create collapsible section header with submenu
+                navHtml += `
+                <div class="nav-section has-submenu ${hasActiveItem ? ' expanded active-section' : ''}" data-section="${secName}" data-tooltip="${secName}">
+                    <div class="nav-section-header${hasActiveItem ? ' active' : ''}" onclick="toggleSection('${secName}')">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${sectionIconContent}</svg>
+                        <span class="nav-text">${secName}</span>
+                        <svg class="submenu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <div class="submenu">
+                        ${items.map(m => {
+                            const isActive = currentPath === m.RutaHtml || currentPath === m.RutaHtml.replace('.html', '');
+                            const icon = MODULE_ICONS[m.Codigo] || MODULE_ICONS['dashboard'];
+                            return `<a href="${m.RutaHtml}" class="nav-item${isActive ? ' active' : ''}" data-tooltip="${m.Nombre}">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon.replace(/<svg[^>]*>/, '').replace('</svg>', '')}</svg>${m.Nombre}
+                            </a>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            }
         });
 
         const userName = user.nombre || user.login || 'Usuario';
@@ -154,6 +190,20 @@
         const sidebar = document.getElementById('sidebar');
         if (sidebar) sidebar.classList.toggle('collapsed');
         localStorage.setItem('yelave_sidebar_collapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+    };
+
+    window.toggleSection = function (sectionName) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('collapsed')) {
+            // If sidebar is collapsed, expand it first then toggle section
+            sidebar.classList.remove('collapsed');
+            localStorage.setItem('yelave_sidebar_collapsed', '0');
+        }
+
+        const section = document.querySelector(`.nav-section[data-section="${sectionName}"]`);
+        if (section) {
+            section.classList.toggle('expanded');
+        }
     };
 
     window.toggleTheme = function () {

@@ -163,7 +163,7 @@ def _seed_initial_data(cursor, conn):
     # ── Seed Módulos ──
     modulos = [
         # (Codigo, Nombre, RutaHtml, Seccion, Orden, ParentCod)
-        ('dashboard',           'Dashboard',            '/index.html',              'Principal',      1,  None),
+        ('dashboard',           'Dashboard',            '/index.html',              'Dashboard',      1,  None),
         ('logistics',           'Centro Logístico',     '/logistics.html',          'Logística',      10, None),
         ('orders',              'Compras (OC)',         '/orders.html',             'Logística',      11, None),
         ('inventario',          'Saldos Inventario',    '/inventario.html',         'Logística',      12, None),
@@ -324,6 +324,10 @@ def _seed_initial_data(cursor, conn):
             END
         """, (cc_mid, cc_mid))
         conn.commit()
+
+    # Actualizar sección de dashboard a 'Dashboard' si existe
+    cursor.execute("UPDATE WebModulos SET Seccion = 'Dashboard' WHERE Codigo = 'dashboard'")
+    conn.commit()
 
     # Asegurar módulo y permisos de periodos_contables para ADMIN y CONTABILIDAD
     cursor.execute("""
