@@ -8,7 +8,7 @@ from database import get_db_connection
 from auth import get_current_user
 from pydantic import BaseModel
 
-ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
+ATTACHMENTS_ROOT = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
 
 router = APIRouter(prefix="/api/logistics", tags=["Logística y Compras"])
 

@@ -1510,7 +1510,16 @@ function openItemExtraModal(index) {
 }
 
 async function deleteItemFile(archivoId, obsField, itemIndex) {
-    if (!confirm('Â¿EstÃ¡ seguro de eliminar este archivo?')) return;
+    const result = await Swal.fire({
+        title: '¿Eliminar archivo?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if (!result.isConfirmed) return;
     
     try {
         const token = localStorage.getItem('yelave_token');
@@ -1521,7 +1530,7 @@ async function deleteItemFile(archivoId, obsField, itemIndex) {
         
         if (res.ok) {
             // Eliminar archivo de la memoria local
-            if (invoiceItems[itemIndex].extraData.files && invoiceItems[itemIndex].extraData.files[obsField]) {
+            if (invoiceItems[itemIndex].extraData && invoiceItems[itemIndex].extraData.files && invoiceItems[itemIndex].extraData.files[obsField]) {
                 invoiceItems[itemIndex].extraData.files[obsField] = invoiceItems[itemIndex].extraData.files[obsField].filter(f => f.id !== archivoId);
             }
             

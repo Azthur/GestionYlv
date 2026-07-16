@@ -2144,79 +2144,9 @@ def get_trazabilidad(
 from dotenv import load_dotenv
 load_dotenv()
 
-FILE_SERVER = os.getenv("FILE_SERVER", "")
-FILE_USER = os.getenv("FILE_USER", "")
-FILE_PASSWORD = os.getenv("FILE_PASSWORD", "")
-
-# Si hay servidor de archivos configurado, usarlo; si no, usar ATTACHMENTS_ROOT local
-if FILE_SERVER:
-    # Convertir ruta Windows SMB a formato Linux: \\server\share -> //server/share
-    SMB_PATH = FILE_SERVER.replace("\\", "//")
-    UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", f"/mnt/smb{SMB_PATH}")
-else:
-    UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
+UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-def mount_file_server():
-    """Montar servidor de archivos SMB si está configurado"""
-    if not FILE_SERVER:
-        return False
-    
-    try:
-        import subprocess
-        import tempfile
-        
-        # Convertir ruta Windows SMB a formato Linux
-        smb_path = FILE_SERVER.replace("\\", "//")
-        
-        # Crear archivo de credenciales temporal
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.credentials') as cred_file:
-            cred_file.write(f"username={FILE_USER}\n")
-            cred_file.write(f"password={FILE_PASSWORD}\n")
-            cred_file.write(f"domain=WORKGROUP\n")
-            cred_path = cred_file.name
-        
-        try:
-            # Crear punto de montaje
-            mount_point = UPLOAD_DIR
-            os.makedirs(mount_point, exist_ok=True)
-            
-            # Verificar si ya está montado
-            check_mount = subprocess.run(['mountpoint', '-q', mount_point], capture_output=True)
-            if check_mount.returncode == 0:
-                print(f"El recurso SMB ya está montado en {mount_point}")
-                return True
-            
-            # Intentar montar
-            mount_cmd = [
-                'mount',
-                '-t', 'cifs',
-                smb_path,
-                mount_point,
-                '-o', f'credentials={cred_path},uid=1000,gid=1000,iocharset=utf8,vers=3.0'
-            ]
-            
-            result = subprocess.run(mount_cmd, capture_output=True, text=True, timeout=10)
-            
-            if result.returncode == 0:
-                print(f"Servidor de archivos montado exitosamente en {mount_point}")
-                return True
-            else:
-                print(f"Error al montar servidor de archivos: {result.stderr}")
-                return False
-        finally:
-            # Limpiar archivo de credenciales temporal
-            try:
-                os.unlink(cred_path)
-            except:
-                pass
-    except Exception as e:
-        print(f"Error al montar servidor de archivos: {e}")
-        return False
-
-# Intentar montar servidor de archivos al iniciar
-mount_file_server()
 
 @router.post("/facturas/{factura_id}/archivos")
 async def upload_archivo(factura_id: int, archivo: UploadFile = File(...), tipo_doc: str = Form("PDF"), created_by: str = Form("")):

@@ -18,17 +18,7 @@ load_dotenv()
 # ════════════════════════════════════════════════════════════
 #  CONFIGURACIÓN DE SERVIDOR DE ARCHIVOS
 # ════════════════════════════════════════════════════════════
-FILE_SERVER = os.getenv("FILE_SERVER", "")
-FILE_USER = os.getenv("FILE_USER", "")
-FILE_PASSWORD = os.getenv("FILE_PASSWORD", "")
-
-# Si hay servidor de archivos configurado, usarlo; si no, usar carpeta local
-if FILE_SERVER:
-    # Convertir ruta Windows SMB a formato Linux: \\server\share -> //server/share
-    SMB_PATH = FILE_SERVER.replace("\\", "//")
-    UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", f"/mnt/smb/{SMB_PATH.replace('//', '').replace('/', '_')}")
-else:
-    UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads", "pagos")
+UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
 
 # Subcarpeta específica para pagos
 PAGOS_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "pagos")
@@ -3099,7 +3089,7 @@ async def pagar_cargo_multiples(
                 # Integración con Logística (Vouchers de Pago) - solo para pagos reales
                 if not es_aplicacion:
                     try:
-                        att_root = os.getenv("ATTACHMENTS_ROOT", r"\\192.168.1.200\gestion-ylv")
+                        att_root = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
                         for (c_cia, t_oc, n_doc) in orders_to_voucher:
                             target_dir = os.path.join(att_root, c_cia, t_oc, n_doc, "voucher")
                             os.makedirs(target_dir, exist_ok=True)

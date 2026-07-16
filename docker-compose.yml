@@ -17,12 +17,10 @@ services:
       - PYTHONUNBUFFERED=1
       - "ODBC_DRIVER={ODBC Driver 18 for SQL Server}"
       - ATTACHMENTS_ROOT=/app/gestion-ylv
-      - FILE_SERVER=${FILE_SERVER:-//192.168.1.200/gestion-ylv}
-      - FILE_USER=${FILE_USER:-juber_doc}
-      - FILE_PASSWORD=${FILE_PASSWORD:-A123456789a}
     volumes:
       - ./backend:/app/backend
       - ./dashboard-prototype:/app/dashboard-prototype
+      - ./attachments:/app/gestion-ylv
       - conciliacion_data:/app/backend/data
     deploy:
       resources:

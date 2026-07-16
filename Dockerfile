@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unixodbc-dev \
         gcc \
         g++ \
-        cifs-utils \
     && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
@@ -37,10 +36,6 @@ RUN sed -i 's/\[openssl_init\]/\[openssl_init\]\nssl_conf = ssl_sect/' /etc/ssl/
 COPY backend/ ./backend/
 COPY dashboard-prototype/ ./dashboard-prototype/
 
-# ─── Copy and setup SMB mount script ─────────────────────────────────
-COPY backend/mount_smb.sh /usr/local/bin/mount_smb.sh
-RUN sed -i 's/\r$//' /usr/local/bin/mount_smb.sh \
-    && chmod +x /usr/local/bin/mount_smb.sh
 
 # ─── Remove dev/temp files ───────────────────────────────────────────
 RUN find /app -name "*.pyc" -delete \
@@ -63,5 +58,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 
 # ─── Start the application ──────────────────────────────────────────
 WORKDIR /app/backend
-# Ejecutar montaje SMB en background y luego iniciar uvicorn con 4 workers
-CMD ["/bin/bash", "-c", "/usr/local/bin/mount_smb.sh && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --access-log"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--access-log"]

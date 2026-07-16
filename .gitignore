@@ -44,3 +44,22 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Test and scratch scripts
+test_*.py
+scratch_*.py
+check_*.py
+tmp_*.py
+scratch/
+
+# Excel files (import data)
+*.xlsx
+*.xlsm
+
+# Documentation/analysis files (optional)
+analisis_sistema.txt
+logs.txt
+openapi_check.json
+
+# Attachments folder (local file storage)
+attachments/

@@ -38,12 +38,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-FILE_SERVER = os.getenv("FILE_SERVER", "")
-if FILE_SERVER:
-    SMB_PATH = FILE_SERVER.replace("\\", "//")
-    BASE_UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", f"/mnt/smb/{SMB_PATH.replace('//', '').replace('/', '_')}")
-else:
-    BASE_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+BASE_UPLOAD_DIR = os.getenv("ATTACHMENTS_ROOT", "/app/gestion-ylv")
 
 # ════════════════════════════════════════════════════════════
 # ════════════════════════════════════════════════════════════
