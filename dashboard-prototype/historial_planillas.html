@@ -16,6 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="auth-guard.js"></script>
 </head>
 <body>
@@ -30,10 +31,17 @@
                     <a href="/planilla_movilidad.html" style="background:#2563eb; color:white; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:0.85rem;">+ Nueva Planilla</a>
                 </div>
 
-                <div class="filter-bar" style="padding:12px; margin-bottom:20px; display:flex; align-items:center; gap:15px;">
-                    <label style="font-weight:700; color:#334155;">EMPRESA:</label>
-                    <select id="selFiltroCia" onchange="cargarHistorial()" style="padding:8px; width:300px; border-radius:4px; border:1px solid #cbd5e1; font-family:'Inter',sans-serif;">
-                    </select>
+                <div class="filter-bar" style="padding:12px; margin-bottom:20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <label style="font-weight:700; color:#334155;">EMPRESA:</label>
+                        <select id="selFiltroCia" onchange="cargarHistorial()" style="padding:8px; width:300px; border-radius:4px; border:1px solid #cbd5e1; font-family:'Inter',sans-serif;">
+                            <option value="">Seleccione empresa</option>
+                        </select>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:600; color:#334155; cursor:pointer;">
+                        <input type="checkbox" id="chkTodos" onchange="cargarHistorial()" style="width:16px; height:16px; cursor:pointer;">
+                        Mostrar todas las de la empresa
+                    </label>
                 </div>
 
                 <table id="tablaHistorial" class="display" style="width:100%; font-size:0.85rem;">
@@ -75,58 +83,115 @@
                     opt.textContent = `${e.codcia} - ${e.nomcia}`;
                     sel.appendChild(opt);
                 });
-                const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
-                sel.value = cu.codcia || '003';
             } catch(e) { console.error(e); }
+
+            const cuActual = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+            const loginActual = String(cuActual.login || '').trim().toUpperCase();
+            const isAdmin = String(cuActual.rol || '').trim().toUpperCase() === 'ADMIN' || loginActual === '71941916JL';
+
+            const esAnulada = (row) => String(row.Estado || '').trim().toUpperCase() === 'ANULADO';
+
+            const estadoBadge = (row) => {
+                if (esAnulada(row)) {
+                    return '<span style="padding:3px 8px; border-radius:4px; background:#fee2e2; color:#b91c1c; font-weight:bold; font-size:0.75rem;">ANULADO</span>';
+                }
+                return row.FechaAprobacion
+                    ? '<span style="padding:3px 8px; border-radius:4px; background:#dcfce7; color:#166534; font-weight:bold; font-size:0.75rem;">APROBADO</span>'
+                    : '<span style="padding:3px 8px; border-radius:4px; background:#fef08a; color:#854d0e; font-weight:bold; font-size:0.75rem;">PENDIENTE</span>';
+            };
+
+            const accionesHtml = (row) => {
+                const url = `${window.location.origin}/visor_planilla.html?uuid=${row.UuidLink}`;
+                let html = `<a href="${url}" target="_blank" style="color:#2563eb; font-weight:bold; border:1px solid #2563eb; padding:4px 8px; border-radius:4px; text-decoration:none;">👁 Ver PDF</a>`;
+                if (!row.FechaAprobacion && !esAnulada(row)) {
+                    html += ` <a href="/planilla_movilidad.html?id=${row.Id}" style="color:#059669; font-weight:bold; border:1px solid #059669; padding:4px 8px; border-radius:4px; text-decoration:none;">✏️ Editar</a>`;
+                }
+                if (isAdmin && !esAnulada(row)) {
+                    const nro = String(row.NroPlanilla || '').replace(/'/g, "\\'");
+                    html += ` <a href="javascript:void(0)" onclick="anularPlanilla(${row.Id}, '${nro}')" style="color:#b91c1c; font-weight:bold; border:1px solid #b91c1c; padding:4px 8px; border-radius:4px; text-decoration:none;">🚫 Anular</a>`;
+                }
+                return html;
+            };
 
             tbl = $('#tablaHistorial').DataTable({
                 dom: 'Bfrtip',
                 buttons: ['excelHtml5', 'pdfHtml5'],
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                 order: [[0, 'desc']],
-                pageLength: 25
+                pageLength: 25,
+                processing: true,
+                serverSide: true,
+                deferLoading: 0, // No consultar al iniciar hasta seleccionar empresa
+                columns: [
+                    { data: 'FechaEmision', name: 'FechaEmision', render: d => d || '' },
+                    { data: 'FecPeriodoContable', name: 'FecPeriodoContable', render: d => d ? String(d).substring(0, 10) : '-' },
+                    { data: 'NroPlanilla', name: 'NroPlanilla', render: d => d || '' },
+                    { data: 'NomAux', name: 'NomAux', render: d => d || '' },
+                    { data: 'TotalGastado', name: 'TotalGastado', render: d => `S/ ${Number(d || 0).toFixed(2)}` },
+                    { data: 'UsuarioRegistro', name: 'UsuarioRegistro', render: d => d || '' },
+                    { data: null, name: 'Estado', orderable: false, render: (d, t, row) => estadoBadge(row) },
+                    { data: null, name: 'Acciones', orderable: false, render: (d, t, row) => accionesHtml(row) }
+                ],
+                ajax: function (dtParams, callback) {
+                    const codcia = document.getElementById("selFiltroCia").value;
+                    // Sin empresa seleccionada: no consultar ni mostrar nada
+                    if (!codcia) {
+                        callback({ draw: dtParams.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
+                        return;
+                    }
+                    const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
+                    const username = String(cu.login || "SISTEMA").trim().toUpperCase();
+                    const showAll = document.getElementById("chkTodos").checked;
+                    const orderColIdx = dtParams.order && dtParams.order.length ? dtParams.order[0].column : 0;
+                    const params = {
+                        codcia,
+                        draw: dtParams.draw,
+                        start: dtParams.start,
+                        length: dtParams.length,
+                        search: dtParams.search ? dtParams.search.value : '',
+                        order_col: dtParams.columns[orderColIdx].name || 'FechaEmision',
+                        order_dir: dtParams.order && dtParams.order.length ? dtParams.order[0].dir : 'desc'
+                    };
+                    if (!showAll) params.only_user = username;
+
+                    axios.get(`${API_URL}/finanzas/planillas/paged`, { params })
+                        .then(res => callback(res.data))
+                        .catch(err => {
+                            console.error(err);
+                            callback({ draw: dtParams.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
+                        });
+                }
             });
-            cargarHistorial();
         });
 
-        async function cargarHistorial() {
+        function cargarHistorial() {
+            if (tbl) tbl.ajax.reload();
+        }
+
+        async function anularPlanilla(id, nro) {
+            const result = await Swal.fire({
+                title: '¿Anular planilla?',
+                html: `Se anulará la planilla <b>${nro}</b>.<br><br>Los montos de la cabecera y del detalle quedarán en <b>0</b> y el estado cambiará a <b>ANULADO</b>.<br><span style="color:#b91c1c;">Esta acción no se puede deshacer.</span>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#b91c1c',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '🚫 Sí, anular',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+            });
+            if (!result.isConfirmed) return;
+
             try {
-                const cu = JSON.parse(localStorage.getItem('yelave_user') || '{}');
-                const username = cu.login || "SISTEMA";
-                const codcia = document.getElementById("selFiltroCia").value || "003";
-                
-                const res = await axios.get(`${API_URL}/finanzas/planillas?codcia=${codcia}`);
-                // const myData = res.data.filter(x => x.UsuarioRegistro === username);
-
-                // Mostraremos todas las de la empresa que tengan el mismo usuario
-                const myData = res.data.filter(x => x.UsuarioRegistro === username);
-
-                tbl.clear();
-                myData.forEach(h => {
-                    const url = `${window.location.origin}/visor_planilla.html?uuid=${h.UuidLink}`;
-                    let badge = '';
-                    let actionHtml = `<a href="${url}" target="_blank" style="color:#2563eb; font-weight:bold; border:1px solid #2563eb; padding:4px 8px; border-radius:4px; text-decoration:none;">👁 Ver PDF</a>`;
-                    
-                    if (h.FechaAprobacion) {
-                        badge = '<span style="padding:3px 8px; border-radius:4px; background:#dcfce7; color:#166534; font-weight:bold; font-size:0.75rem;">APROBADO</span>';
-                    } else {
-                        badge = '<span style="padding:3px 8px; border-radius:4px; background:#fef08a; color:#854d0e; font-weight:bold; font-size:0.75rem;">PENDIENTE</span>';
-                        actionHtml += ` <a href="/planilla_movilidad.html?id=${h.Id}" style="color:#059669; font-weight:bold; border:1px solid #059669; padding:4px 8px; border-radius:4px; text-decoration:none;">✏️ Editar</a>`;
-                    }
-                    
-                    tbl.row.add([
-                        h.FechaEmision || '',
-                        h.FecPeriodoContable ? h.FecPeriodoContable.substring(0,10) : '-',
-                        h.NroPlanilla || '',
-                        h.NomAux || '',
-                        `S/ ${(h.TotalGastado || 0).toFixed(2)}`,
-                        h.UsuarioRegistro || '',
-                        badge,
-                        actionHtml
-                    ]);
-                });
-                tbl.draw();
-            } catch(e) { console.error(e); }
+                Swal.fire({ title: 'Anulando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                await axios.post(`${API_URL}/finanzas/planillas/${id}/anular`);
+                if (tbl) tbl.ajax.reload(null, false);
+                Swal.fire({ icon: 'success', title: 'Planilla anulada', text: `La planilla ${nro} fue anulada correctamente.`, timer: 2000, showConfirmButton: false });
+            } catch (e) {
+                console.error(e);
+                const msg = (e.response && e.response.data && e.response.data.detail) || 'Error al anular la planilla.';
+                Swal.fire({ icon: 'error', title: 'No se pudo anular', text: msg });
+            }
         }
     </script>
     <script src="sidebar.js"></script>

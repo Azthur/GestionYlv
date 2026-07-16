@@ -39,7 +39,8 @@ COPY dashboard-prototype/ ./dashboard-prototype/
 
 # ─── Copy and setup SMB mount script ─────────────────────────────────
 COPY backend/mount_smb.sh /usr/local/bin/mount_smb.sh
-RUN chmod +x /usr/local/bin/mount_smb.sh
+RUN sed -i 's/\r$//' /usr/local/bin/mount_smb.sh \
+    && chmod +x /usr/local/bin/mount_smb.sh
 
 # ─── Remove dev/temp files ───────────────────────────────────────────
 RUN find /app -name "*.pyc" -delete \

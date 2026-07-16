@@ -1,0 +1,2 @@
+# Forzar finales de linea LF en scripts shell para que se ejecuten en contenedores Linux
+*.sh text eol=lf
