@@ -258,6 +258,17 @@ _PLANILLA_ORDER_COLS = {
     "FechaRegistro": "FechaRegistro",
 }
 
+_RENDICION_ORDER_COLS = {
+    "Fecha": "Fecha",
+    "FecPeriodoContable": "FecPeriodoContable",
+    "NroRendicion": "NroRendicion",
+    "NomAux": "NomAux",
+    "TotalGastado": "TotalGastado",
+    "TotalReembolso": "TotalReembolso",
+    "UsuarioRegistro": "UsuarioRegistro",
+    "FechaRegistro": "FechaRegistro",
+}
+
 
 @router.get("/planillas/paged")
 def get_planillas_paged(
@@ -325,6 +336,94 @@ def get_planillas_paged(
         for row in cursor.fetchall():
             d = dict(zip(cols, row))
             d.pop("_rn", None)
+            data.append(d)
+
+        return {
+            "draw": draw,
+            "recordsTotal": records_total,
+            "recordsFiltered": records_filtered,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/rendiciones/paged")
+def get_rendiciones_paged(
+    codcia: str = Query(...),
+    start: int = Query(0),
+    length: int = Query(25),
+    draw: int = Query(1),
+    search: Optional[str] = Query(None),
+    order_col: Optional[str] = Query(None),
+    order_dir: Optional[str] = Query("desc"),
+    only_user: Optional[str] = Query(None),
+):
+    """Listado paginado del lado del servidor para DataTables (server-side processing)."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+
+        # WHERE base: empresa (+ usuario si aplica)
+        base_where = "WHERE RTRIM(CodCia) = ?"
+        base_params = [codcia]
+        if only_user:
+            base_where += " AND UPPER(RTRIM(UsuarioRegistro)) = ?"
+            base_params.append(only_user.strip().upper())
+
+        # Total sin búsqueda
+        cursor.execute(f"SELECT COUNT(*) FROM FinRendicionGastosCab {base_where}", tuple(base_params))
+        records_total = cursor.fetchone()[0]
+
+        # WHERE con búsqueda global
+        filter_where = base_where
+        filter_params = list(base_params)
+        if search and search.strip():
+            like = f"%{search.strip()}%"
+            filter_where += " AND (NroRendicion LIKE ? OR NomAux LIKE ? OR RucDni LIKE ? OR UsuarioRegistro LIKE ?)"
+            filter_params.extend([like, like, like, like])
+
+        cursor.execute(f"SELECT COUNT(*) FROM FinRendicionGastosCab {filter_where}", tuple(filter_params))
+        records_filtered = cursor.fetchone()[0]
+
+        # Ordenamiento (whitelist) con desempate estable por Id
+        order_by = _RENDICION_ORDER_COLS.get(order_col or "", "Fecha")
+        direction = "DESC" if str(order_dir).lower() == "desc" else "ASC"
+        order_sql = f"{order_by} {direction}, Id DESC"
+
+        # Paginación compatible con SQL Server 2008+ (ROW_NUMBER)
+        if length is not None and length >= 0:
+            page_sql = f"""
+                SELECT * FROM (
+                    SELECT *, ROW_NUMBER() OVER (ORDER BY {order_sql}) AS _rn
+                    FROM FinRendicionGastosCab
+                    {filter_where}
+                ) t
+                WHERE t._rn BETWEEN ? AND ?
+            """
+            page_params = list(filter_params) + [start + 1, start + length]
+        else:
+            page_sql = f"SELECT * FROM FinRendicionGastosCab {filter_where} ORDER BY {order_sql}"
+            page_params = list(filter_params)
+
+        cursor.execute(page_sql, tuple(page_params))
+        cols = [c[0] for c in cursor.description]
+        data = []
+        for row in cursor.fetchall():
+            d = dict(zip(cols, row))
+            d.pop("_rn", None)
+            # Agregar PagoUuid si existe
+            cursor.execute("""
+                SELECT TOP 1 Uuid FROM FinPagos p 
+                WHERE RTRIM(p.NroOrdenCompra) = RTRIM(?) AND RTRIM(p.CodCia) = RTRIM(?) 
+                ORDER BY p.FechaRegistro DESC
+            """, (d['NroRendicion'], d['CodCia']))
+            pago_row = cursor.fetchone()
+            d['PagoUuid'] = pago_row[0] if pago_row else None
             data.append(d)
 
         return {
@@ -991,15 +1090,55 @@ def desaprobar_rendicion(id_rendicion: int):
         # Revertir Facturas asociadas
         cursor.execute("""
             UPDATE CntFacturaCab
-            SET Estado = 'REGISTRADA'
+            SET Estado = 'EMITIDA'
             WHERE Id IN (
-                SELECT DocReferenciaId FROM FinRendicionGastosDet 
+                SELECT DocReferenciaId FROM FinRendicionGastosDet
                 WHERE RendicionId=? AND TipoDoc != 'PGM-Planilla' AND DocReferenciaId IS NOT NULL
             )
         """, (id_rendicion,))
 
         conn.commit()
         return {"status": "success"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/rendiciones/{id}/anular")
+def anular_rendicion(id: int, current_user: dict = Depends(get_current_active_admin)):
+    """Anula una rendición: pone en 0 los montos de cabecera y detalle, y marca Estado='ANULADO'.
+    Solo accesible para usuarios con rol ADMIN o superusuario."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Error DB")
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT Estado FROM FinRendicionGastosCab WHERE Id = ?", (id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Rendición no encontrada")
+        if str(row.Estado or "").strip().upper() == "ANULADO":
+            raise HTTPException(status_code=400, detail="La rendición ya está anulada.")
+
+        # Cabecera: montos en 0 y estado ANULADO
+        cursor.execute(
+            "UPDATE FinRendicionGastosCab SET TotalGastado = 0, TotalReembolso = 0, Estado = 'ANULADO' WHERE Id = ?",
+            (id,),
+        )
+        # Detalle: montos en 0
+        cursor.execute(
+            "UPDATE FinRendicionGastosDet SET Monto = 0 WHERE RendicionId = ?",
+            (id,),
+        )
+
+        conn.commit()
+        return {"status": "success", "id": id, "estado": "ANULADO"}
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
