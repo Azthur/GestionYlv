@@ -222,7 +222,7 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
         if vals:
             cursor.executemany("INSERT INTO #TempOcs (nrodoc) VALUES (?)", vals)
 
-        cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.CodTipoDoc), RTRIM(f.NumRucProveedor) FROM CntFacturaCab f INNER JOIN #TempOcs t ON ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + t.nrodoc + ',%' WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(f.NroOrdenCompra), RTRIM(MIN(f.Serie)) + '-' + RTRIM(MIN(f.Numero)), MIN(f.Uuid), MIN(f.CodTipoDoc), RTRIM(f.NumRucProveedor) FROM CntFacturaCab f WITH (NOLOCK) INNER JOIN #TempOcs t ON ',' + REPLACE(RTRIM(f.NroOrdenCompra), ' ', '') + ',' LIKE '%,' + t.nrodoc + ',%' WHERE RTRIM(f.CodCia)=? AND f.Estado != 'Anulada' GROUP BY f.NroOrdenCompra, f.NumRucProveedor''', (codcia.strip(),))
         factura_map = {}
         for r in cursor.fetchall():
             raw_ocs = r[0]
@@ -234,10 +234,10 @@ def get_cargos_bandeja(codcia: str = Query(...), current_area: str = Query(...))
                     if oc_clean:
                         factura_map[f"{oc_clean}|{ruc}"] = invoice_data
 
-        cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r WITH (NOLOCK) INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
         pedida_map = {f"{r[0].strip()}|{r[1].strip()}": float(r[2] or 0) for r in cursor.fetchall()}
 
-        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH(INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH (NOLOCK, INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
         recibida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
 
         cursor.execute("DROP TABLE #TempOcs")
@@ -556,10 +556,10 @@ def get_ocs_disponibles_ssr(request: Request):
                             factura_map[key] = []
                         factura_map[key].append(val)
 
-        cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r WITH (NOLOCK) INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
         pedida_map = {f"{r[0].strip()}|{r[1].strip()}": float(r[2] or 0) for r in cursor.fetchall()}
 
-        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH(INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH (NOLOCK, INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
         recibida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
         
         cursor.execute('''
@@ -792,10 +792,10 @@ def get_cargos_detallado(
                     if oc_clean:
                         factura_map[f"{oc_clean}|{ruc}|{t_oc}"] = invoice_data
 
-        cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(r.NroDoc), RTRIM(r.TipoOc), SUM(r.CanDes) FROM CmpROcom r WITH (NOLOCK) INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc, r.TipoOc''', (codcia.strip(),))
         pedida_map = {f"{r[0].strip()}|{r[1].strip()}": float(r[2] or 0) for r in cursor.fetchall()}
 
-        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH(INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH (NOLOCK, INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
         recibida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
 
         cursor.execute("DROP TABLE #TempOcs")
@@ -974,11 +974,11 @@ def get_ocs_disponibles(
                         factura_map[f"{oc_clean}|{t_oc}"] = invoice_data
 
         # Bulk Fetch Pedida
-        cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(r.NroDoc), SUM(r.CanDes) FROM CmpROcom r WITH (NOLOCK) INNER JOIN #TempOcs t ON RTRIM(r.NroDoc)=t.nrodoc WHERE RTRIM(r.CodCia)=? GROUP BY r.NroDoc''', (codcia.strip(),))
         pedida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
 
         # Bulk Fetch Recibida
-        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH(INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
+        cursor.execute('''SELECT RTRIM(m.ordcmp), SUM(m.candes) FROM AlmRMovm m WITH (NOLOCK, INDEX(PK_AlmRmovm)) INNER JOIN #TempOcs t ON RTRIM(m.ordcmp)=t.nrodoc WHERE RTRIM(m.CodCia)=? GROUP BY m.ordcmp''', (codcia.strip(),))
         recibida_map = {r[0].strip(): float(r[1] or 0) for r in cursor.fetchall()}
 
         # Cargos states via Joins

@@ -141,7 +141,7 @@ def get_purchase_orders(
                     WHEN RTRIM(o.TipoOc) IN ('S','T') AND RTRIM(ISNULL(o.digita,'')) != '' AND RTRIM(ISNULL(o.digita,'')) != RTRIM(ISNULL(o.Usuario,'')) THEN 1
                     ELSE 0
                 END as es_aprobado
-            FROM CmpVOcom o 
+            FROM CmpVOcom o WITH (NOLOCK)
             WHERE RTRIM(CodCia) = ?
         """
         params = [codcia]
@@ -350,7 +350,7 @@ def get_purchase_order_report(
                 PorIgv as porigv, ImpNet as impnet, 
                 ImpIgv as impigv, ImpTot as imptot,
                 RTRIM(FlgEst) as flgest
-            FROM CmpVOcom 
+            FROM CmpVOcom WITH (NOLOCK)
             WHERE RTRIM(CodCia) = ? AND RTRIM(NroDoc) = ?
         """
         h_params = [codcia, nrodoc]
@@ -1248,8 +1248,8 @@ def aprobar_oc(nrodoc: str, req: OcActionRequest, user: dict = Depends(get_curre
         
         # Verificar estado actual
         cursor.execute("""
-            SELECT RTRIM(FlgEst) as flgest 
-            FROM CmpVOcom 
+            SELECT RTRIM(FlgEst) as flgest
+            FROM CmpVOcom WITH (NOLOCK)
             WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
         """, (req.codcia.strip(), req.year.strip(), nrodoc.strip(), req.tipo_oc.strip()))
         
@@ -1373,7 +1373,7 @@ def get_oc_acciones(nrodoc: str, codcia: str = Query(...), tipo_oc: str = Query(
         # Buscar usuario que registró originalmente de CmpVOcom
         cursor.execute("""
             SELECT RTRIM(Usuario) as usuario, Fchdoc as fchdoc, RTRIM(FlgEst) as flgest
-            FROM CmpVOcom
+            FROM CmpVOcom WITH (NOLOCK)
             WHERE RTRIM(CodCia) = ? AND RTRIM(Anos) = ? AND RTRIM(NroDoc) = ? AND RTRIM(TipoOc) = ?
         """, (codcia.strip(), year.strip(), nrodoc.strip(), tipo_oc.strip()))
         oc_row = cursor.fetchone()

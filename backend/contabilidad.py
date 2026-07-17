@@ -559,11 +559,11 @@ def list_compras(
                    c.MtoTotalCp, c.MtoTipoCambio,
                    c.IdApiOrg, c.SyncedAt,
                    CASE WHEN c.XmlDataJson IS NOT NULL AND LEN(c.XmlDataJson) > 10 THEN 1 ELSE 0 END as TieneXml,
-                   (SELECT TOP 1 f.Id FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaId,
-                   (SELECT TOP 1 f.Uuid FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaUuid,
-                   (SELECT TOP 1 f.Estado FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaEstado,
-                   (SELECT TOP 1 RTRIM(f.NroOrdenCompra) FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as NroOrdenCompra,
-                   (SELECT TOP 1 RTRIM(f.TipoOc) FROM CntFacturaCab f WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as TipoOc
+                   (SELECT TOP 1 f.Id FROM CntFacturaCab f WITH (NOLOCK) WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaId,
+                   (SELECT TOP 1 f.Uuid FROM CntFacturaCab f WITH (NOLOCK) WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaUuid,
+                   (SELECT TOP 1 f.Estado FROM CntFacturaCab f WITH (NOLOCK) WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as FacturaEstado,
+                   (SELECT TOP 1 RTRIM(f.NroOrdenCompra) FROM CntFacturaCab f WITH (NOLOCK) WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as NroOrdenCompra,
+                   (SELECT TOP 1 RTRIM(f.TipoOc) FROM CntFacturaCab f WITH (NOLOCK) WHERE RTRIM(f.CodCia) = RTRIM(c.CodCia) AND f.NumRucProveedor = c.NumDocIdProveedor AND f.CodTipoDoc = c.CodTipoCDP AND f.Serie = c.NumSerieCDP AND f.Numero = c.NumCDP AND f.Estado != 'Anulada') as TipoOc
             FROM CntCompras c
             WHERE RTRIM(c.CodCia) = ?
         """
@@ -596,7 +596,7 @@ def list_compras(
             rows.append(d)
 
         # Count total
-        count_query = "SELECT COUNT(*) FROM CntCompras c WHERE RTRIM(c.CodCia) = ?"
+        count_query = "SELECT COUNT(*) FROM CntCompras c WITH (NOLOCK) WHERE RTRIM(c.CodCia) = ?"
         count_params = [codcia.strip()]
         if periodo:
             count_query += " AND c.PerTributario = ?"
@@ -767,7 +767,7 @@ def buscar_cpe(data: BuscarCpeRequest):
         # 1. Intentar leer de cache local (CntCompras que ya fue enriquecida)
         try:
             cursor.execute("""
-                SELECT TOP 1 XmlDataJson FROM CntCompras
+                SELECT TOP 1 XmlDataJson FROM CntCompras WITH (NOLOCK)
                 WHERE NumDocIdProveedor=? AND NumSerieCDP=? AND NumCDP=?
                 AND XmlDataJson IS NOT NULL AND LEN(XmlDataJson) > 10
             """, (data.proveedor.strip(), data.serie.strip(), data.numero.strip()))
@@ -854,7 +854,7 @@ def enrich_batch(data: EnrichBatchRequest):
         # Obtener registros sin XML cacheado
         cursor.execute("""
             SELECT Id, NumDocIdProveedor, CodTipoCDP, NumSerieCDP, NumCDP
-            FROM CntCompras
+            FROM CntCompras WITH (NOLOCK)
             WHERE RTRIM(CodCia)=? AND PerTributario=?
             AND (XmlDataJson IS NULL OR LEN(XmlDataJson) < 10)
         """, (data.codcia.strip(), data.periodo))
