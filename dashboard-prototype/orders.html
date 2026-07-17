@@ -609,7 +609,7 @@
                 </div>
 
                 <div class="card glass-panel" style="width: 100%;">
-                    <!-- Filter Bar -->
+                    <!-- Filter Bar - Primera fila: 5 inputs -->
                     <div class="filter-bar">
                         <div class="filter-group" style="flex: 2;">
                             <label for="filterCia">Empresa</label>
@@ -655,15 +655,17 @@
                         </div>
                         <div class="filter-group" style="flex: 2;">
                             <label for="filterOcSearch">🔎 Buscar OC / Proveedor / RUC</label>
-                        <input type="text" id="filterOcSearch" placeholder="Nro OC, RUC o Proveedor..." onkeyup="if(event.key==='Enter') loadOrders()">
+                            <input type="text" id="filterOcSearch" placeholder="Nro OC, RUC o Proveedor..." onkeyup="if(event.key==='Enter') loadOrders()">
+                        </div>
                     </div>
-                    <div id="filterMyRecordsContainer" class="filter-group" style="flex: 1; justify-content: flex-end; align-items: flex-end; display:none;">
-                        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; cursor:pointer; color:#1e293b; font-weight:600; padding: 0.35rem 0.5rem; background:#f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; height:36px; white-space:nowrap;">
-                            <input type="checkbox" id="filterMyRecords" value="1" checked style="width:16px; height:16px;">
-                            Solo mis registros
-                        </label>
-                    </div>
-                    <div class="filter-group" style="flex: 1; flex-direction: row; gap: 0.5rem; justify-content: flex-end; align-items: flex-end;">
+                    <!-- Segunda fila: Checkbox y botones alineados a la derecha -->
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; align-items: center;">
+                        <div id="filterMyRecordsContainer" style="display:none;">
+                            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; cursor:pointer; color:#1e293b; font-weight:600; padding: 0.35rem 0.5rem; background:#f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; height:36px; white-space:nowrap;">
+                                <input type="checkbox" id="filterMyRecords" value="1" checked style="width:16px; height:16px;">
+                                Solo mis registros
+                            </label>
+                        </div>
                         <button class="btn btn-primary" onclick="loadOrders()"
                             style="height:36px; padding:0 1.25rem; font-size:0.8rem;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
