@@ -452,7 +452,7 @@
 /* ── DataTables Standard Styles ── */
 table.dataTable {
     width: 100% !important;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 table.dataTable thead th {
@@ -464,6 +464,7 @@ table.dataTable thead th {
     color: var(--text-muted);
     padding: 0.75rem 1rem;
     border-bottom: 2px solid var(--border);
+    white-space: nowrap;
 }
 
 table.dataTable tbody td {
@@ -472,6 +473,8 @@ table.dataTable tbody td {
     color: var(--text-primary);
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border);
+    word-wrap: break-word;
+    white-space: normal;
 }
 
 table.dataTable tbody tr:hover {
