@@ -131,25 +131,9 @@
         return `
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
         <aside class="sidebar" id="sidebar">
-            <button class="sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar menú">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <div class="brand">
-                <h1>YELAVE</h1>
-                <span>Skincare</span>
-            </div>
             <nav class="nav-menu">
                 ${navHtml}
             </nav>
-            <div class="user-profile" onclick="window.location.href='/profile.html'" style="cursor:pointer;">
-                <div class="avatar">
-                    <img id="userAvatar" src="${avatarUrl}" alt="User Avatar">
-                </div>
-                <div class="user-info">
-                    <span class="user-name" id="userNameDisplay">${userName}</span>
-                    <span class="user-role" id="userRoleDisplay">${userRole}</span>
-                </div>
-            </div>
         </aside>`;
     }
 
@@ -163,50 +147,48 @@
 
         return `<header class="top-bar">
             <div class="top-bar-left">
-                <button class="mobile-menu-btn" onclick="toggleSidebar()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-                    </svg>
+                <div class="top-bar-brand">
+                    <h1>YELAVE</h1>
+                    <span>RENACER</span>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <button class="sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar menú">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
-            </div>
-            <div class="actions" style="display:flex; gap:0.5rem; align-items:center;">
-                ${preservedActionsHtml ? `<div class="top-bar-actions">${preservedActionsHtml}</div>` : ''}
-                <button id="themeToggleBtn" class="topbar-btn topbar-btn-theme" onclick="toggleTheme()" title="Cambiar tema">
-                    ${theme === 'dark' ? sunIcon : moonIcon}
-                </button>
-                <div class="profile-dropdown">
-                    <button class="profile-avatar" onclick="toggleProfileModal()" title="Mi Perfil">
-                        <span>${userInitials}</span>
+                <div class="top-bar-actions-right">
+                    ${preservedActionsHtml ? `<div class="top-bar-actions">${preservedActionsHtml}</div>` : ''}
+                    <button id="themeToggleBtn" class="topbar-btn topbar-btn-theme" onclick="toggleTheme()" title="Cambiar tema">
+                        ${theme === 'dark' ? sunIcon : moonIcon}
                     </button>
+                    <div class="profile-dropdown">
+                        <button class="profile-avatar" onclick="toggleProfileDropdown()" title="Mi Perfil">
+                            <span>${userInitials}</span>
+                        </button>
+                        <div class="profile-dropdown-menu" id="profileDropdown" style="display:none;">
+                            <div class="profile-dropdown-header">
+                                <div class="profile-dropdown-avatar">
+                                    <span>${userInitials}</span>
+                                </div>
+                                <div class="profile-dropdown-info">
+                                    <div class="profile-dropdown-name">${user.nombre || 'Usuario'}</div>
+                                    <div class="profile-dropdown-role">${user.rol || ''}</div>
+                                </div>
+                            </div>
+                            <div class="profile-dropdown-divider"></div>
+                            <a href="/profile.html" class="profile-dropdown-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                Mi Perfil
+                            </a>
+                            <button onclick="logout()" class="profile-dropdown-item logout">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                Cerrar Sesión
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </header>
-        
-        <!-- Profile Modal -->
-        <div id="profileModal" class="profile-modal" style="display:none;">
-            <div class="profile-modal-content">
-                <div class="profile-modal-header">
-                    <div class="profile-avatar-large">
-                        <span>${userInitials}</span>
-                    </div>
-                    <div class="profile-info">
-                        <h3>${user.nombre || 'Usuario'}</h3>
-                        <p>${user.login || ''}</p>
-                        <span class="profile-role">${user.rol || ''}</span>
-                    </div>
-                </div>
-                <div class="profile-modal-actions">
-                    <a href="/profile.html" class="profile-modal-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        Mi Perfil
-                    </a>
-                    <button onclick="logout()" class="profile-modal-btn logout">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                        Cerrar Sesión
-                    </button>
-                </div>
-            </div>
-        </div>`;
+        </header>`;
     }
 
     // ── Global functions ──
@@ -217,27 +199,38 @@
         if (overlay) overlay.classList.toggle('active');
     };
 
-    window.toggleProfileModal = function () {
-        const modal = document.getElementById('profileModal');
-        if (modal) {
-            const isVisible = modal.style.display !== 'none';
-            modal.style.display = isVisible ? 'none' : 'block';
+    window.toggleProfileDropdown = function () {
+        const dropdown = document.getElementById('profileDropdown');
+        if (dropdown) {
+            const isVisible = dropdown.style.display !== 'none';
+            dropdown.style.display = isVisible ? 'none' : 'block';
         }
     };
 
-    // Close modal when clicking outside
+    // Close dropdown when clicking outside
     document.addEventListener('click', function(e) {
-        const modal = document.getElementById('profileModal');
+        const dropdown = document.getElementById('profileDropdown');
         const avatarBtn = document.querySelector('.profile-avatar');
-        if (modal && modal.style.display !== 'none' && !modal.contains(e.target) && !avatarBtn.contains(e.target)) {
-            modal.style.display = 'none';
+        if (dropdown && dropdown.style.display === 'block' && !dropdown.contains(e.target) && !avatarBtn.contains(e.target)) {
+            dropdown.style.display = 'none';
         }
     });
 
     window.toggleSidebarCollapse = function () {
         const sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.toggle('collapsed');
-        localStorage.setItem('yelave_sidebar_collapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+        if (sidebar) {
+            const isCollapsed = !sidebar.classList.contains('collapsed');
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('yelave_sidebar_collapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+            
+            // Update top bar brand based on collapsed state
+            const topBarLeft = document.querySelector('.top-bar-left');
+            const topBarBrandH1 = document.querySelector('.top-bar-brand h1');
+            if (topBarLeft && topBarBrandH1) {
+                topBarLeft.classList.toggle('collapsed', isCollapsed);
+                topBarBrandH1.textContent = isCollapsed ? 'Y' : 'YELAVE';
+            }
+        }
     };
 
     window.toggleSection = function (sectionName) {
@@ -344,14 +337,32 @@
         // Inject sidebar before main
         const mainContent = appContainer.querySelector('.main-content') || appContainer.querySelector('main');
         if (mainContent) {
-            mainContent.insertAdjacentHTML('beforebegin', buildSidebar(modulos, user));
-            mainContent.insertAdjacentHTML('afterbegin', buildTopBar(pageTitle, preservedActionsHtml, user));
+            // Wrap sidebar and main content in content-wrapper
+            mainContent.insertAdjacentHTML('beforebegin', '<div class="content-wrapper"></div>');
+            const contentWrapper = appContainer.querySelector('.content-wrapper');
+            
+            // Move main content into content-wrapper
+            contentWrapper.appendChild(mainContent);
+            
+            // Inject sidebar and top bar
+            contentWrapper.insertAdjacentHTML('afterbegin', buildSidebar(modulos, user));
+            appContainer.insertAdjacentHTML('afterbegin', buildTopBar(pageTitle, preservedActionsHtml, user));
         }
 
         // Restore collapsed state
         if (localStorage.getItem('yelave_sidebar_collapsed') === '1') {
             const sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.add('collapsed');
+            if (sidebar) {
+                sidebar.classList.add('collapsed');
+                
+                // Update top bar brand to show only "Y" when collapsed
+                const topBarLeft = document.querySelector('.top-bar-left');
+                const topBarBrandH1 = document.querySelector('.top-bar-brand h1');
+                if (topBarLeft && topBarBrandH1) {
+                    topBarLeft.classList.add('collapsed');
+                    topBarBrandH1.textContent = 'Y';
+                }
+            }
         }
 
         // Inject chat module globally

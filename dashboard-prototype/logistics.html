@@ -34,12 +34,14 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         .dashboard-kpi-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;
+            width: 100%;
         }
         .kpi-card {
             background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
             border: 1px solid var(--border); padding: 1.5rem; border-radius: 16px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); backdrop-filter: blur(10px);
+            width: 100%;
         }
         .kpi-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; }
         .kpi-value { font-size: 2rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--primary); margin-top: 0.5rem; }
@@ -63,6 +65,56 @@
         .form-group input, .form-group select, .form-group textarea {
             width: 100%; padding: 0.6rem; border: 1px solid var(--border-dark); border-radius: 6px; font-family: 'Inter', sans-serif;
         }
+
+        /* DataTables custom styles - remove blue colors */
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text-primary) !important;
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            margin: 0 2px;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: #fff !important;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            color: var(--text-muted);
+        }
+
+        table.dataTable thead th {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border);
+        }
+
+        table.dataTable tbody tr {
+            background: var(--bg-card);
+        }
+
+        table.dataTable tbody tr:hover {
+            background: var(--bg-hover);
+        }
+
+        table.dataTable td,
+        table.dataTable th {
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
     </style>
     <script src="auth-guard.js"></script>
 </head>
@@ -81,7 +133,7 @@
                 </div>
             </div>
 
-            <section class="content fade-in" style="padding:1.5rem 2rem;">
+            <section class="content fade-in" style="padding:1.5rem 1.2rem;">
                 <div class="page-header">
                     <div>
                         <h1>Logística</h1>
@@ -96,7 +148,7 @@
                     <div class="kpi-card"><div class="kpi-title">Fórmulas Activas</div><div class="kpi-value" id="kpiForm">...</div></div>
                 </div>
 
-                <div class="card glass-panel">
+                <div class="card glass-panel" style="width: 100%;">
                     <div class="tabs-header" id="logisticsTabs">
                         <button class="tab-btn active" data-target="tab-requerimientos">Requerimientos</button>
                         <button class="tab-btn" data-target="tab-calculo">Motor de Cálculo</button>
@@ -107,7 +159,7 @@
                     </div>
 
                     <div class="tab-content active" id="tab-requerimientos">
-                        <table id="tableRequerimientos" class="display nowrap">
+                        <table id="tableRequerimientos" class="display nowrap" style="width: 100%;">
                             <thead><tr><th>Nro Doc</th><th>Fecha</th><th>Glosa</th><th>Pedido</th><th>Usuario</th><th>Estado</th><th>Acción</th></tr></thead>
                             <tbody></tbody>
                         </table>

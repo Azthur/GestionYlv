@@ -734,7 +734,7 @@ table.dataTable tbody tr:hover {
 
 /* ── Standard Main Content Padding ─── */
 .main-content {
-    padding: 2rem;
+    padding: 1.2rem;
 }
 
 /* ── Form Row ─── */
@@ -1247,8 +1247,16 @@ h6 {
 /* Layout */
 .app-container {
     display: flex;
+    flex-direction: column;
     width: 100%;
-    height: 100%;
+    height: 100vh;
+}
+
+/* Content area: sidebar + main content */
+.content-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
 }
 
 /* =============================================
@@ -1269,9 +1277,6 @@ h6 {
 
 /* ─── Sidebar Collapse Toggle ─── */
 .sidebar-toggle {
-    position: absolute;
-    top: 1.5rem;
-    right: 0.75rem;
     width: 28px;
     height: 28px;
     border-radius: 8px;
@@ -1282,10 +1287,10 @@ h6 {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 101;
     transition: all 0.2s ease;
     padding: 0;
     backdrop-filter: blur(8px);
+    flex-shrink: 0;
 }
 .sidebar-toggle:hover {
     background: rgba(255, 255, 255, 0.15);
@@ -1314,6 +1319,24 @@ h6 {
     width: 68px;
 }
 
+/* Top bar collapsed state */
+.top-bar-left.collapsed {
+    width: 68px;
+}
+
+.top-bar-left.collapsed .top-bar-brand h1 {
+    font-size: 1.5rem;
+    letter-spacing: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    width: 1ch;
+}
+
+.top-bar-left.collapsed .top-bar-brand span {
+    display: none;
+}
+
 /* Brand: show only Y icon */
 .sidebar.collapsed .brand {
     padding: 0;
@@ -1321,8 +1344,12 @@ h6 {
     text-align: center;
 }
 .sidebar.collapsed .brand h1 {
-    font-size: 1rem;
-    letter-spacing: 1px;
+    font-size: 1.5rem;
+    letter-spacing: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    width: 1ch;
 }
 .sidebar.collapsed .brand span {
     display: none;
@@ -1535,27 +1562,6 @@ h6 {
 }
 
 
-.brand {
-    padding: 0 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.brand h1 {
-    font-size: 1.4rem;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: #FFFFFF;
-    margin-bottom: 0.15rem;
-}
-
-.brand span {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-sidebar);
-    font-weight: 500;
-}
-
 .nav-menu {
     flex: 1;
     display: flex;
@@ -1655,6 +1661,7 @@ h6 {
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
+    padding: 1.2rem;
 }
 
 /* Scrollbar */
@@ -1681,7 +1688,7 @@ h6 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border);
     position: sticky;
@@ -1691,6 +1698,60 @@ h6 {
     z-index: 50;
     height: 60px;
     margin: 0;
+    flex-shrink: 0;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1.5rem;
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    height: 100%;
+}
+
+.top-bar-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.top-bar-brand h1 {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.1;
+    letter-spacing: 0.1em;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.top-bar-brand span {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    flex: 1;
+    justify-content: space-between;
+}
+
+.top-bar-actions-right {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
 
 /* Profile Avatar */
@@ -1719,51 +1780,114 @@ h6 {
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-/* Profile Modal */
-.profile-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s ease-out;
+/* Profile Dropdown */
+.profile-dropdown {
+    position: relative;
 }
 
-.profile-modal-content {
+.profile-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
     background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    width: 320px;
-    overflow: hidden;
-    animation: slideUp 0.2s ease-out;
+    z-index: 1000;
+    animation: slideDown 0.2s ease-out;
 }
 
-.profile-modal-header {
-    padding: 1.5rem;
-    text-align: center;
+.profile-dropdown-header {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     border-bottom: 1px solid var(--border);
     background: linear-gradient(135deg, var(--primary-light) 0%, rgba(99, 102, 241, 0.1) 100%);
 }
 
-.profile-avatar-large {
-    width: 64px;
-    height: 64px;
+.profile-dropdown-avatar {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
     color: white;
-    margin: 0 auto 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 1.25rem;
-    border: 3px solid white;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    font-size: 0.9rem;
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    flex-shrink: 0;
+}
+
+.profile-dropdown-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-dropdown-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-dropdown-role {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+.profile-dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+}
+
+.profile-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.profile-dropdown-item:hover {
+    background: var(--bg-hover);
+    color: var(--primary);
+}
+
+.profile-dropdown-item.logout {
+    color: #ef4444;
+}
+
+.profile-dropdown-item.logout:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .profile-info h3 {
@@ -1918,7 +2042,6 @@ h6 {
 
 .content {
     padding: 1.5rem 2rem 2rem;
-    max-width: 1400px;
     width: 100%;
 }
 
