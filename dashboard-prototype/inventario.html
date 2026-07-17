@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saldos de Inventario - YELAVE ERP</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
     <script src="auth-guard.js"></script>
     <style>
         .inv-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
@@ -46,6 +46,12 @@
             cursor:pointer; padding:0.45rem 0; font-weight:500;
         }
         .inv-filter-group .toggle-label input[type="checkbox"] { accent-color:var(--primary); width:16px; height:16px; }
+
+        .filter-select-btn {
+            padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border);
+            background:var(--bg-base); color:var(--text-primary); text-align:left; min-width:180px;
+            font-family:'Inter',sans-serif; cursor:pointer; font-size:0.8rem;
+        }
 
         .inv-kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem; }
         .inv-kpi {
@@ -86,15 +92,17 @@
 </head>
 <body>
     <div class="app-container">
-        <main class="main-content" style="padding:2rem;">
+        <main class="main-content">
             <div class="top-bar-actions">
-                <select id="filterCia" onchange="onCompanyChange()" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-base);color:var(--text-primary);font-size:0.8rem;min-width:200px;"></select>
+                <select id="filterCia" onchange="onCompanyChange()"></select>
             </div>
 
             <!-- Page Header -->
-            <div style="margin-bottom:1.5rem;">
-                <h1 style="font-size:1.6rem; font-weight:800; margin:0;">📦 Saldos de Inventario</h1>
-                <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.3rem;">Consulta de stock por producto, almacén y lote con trazabilidad completa</p>
+            <div class="page-header">
+                <div>
+                    <h1>📦 Saldos de Inventario</h1>
+                    <p class="page-subtitle">Consulta de stock por producto, almacén y lote con trazabilidad completa</p>
+                </div>
             </div>
 
             <!-- Tabs -->
@@ -109,7 +117,7 @@
                 <div class="inv-filters">
                     <div class="inv-filter-group">
                         <label>Familia</label>
-                        <button id="btnFamProd" onclick="openModalFamilia()" style="padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary); text-align:left; min-width:180px; font-family:'Inter',sans-serif; cursor:pointer;" data-val="">Todas</button>
+                        <button id="btnFamProd" onclick="openModalFamilia()" class="filter-select-btn" data-val="">Todas</button>
                     </div>
                     <div class="inv-filter-group">
                         <label>Búsqueda</label>
@@ -126,7 +134,7 @@
                 </div>
                 <div class="inv-kpi-row" id="kpiProd"></div>
                 <div class="inv-table-wrap">
-                    <table id="tblProducto" class="display" style="width:100%; font-size:0.8rem;">
+                    <table id="tblProducto" class="display">
                         <thead>
                             <tr>
                                 <th>Código</th><th>Descripción</th><th>Und</th><th>Familia</th>

@@ -4,64 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planilla de Movilidad - YELAVE</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     
     <!-- DataTables CSS/JS -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        .form-container {
-            background: white;
-            padding: 2rem 3rem;
-            border-radius: 8px;
-            color: #333;
-            width: 100%;
-            border: 1px solid #ccc;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-        .header-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 2rem;
-        }
-        .brand-logo {
-            width: 150px;
-            color: #d97706; /* Yelave nature brand color mockup */
-            font-size: 2rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-        .brand-logo span {
-            display: block;
-            font-size: 1rem;
-            font-weight: 400;
-            letter-spacing: 5px;
-        }
-        .title {
-            text-align: center;
-            font-size: 1.25rem;
-            font-weight: 700;
-            flex-grow: 1;
-            padding-top: 1rem;
-            text-transform: uppercase;
-        }
         .meta-info {
-            border: 1px solid #000;
+            border: 1px solid var(--border);
             padding: 0.5rem;
             font-size: 0.8rem;
-            background: #f9f9f9;
+            background: var(--bg-base);
             min-width: 200px;
         }
         .meta-group {
@@ -71,32 +35,23 @@
             align-items: center;
         }
         .meta-group input {
-            border: 1px solid #999;
+            border: 1px solid var(--border);
             padding: 2px 5px;
             width: 120px;
             font-size: 0.8rem;
-            background: #fff;
+            background: var(--bg-base);
+            color: var(--text-primary);
         }
-        
-        .section-title {
-            font-size: 0.85rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: #000;
+        [data-theme="dark"] .meta-info {
+            border-color: var(--border-dark);
+            background: rgba(255, 255, 255, 0.03);
         }
-        
-        /* Grid Layouts */
-        .grid-2 { display: grid; grid-template-columns: 100px 1fr; gap: 5px; margin-bottom: 5px; align-items: center; }
-        .grid-2 label { font-size: 0.8rem; font-weight: 600; }
-        .grid-2 input, .grid-2 select { border: 1px solid #000; padding: 4px; width: 100%; font-size: 0.85rem; }
-        
-        .worker-section {
-            margin-top: 1.5rem;
-            margin-bottom: 1.5rem;
-            padding-left: 2rem;
+        [data-theme="dark"] .meta-group input {
+            border-color: var(--border-dark);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
         }
-        .worker-section .grid-2 { grid-template-columns: 150px 1fr; max-width: 600px; }
-        
+
         /* Data Table */
         .planilla-table {
             width: 100%;

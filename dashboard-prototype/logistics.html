@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YELAVE - Centro Logístico</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
@@ -70,9 +70,8 @@
     <div class="app-container">
 <!-- Main Content -->
         <main class="main-content">
-<section class="content fade-in" style="max-width: 100%;">
-                
-                <div class="filter-bar" style="margin-bottom: 2rem;">
+            <section class="content fade-in">
+                <div class="filter-bar">
                     <div class="form-group" style="margin:0; min-width:280px;">
                         <label>Empresa Autorizada</label>
                         <select id="filterCia" onchange="loadLogisticsData()">
@@ -88,8 +87,8 @@
                     <div class="kpi-card"><div class="kpi-title">Fórmulas Activas</div><div class="kpi-value" id="kpiForm">...</div></div>
                 </div>
 
-                <div class="card glass-panel" style="padding: 0;">
-                    <div class="tabs-header" id="logisticsTabs" style="padding: 1rem 1rem 0 1rem; margin-bottom: 0;">
+                <div class="card glass-panel">
+                    <div class="tabs-header" id="logisticsTabs">
                         <button class="tab-btn active" data-target="tab-requerimientos">Requerimientos</button>
                         <button class="tab-btn" data-target="tab-calculo">Motor de Cálculo</button>
                         <button class="tab-btn" data-target="tab-cotizaciones">Cotizaciones</button>
@@ -98,15 +97,15 @@
                         <button class="tab-btn" data-target="tab-calidad">Calidad (QC)</button>
                     </div>
 
-                    <div class="tab-content active" id="tab-requerimientos" style="padding: 1.5rem;">
-                        <table id="tableRequerimientos" class="display nowrap" style="width:100%">
+                    <div class="tab-content active" id="tab-requerimientos">
+                        <table id="tableRequerimientos" class="display nowrap">
                             <thead><tr><th>Nro Doc</th><th>Fecha</th><th>Glosa</th><th>Pedido</th><th>Usuario</th><th>Estado</th><th>Acción</th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
 
-                    <div class="tab-content" id="tab-calculo" style="padding: 1.5rem;">
-                        <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem;">
+                    <div class="tab-content" id="tab-calculo">
+                        <div class="form-row">
                             <div class="form-group" style="margin:0; flex:1;">
                                 <label>Seleccionar Fórmula Base *</label>
                                 <select id="calcFormulaSelect">
