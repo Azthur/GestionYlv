@@ -154,13 +154,13 @@ async function viewReq(nrodoc) {
             `;
         });
         document.getElementById('reqModalTitle').innerText = `Detalle Requerimiento ${nrodoc}`;
-        document.getElementById('reqModal').style.display = 'flex';
+        document.getElementById('reqModal').classList.add('active');
     } catch (e) {
         Swal.fire('Error', 'No se pudieron cargar los detalles', 'error');
     }
 }
 
-function closeReqModal() { document.getElementById('reqModal').style.display = 'none'; }
+function closeReqModal() { document.getElementById('reqModal').classList.remove('active'); }
 
 // ─── 2. MOTOR DE CÁLCULO ──────────────────────────────────────────────────
 async function loadFormulasToSelect() {

@@ -42,7 +42,7 @@ def get_requirement_details(nrodoc: str, codcia: str = Query("01")):
         cursor.execute("""
             SELECT nroitm, RTRIM(Codmat) as codmat, RTRIM(DesMat) as desmat, 
                    RTRIM(UndStk) as undstk, Stock as stock, PreUni as preuni, ImpTot as imptot
-            FROM CmpDRequ
+            FROM CmpDRequ WITH (NOLOCK)
             WHERE RTRIM(Codcia) = ? AND RTRIM(nrodoc) = ?
             ORDER BY nroitm
         """, (codcia, nrodoc))
