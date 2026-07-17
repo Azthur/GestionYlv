@@ -5,7 +5,7 @@
 (function () {
     'use strict';
 
-    const API = '/api/chat';
+    const API = '/api/config';
     let _chatOpen = false;
     let _minimized = false;
     let _currentChat = null;
@@ -553,15 +553,18 @@
 
         // Verificar si el chat está habilitado
         try {
-            const res = await fetch(`${API}/config/chat/status`);
+            const res = await fetch(`${API}/chat/status`);
+            if (!res.ok) {
+                // Si el endpoint no existe (404) o hay error, asumir chat deshabilitado
+                return;
+            }
             const data = await res.json();
             if (!data.enabled) {
                 console.log('Chat deshabilitado por el administrador');
                 return;
             }
         } catch (e) {
-            console.error('Error verificando estado del chat:', e);
-            // Si hay error, no cargar el chat por seguridad
+            // Si hay error de red o el endpoint no existe, no cargar el chat
             return;
         }
 

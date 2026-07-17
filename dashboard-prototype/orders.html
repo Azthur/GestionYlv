@@ -138,6 +138,56 @@
             color: var(--primary) !important;
         }
 
+        /* DataTables custom styles - remove blue colors */
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text-primary) !important;
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            margin: 0 2px;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: #fff !important;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            color: var(--text-muted);
+        }
+
+        table.dataTable thead th {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border);
+        }
+
+        table.dataTable tbody tr {
+            background: var(--bg-card);
+        }
+
+        table.dataTable tbody tr:hover {
+            background: var(--bg-hover);
+        }
+
+        table.dataTable td,
+        table.dataTable th {
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
+
         .btn-ver-oc {
             display: inline-flex;
             align-items: center;
@@ -550,53 +600,61 @@
         <!-- Sidebar -->
         <!-- Main Content -->
         <main class="main-content">
-            <section class="content fade-in">
-                <!-- Filter Bar -->
-                <div class="filter-bar">
-                    <div class="filter-group" style="flex: 2;">
-                        <label for="filterCia">Empresa</label>
-                        <select id="filterCia">
-                            <option value="">Cargando empresas...</option>
-                        </select>
+            <section class="content fade-in" style="padding:1.5rem 1.2rem;">
+                <div class="page-header">
+                    <div>
+                        <h1>Órdenes de Compra</h1>
+                        <p class="page-subtitle">Gestión de órdenes de compra, aprobaciones y seguimiento</p>
                     </div>
-                    <div class="filter-group" style="flex: 1;">
-                        <label for="filterYear">Año</label>
-                        <select id="filterYear">
-                            <option value="">(Todos)</option>
-                            <option value="2024">2024</option>
-                            <option value="2025">2025</option>
-                            <option value="2026" selected>2026</option>
-                        </select>
-                    </div>
-                    <div class="filter-group" style="flex: 1;">
-                        <label for="filterPeriod">Periodo</label>
-                        <select id="filterPeriod">
-                            <option value="">(Todos)</option>
-                            <option value="1">Enero</option>
-                            <option value="2">Febrero</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Abril</option>
-                            <option value="5">Mayo</option>
-                            <option value="6">Junio</option>
-                            <option value="7">Julio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11">Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                    </div>
-                    <div class="filter-group" style="flex: 1.5;">
-                        <label for="filterType">Tipo OC</label>
-                        <select id="filterType">
-                            <option value="">(Todos)</option>
-                            <option value="M">Mercadería (M)</option>
-                            <option value="S">Servicios (S)</option>
-                            <option value="T">Contable (T)</option>
-                        </select>
-                    </div>
-                    <div class="filter-group" style="flex: 2;">
-                        <label for="filterOcSearch">🔎 Buscar OC / Proveedor / RUC</label>
+                </div>
+
+                <div class="card glass-panel" style="width: 100%;">
+                    <!-- Filter Bar -->
+                    <div class="filter-bar">
+                        <div class="filter-group" style="flex: 2;">
+                            <label for="filterCia">Empresa</label>
+                            <select id="filterCia">
+                                <option value="">Cargando empresas...</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 1;">
+                            <label for="filterYear">Año</label>
+                            <select id="filterYear">
+                                <option value="">(Todos)</option>
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 1;">
+                            <label for="filterPeriod">Periodo</label>
+                            <select id="filterPeriod">
+                                <option value="">(Todos)</option>
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 1.5;">
+                            <label for="filterType">Tipo OC</label>
+                            <select id="filterType">
+                                <option value="">(Todos)</option>
+                                <option value="M">Mercadería (M)</option>
+                                <option value="S">Servicios (S)</option>
+                                <option value="T">Contable (T)</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 2;">
+                            <label for="filterOcSearch">🔎 Buscar OC / Proveedor / RUC</label>
                         <input type="text" id="filterOcSearch" placeholder="Nro OC, RUC o Proveedor..." onkeyup="if(event.key==='Enter') loadOrders()">
                     </div>
                     <div id="filterMyRecordsContainer" class="filter-group" style="flex: 1; justify-content: flex-end; align-items: flex-end; display:none;">
@@ -621,9 +679,9 @@
                 </div>
 
                 <!-- DataTable Container -->
-                <div class="card glass-panel" style="padding: 1.25rem;">
+                <div class="card glass-panel" style="padding: 1.25rem; width: 100%;">
                     <div id="tableWrapper" style="display:none; overflow-x: auto;">
-                        <table id="ordersTable" class="display nowrap" style="width:100%">
+                        <table id="ordersTable" class="display nowrap" style="width: 100%;">
                             <thead>
                                 <tr>
                                     <th class="sticky-col-left">Acciones</th>
