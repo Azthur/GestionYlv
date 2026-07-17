@@ -70,13 +70,22 @@
     <div class="app-container">
 <!-- Main Content -->
         <main class="main-content">
-            <section class="content fade-in">
+            <div class="top-bar-actions" style="display:none;">
                 <div class="filter-bar">
                     <div class="form-group" style="margin:0; min-width:280px;">
                         <label>Empresa Autorizada</label>
                         <select id="filterCia" onchange="loadLogisticsData()">
                             <option value="" disabled selected>Cargando empresas...</option>
                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <section class="content fade-in" style="padding:1.5rem 2rem;">
+                <div class="page-header">
+                    <div>
+                        <h1>Logística</h1>
+                        <p class="page-subtitle">Gestión de requerimientos, cálculo de fórmulas y control de calidad</p>
                     </div>
                 </div>
 

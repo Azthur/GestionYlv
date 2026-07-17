@@ -87,21 +87,17 @@
 <body>
     <div class="app-container">
 <main class="main-content">
-            <div class="top-bar">
-                <button class="menu-toggle" onclick="toggleSidebar()">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                </button>
-                <div class="breadcrumb">
-                    <span>Tesorería</span>
-                    <span class="separator">›</span>
-                    <span>Gestión de Pagos</span>
-                </div>
-                <div class="top-bar-actions">
-                    <select id="filterCia" class="filter-group" style="padding:0.4rem 0.75rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-size:0.8125rem; background:#fff;" onchange="onCiaChange()"></select>
-                </div>
+            <div class="top-bar-actions" style="display:none;">
+                <select id="filterCia" class="filter-group" style="padding:0.4rem 0.75rem; border:1px solid var(--border-dark); border-radius:var(--radius-sm); font-size:0.8125rem; background:#fff;" onchange="onCiaChange()"></select>
             </div>
 
             <section class="content" style="padding:1.5rem 2rem;">
+                <div class="page-header">
+                    <div>
+                        <h1>Gestión de Pagos</h1>
+                        <p class="page-subtitle">Tesorería - Gestión de pagos pendientes y realizados</p>
+                    </div>
+                </div>
                 <!-- Stats Cards -->
                 <div class="stats-row" id="statsRow">
                     <div class="stat-card warning">

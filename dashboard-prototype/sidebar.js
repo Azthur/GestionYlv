@@ -153,10 +153,13 @@
         </aside>`;
     }
 
-    function buildTopBar(pageTitle, preservedActionsHtml = '') {
+    function buildTopBar(pageTitle, preservedActionsHtml = '', user) {
         const theme = getTheme();
         const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
         const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+        
+        // Get user initials for avatar
+        const userInitials = user.nombre ? user.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'US';
 
         return `<header class="top-bar">
             <div class="top-bar-left">
@@ -165,17 +168,45 @@
                         <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
                     </svg>
                 </button>
-                <h2>${pageTitle}</h2>
             </div>
             <div class="actions" style="display:flex; gap:0.5rem; align-items:center;">
                 ${preservedActionsHtml ? `<div class="top-bar-actions">${preservedActionsHtml}</div>` : ''}
                 <button id="themeToggleBtn" class="topbar-btn topbar-btn-theme" onclick="toggleTheme()" title="Cambiar tema">
                     ${theme === 'dark' ? sunIcon : moonIcon}
                 </button>
-                <a href="/profile.html" class="topbar-btn topbar-btn-profile">Mi Perfil</a>
-                <button onclick="logout()" class="topbar-btn topbar-btn-logout">Cerrar Sesión</button>
+                <div class="profile-dropdown">
+                    <button class="profile-avatar" onclick="toggleProfileModal()" title="Mi Perfil">
+                        <span>${userInitials}</span>
+                    </button>
+                </div>
             </div>
-        </header>`;
+        </header>
+        
+        <!-- Profile Modal -->
+        <div id="profileModal" class="profile-modal" style="display:none;">
+            <div class="profile-modal-content">
+                <div class="profile-modal-header">
+                    <div class="profile-avatar-large">
+                        <span>${userInitials}</span>
+                    </div>
+                    <div class="profile-info">
+                        <h3>${user.nombre || 'Usuario'}</h3>
+                        <p>${user.login || ''}</p>
+                        <span class="profile-role">${user.rol || ''}</span>
+                    </div>
+                </div>
+                <div class="profile-modal-actions">
+                    <a href="/profile.html" class="profile-modal-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        Mi Perfil
+                    </a>
+                    <button onclick="logout()" class="profile-modal-btn logout">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>`;
     }
 
     // ── Global functions ──
@@ -185,6 +216,23 @@
         if (sidebar) sidebar.classList.toggle('open');
         if (overlay) overlay.classList.toggle('active');
     };
+
+    window.toggleProfileModal = function () {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            const isVisible = modal.style.display !== 'none';
+            modal.style.display = isVisible ? 'none' : 'block';
+        }
+    };
+
+    // Close modal when clicking outside
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('profileModal');
+        const avatarBtn = document.querySelector('.profile-avatar');
+        if (modal && modal.style.display !== 'none' && !modal.contains(e.target) && !avatarBtn.contains(e.target)) {
+            modal.style.display = 'none';
+        }
+    });
 
     window.toggleSidebarCollapse = function () {
         const sidebar = document.getElementById('sidebar');
@@ -264,11 +312,10 @@
             });
         }
 
-        // If no modules returned (endpoint failed or no permisos), show at minimum dashboard+profile
+        // If no modules returned (endpoint failed or no permisos), show at minimum dashboard+manual
         if (modulos.length === 0) {
             modulos = [
                 { Codigo: 'dashboard', Nombre: 'Dashboard', RutaHtml: '/index.html', Seccion: 'Principal', Orden: 1 },
-                { Codigo: 'profile', Nombre: 'Mi Perfil', RutaHtml: '/profile.html', Seccion: 'Sistema', Orden: 92 },
                 { Codigo: 'manual', Nombre: 'Manual de Procesos', RutaHtml: '/manual.html', Seccion: 'Sistema', Orden: 100 }
             ];
         }
@@ -298,7 +345,7 @@
         const mainContent = appContainer.querySelector('.main-content') || appContainer.querySelector('main');
         if (mainContent) {
             mainContent.insertAdjacentHTML('beforebegin', buildSidebar(modulos, user));
-            mainContent.insertAdjacentHTML('afterbegin', buildTopBar(pageTitle, preservedActionsHtml));
+            mainContent.insertAdjacentHTML('afterbegin', buildTopBar(pageTitle, preservedActionsHtml, user));
         }
 
         // Restore collapsed state
