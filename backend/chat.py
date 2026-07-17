@@ -79,6 +79,7 @@ def get_chat_contacts(current_user: dict = Depends(get_current_user)):
         cursor = conn.cursor()
         my_login = current_user["login"]
 
+        # Optimización: Usar LEFT JOIN en lugar de subconsultas correlacionadas
         cursor.execute("""
             SELECT
                 w.login,
@@ -89,21 +90,38 @@ def get_chat_contacts(current_user: dict = Depends(get_current_user)):
                 ISNULL(r.Nombre, w.rol) AS rol_nombre,
                 ISNULL(r.Descripcion, '') AS rol_descripcion,
                 w.activo,
-                (SELECT COUNT(*) FROM WebChatMensajes m
-                 WHERE m.DeLogin = w.login AND m.ParaLogin = ? AND m.Leido = 0) AS no_leidos,
-                (SELECT TOP 1 m2.Mensaje FROM WebChatMensajes m2
-                 WHERE (m2.DeLogin = w.login AND m2.ParaLogin = ?)
-                    OR (m2.DeLogin = ? AND m2.ParaLogin = w.login)
-                 ORDER BY m2.FechaEnvio DESC) AS ultimo_mensaje,
-                (SELECT TOP 1 m3.FechaEnvio FROM WebChatMensajes m3
-                 WHERE (m3.DeLogin = w.login AND m3.ParaLogin = ?)
-                    OR (m3.DeLogin = ? AND m3.ParaLogin = w.login)
-                 ORDER BY m3.FechaEnvio DESC) AS ultima_fecha
+                ISNULL(unread.no_leidos, 0) AS no_leidos,
+                ultimo.ultimo_mensaje,
+                ultimo.ultima_fecha
             FROM WebUsers w
             LEFT JOIN WebRoles r ON r.Codigo = w.rol
+            LEFT JOIN (
+                SELECT
+                    CASE WHEN m.DeLogin = ? THEN m.ParaLogin ELSE m.DeLogin END AS other_login,
+                    COUNT(*) AS no_leidos
+                FROM WebChatMensajes m
+                WHERE m.ParaLogin = ? AND m.Leido = 0
+                GROUP BY CASE WHEN m.DeLogin = ? THEN m.ParaLogin ELSE m.DeLogin END
+            ) unread ON unread.other_login = w.login
+            LEFT JOIN (
+                SELECT
+                    other_login,
+                    ultimo_mensaje,
+                    ultima_fecha
+                FROM (
+                    SELECT
+                        CASE WHEN m.DeLogin = ? THEN m.ParaLogin ELSE m.DeLogin END AS other_login,
+                        m.Mensaje AS ultimo_mensaje,
+                        m.FechaEnvio AS ultima_fecha,
+                        ROW_NUMBER() OVER (PARTITION BY CASE WHEN m.DeLogin = ? THEN m.ParaLogin ELSE m.DeLogin END ORDER BY m.FechaEnvio DESC) AS rn
+                    FROM WebChatMensajes m
+                    WHERE (m.DeLogin = ? OR m.ParaLogin = ?)
+                ) ranked
+                WHERE rn = 1
+            ) ultimo ON ultimo.other_login = w.login
             WHERE w.login != ? AND ISNULL(w.activo, 1) = 1
-            ORDER BY ultima_fecha DESC, w.nombre
-        """, (my_login, my_login, my_login, my_login, my_login, my_login))
+            ORDER BY ISNULL(ultimo.ultima_fecha, '1900-01-01') DESC, w.nombre
+        """, (my_login, my_login, my_login, my_login, my_login, my_login, my_login, my_login))
 
         cols = [c[0] for c in cursor.description]
         contacts = []

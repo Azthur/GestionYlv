@@ -12,6 +12,7 @@ import sys
 import pyodbc
 from dotenv import load_dotenv, set_key, find_dotenv
 import database
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/config", tags=["Configuración"])
 
@@ -273,3 +274,118 @@ def test_file_connection(config: FileTestRequest):
             "message": "Error inesperado al probar conexión",
             "detail": str(e)
         }
+
+
+# ══════════════════════════════════════════════════════
+#  CONFIGURACIÓN DEL SISTEMA (CHAT, ETC)
+# ══════════════════════════════════════════════════════
+
+def setup_system_config_table():
+    """Crea la tabla de configuración del sistema si no existe."""
+    conn = database.get_db_connection()
+    if not conn:
+        print("⚠ No se pudo conectar a BD para crear tabla de configuración")
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='WebSystemConfig' AND xtype='U')
+            CREATE TABLE WebSystemConfig (
+                KeyName VARCHAR(50) PRIMARY KEY,
+                Value NVARCHAR(500) NOT NULL,
+                Descripcion NVARCHAR(200),
+                UpdatedAt DATETIME DEFAULT GETDATE(),
+                UpdatedBy VARCHAR(50)
+            )
+        """)
+        conn.commit()
+
+        # Insertar configuración por defecto del chat (deshabilitado)
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM WebSystemConfig WHERE KeyName = 'ChatEnabled')
+            INSERT INTO WebSystemConfig (KeyName, Value, Descripcion, UpdatedBy)
+            VALUES ('ChatEnabled', '0', 'Habilitar/Deshabilitar chat interno del sistema', 'system')
+        """)
+        conn.commit()
+        print("[OK] Tabla WebSystemConfig verificada/creada")
+    except Exception as e:
+        print(f"[WARN] Error setup system config: {e}")
+    finally:
+        conn.close()
+
+
+class ChatConfigUpdate(BaseModel):
+    enabled: bool
+
+
+@router.get("/chat")
+def get_chat_config(current_user: dict = Depends(get_current_user)):
+    """Retorna el estado actual del chat (habilitado/deshabilitado)."""
+    # Verificar si es admin
+    if current_user.get("rol") != "admin":
+        raise HTTPException(403, "Solo administradores pueden ver la configuración del chat")
+
+    conn = database.get_db_connection()
+    if not conn:
+        raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT Value FROM WebSystemConfig WHERE KeyName = 'ChatEnabled'")
+        row = cursor.fetchone()
+        if row:
+            enabled = row[0] == '1'
+        else:
+            enabled = False  # Por defecto deshabilitado
+        return {"enabled": enabled}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/chat")
+def update_chat_config(config: ChatConfigUpdate, current_user: dict = Depends(get_current_user)):
+    """Actualiza el estado del chat (solo admin)."""
+    # Verificar si es admin
+    if current_user.get("rol") != "admin":
+        raise HTTPException(403, "Solo administradores pueden modificar la configuración del chat")
+
+    conn = database.get_db_connection()
+    if not conn:
+        raise HTTPException(500, "Error DB")
+    try:
+        cursor = conn.cursor()
+        value = '1' if config.enabled else '0'
+        cursor.execute("""
+            UPDATE WebSystemConfig
+            SET Value = ?, UpdatedAt = GETDATE(), UpdatedBy = ?
+            WHERE KeyName = 'ChatEnabled'
+        """, (value, current_user.get("login")))
+        conn.commit()
+        return {"enabled": config.enabled, "message": "Configuración del chat actualizada"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/chat/status")
+def get_chat_status_public():
+    """Endpoint público para verificar si el chat está habilitado (sin autenticación)."""
+    conn = database.get_db_connection()
+    if not conn:
+        return {"enabled": False}
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT Value FROM WebSystemConfig WHERE KeyName = 'ChatEnabled'")
+        row = cursor.fetchone()
+        if row:
+            enabled = row[0] == '1'
+        else:
+            enabled = False
+        return {"enabled": enabled}
+    except Exception as e:
+        return {"enabled": False}
+    finally:
+        conn.close()

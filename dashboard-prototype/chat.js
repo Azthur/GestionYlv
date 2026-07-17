@@ -528,7 +528,7 @@
                 await loadContacts();
             }
             await updateUnreadBadge();
-        }, 5000);
+        }, 30000); // Reducido de 5000ms a 30000ms (30 segundos)
     }
 
     function stopPolling() {
@@ -547,12 +547,27 @@
     // ═══════════════════════════════════════════
     //  INIT
     // ═══════════════════════════════════════════
-    function initChat() {
+    async function initChat() {
         if (window.location.pathname.includes('login')) return;
         if (!getToken()) return;
+
+        // Verificar si el chat está habilitado
+        try {
+            const res = await fetch(`${API}/config/chat/status`);
+            const data = await res.json();
+            if (!data.enabled) {
+                console.log('Chat deshabilitado por el administrador');
+                return;
+            }
+        } catch (e) {
+            console.error('Error verificando estado del chat:', e);
+            // Si hay error, no cargar el chat por seguridad
+            return;
+        }
+
         injectChatUI();
         updateUnreadBadge();
-        setInterval(updateUnreadBadge, 15000);
+        setInterval(updateUnreadBadge, 60000); // Reducido de 15000ms a 60000ms (60 segundos)
     }
 
     if (document.readyState === 'loading') {

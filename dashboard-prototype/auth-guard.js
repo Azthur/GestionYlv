@@ -174,7 +174,7 @@
     updateSharedActivity();
     
     // Revisar la inactividad cada 10 segundos
-    setInterval(checkInactivity, 10000);
+    setInterval(checkInactivity, 60000); // Reducido de 10000ms a 60000ms (60 segundos)
 
     // Escuchar eventos en ESTA pestaña para actualizar el timer global
     window.addEventListener('mousemove', updateSharedActivity);

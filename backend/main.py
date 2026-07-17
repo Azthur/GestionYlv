@@ -15,6 +15,10 @@ async def increase_threadpool():
     limiter = anyio.to_thread.current_default_thread_limiter()
     limiter.total_tokens = 200
 
+    # Setup system config table
+    from db_config import setup_system_config_table
+    setup_system_config_table()
+
 # Register routers
 from conciliacion import router as conciliacion_router
 app.include_router(conciliacion_router)
