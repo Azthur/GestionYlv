@@ -4,7 +4,7 @@ Permite ver, editar y verificar la conexión a la base de datos
 desde la interfaz web, útil cuando la contraseña expira.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 import os
